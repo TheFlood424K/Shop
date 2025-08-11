@@ -551,6 +551,16 @@ public class Shop extends JavaPlugin {
             this.getLogger().notice("PlotSquared is installed, creating PlotSquared listener");
         }
 
+        // Register trust integration listeners for protection plugins
+        if(getServer().getPluginManager().getPlugin("Bolt") != null){
+            try {
+                getServer().getPluginManager().registerEvents(new BoltTrustListener(), this);
+                this.getLogger().notice("Bolt is installed, enabling trust integration for opening shop containers");
+            } catch (Throwable t) {
+                this.getLogger().warning("Bolt detected but could not enable trust integration: " + t.getMessage());
+            }
+        }
+
         int bstatsPluginId = 25211;
         metrics = new Metrics(plugin, bstatsPluginId);
         metrics.addCustomChart(new SingleLineChart("transactions", () -> logHandler.getRecentTransactionCount()));

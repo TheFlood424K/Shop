@@ -2,6 +2,9 @@ package com.snowgears.shop.listener;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.DisplayTagOption;
+import com.snowgears.shop.event.PlayerOpenShopEvent;
+import com.snowgears.shop.event.PlayerOpenShopEvent.OpenMode;
+import com.snowgears.shop.event.PlayerOpenShopEvent.OpenTarget;
 import com.snowgears.shop.hook.WorldGuardHook;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ShopType;
@@ -183,6 +186,21 @@ public class ShopListener implements Listener {
                 }
                 //non-owner is trying to open shop
                 if (!shop.getOwnerUUID().equals(player.getUniqueId())) {
+                    // Fire a pre-open event to allow integrations (e.g., protection plugins) to let trusted players open the container
+                    PlayerOpenShopEvent preOpenEvent = new PlayerOpenShopEvent(player, shop, OpenTarget.CHEST, OpenMode.SHOP_ACTION);
+                    Bukkit.getPluginManager().callEvent(preOpenEvent);
+
+                    if (preOpenEvent.isCancelled()) {
+                        // Hard-deny access if any listener cancels access
+                        event.setCancelled(true);
+                        return;
+                    }
+
+                    if (preOpenEvent.getMode() == OpenMode.OPEN_CONTAINER) {
+                        // Allow container to open normally for trusted players
+                        ShopMessage.sendMessage("interaction", "openTrusted", player, shop);
+                        return;
+                    }
                     if ((plugin.usePerms() && player.hasPermission("shop.operator")) || (!plugin.usePerms() && player.isOp())) {
                         if (shop.isAdmin()) {
                             if (shop.getType() == ShopType.GAMBLE) {

@@ -172,6 +172,7 @@ interaction:
       createHitChestPrice: '&eEnter in chat the price to gamble with this shop.'
    createHitChest: '&eEnter in chat what to do with &a[item](s)&b[item enchants] &7([shop types])'
    adminCreateHitChest: '&7(Adding &eadmin &7will make the shop unlimited stock.)'
+   openTrusted: "&7You have been trusted to open this shop by [owner]."
 
 interaction_issue:
    createLine2: "&cThe amount (line 2) needs to be a positive number."
