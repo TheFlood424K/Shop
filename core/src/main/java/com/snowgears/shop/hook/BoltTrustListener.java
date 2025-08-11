@@ -30,7 +30,8 @@ public class BoltTrustListener implements Listener {
         if (boltApi == null) return false;
         Block chestBlock = event.getShop().getChestLocation().getBlock();
         try {
-            return boltApi.canAccess(chestBlock, event.getPlayer(), Permission.OPEN);
+            // Check if the chest is protected and if the player has permission to open it
+            return boltApi.isProtected(chestBlock) && boltApi.canAccess(chestBlock, event.getPlayer(), Permission.OPEN);
         } catch (Exception e) {
             return false;
         }
