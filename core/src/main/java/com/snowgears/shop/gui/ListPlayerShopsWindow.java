@@ -4,6 +4,8 @@ import com.snowgears.shop.Shop;
 import com.snowgears.shop.handler.ShopGuiHandler;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.util.ComparatorShopItemNameLow;
+import com.snowgears.shop.util.PlayerNameCache;
+
 import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
 
@@ -23,7 +25,7 @@ public class ListPlayerShopsWindow extends ShopGuiWindow {
             this.title = is.getItemMeta().getDisplayName();
         }
         else {
-            this.title = Bukkit.getOfflinePlayer(playerToList).getName();
+            this.title = PlayerNameCache.getName(playerToList);
             if (this.title == null){
                 String shortId = playerToList.toString();
                 shortId = shortId.substring(0,3) + "..." + shortId.substring(shortId.length()-3);
