@@ -7,11 +7,11 @@ import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ComboShop;
 import com.snowgears.shop.shop.ShopType;
 import net.md_5.bungee.api.chat.*;
-import net.md_5.bungee.api.chat.hover.content.Item;
 
 import org.bukkit.Bukkit;
 import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -22,7 +22,6 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.google.gson.JsonParseException;
-
 
 public class ShopMessage {
 
@@ -251,19 +250,21 @@ public class ShopMessage {
             player.spigot().sendMessage(fancyMessage);
             return;
         } catch (JsonParseException e) {
-            plugin.getLogger().debug("Possible NBT error while sending message to player, Item Hover events will now be disabled! Details: " + e.getMessage());
-            disableItemHover = true;
-        } catch (Exception e) {
+            plugin.getLogger().warning("Possible NBT error while sending message to player, Item Hover events will now be disabled! Details: " + e.getMessage());
+            plugin.getLogger().debug("Error details: ", e);
+            // disableItemHover = true;
+        } catch (Exception | Error e) {
             plugin.getLogger().warning("Error sending message to player: " + e.getMessage());
-        } catch (Error e) {
-            plugin.getLogger().warning("Error sending message to player: " + e.getMessage());
+            plugin.getLogger().debug("Error details: ", e);
         }
 
         // If we get here, we have an error, we should at least try to send it as legacy text
         try {
             player.sendMessage(fancyMessage.toLegacyText());
             plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
-        } catch (Exception e) {} catch (Error e) {}
+        } catch (Error | Exception e) {
+            plugin.getLogger().debug("Error sending message to player", e);
+        }
     }
 
     /**
@@ -525,16 +526,22 @@ public class ShopMessage {
 
     private static HoverEvent getItemHoverEvent(ItemStack item) {
         if (item == null || disableItemHover) { return null; }
-        try {
-            String itemId = item.getType().getKey().toString();
-            String nbt = item.getItemMeta().getAsString(); // Special Bukkit function to get the NBT as a string built for HoverEvents!
-            ItemTag tag = ItemTag.ofNbt(nbt);
-            Item itemContent = new Item(itemId, item.getAmount(), tag);
-            return new HoverEvent(HoverEvent.Action.SHOW_ITEM, itemContent);
-        } catch (Error | Exception e) {
-            plugin.getLogger().severe("Unable to embed item hover text, disabling item hover text for all players! Please make sure your server is running the latest version of Paper! Error: " + e.getMessage());
-            disableItemHover = true;
-            return null;
+
+        if (Shop.getPlugin().isMockBukkit()) { return new HoverEvent(HoverEvent.Action.SHOW_ITEM, new net.md_5.bungee.api.chat.hover.content.Item(item.getType().getKey().toString(), item.getAmount(), null)); }
+
+        // If we are 1.20.5+, we have to use the new Item Components Data system
+        if (MCVersion.atLeast("1.20.5")) {
+            // If we are paper, we can use the getUnsafe method to get the hover event, which is better than the NMS method
+            if (Shop.getPlugin().getFoliaLib().isPaper()) {
+                return ItemHoverEventHelper.createFrom(item);
+            } else {
+                // Since we are on Spigot or something else, we can't use the getUnsafe method, so we have to use the NMS method
+                return ItemHoverUtilNMS.getHoverEventNMS(item);
+            }
+        }
+        // If we are below 1.20.5, we have to use the old NBT tag system
+        else {
+            return ItemHoverEventHelper.createFromLegacy(item);
         }
     }
 
@@ -552,7 +559,8 @@ public class ShopMessage {
             return (TextComponent) msg;
         } catch (Error | Exception e) {
             plugin.getLogger().severe("Unable to embed item hover text, disabling item hover text for all players! Your version of : " + e.getMessage());
-            disableItemHover = true;
+            plugin.getLogger().debug("Error details: ", e);
+            // disableItemHover = true;
             return message;
         }
     }

@@ -7,7 +7,6 @@ CURRENT_VERSION=$(grep -m 1 "<revision>" pom.xml | sed 's/.*<revision>\(.*\)<\/r
 TIMESTAMP=$(date +"%b-%d-%Y_%H-%M")
 NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}-${TIMESTAMP}-dev"
 
-
 # Ensure Maven toolchain for JDK 21 is present so tests run with MockBukkit
 mkdir -p ~/.m2
 cat > ~/.m2/toolchains.xml <<'EOF'
