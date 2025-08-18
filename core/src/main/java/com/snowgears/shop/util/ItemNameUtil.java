@@ -1,5 +1,7 @@
 package com.snowgears.shop.util;
 
+import com.snowgears.shop.util.ShopMessage;
+
 import net.md_5.bungee.api.chat.TranslatableComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.chat.ComponentSerializer;
@@ -32,7 +34,7 @@ public class ItemNameUtil {
 
         // Check if there is a name embedded in the item, aka named by an anvil or command
         if(item.getItemMeta() != null && item.getItemMeta().getDisplayName() != null && !item.getItemMeta().getDisplayName().isEmpty()){
-            return (TextComponent) TextComponent.fromLegacy(item.getItemMeta().getDisplayName());
+            return (TextComponent) ShopMessage.componentFromLegacy(item.getItemMeta().getDisplayName());
         }
 
         // Add custom formatting for player heads
