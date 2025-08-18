@@ -488,7 +488,7 @@ public class UtilMethods {
             formattedMessage.addExtra(" [");
             int i=0;
             for(Map.Entry<Enchantment, Integer> entry : enchantsMap.entrySet()){
-                formattedMessage.addExtra(new TranslatableComponent(entry.getKey().getTranslationKey()));
+                formattedMessage.addExtra((BaseComponent) ItemNameUtil.getEnchantmentTranslatable(entry.getKey()));
                 formattedMessage.addExtra(formatRomanNumerals(entry.getValue()));
                 i++;
                 if(i != enchantsMap.size()) formattedMessage.addExtra(", ");

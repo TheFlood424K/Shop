@@ -209,4 +209,9 @@ public class MCVersion {
             + " | isPaper: " + Shop.getPlugin().getFoliaLib().isPaper() 
             + " | isFolia: " + Shop.getPlugin().getFoliaLib().isFolia());
     }
+
+    // Version specific checks for convienence
+    public static boolean isTranslationSupported() {
+        return MCVersion.atLeast("1.16");
+    }
 }

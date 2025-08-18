@@ -545,6 +545,20 @@ public class ShopMessage {
         }
     }
 
+    public static BaseComponent componentFromLegacy(String text) {
+        try {
+            return TextComponent.fromLegacy(text);
+        } catch (NoSuchMethodError e) {
+            // Likely running on <1.20 which doesn't have `.fromLegacy()` function
+            BaseComponent[] components = TextComponent.fromLegacyText(text);
+            TextComponent newComponent = new TextComponent();
+            for (BaseComponent component : components) {
+                newComponent.addExtra(component);
+            }
+            return newComponent;
+        }
+    }
+
     private static TextComponent embedItem(String message, ItemStack item) {
         return embedItem(new TextComponent(message), item);
     }
@@ -553,7 +567,7 @@ public class ShopMessage {
         if (disableItemHover) { return message; }
         try {
             if (item == null) { return null; }
-            BaseComponent msg = TextComponent.fromLegacy(UtilMethods.removeColorsIfOnlyWhite(message.toLegacyText()));
+            BaseComponent msg = componentFromLegacy(UtilMethods.removeColorsIfOnlyWhite(message.toLegacyText()));
             HoverEvent event = getItemHoverEvent(item);
             if (event != null) { msg.setHoverEvent(event); }
             return (TextComponent) msg;
@@ -567,7 +581,7 @@ public class ShopMessage {
 
     private static HoverEvent getTransactionsHoverEvent(PlaceholderContext context) {
         try {
-            BaseComponent hoverText = TextComponent.fromLegacy(context.getOfflineTransactions().getTransactionsLore());
+            BaseComponent hoverText = componentFromLegacy(context.getOfflineTransactions().getTransactionsLore());
             return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{hoverText});
         } catch (Exception e) {}
         return null;
@@ -583,7 +597,7 @@ public class ShopMessage {
                 // Add new lines between text
                 hoverText.addExtra(format(line + (i == hoverLines.size() ? "" : "\n"), context));
             }
-            BaseComponent flatText = TextComponent.fromLegacy(hoverText.toLegacyText());
+            BaseComponent flatText = componentFromLegacy(hoverText.toLegacyText());
             return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{flatText});
         } catch (Exception e) {}
         return null;
