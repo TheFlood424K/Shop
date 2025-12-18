@@ -1274,9 +1274,15 @@ public class ShopHandler {
                             continue;
                         }
 
-                        //this inits a new shop but wont calculate anything yet
+                        // This inits a new shop but won't have a chestLocation until load().
                         AbstractShop shop = AbstractShop.create(signLoc, owner, price, priceSell, amount, isAdmin, shopType, facing);
                         if (id != null) shop.setId(id);
+
+                        // Important: apply saved stock BEFORE setting item stacks, since setItemStack()
+                        // may calculate stock (inventory may be null pre-load) and may also render sign text.
+                       int stock = config.getInt("shops." + shopOwner + "." + shopNumber + ".stock");
+                        shop.setStockOnLoad(stock);
+
                         shop.setItemStack(itemStack);
                         if (shop.getType() == ShopType.BARTER) {
                             ItemStack barterItemStack = config.getItemStack("shops." + shopOwner + "." + shopNumber + ".itemBarter");
@@ -1291,8 +1297,6 @@ public class ShopHandler {
                             shop.setFakeSign(true);
                         }
 
-                        int stock = config.getInt("shops." + shopOwner + "." + shopNumber + ".stock");
-                        shop.setStockOnLoad(stock);
                         // Load the GUI Icon so that it appears when players perform a search, even if the chunks haven't loaded yet.
                         shop.refreshGuiIcon();
 

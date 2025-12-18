@@ -125,6 +125,9 @@ public abstract class AbstractShop {
                 return false;
             }
             // Now that we are loaded, we can update the stock
+            // Force sign lines to refresh on load. This avoids stale sign text when the cached stock
+            // matches the newly calculated stock (updateStock() only forces sign updates on change).
+            this.signLinesRequireRefresh = true;
             this.updateStock();
             Shop.getPlugin().getLogger().debug("Loaded shop successfully: " + this);
             isLoaded = true;
