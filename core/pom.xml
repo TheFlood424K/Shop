@@ -177,8 +177,8 @@
         </dependency>
         <!-- BlockProt API via JitPack (provided). Exclude transitive modules that are not resolvable here. -->
         <dependency>
-            <groupId>com.github.spnda</groupId>
-            <artifactId>BlockProt</artifactId>
+            <groupId>com.github.spnda.BlockProt</groupId>
+            <artifactId>blockprot-spigot</artifactId>
             <version>1.2.5</version>
             <scope>provided</scope>
             <exclusions>
