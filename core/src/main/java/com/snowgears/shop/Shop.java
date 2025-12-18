@@ -556,16 +556,16 @@ public class Shop extends JavaPlugin {
             try {
                 getServer().getPluginManager().registerEvents(new BoltTrustListener(), this);
                 this.getLogger().notice("Bolt is installed, enabling trust integration for opening shop containers");
-            } catch (Throwable t) {
-                this.getLogger().warning("Bolt detected but could not enable trust integration: " + t.getMessage());
+            } catch (Exception e) {
+                this.getLogger().warning("Bolt detected but could not enable trust integration: " + e.getMessage());
             }
         }
         if(getServer().getPluginManager().getPlugin("BlockProt") != null){
             try {
                 getServer().getPluginManager().registerEvents(new BlockProtTrustListener(), this);
                 this.getLogger().notice("BlockProt is installed, enabling trust integration for opening shop containers");
-            } catch (Throwable t) {
-                this.getLogger().warning("BlockProt detected but could not enable trust integration: " + t.getMessage());
+            } catch (Exception e) {
+                this.getLogger().warning("BlockProt detected but could not enable trust integration: " + e.getMessage());
             }
         }
 

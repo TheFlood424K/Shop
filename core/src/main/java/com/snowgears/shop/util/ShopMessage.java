@@ -938,7 +938,7 @@ public class ShopMessage {
         messageMap.put("initialCreateInstruction", chatConfig.getString("interaction.initialCreateInstruction"));
         messageMap.put("createHitChest", chatConfig.getString("interaction.createHitChest"));
         messageMap.put("adminCreateHitChest", chatConfig.getString("interaction.adminCreateHitChest"));
-        messageMap.put("openTrusted", chatConfig.getString("interaction.openTrusted"));
+        messageMap.put("interaction_openTrusted", chatConfig.getString("interaction.openTrusted"));
 
         messageMap.put("permission_use", chatConfig.getString("permission.use"));
         messageMap.put("permission_create", chatConfig.getString("permission.create"));

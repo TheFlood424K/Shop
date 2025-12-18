@@ -197,10 +197,11 @@ public class ShopListener implements Listener {
                     }
 
                     if (preOpenEvent.getMode() == OpenMode.OPEN_CONTAINER) {
-                        // Allow container to open normally for trusted players
+                        // Allow container to open normally for trusted players.
                         ShopMessage.sendMessage("interaction", "openTrusted", player, shop);
                         return;
                     }
+
                     if ((plugin.usePerms() && player.hasPermission("shop.operator")) || (!plugin.usePerms() && player.isOp())) {
                         if (shop.isAdmin()) {
                             if (shop.getType() == ShopType.GAMBLE) {

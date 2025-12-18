@@ -55,14 +55,11 @@ public class BoltTrustListener implements Listener {
         Block chestBlock = event.getShop().getChestLocation().getBlock();
         try {
             BlockProtection protection = boltApi.loadProtection(chestBlock);
-            if (protection != null) {
-                // If an existing Bolt protection owner is not the creating player, deny creation
-                if (!event.getPlayer().isOp() && protection.getOwner() != null && !protection.getOwner().equals(event.getPlayer().getUniqueId())) {
-                    event.setCancelled(true);
-                    // Reuse the same message key as LWC hook for consistency
-                    ShopMessage.sendMessage("interactionIssue", "createOtherPlayer", event.getPlayer(), event.getShop());
-                    return;
-                }
+            // If an existing Bolt protection owner is not the creating player, deny creation
+            if (protection != null && !event.getPlayer().isOp() && protection.getOwner() != null && !protection.getOwner().equals(event.getPlayer().getUniqueId())) {
+                event.setCancelled(true);
+                // Reuse the same message key as LWC hook for consistency
+                ShopMessage.sendMessage("interactionIssue", "createOtherPlayer", event.getPlayer(), event.getShop());
             }
         } catch (Exception e) {
             // Fail open: do not block shop creation if Bolt throws, but log at debug level if available
