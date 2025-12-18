@@ -41,7 +41,13 @@
     * [logging](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#logging)
     * [offlinePurchaseNotifications](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#offlinePurchaseNotifications)
 * **Integrations**
-    * [hookWorldGuard](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#hookWorldGuard)
+    * [worldGuard](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#worldguard)
+    * [lwc](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#lwc)
+    * [bentoBox](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#bentobox)
+    * [advancedRegionMarket](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#advancedregionmarket)
+    * [plotSquared](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#plotsquared)
+    * [bolt.trustIntegration](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#bolt-trustintegration)
+    * [blockProt.trustIntegration](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#blockprot-trustintegration)
     * [hookTowny](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#hookTowny)
     * [dynmap-marker](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#dynmap-marker)
     * [bluemap-marker](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#bluemap-marker)
@@ -1123,20 +1129,35 @@ This feature is particularly valuable for players who run shops on your server, 
 
 The Shop plugin offers several powerful integrations with popular Minecraft plugins to enhance functionality, improve protection, and provide visual representation of shops on map plugins.
 
-## hookWorldGuard
-Controls whether the Shop plugin integrates with WorldGuard for enhanced region-based shop protection.
+## worldGuard
+Controls whether the Shop plugin integrates with WorldGuard for region-based shop protection and restrictions.
+
 ```yaml
-hookWorldGuard: false
+worldGuard:
+  enabled: true
+  requireAllowShopFlag: false
+  # ... other worldGuard settings ...
 ```
 
-This integration adds an extra layer of shop security by respecting WorldGuard regions and their protection flags:
+### worldGuard.enabled
+Master toggle for **all** WorldGuard behavior in Shop (creation restrictions, use restrictions, allow-shop flag registration, and region-owner checks).
 
-- When `false` (default): The Shop plugin will respect WorldGuard's basic region protection flags (`passthrough`, `build`, and `chest-access`) but won't use the custom `allow-shop` flag. This means players can create shops anywhere they have permission to build and access chests according to WorldGuard's standard protection system.
+- When `true` (default): Shop will apply WorldGuard restrictions (based on `worldGuard.createShopFlagChecks`, `worldGuard.useShopFlagChecks`, and optionally `worldGuard.requireAllowShopFlag`).
+- When `false`: Shop will **not** apply any WorldGuard-based restrictions and will **not** register or enforce the `allow-shop` flag.
 
-- When `true`: In addition to respecting the basic protection flags, the plugin will also check for a custom WorldGuard flag called `allow-shop`. This gives server administrators more granular control over where shops can be created within protected regions.
+### worldGuard.requireAllowShopFlag
+If enabled, requires WorldGuard regions to have the custom `allow-shop` flag set to allow shop creation.
+
+```yaml
+worldGuard:
+  enabled: true
+  requireAllowShopFlag: true
+```
+
+Note: This setting replaces the legacy `hookWorldGuard` option.
 
 ### Technical Details
-- When enabled, the plugin registers a custom WorldGuard flag called `allow-shop`
+- When `worldGuard.enabled` is `true` and `worldGuard.requireAllowShopFlag` is `true`, the plugin registers a custom WorldGuard flag called `allow-shop`
 - Shop creation is checked against multiple protection mechanisms:
   - The player must have permission to build in the region
   - The player must have chest access in the region
@@ -1159,18 +1180,18 @@ Here are practical examples of WorldGuard commands for configuring regions with 
 /rg define default_region
 
 # Create a region with passthrough permission
-# (Shop creation will be allowed if using default `hookWorldGuard: false`)
+# (Shop creation will be allowed with default WorldGuard flag checks)
 /rg define region_with_passthrough
 /rg flag region_with_passthrough passthrough allow
 
 # Create a region with both build and chest access
-# (Shop creation will be allowed if using default `hookWorldGuard: false`)
+# (Shop creation will be allowed with default WorldGuard flag checks)
 /rg define region_with_build_and_chest_access
 /rg flag region_with_build_and_chest_access build allow
 /rg flag region_with_build_and_chest_access chest-access allow
 
 # Create a region with the custom allow-shop flag
-# (Shop creation will be allowed if `hookWorldGuard: true` is configured)
+# (Shop creation will be allowed if `worldGuard.requireAllowShopFlag: true` is configured)
 /rg define my_shop_region
 /rg flag my_shop_region build allow
 /rg flag my_shop_region chest-access allow
@@ -1188,6 +1209,59 @@ Here are practical examples of WorldGuard commands for configuring regions with 
 /rg flag region_with_build_access build allow
 /rg flag region_with_build_access chest-access deny
 
+```
+
+## lwc
+Controls Shop's integration with **LWC** (protection cleanup + shop creation restrictions on protected chests).
+
+```yaml
+lwc:
+  enabled: true
+```
+
+- When `true` (default): Shop will integrate with LWC when LWC is installed.
+- When `false`: Shop will not apply any LWC-specific behavior even if LWC is installed.
+
+## bentoBox
+Controls Shop's integration with **BentoBox** (shop deletion on island delete/reset events).
+
+```yaml
+bentoBox:
+  enabled: true
+```
+
+## advancedRegionMarket
+Controls Shop's integration with **AdvancedRegionMarket (ARM)** (shop deletion on region restore events).
+
+```yaml
+advancedRegionMarket:
+  enabled: true
+```
+
+## plotSquared
+Controls Shop's integration with **PlotSquared** (shop deletion on plot clear/delete events).
+
+```yaml
+plotSquared:
+  enabled: true
+```
+
+## bolt.trustIntegration
+Controls the Bolt trust integration used to allow trusted players to open shop containers.
+
+```yaml
+bolt:
+  trustIntegration:
+    enabled: true
+```
+
+## blockProt.trustIntegration
+Controls the BlockProt trust integration used to allow trusted players to open shop containers.
+
+```yaml
+blockProt:
+  trustIntegration:
+    enabled: true
 ```
 
 ## hookTowny
@@ -1299,17 +1373,17 @@ The `label` field supports the same placeholder variables as the dynmap integrat
 - BlueMap plugin must be installed on your server
 - The setting has no effect if BlueMap is not present
 
-## Automatic Integrations
+## Integration toggles (summary)
 
-The following plugins are automatically integrated when detected (no configuration needed):
+Shop automatically detects supported plugins, but each integration can be explicitly disabled via config:
 
-- **LWC**: Protects shops from being broken into by non-owners & allows purchases to be made through protected chests
-- **BentoBox**: Handles shop deletion when islands are reset or deleted
-- **AdvancedRegionMarket (ARM)**: Handles shop deletion when regions are reset
-- **PlotSquared**: Handles shop deletion when plots are reset or deleted
-- **Vault**: Provides economy support for currency-based shops (required for VAULT currency type)
-
-These integrations ensure that the Shop plugin works seamlessly with other popular server plugins without requiring additional configuration.
+- `worldGuard.enabled` (default `true`)
+- `lwc.enabled` (default `true`)
+- `bentoBox.enabled` (default `true`)
+- `advancedRegionMarket.enabled` (default `true`)
+- `plotSquared.enabled` (default `true`)
+- `bolt.trustIntegration.enabled` (default `true`)
+- `blockProt.trustIntegration.enabled` (default `true`)
 
 # Shop Performance Optimizations
 

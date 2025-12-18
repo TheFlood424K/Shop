@@ -95,6 +95,63 @@ public class BoltTrustIntegrationTest extends BaseMockBukkitTest {
     }
 
     @Test
+    void bolt_disabled_doesNotSwitchToOpenContainerMode() {
+        ServerMock server = getServer();
+        Shop plugin = getPlugin();
+        World world = server.addSimpleWorld("world");
+
+        setPluginField("boltTrustIntegrationEnabled", false);
+
+        PlayerMock owner = server.addPlayer();
+        Location chestLoc = new Location(world, 12, 65, 12);
+        AbstractShop shop = ShopCreationFlowTestUtil.createShopViaChestFlow(
+                server,
+                plugin,
+                owner,
+                world,
+                chestLoc,
+                new ItemStack(Material.DIRT),
+                "sell",
+                8,
+                "1",
+                true
+        );
+        assertNotNull(shop, "Precondition: shop should be created for owner");
+
+        PlayerMock stranger = server.addPlayer();
+        stranger.setOp(false);
+
+        BoltAPI boltApi = Mockito.mock(BoltAPI.class);
+        server.getServicesManager().register(BoltAPI.class, boltApi, plugin, ServicePriority.Normal);
+
+        BoltTrustListener listener = new BoltTrustListener();
+        server.getPluginManager().registerEvents(listener, plugin);
+
+        Mockito.when(boltApi.isProtected(Mockito.any(Block.class))).thenReturn(true);
+        Mockito.when(boltApi.canAccess(Mockito.any(Block.class), Mockito.eq(stranger), Mockito.eq(Permission.OPEN))).thenReturn(true);
+
+        try {
+            var event = new com.snowgears.shop.event.PlayerOpenShopEvent(
+                    stranger,
+                    shop,
+                    com.snowgears.shop.event.PlayerOpenShopEvent.OpenTarget.CHEST,
+                    com.snowgears.shop.event.PlayerOpenShopEvent.OpenMode.SHOP_ACTION
+            );
+            server.getPluginManager().callEvent(event);
+
+            assertFalse(event.isCancelled(), "Disabling trust integration should not cancel the pre-open event");
+            assertEquals(
+                    com.snowgears.shop.event.PlayerOpenShopEvent.OpenMode.SHOP_ACTION,
+                    event.getMode(),
+                    "When Bolt trust integration is disabled, the open mode must not be switched"
+            );
+            verify(boltApi, never()).canAccess(Mockito.any(Block.class), Mockito.any(), Mockito.any());
+        } finally {
+            HandlerList.unregisterAll(listener);
+        }
+    }
+
+    @Test
     void bolt_deniesCreationOnOtherPlayersProtectedChest_nonOp_abortsCreation_sendsCreateOtherPlayer() {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
@@ -140,6 +197,56 @@ public class BoltTrustIntegrationTest extends BaseMockBukkitTest {
             String expected = "§cYou are not allowed to create a shop on this chest.";
             var remaining = PlayerMessageTestUtil.drainMessages(server, creator, 200, 20);
             assertTrue(remaining.contains(expected), "Expected to receive message: " + expected + " but got: " + remaining);
+        } finally {
+            HandlerList.unregisterAll(listener);
+        }
+    }
+
+    @Test
+    void bolt_disabled_doesNotDenyCreationOnOtherPlayersProtectedChest_nonOp_createsShop() {
+        ServerMock server = getServer();
+        Shop plugin = getPlugin();
+        World world = server.addSimpleWorld("world");
+
+        setPluginField("boltTrustIntegrationEnabled", false);
+
+        PlayerMock creator = server.addPlayer();
+        creator.setOp(false);
+        creator.addAttachment(plugin, "shop.create", true);
+
+        Location chestLoc = new Location(world, 31, 65, 10);
+
+        BoltAPI boltApi = Mockito.mock(BoltAPI.class);
+        server.getServicesManager().register(BoltAPI.class, boltApi, plugin, ServicePriority.Normal);
+
+        UUID otherOwner = UUID.randomUUID();
+        BlockProtection protection = Mockito.mock(BlockProtection.class);
+        Mockito.when(protection.getOwner()).thenReturn(otherOwner);
+        Mockito.when(boltApi.loadProtection(Mockito.any(Block.class))).thenReturn(protection);
+
+        BoltTrustListener listener = new BoltTrustListener();
+        server.getPluginManager().registerEvents(listener, plugin);
+
+        try {
+            AbstractShop created = ShopCreationFlowTestUtil.createShopViaChestFlow(
+                    server,
+                    plugin,
+                    creator,
+                    world,
+                    chestLoc,
+                    new ItemStack(Material.DIRT),
+                    "sell",
+                    8,
+                    "1",
+                    false
+            );
+
+            assertNotNull(created, "Creation should succeed when Bolt trust integration is disabled");
+            verify(boltApi, never()).loadProtection(Mockito.any(Block.class));
+
+            String denied = "§cYou are not allowed to create a shop on this chest.";
+            var remaining = PlayerMessageTestUtil.drainMessages(server, creator, 200, 20);
+            assertFalse(remaining.contains(denied), "Denial message should not be sent when Bolt trust integration is disabled");
         } finally {
             HandlerList.unregisterAll(listener);
         }

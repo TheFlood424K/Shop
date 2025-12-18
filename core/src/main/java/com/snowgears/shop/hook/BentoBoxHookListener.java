@@ -21,6 +21,9 @@ public class BentoBoxHookListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onIslandDelete(IslandDeleteEvent event) {
+        if (plugin == null || !plugin.isBentoBoxIntegrationEnabled()) {
+            return;
+        }
         BoundingBox boundingBox = event.getIsland().getBoundingBox();
         World world = event.getIsland().getCenter().getWorld();
 

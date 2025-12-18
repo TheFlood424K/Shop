@@ -29,6 +29,10 @@ public class BlockProtTrustListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerOpenShop(PlayerOpenShopEvent event) {
+        var plugin = com.snowgears.shop.Shop.getPlugin();
+        if (plugin == null || !plugin.isBlockProtTrustIntegrationEnabled()) {
+            return;
+        }
         if (event.getTarget() != PlayerOpenShopEvent.OpenTarget.CHEST) return;
         if (event.getMode() == PlayerOpenShopEvent.OpenMode.OPEN_CONTAINER) return;
         if (hasOpenPermission(event)) {
@@ -38,6 +42,10 @@ public class BlockProtTrustListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerCreateShop(PlayerCreateShopEvent event) {
+        var plugin = com.snowgears.shop.Shop.getPlugin();
+        if (plugin == null || !plugin.isBlockProtTrustIntegrationEnabled()) {
+            return;
+        }
         if (api == null) return;
         if (event.getShop() == null || event.getShop().getChestLocation() == null) return;
 

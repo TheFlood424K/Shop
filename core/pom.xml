@@ -66,16 +66,16 @@
             <url>https://repo.bluecolored.de/releases</url>
         </repository>
         <repository>
-            <id>dynmap-repo</id>
-            <url>https://repo.mikeprimm.com/</url>
-        </repository>
-        <repository>
             <id>ender-zone-repo</id>
             <url>https://ci.ender.zone/plugin/repository/everything/</url>
         </repository>
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
+        </repository>
+        <repository>
+            <id>dynmap-repo</id>
+            <url>https://repo.mikeprimm.com/</url>
         </repository>
     </repositories>
 

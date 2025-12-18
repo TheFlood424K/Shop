@@ -263,17 +263,22 @@ offlinePurchaseNotifications:
 # =================================================================== #
 # https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#integrations
 
-# The following plugins are automatically integrated when detected (no configuration needed):
+# Individual integrations can be explicitly disabled even if the external plugin is installed.
+# This is useful if you want to keep the other plugin for unrelated features but do not want Shop to hook into it.
+# Defaults are enabled to preserve existing behavior.
+#
+# Automatic integrations (when enabled and detected):
 # - LWC: Protects shops from being broken into by non-owners & allows player purchases
 # - BentoBox: Handles shop deletion when islands are reset or deleted
 # - AdvancedRegionMarket (ARM): Handles shop deletion when regions are reset
 # - PlotSquared: Handles shop deletion when plots are reset or deleted
-
-# The following plugins require explicit configuration below:
+# - Bolt / BlockProt: Trust integrations that allow trusted players to open shop containers
 
 # WorldGuard Integration Settings
 # For more details: https://github.com/snowgears/shopbugs/wiki/WorldGuard-Integration #
 worldGuard:
+   # Master toggle for ALL WorldGuard behavior (creation/use restrictions, allow-shop flag, region-owner checks)
+   enabled: true
    # Require the 'allow-shop' flag to be set to 'allow' in WorldGuard regions before shops can be created
    # Replaces the old 'hookWorldGuard' setting with clearer naming
    requireAllowShopFlag: false
@@ -299,6 +304,34 @@ worldGuard:
       allowFlags: []
       # Default action if no flag rules are triggered: ALLOW or DENY
       defaultAction: "ALLOW"
+
+# LWC Integration Settings
+lwc:
+   # Master toggle for ALL LWC behavior (shop protection cleanup + create restrictions)
+   enabled: true
+
+# BentoBox Integration Settings
+bentoBox:
+   # Master toggle for BentoBox integration (shop deletion on island delete/reset)
+   enabled: true
+
+# AdvancedRegionMarket (ARM) Integration Settings
+advancedRegionMarket:
+   # Master toggle for ARM integration (shop deletion on region restore)
+   enabled: true
+
+# PlotSquared Integration Settings
+plotSquared:
+   # Master toggle for PlotSquared integration (shop deletion on plot clear/delete)
+   enabled: true
+
+# Trust integrations (opening shop containers for trusted players)
+bolt:
+   trustIntegration:
+      enabled: true
+blockProt:
+   trustIntegration:
+      enabled: true
 
 # Setting this to true will force all Shops to be created in Towny regions where the players are residents #
 # Towny plugin must be installed for this feature to work #

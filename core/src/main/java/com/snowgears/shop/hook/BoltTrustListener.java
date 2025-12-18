@@ -39,6 +39,10 @@ public class BoltTrustListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerOpenShop(PlayerOpenShopEvent event) {
+        Shop plugin = Shop.getPlugin();
+        if (plugin == null || !plugin.isBoltTrustIntegrationEnabled()) {
+            return;
+        }
         if (event.getTarget() != PlayerOpenShopEvent.OpenTarget.CHEST) return;
         if (event.getMode() == PlayerOpenShopEvent.OpenMode.OPEN_CONTAINER) return; // already allowed
 
@@ -49,6 +53,10 @@ public class BoltTrustListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerCreateShop(PlayerCreateShopEvent event) {
+        Shop plugin = Shop.getPlugin();
+        if (plugin == null || !plugin.isBoltTrustIntegrationEnabled()) {
+            return;
+        }
         if (boltApi == null) return;
         if (event.getShop() == null || event.getShop().getChestLocation() == null) return;
 
@@ -63,7 +71,7 @@ public class BoltTrustListener implements Listener {
             }
         } catch (Exception e) {
             // Fail open: do not block shop creation if Bolt throws, but log at debug level if available
-            Shop.getPlugin().getLogger().debug("Bolt check failed during PlayerCreateShopEvent: " + e.getMessage());
+            plugin.getLogger().debug("Bolt check failed during PlayerCreateShopEvent: " + e.getMessage());
         }
     }
 }

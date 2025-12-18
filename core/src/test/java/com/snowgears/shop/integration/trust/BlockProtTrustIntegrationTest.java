@@ -95,6 +95,67 @@ public class BlockProtTrustIntegrationTest extends BaseMockBukkitTest {
     }
 
     @Test
+    void blockProt_disabled_doesNotSwitchToOpenContainerMode() {
+        ServerMock server = getServer();
+        Shop plugin = getPlugin();
+        World world = server.addSimpleWorld("world");
+
+        setPluginField("blockProtTrustIntegrationEnabled", false);
+
+        PlayerMock owner = server.addPlayer();
+        Location chestLoc = new Location(world, 12, 65, 32);
+        AbstractShop shop = ShopCreationFlowTestUtil.createShopViaChestFlow(
+                server,
+                plugin,
+                owner,
+                world,
+                chestLoc,
+                new ItemStack(Material.DIRT),
+                "sell",
+                8,
+                "1",
+                true
+        );
+        assertNotNull(shop, "Precondition: shop should be created for owner");
+
+        PlayerMock stranger = server.addPlayer();
+        stranger.setOp(false);
+
+        BlockProtAPI api = Mockito.mock(BlockProtAPI.class);
+        BlockNBTHandler handler = Mockito.mock(BlockNBTHandler.class);
+        Mockito.when(api.getBlockHandler(Mockito.any(Block.class))).thenReturn(handler);
+        Mockito.when(handler.isProtected()).thenReturn(true);
+        Mockito.when(handler.canAccess(Mockito.anyString())).thenReturn(true);
+
+        try (MockedStatic<BlockProtAPI> mocked = Mockito.mockStatic(BlockProtAPI.class)) {
+            mocked.when(BlockProtAPI::getInstance).thenReturn(api);
+
+            BlockProtTrustListener listener = new BlockProtTrustListener();
+            server.getPluginManager().registerEvents(listener, plugin);
+
+            try {
+                var event = new com.snowgears.shop.event.PlayerOpenShopEvent(
+                        stranger,
+                        shop,
+                        com.snowgears.shop.event.PlayerOpenShopEvent.OpenTarget.CHEST,
+                        com.snowgears.shop.event.PlayerOpenShopEvent.OpenMode.SHOP_ACTION
+                );
+                server.getPluginManager().callEvent(event);
+
+                assertFalse(event.isCancelled(), "Disabling trust integration should not cancel the pre-open event");
+                assertEquals(
+                        com.snowgears.shop.event.PlayerOpenShopEvent.OpenMode.SHOP_ACTION,
+                        event.getMode(),
+                        "When BlockProt trust integration is disabled, the open mode must not be switched"
+                );
+                verify(api, never()).getBlockHandler(Mockito.any(Block.class));
+            } finally {
+                HandlerList.unregisterAll(listener);
+            }
+        }
+    }
+
+    @Test
     void blockProt_deniesCreationOnOtherPlayersProtectedChest_abortsCreation_sendsCreateOtherPlayer() {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
@@ -140,6 +201,58 @@ public class BlockProtTrustIntegrationTest extends BaseMockBukkitTest {
                 String expected = "§cYou are not allowed to create a shop on this chest.";
                 var remaining = PlayerMessageTestUtil.drainMessages(server, creator, 200, 20);
                 assertTrue(remaining.contains(expected), "Expected to receive message: " + expected + " but got: " + remaining);
+            } finally {
+                HandlerList.unregisterAll(listener);
+            }
+        }
+    }
+
+    @Test
+    void blockProt_disabled_doesNotDenyCreationOnOtherPlayersProtectedChest_createsShop() {
+        ServerMock server = getServer();
+        Shop plugin = getPlugin();
+        World world = server.addSimpleWorld("world");
+
+        setPluginField("blockProtTrustIntegrationEnabled", false);
+
+        PlayerMock creator = server.addPlayer();
+        creator.setOp(false);
+        creator.addAttachment(plugin, "shop.create", true);
+
+        Location chestLoc = new Location(world, 31, 65, 31);
+
+        BlockProtAPI api = Mockito.mock(BlockProtAPI.class);
+        BlockNBTHandler handler = Mockito.mock(BlockNBTHandler.class);
+        Mockito.when(api.getBlockHandler(Mockito.any(Block.class))).thenReturn(handler);
+        Mockito.when(handler.isProtected()).thenReturn(true);
+        Mockito.when(handler.isOwner(Mockito.any(java.util.UUID.class))).thenReturn(false);
+
+        try (MockedStatic<BlockProtAPI> mocked = Mockito.mockStatic(BlockProtAPI.class)) {
+            mocked.when(BlockProtAPI::getInstance).thenReturn(api);
+
+            BlockProtTrustListener listener = new BlockProtTrustListener();
+            server.getPluginManager().registerEvents(listener, plugin);
+
+            try {
+                AbstractShop created = ShopCreationFlowTestUtil.createShopViaChestFlow(
+                        server,
+                        plugin,
+                        creator,
+                        world,
+                        chestLoc,
+                        new ItemStack(Material.DIRT),
+                        "sell",
+                        8,
+                        "1",
+                        false
+                );
+
+                assertNotNull(created, "Creation should succeed when BlockProt trust integration is disabled");
+                verify(api, never()).getBlockHandler(Mockito.any(Block.class));
+
+                String denied = "§cYou are not allowed to create a shop on this chest.";
+                var remaining = PlayerMessageTestUtil.drainMessages(server, creator, 200, 20);
+                assertFalse(remaining.contains(denied), "Denial message should not be sent when BlockProt trust integration is disabled");
             } finally {
                 HandlerList.unregisterAll(listener);
             }
