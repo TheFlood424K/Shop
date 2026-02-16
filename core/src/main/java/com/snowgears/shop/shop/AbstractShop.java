@@ -53,6 +53,7 @@ public abstract class AbstractShop {
     protected boolean fakeSign;
 
     protected int stock;
+    protected Material cachedContainerType;
 
     public AbstractShop(Location signLoc, UUID player, double pri, int amt, Boolean admin, BlockFace facing) {
         this.signLocation = signLoc;
@@ -247,13 +248,20 @@ public abstract class AbstractShop {
     }
 
     public Material getContainerType() {
+        if(cachedContainerType != null)
+            return cachedContainerType;
         if(chestLocation == null || !this.isChunkLoaded())
             return null;
         try {
-            return chestLocation.getBlock().getType();
+            cachedContainerType = chestLocation.getBlock().getType();
+            return cachedContainerType;
         } catch (Exception e) {
             return null;
         }
+    }
+
+    public Material getCachedContainerType() {
+        return cachedContainerType;
     }
 
     public UUID getOwnerUUID() {

@@ -865,13 +865,12 @@ public class ShopHandler {
         int barrelShops = 0;
         int shulkerBoxShops = 0;
         for (AbstractShop shop : allShops.values()) {
-            Material containerType = shop.getContainerType();
+            Material containerType = shop.getCachedContainerType();
             if (containerType == null) continue;
             if (containerType == Material.CHEST || containerType == Material.TRAPPED_CHEST) { chestShops++; }
             if (containerType == Material.BARREL) { barrelShops++; }
             if (containerType.name().endsWith("SHULKER_BOX")) { shulkerBoxShops++; }
         }
-        // Return a map of the container types
         Map<String, Integer> containerTypes = new HashMap<>();
         containerTypes.put("Chest Shops", chestShops);
         containerTypes.put("Barrel Shops", barrelShops);
