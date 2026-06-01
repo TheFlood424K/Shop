@@ -1,16 +1,16 @@
 #
-# WIKI PAGE: https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml) #
+# WIKI PAGE: https://github.com/snowgears/shop/wiki/Configuration-(config.yml) #
 #
 
 # =================================================================== #
 #                         GENERAL SETTINGS                            #
 # =================================================================== #
-# https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#general-settings
+# https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#general-settings
 # This runs a check and notifies operators on login that a new Shop version is available #
 checkUpdates: true
 
 # Should Shop use Permissions to manage access to features?
-# * `true`  - Shop will check player permissions (https://github.com/snowgears/shopbugs/wiki/Permissions)
+# * `true`  - Shop will check player permissions (https://github.com/snowgears/shop/wiki/Permissions)
 #             Players will by default have no permissions and must be given specific permissions to use the plugin.
 # * `false` - Shop will allow players to create shops, buy/sell items, etc. without any permissions checks.
 #             Plugin management commands/tools are restricted to operators only. 
@@ -29,7 +29,7 @@ deletePlayerShopsAfterXHoursOffline: 0
 # =================================================================== #
 #                      CURRENCY AND ECONOMY                           #
 # =================================================================== #
-# https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#currency-and-economy-settings
+# https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#currency-and-economy-settings
 
 # type :
 # ITEM - shops will use a specified item as the currency (default is Emerald). To change this item in-game, run the
@@ -56,7 +56,7 @@ currency:
 # true - Allow fractional units down to 0.01 (Vault Required!)
 allowFractionalCurrency: false
 # This allows shops to sell partial stacks for a calculated partial rate if the shop is low on stock #
-# https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#allowpartialsales #
+# https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#allowpartialsales #
 allowPartialSales: true
 # This will make it so shops will only complete transactions if the item durabilities are the same #
 checkItemDurability: true
@@ -104,7 +104,7 @@ priceSuffixes:
 # =================================================================== #
 #                           SHOP DISPLAY                              #
 # =================================================================== #
-# https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#shop-display
+# https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#shop-display
 
 # This will change the type of item display that shops will use by default above their chests #
 # The options are: NONE, ITEM, GLASS_CASE, LARGE_ITEM, ITEM_FRAME #
@@ -144,7 +144,7 @@ setGlowingSignText: false
 # =================================================================== #
 #                         SHOP INTERACTIONS                           #
 # =================================================================== #
-# https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#shop-interactions
+# https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#shop-interactions
 
 # Here you can map player actions on shops to specific controls
 #   - NONE
@@ -227,7 +227,7 @@ enabledContainers:
 #                    DATABASE LOGGING SETTINGS                        #
 #                  OFFLINE PURCHASE NOTIFICATIONS                     #
 # =================================================================== #
-# https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#database-logging--notifications
+# https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#database-logging--notifications
 
 # Database logging for player Shop Actions & Transactions #
 # Required for Offline Purchase Notifications to be sent, default enabled with FILE database #
@@ -261,19 +261,24 @@ offlinePurchaseNotifications:
 # =================================================================== #
 #                    INTEGRATION HOOK SETTINGS                        #
 # =================================================================== #
-# https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#integrations
+# https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#integrations
 
-# The following plugins are automatically integrated when detected (no configuration needed):
+# Individual integrations can be explicitly disabled even if the external plugin is installed.
+# This is useful if you want to keep the other plugin for unrelated features but do not want Shop to hook into it.
+# Defaults are enabled to preserve existing behavior.
+#
+# Automatic integrations (when enabled and detected):
 # - LWC: Protects shops from being broken into by non-owners & allows player purchases
 # - BentoBox: Handles shop deletion when islands are reset or deleted
 # - AdvancedRegionMarket (ARM): Handles shop deletion when regions are reset
 # - PlotSquared: Handles shop deletion when plots are reset or deleted
-
-# The following plugins require explicit configuration below:
+# - Bolt / BlockProt: Trust integrations that allow trusted players to open shop containers
 
 # WorldGuard Integration Settings
-# For more details: https://github.com/snowgears/shopbugs/wiki/WorldGuard-Integration #
+# For more details: https://github.com/snowgears/shop/wiki/WorldGuard-Integration #
 worldGuard:
+   # Master toggle for ALL WorldGuard behavior (creation/use restrictions, allow-shop flag, region-owner checks)
+   enabled: true
    # Require the 'allow-shop' flag to be set to 'allow' in WorldGuard regions before shops can be created
    # Replaces the old 'hookWorldGuard' setting with clearer naming
    requireAllowShopFlag: false
@@ -299,6 +304,34 @@ worldGuard:
       allowFlags: []
       # Default action if no flag rules are triggered: ALLOW or DENY
       defaultAction: "ALLOW"
+
+# LWC Integration Settings
+lwc:
+   # Master toggle for ALL LWC behavior (shop protection cleanup + create restrictions)
+   enabled: true
+
+# BentoBox Integration Settings
+bentoBox:
+   # Master toggle for BentoBox integration (shop deletion on island delete/reset)
+   enabled: true
+
+# AdvancedRegionMarket (ARM) Integration Settings
+advancedRegionMarket:
+   # Master toggle for ARM integration (shop deletion on region restore)
+   enabled: true
+
+# PlotSquared Integration Settings
+plotSquared:
+   # Master toggle for PlotSquared integration (shop deletion on plot clear/delete)
+   enabled: true
+
+# Trust integrations (opening shop containers for trusted players)
+bolt:
+   trustIntegration:
+      enabled: true
+blockProt:
+   trustIntegration:
+      enabled: true
 
 # Setting this to true will force all Shops to be created in Towny regions where the players are residents #
 # Towny plugin must be installed for this feature to work #
@@ -332,7 +365,7 @@ bluemap-marker:
 # =================================================================== #
 #                   SHOP PERFORMANCE OPTIMIZATIONS                    #
 # =================================================================== #
-# https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#shop-performance-optimizations
+# https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#shop-performance-optimizations
 
 # You should not need to change these settings, we have tried to balance them for performance & experience. #
 # If you are experiencing performance issues however, you can try to tune them. #
@@ -381,7 +414,7 @@ displayBatchDelay: 2
 # =================================================================== #
 #                            DEBUG TOOLS                              #
 # =================================================================== #
-# https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#debug-tools
+# https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#debug-tools
 
 # Normally Developer Use only, but helpful if you are running into bugs and want more details!
 #

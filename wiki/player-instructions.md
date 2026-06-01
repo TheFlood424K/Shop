@@ -4,6 +4,13 @@ There are multiple ways you can create a shop! You can alter configuration to di
 2. Shift+Punch with an empty hand, select item from creative menu
 3. Place a sign on a chest with your shop details, punch chest with desired item
 
+## Chest vs sign interaction (important)
+
+- **If clicking a shop chest opens the container**: that click did **not** buy/sell anything. This can happen if your server uses the Shop v1.11 **Trust Players** feature (Bolt/BlockProt trust integrations).
+- **To buy/sell normally**: interact with the **shop sign** (your server may customize the exact click type via `config.yml` `actionMappings.*`).
+
+More details: **[Trust Players](https://github.com/snowgears/shop/wiki/Trust-Players)**.
+
 # Simple Create
 ## Create using item
 

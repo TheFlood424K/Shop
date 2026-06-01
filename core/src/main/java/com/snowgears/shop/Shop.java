@@ -35,13 +35,21 @@ public class Shop extends JavaPlugin {
     private ShopLogger logger = new ShopLogger(this, true);
     private FoliaLib foliaLib;
 
+    private static final String CONFIG_PATH_WORLD_GUARD_ENABLED = "worldGuard.enabled";
+    private static final String CONFIG_PATH_LWC_ENABLED = "lwc.enabled";
+    private static final String CONFIG_PATH_BENTO_BOX_ENABLED = "bentoBox.enabled";
+    private static final String CONFIG_PATH_ADVANCED_REGION_MARKET_ENABLED = "advancedRegionMarket.enabled";
+    private static final String CONFIG_PATH_PLOT_SQUARED_ENABLED = "plotSquared.enabled";
+    private static final String CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED = "bolt.trustIntegration.enabled";
+    private static final String CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED = "blockProt.trustIntegration.enabled";
+
     private ShopListener shopListener;
     private DisplayListener displayListener;
     private TransactionHandler transactionHandler;
     private MiscListener miscListener;
     private CreativeSelectionListener creativeSelectionListener;
     private ShopGUIListener guiListener;
-    private Boolean worldGuardExists;
+    private Boolean worldGuardExists = false;
     private LWCHookListener lwcHookListener;
     private DynmapHookListener dynmapHookListener;
     private BluemapHookListener bluemapHookListener;
@@ -50,6 +58,16 @@ public class Shop extends JavaPlugin {
     private BentoBoxHookListener bentoBoxHookListener;
     private ARMHookListener armHookListener;
     private PlotSquaredHookListener plotSquaredHookListener;
+    private BoltTrustListener boltTrustListener;
+    private BlockProtTrustListener blockProtTrustListener;
+
+    private boolean worldGuardIntegrationEnabled;
+    private boolean lwcIntegrationEnabled;
+    private boolean bentoBoxIntegrationEnabled;
+    private boolean advancedRegionMarketIntegrationEnabled;
+    private boolean plotSquaredIntegrationEnabled;
+    private boolean boltTrustIntegrationEnabled;
+    private boolean blockProtTrustIntegrationEnabled;
 
     private ShopHandler shopHandler;
     private ShopGuiHandler guiHandler;
@@ -150,22 +168,29 @@ public class Shop extends JavaPlugin {
         
         // Check if WorldGuard exists
         // Note: If WorldGuard exists we will check to verify a user can build in the region
-        if (getServer().getPluginManager().getPlugin("WorldGuard") != null) {
-            this.getLogger().notice("WorldGuard detected, Shop will respect WorldGuard region flags during shop creation!");
-            // Store for later
-            this.worldGuardExists = true;
-            // Load WorldGuard configuration (needed for flag registration)
-            this.worldGuardConfig = new WorldGuardConfig(config);
-            // Check if we want to require `allow-shop: true` to exist on regions
-            if(worldGuardConfig.requireAllowShopFlag){
-                this.getLogger().notice("Registering WorldGuard `allow-shop` flag...");
-                // Register flag for WorldGuard if we are hooking into the flag system
-                WorldGuardHook.registerAllowShopFlag();
-                this.getLogger().notice("WorldGuard `allow-shop` flag restriction enabled, Shops can only be created in regions with the `allow-shop` flag set!");
+        boolean worldGuardDetected = getServer().getPluginManager().getPlugin("WorldGuard") != null;
+        this.worldGuardIntegrationEnabled = config.getBoolean(CONFIG_PATH_WORLD_GUARD_ENABLED, true);
+        if (worldGuardDetected) {
+            if (worldGuardIntegrationEnabled) {
+                this.getLogger().notice("WorldGuard detected, Shop will respect WorldGuard region flags during shop creation!");
+                // Store for later
+                this.worldGuardExists = true;
+                // Load WorldGuard configuration (needed for flag registration)
+                this.worldGuardConfig = new WorldGuardConfig(config);
+                // Check if we want to require `allow-shop: true` to exist on regions
+                if(worldGuardConfig.requireAllowShopFlag){
+                    this.getLogger().notice("Registering WorldGuard `allow-shop` flag...");
+                    // Register flag for WorldGuard if we are hooking into the flag system
+                    WorldGuardHook.registerAllowShopFlag();
+                    this.getLogger().notice("WorldGuard `allow-shop` flag restriction enabled, Shops can only be created in regions with the `allow-shop` flag set!");
+                } else {
+                    this.getLogger().notice("WorldGuard `allow-shop` flag restriction is disabled, if you want to only allow shops in regions with the `allow-shop` flag, please set `worldGuard.requireAllowShopFlag` to `true` in `config.yml`");
+                }
+                this.getLogger().notice("Loaded WorldGuard Config: " + worldGuardConfig.toString());
             } else {
-                this.getLogger().notice("WorldGuard `allow-shop` flag restriction is disabled, if you want to only allow shops in regions with the `allow-shop` flag, please set `worldGuard.requireAllowShopFlag` to `true` in `config.yml`");
+                this.worldGuardExists = false;
+                this.getLogger().notice("WorldGuard detected, but Shop WorldGuard integration is disabled via `" + CONFIG_PATH_WORLD_GUARD_ENABLED + ": false`");
             }
-            this.getLogger().notice("Loaded WorldGuard Config: " + worldGuardConfig.toString());
         } else {
             this.worldGuardExists = false;
         }
@@ -317,7 +342,22 @@ public class Shop extends JavaPlugin {
         checkUpdates = config.getBoolean("checkUpdates");
         enableGUI = config.getBoolean("enableGUI");
         
-        if (worldGuardExists) { worldGuardConfig = new WorldGuardConfig(config); }
+        worldGuardIntegrationEnabled = config.getBoolean(CONFIG_PATH_WORLD_GUARD_ENABLED, true);
+        lwcIntegrationEnabled = config.getBoolean(CONFIG_PATH_LWC_ENABLED, true);
+        bentoBoxIntegrationEnabled = config.getBoolean(CONFIG_PATH_BENTO_BOX_ENABLED, true);
+        advancedRegionMarketIntegrationEnabled = config.getBoolean(CONFIG_PATH_ADVANCED_REGION_MARKET_ENABLED, true);
+        plotSquaredIntegrationEnabled = config.getBoolean(CONFIG_PATH_PLOT_SQUARED_ENABLED, true);
+        boltTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED, true);
+        blockProtTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED, true);
+
+        // WorldGuard integration is only active if the plugin is installed AND the integration toggle is enabled.
+        boolean worldGuardDetected = getServer().getPluginManager().getPlugin("WorldGuard") != null;
+        worldGuardExists = worldGuardDetected && worldGuardIntegrationEnabled;
+        if (worldGuardExists) {
+            worldGuardConfig = new WorldGuardConfig(config);
+        } else {
+            worldGuardConfig = null;
+        }
         hookTowny = config.getBoolean("hookTowny");
         bluemapEnabled = config.getBoolean("bluemap-marker.enabled");
         dynmapEnabled = config.getBoolean("dynmap-marker.enabled");
@@ -488,17 +528,18 @@ public class Shop extends JavaPlugin {
 
         //only define different listener hooks if the plugins are present on the server
         if (getServer().getPluginManager().getPlugin("WorldGuard") != null) {
-            this.getLogger().notice("WorldGuard is installed, creating WorldGuard listener");
-            this.worldGuardExists = true;
-            if(worldGuardConfig.requireAllowShopFlag){
-                this.getLogger().helpful("WorldGuard `allow-shop` flag restriction enabled, Shops can only be created in regions with the `allow-shop` flag set!");
+            if (worldGuardExists) {
+                this.getLogger().notice("WorldGuard is installed, WorldGuard integration is enabled");
+                if(worldGuardConfig.requireAllowShopFlag){
+                    this.getLogger().helpful("WorldGuard `allow-shop` flag restriction enabled, Shops can only be created in regions with the `allow-shop` flag set!");
+                } else {
+                    this.getLogger().helpful("WorldGuard `allow-shop` flag restriction is disabled, if you want to only allow shops in regions with the `allow-shop` flag, please set `worldGuard.requireAllowShopFlag` to `true` in `config.yml`");
+                }
+                this.getLogger().helpful("WorldGuard flags that will be checked for shop creation: " + worldGuardConfig.createShopFlags.toString());
+                this.getLogger().helpful("WorldGuard flags that will be checked for shop use: " + worldGuardConfig.useShopFlags.toString());
             } else {
-                this.getLogger().helpful("WorldGuard `allow-shop` flag restriction is disabled, if you want to only allow shops in regions with the `allow-shop` flag, please set `worldGuard.requireAllowShopFlag` to `true` in `config.yml`");
+                this.getLogger().notice("WorldGuard detected, but Shop WorldGuard integration is disabled via `" + CONFIG_PATH_WORLD_GUARD_ENABLED + ": false`");
             }
-            this.getLogger().helpful("WorldGuard flags that will be checked for shop creation: " + worldGuardConfig.createShopFlags.toString());
-            this.getLogger().helpful("WorldGuard flags that will be checked for shop use: " + worldGuardConfig.useShopFlags.toString());
-        } else {
-            this.worldGuardExists = false;
         }
 
         if(getServer().getPluginManager().getPlugin("Towny") != null && this.hookTowny){
@@ -506,9 +547,13 @@ public class Shop extends JavaPlugin {
         }
 
         if(getServer().getPluginManager().getPlugin("LWC") != null){
-            lwcHookListener = new LWCHookListener(this);
-            getServer().getPluginManager().registerEvents(lwcHookListener, this);
-            this.getLogger().notice("LWC is installed, creating LWC listener");
+            if (lwcIntegrationEnabled) {
+                lwcHookListener = new LWCHookListener(this);
+                getServer().getPluginManager().registerEvents(lwcHookListener, this);
+                this.getLogger().notice("LWC is installed, enabling LWC integration");
+            } else {
+                this.getLogger().notice("LWC detected, but Shop LWC integration is disabled via `" + CONFIG_PATH_LWC_ENABLED + ": false`");
+            }
         }
 
         if(getServer().getPluginManager().getPlugin("dynmap") != null && dynmapEnabled){
@@ -534,21 +579,61 @@ public class Shop extends JavaPlugin {
         }
 
         if(getServer().getPluginManager().getPlugin("BentoBox") != null){
-            bentoBoxHookListener = new BentoBoxHookListener(this);
-            getServer().getPluginManager().registerEvents(bentoBoxHookListener, this);
-            this.getLogger().notice("BentoBox is installed, creating BentoBox listener");
+            if (bentoBoxIntegrationEnabled) {
+                bentoBoxHookListener = new BentoBoxHookListener(this);
+                getServer().getPluginManager().registerEvents(bentoBoxHookListener, this);
+                this.getLogger().notice("BentoBox is installed, enabling BentoBox integration");
+            } else {
+                this.getLogger().notice("BentoBox detected, but Shop BentoBox integration is disabled via `" + CONFIG_PATH_BENTO_BOX_ENABLED + ": false`");
+            }
         }
 
         if(getServer().getPluginManager().getPlugin("AdvancedRegionMarket") != null){
-            armHookListener = new ARMHookListener(this);
-            getServer().getPluginManager().registerEvents(armHookListener, this);
-            this.getLogger().notice("AdvancedRegionMarket is installed, creating AdvancedRegionMarket listener");
+            if (advancedRegionMarketIntegrationEnabled) {
+                armHookListener = new ARMHookListener(this);
+                getServer().getPluginManager().registerEvents(armHookListener, this);
+                this.getLogger().notice("AdvancedRegionMarket is installed, enabling AdvancedRegionMarket integration");
+            } else {
+                this.getLogger().notice("AdvancedRegionMarket detected, but Shop AdvancedRegionMarket integration is disabled via `" + CONFIG_PATH_ADVANCED_REGION_MARKET_ENABLED + ": false`");
+            }
         }
 
         if(getServer().getPluginManager().getPlugin("PlotSquared") != null){
-            plotSquaredHookListener = new PlotSquaredHookListener(this);
-            getServer().getPluginManager().registerEvents(plotSquaredHookListener, this);
-            this.getLogger().notice("PlotSquared is installed, creating PlotSquared listener");
+            if (plotSquaredIntegrationEnabled) {
+                plotSquaredHookListener = new PlotSquaredHookListener(this);
+                getServer().getPluginManager().registerEvents(plotSquaredHookListener, this);
+                this.getLogger().notice("PlotSquared is installed, enabling PlotSquared integration");
+            } else {
+                this.getLogger().notice("PlotSquared detected, but Shop PlotSquared integration is disabled via `" + CONFIG_PATH_PLOT_SQUARED_ENABLED + ": false`");
+            }
+        }
+
+        // Register trust integration listeners for protection plugins
+        if(getServer().getPluginManager().getPlugin("Bolt") != null){
+            if (boltTrustIntegrationEnabled) {
+                try {
+                    boltTrustListener = new BoltTrustListener();
+                    getServer().getPluginManager().registerEvents(boltTrustListener, this);
+                    this.getLogger().notice("Bolt is installed, enabling trust integration for opening shop containers");
+                } catch (Exception e) {
+                    this.getLogger().warning("Bolt detected but could not enable trust integration: " + e.getMessage());
+                }
+            } else {
+                this.getLogger().notice("Bolt detected, but Shop Bolt trust integration is disabled via `" + CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED + ": false`");
+            }
+        }
+        if(getServer().getPluginManager().getPlugin("BlockProt") != null){
+            if (blockProtTrustIntegrationEnabled) {
+                try {
+                    blockProtTrustListener = new BlockProtTrustListener();
+                    getServer().getPluginManager().registerEvents(blockProtTrustListener, this);
+                    this.getLogger().notice("BlockProt is installed, enabling trust integration for opening shop containers");
+                } catch (Exception e) {
+                    this.getLogger().warning("BlockProt detected but could not enable trust integration: " + e.getMessage());
+                }
+            } else {
+                this.getLogger().notice("BlockProt detected, but Shop BlockProt trust integration is disabled via `" + CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED + ": false`");
+            }
         }
 
         int bstatsPluginId = 25211;
@@ -767,6 +852,15 @@ public class Shop extends JavaPlugin {
         if(armHookListener != null){
             HandlerList.unregisterAll(armHookListener);
         }
+        if(plotSquaredHookListener != null){
+            HandlerList.unregisterAll(plotSquaredHookListener);
+        }
+        if(boltTrustListener != null){
+            HandlerList.unregisterAll(boltTrustListener);
+        }
+        if(blockProtTrustListener != null){
+            HandlerList.unregisterAll(blockProtTrustListener);
+        }
 
         plugin.getShopHandler().removeAllDisplays(null);
 
@@ -841,6 +935,14 @@ public class Shop extends JavaPlugin {
     }
 
     public boolean worldGuardExists() { return worldGuardExists; }
+
+    public boolean isWorldGuardIntegrationEnabled() { return worldGuardExists(); }
+    public boolean isLwcIntegrationEnabled() { return lwcIntegrationEnabled; }
+    public boolean isBentoBoxIntegrationEnabled() { return bentoBoxIntegrationEnabled; }
+    public boolean isAdvancedRegionMarketIntegrationEnabled() { return advancedRegionMarketIntegrationEnabled; }
+    public boolean isPlotSquaredIntegrationEnabled() { return plotSquaredIntegrationEnabled; }
+    public boolean isBoltTrustIntegrationEnabled() { return boltTrustIntegrationEnabled; }
+    public boolean isBlockProtTrustIntegrationEnabled() { return blockProtTrustIntegrationEnabled; }
 
     public boolean hookTowny(){
         return hookTowny;

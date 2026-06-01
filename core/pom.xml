@@ -50,7 +50,7 @@
         </repository>
         <repository>
             <id>codemc-repo</id>
-            <url>https://repo.codemc.org/repository/maven-public/</url>
+            <url>https://repo.codemc.io/repository/maven-public/</url>
         </repository>
         <repository>
             <id>minecraft-libraries</id>
@@ -66,16 +66,16 @@
             <url>https://repo.bluecolored.de/releases</url>
         </repository>
         <repository>
-            <id>dynmap-repo</id>
-            <url>https://repo.mikeprimm.com/</url>
-        </repository>
-        <repository>
             <id>ender-zone-repo</id>
             <url>https://ci.ender.zone/plugin/repository/everything/</url>
         </repository>
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
+        </repository>
+        <repository>
+            <id>dynmap-repo</id>
+            <url>https://repo.mikeprimm.com/</url>
         </repository>
     </repositories>
 
@@ -163,14 +163,45 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.griefcraft.lwc</groupId>
-            <artifactId>LWCX</artifactId>
-            <version>2.2.7</version>
+            <groupId>com.griefcraft</groupId>
+            <artifactId>lwc</artifactId>
+            <version>2.3.2</version>
             <scope>provided</scope>
+        </dependency>
+        <!-- Bolt chest protection API -->
+        <dependency>
+            <groupId>org.popcraft</groupId>
+            <artifactId>bolt-bukkit</artifactId>
+            <version>1.1.33</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- BlockProt API via JitPack (provided). Exclude transitive modules that are not resolvable here. -->
+        <dependency>
+            <groupId>com.github.spnda</groupId>
+            <artifactId>BlockProt</artifactId>
+            <version>1.2.6</version>
+            <scope>provided</scope>
+            <exclusions>
+                <!-- Not published as standalone artifacts on Maven Central/JitPack for this coordinate -->
+                <exclusion>
+                    <groupId>com.github.spnda.BlockProt</groupId>
+                    <artifactId>common</artifactId>
+                </exclusion>
+                <!-- Optional runtime hook, not needed for Shop compilation/tests -->
+                <exclusion>
+                    <groupId>me.clip</groupId>
+                    <artifactId>placeholderapi</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>us.dynmap</groupId>
             <artifactId>dynmap-api</artifactId>
+            <!--
+              Dynmap publishes this artifact on https://repo.mikeprimm.com/.
+              Note: some CI environments cannot reach that host; see scripts/install-dynmap-api.sh for a CI-safe
+              alternative that installs the same coordinates from GitHub Releases.
+            -->
             <version>3.2-beta-1</version>
             <scope>provided</scope>
         </dependency>

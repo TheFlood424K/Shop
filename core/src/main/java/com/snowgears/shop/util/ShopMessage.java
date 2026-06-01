@@ -11,7 +11,6 @@ import net.md_5.bungee.api.chat.*;
 import org.bukkit.Bukkit;
 import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -79,7 +78,7 @@ public class ShopMessage {
         targetMaxLength = displayConfig.getInt("targetMaxLength", 40);
 
         // Load in our placeholders
-        this.loadPlaceholders();
+        loadPlaceholders();
     }
 
     /**
@@ -526,23 +525,7 @@ public class ShopMessage {
 
     private static HoverEvent getItemHoverEvent(ItemStack item) {
         if (item == null || disableItemHover) { return null; }
-
-        if (Shop.getPlugin().isMockBukkit()) { return new HoverEvent(HoverEvent.Action.SHOW_ITEM, new net.md_5.bungee.api.chat.hover.content.Item(item.getType().getKey().toString(), item.getAmount(), null)); }
-
-        // If we are 1.20.5+, we have to use the new Item Components Data system
-        if (MCVersion.atLeast("1.20.5")) {
-            // If we are paper, we can use the getUnsafe method to get the hover event, which is better than the NMS method
-            if (Shop.getPlugin().getFoliaLib().isPaper()) {
-                return ItemHoverEventHelper.createFrom(item);
-            } else {
-                // Since we are on Spigot or something else, we can't use the getUnsafe method, so we have to use the NMS method
-                return ItemHoverUtilNMS.getHoverEventNMS(item);
-            }
-        }
-        // If we are below 1.20.5, we have to use the old NBT tag system
-        else {
-            return ItemHoverEventHelper.createFromLegacy(item);
-        }
+        return ItemHoverEventHelper.createFrom(item);
     }
 
     public static BaseComponent componentFromLegacy(String text) {
@@ -955,6 +938,7 @@ public class ShopMessage {
         messageMap.put("initialCreateInstruction", chatConfig.getString("interaction.initialCreateInstruction"));
         messageMap.put("createHitChest", chatConfig.getString("interaction.createHitChest"));
         messageMap.put("adminCreateHitChest", chatConfig.getString("interaction.adminCreateHitChest"));
+        messageMap.put("interaction_openTrusted", chatConfig.getString("interaction.openTrusted"));
 
         messageMap.put("permission_use", chatConfig.getString("permission.use"));
         messageMap.put("permission_create", chatConfig.getString("permission.create"));
@@ -972,7 +956,7 @@ public class ShopMessage {
         messageMap.put("interactionIssue_sameItem", chatConfig.getString("interaction_issue.createSameItem"));
         messageMap.put("interactionIssue_displayRoom", chatConfig.getString("interaction_issue.createDisplayRoom"));
         messageMap.put("interactionIssue_signRoom", chatConfig.getString("interaction_issue.createSignRoom"));
-        messageMap.put("interactionIssue_createOtherPlayer", chatConfig.getString("interaction_issue.createOtherShop"));
+        messageMap.put("interactionIssue_createOtherPlayer", chatConfig.getString("interaction_issue.createOtherPlayer"));
         messageMap.put("interactionIssue_createInsufficientFunds", chatConfig.getString("interaction_issue.createInsufficientFunds"));
         messageMap.put("interactionIssue_createCooldown", chatConfig.getString("interaction_issue.createCooldown"));
         messageMap.put("interactionIssue_destroyInsufficientFunds", chatConfig.getString("interaction_issue.destroyInsufficientFunds"));

@@ -32,11 +32,17 @@ public class PlotSquaredHookListener implements Listener {
 
     @Subscribe
     public void onPlotDelete(PlotDeleteEvent e) {
+        if (plugin == null || !plugin.isPlotSquaredIntegrationEnabled()) {
+            return;
+        }
         deleteAllShopsInPlot(e.getPlot());
     }
     
     @Subscribe
     public void onPlotClear(PlotClearEvent e) {
+        if (plugin == null || !plugin.isPlotSquaredIntegrationEnabled()) {
+            return;
+        }
         deleteAllShopsInPlot(e.getPlot());
     }
 

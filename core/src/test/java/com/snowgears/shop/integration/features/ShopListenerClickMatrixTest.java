@@ -32,6 +32,10 @@ import static org.mockito.Mockito.when;
 
 import com.snowgears.shop.hook.WorldGuardHook;
 import org.bukkit.entity.Player;
+import com.snowgears.shop.event.PlayerOpenShopEvent;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
+import org.bukkit.event.EventHandler;
 
 @Tag("integration")
 public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
@@ -324,6 +328,77 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         assertNull(owner.nextMessage(), "No chat message expected for OFF_HAND chest interactions");
     }
 
+    @Test
+    void chest_rightClick_nonOwner_openAllowedByEvent_allowsOpen_noExecute_noCancel() {
+        AbstractShop shop = createInitializedShopAt(new Location(world, 60, 65, 10));
+        AbstractShop spy = spyAndReplace(shop);
+        setConfig("usePerms", false);
+
+        // Non-owner player
+        PlayerMock stranger = server.addPlayer();
+        stranger.setOp(false);
+
+        // Register a listener that allows opening the container via PlayerOpenShopEvent
+        Listener allowListener = new Listener() {
+            @EventHandler
+            public void onPreOpen(PlayerOpenShopEvent e) {
+                if (e.getTarget() == PlayerOpenShopEvent.OpenTarget.CHEST) {
+                    e.setMode(PlayerOpenShopEvent.OpenMode.OPEN_CONTAINER);
+                }
+            }
+        };
+        server.getPluginManager().registerEvents(allowListener, getPlugin());
+
+        try {
+            Block chestBlock = shop.getChestLocation().getBlock();
+            PlayerInteractEvent event = new PlayerInteractEvent(stranger, Action.RIGHT_CLICK_BLOCK, stranger.getInventory().getItemInMainHand(), chestBlock, BlockFace.NORTH, EquipmentSlot.HAND);
+            server.getPluginManager().callEvent(event);
+
+            // Should not cancel and should not execute any shop action
+            Mockito.verify(spy, Mockito.never()).executeClickAction(any(PlayerInteractEvent.class), any());
+            assertFalse(event.isCancelled(), "Event should not be cancelled when OPEN_CONTAINER is requested");
+            assertEquals("§7You have been trusted to open this shop by Player0.", stranger.nextMessage(), "should be sent a message saying they were trusted to open the other players shop");
+            assertNull(stranger.nextMessage(), "No additional messages expected when opening is allowed by event");
+        } finally {
+            HandlerList.unregisterAll(allowListener);
+        }
+    }
+
+    @Test
+    void chest_rightClick_nonOwner_openDeniedByEvent_cancels_noExecute() {
+        AbstractShop shop = createInitializedShopAt(new Location(world, 62, 65, 10));
+        AbstractShop spy = spyAndReplace(shop);
+
+        // Non-owner player
+        PlayerMock stranger = server.addPlayer();
+        stranger.setOp(false);
+
+        // Register a listener that cancels the PlayerOpenShopEvent
+        Listener denyListener = new Listener() {
+            @EventHandler
+            public void onPreOpen(PlayerOpenShopEvent e) {
+                if (e.getTarget() == PlayerOpenShopEvent.OpenTarget.CHEST) {
+                    e.getPlayer().sendMessage("§cProtection plugin says no!"); // Protection plugins should log their own message either in their plugin or in the integration
+                    e.setCancelled(true);
+                }
+            }
+        };
+        server.getPluginManager().registerEvents(denyListener, getPlugin());
+
+        try {
+            Block chestBlock = shop.getChestLocation().getBlock();
+            PlayerInteractEvent event = new PlayerInteractEvent(stranger, Action.RIGHT_CLICK_BLOCK, stranger.getInventory().getItemInMainHand(), chestBlock, BlockFace.NORTH, EquipmentSlot.HAND);
+            server.getPluginManager().callEvent(event);
+
+            // Should cancel and should not execute any shop action
+            Mockito.verify(spy, Mockito.never()).executeClickAction(any(PlayerInteractEvent.class), any());
+            assertTrue(event.isCancelled(), "Event should be cancelled when PlayerOpenShopEvent is cancelled");
+            assertEquals("§cProtection plugin says no!", stranger.nextMessage(), "Protection plugin should log their own message either in their plugin or in the integration");
+            assertNull(stranger.nextMessage(), "No additional messages expected when cancelled by pre-open event (aka no Shop message should be sent, only plugins/event listeners should send messages)");
+        } finally {
+            HandlerList.unregisterAll(denyListener);
+        }
+    }
     // ---------- Message and region gating behaviors ----------
 
     @Test

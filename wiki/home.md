@@ -33,7 +33,7 @@
 
 ## Features
 Change * currency to a custom item, virtual currency (Vault), or experience points seamlessly.
-* [Create shops in multiple ways. Either fill out a sign or hit a chest with an item and fill out info in chat (both configurable)](https://github.com/snowgears/shopbugs/wiki/Creating-Shops)
+* [Create shops in multiple ways. Either fill out a sign or hit a chest with an item and fill out info in chat (both configurable)](https://github.com/snowgears/shop/wiki/Creating-Shops)
 * Fully customizable.
 * No commands required.
 * No permissions required. (But are supported)
@@ -52,6 +52,14 @@ Change * currency to a custom item, virtual currency (Vault), or experience poin
 * Integrates with BlueMap to [show shops on the map](https://user-images.githubusercontent.com/4141199/194400062-2dbdbad4-a2c5-4097-b1fd-9ab0b3d1a801.png)
 * Works with chests, barrels, and even shulker boxes!
 * Plug and Play.
+
+## Documentation
+
+- **Player instructions**: [Player-Instructions](https://github.com/snowgears/shop/wiki/Player-Instructions)
+- **Trust Players (v1.11)**: [Trust-Players](https://github.com/snowgears/shop/wiki/Trust-Players)
+- **Configuration (config.yml)**: [Configuration-(config.yml)](https://github.com/snowgears/shop/wiki/Configuration-(config.yml))
+- **Permissions**: [Permissions](https://github.com/snowgears/shop/wiki/Permissions)
+- **Language configs (messages/signs)**: [Language-Configs](https://github.com/snowgears/shop/wiki/Language-Configs)
 
 ## Display Types
 <table>
@@ -78,12 +86,4 @@ Change * currency to a custom item, virtual currency (Vault), or experience poin
     </td>
   </tr>
 </table>
-
-
-
-
-
-
-
-## How it works
 

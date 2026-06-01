@@ -26,6 +26,9 @@ public class LWCHookListener implements Listener {
     //this is dumb, but in order to not hard code all scenarios where an LWCProtectionRegisterEvent could be registered, we are just gonna remove protections on shops when their chests are clicked
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChestClick(PlayerInteractEvent event){
+        if (plugin == null || !plugin.isLwcIntegrationEnabled()) {
+            return;
+        }
         if(event.getClickedBlock() != null && plugin.getShopHandler().isChest(event.getClickedBlock())){
             AbstractShop shop = plugin.getShopHandler().getShopByChest(event.getClickedBlock());
             if(shop != null){
@@ -39,6 +42,9 @@ public class LWCHookListener implements Listener {
 
     @EventHandler
     public void onBlockPlace(PlayerCreateShopEvent event){
+        if (plugin == null || !plugin.isLwcIntegrationEnabled()) {
+            return;
+        }
         if(event.getShop().getChestLocation() != null){
             Protection protection = lwc.findProtection(event.getShop().getChestLocation());
             if(protection != null) {

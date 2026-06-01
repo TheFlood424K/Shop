@@ -26,6 +26,9 @@ public class ARMHookListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onRegionRestore(RestoreRegionEvent event) {
+        if (plugin == null || !plugin.isAdvancedRegionMarketIntegrationEnabled()) {
+            return;
+        }
         deleteAllShopsInRegion(event.getRegion());
     }
 

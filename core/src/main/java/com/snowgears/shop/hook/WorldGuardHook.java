@@ -243,41 +243,53 @@ public class WorldGuardHook {
     }
 
     public static boolean canCreateShop(Player player, Location location) {
-        // Check if the WorldGuard plugin even exists on the server
-        if (!Shop.getPlugin().worldGuardExists()) {
+        Shop plugin = Shop.getPlugin();
+        if (plugin == null || !plugin.isWorldGuardIntegrationEnabled()) {
             return true;
         }
-        if (player.isOp() || (Shop.getPlugin().usePerms() && player.hasPermission("shop.operator"))) {
+        // Check if the WorldGuard plugin even exists on the server
+        if (!plugin.worldGuardExists()) {
+            return true;
+        }
+        if (player.isOp() || (plugin.usePerms() && player.hasPermission("shop.operator"))) {
             return true;
         }
         try {
             Plugin wgPlugin = getPlugin();
             if (wgPlugin == null || !wgPlugin.isEnabled()) return true;
-            return Internal.isShopAllowed(wgPlugin, player, location, Shop.getPlugin().getWorldGuardConfig());
+            return Internal.isShopAllowed(wgPlugin, player, location, plugin.getWorldGuardConfig());
         } catch (Exception | NoClassDefFoundError ignore) {
         }
         return true;
     }
 
     public static boolean canUseShop(Player player, Location location) {
-        if (!Shop.getPlugin().worldGuardExists()) {
+        Shop plugin = Shop.getPlugin();
+        if (plugin == null || !plugin.isWorldGuardIntegrationEnabled()) {
             return true;
         }
-        if (player.isOp() || (Shop.getPlugin().usePerms() && player.hasPermission("shop.operator"))) {
+        if (!plugin.worldGuardExists()) {
+            return true;
+        }
+        if (player.isOp() || (plugin.usePerms() && player.hasPermission("shop.operator"))) {
             return true;
         }
         try {
             Plugin wgPlugin = getPlugin();
             if (wgPlugin == null || !wgPlugin.isEnabled()) return true;
             
-            return Internal.canUseShop(wgPlugin, player, location, Shop.getPlugin().getWorldGuardConfig());
+            return Internal.canUseShop(wgPlugin, player, location, plugin.getWorldGuardConfig());
         } catch (NoClassDefFoundError ignore) {
         }
         return true;
     }
 
     public static boolean isRegionOwner(Player player, Location location) {
-        if (!Shop.getPlugin().worldGuardExists()) {
+        Shop plugin = Shop.getPlugin();
+        if (plugin == null || !plugin.isWorldGuardIntegrationEnabled()) {
+            return false;
+        }
+        if (!plugin.worldGuardExists()) {
             return false;
         }
         try {

@@ -659,13 +659,18 @@ public abstract class AbstractShop {
     public String toString() {
         return "AbstractShop{" +
                 "type=" + type.toString().toUpperCase() +
-                ", item=" + item +
-                ", price=" + price +
-                (secondaryItem != null ? ", secondaryItem=" + secondaryItem : "") +
                 (isAdmin ? ", isAdmin=" + isAdmin : "") +
+                ", owner=" + this.getOwnerName() +
+                ", loc=" + ((signLocation != null) ? signLocation.getWorld().getName() + ":" + signLocation.getBlockX() + "/" + signLocation.getBlockY() + "/" + signLocation.getBlockZ() : "null") +
+                ", price=" + price +
+                ", amount=" + amount +
                 ", stock=" + stock +
-                ", owner=" + owner +
-                ", chestLocation=" + ((chestLocation != null) ? chestLocation.getWorld().getName() + ":" + chestLocation.getBlockX() + "/" + chestLocation.getBlockY() + "/" + chestLocation.getBlockZ() : "null") +
+                ", item=" + (item != null ? Shop.getPlugin().getItemNameUtil().getName(item).toPlainText() : "null") +
+                (secondaryItem != null ? ", secondaryItem=" + Shop.getPlugin().getItemNameUtil().getName(secondaryItem).toPlainText() : "") +
+                ", id=" + this.getId().toString().substring(0,5) +
+                ", filename=" + this.getOwnerUUID() + ".yml" +
+                ", needsSave=" + this.needsSave +
+                ", isLoaded=" + this.isLoaded +
                 '}';
     }
 }

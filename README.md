@@ -56,4 +56,4 @@ Examples:
 ## Support
 Join our [Discord server](https://discord.gg/GpSwEWS) for support, discussions, and updates.
 
-For bug reports and feature requests, please use our [GitHub Issues](https://github.com/snowgears/shopbugs/issues) tracker.
+For bug reports and feature requests, please use our [GitHub Issues](https://github.com/snowgears/shop/issues) tracker.

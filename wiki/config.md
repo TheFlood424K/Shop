@@ -1,59 +1,65 @@
 **`config.yml`**
 * **General Settings**
-    * [usePermissions](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#usePermissions)
-    * [checkUpdates](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#checkUpdates)
-    * [enableGUI](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#enableGUI)
-    * [commandAlias](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#commandAlias)
-    * [deletePlayerShopsAfterXHoursOffline](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#deletePlayerShopsAfterXHoursOffline)
+    * [usePermissions](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#usePermissions)
+    * [checkUpdates](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#checkUpdates)
+    * [enableGUI](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#enableGUI)
+    * [commandAlias](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#commandAlias)
+    * [deletePlayerShopsAfterXHoursOffline](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#deletePlayerShopsAfterXHoursOffline)
 * **Currency and Economy**
-    * [currency](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#currency)
-    * [allowFractionalCurrency](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#allowFractionalCurrency)
-    * [allowPartialSales](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#allowPartialSales)
-    * [checkItemDurability](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#checkItemDurability)
-    * [ignoreItemRepairCost](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#ignoreItemRepairCost)
-    * [creationCost](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#creationCost)
-    * [destructionCost](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#destructionCost)
-    * [teleportCost](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#teleportCost)
-    * [teleportCooldown](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#teleportCooldown)
-    * [returnCreationCost](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#returnCreationCost)
-    * [priceSuffixes](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#priceSuffixes)
+    * [currency](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#currency)
+    * [allowFractionalCurrency](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#allowFractionalCurrency)
+    * [allowPartialSales](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#allowPartialSales)
+    * [checkItemDurability](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#checkItemDurability)
+    * [ignoreItemRepairCost](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#ignoreItemRepairCost)
+    * [creationCost](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#creationCost)
+    * [destructionCost](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#destructionCost)
+    * [teleportCost](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#teleportCost)
+    * [teleportCooldown](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#teleportCooldown)
+    * [returnCreationCost](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#returnCreationCost)
+    * [priceSuffixes](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#priceSuffixes)
 * **Shop Display**
-    * [displayType](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#displayType)
-    * [displayNameTags](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#displayNameTags)
-    * [displayCycle](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#displayCycle)
-    * [forceDisplayToNoneIfBlocked](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#forceDisplayToNoneIfBlocked)
-    * [displayLightLevel](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#displayLightLevel)
-    * [setGlowingItemFrame](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#setGlowingItemFrame)
-    * [setGlowingSignText](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#setGlowingSignText)
+    * [displayType](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#displayType)
+    * [displayNameTags](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#displayNameTags)
+    * [displayCycle](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#displayCycle)
+    * [forceDisplayToNoneIfBlocked](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#forceDisplayToNoneIfBlocked)
+    * [displayLightLevel](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#displayLightLevel)
+    * [setGlowingItemFrame](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#setGlowingItemFrame)
+    * [setGlowingSignText](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#setGlowingSignText)
 * **Shop Interactions**
-    * [actionMappings](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#action-mappings)
-    * [creationMethod](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#creationMethod)
-    * [displayFloatingCreateText](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#displayFloatingCreateText)
-    * [allowCreativeSelection](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#allowCreativeSelection)
-    * [destroyShopRequiresSneak](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#destroyShopRequiresSneak)
-    * [playSounds](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#playSounds)
-    * [playEffects](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#playEffects)
-    * [inverseComboShops](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#inverseComboShops)
-    * [itemList](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#itemList)
-    * [worldBlacklist](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#worldBlacklist)
-    * [enabledContainers](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#enabledContainers)
+    * [actionMappings](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#action-mappings)
+    * [creationMethod](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#creationMethod)
+    * [displayFloatingCreateText](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#displayFloatingCreateText)
+    * [allowCreativeSelection](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#allowCreativeSelection)
+    * [destroyShopRequiresSneak](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#destroyShopRequiresSneak)
+    * [playSounds](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#playSounds)
+    * [playEffects](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#playEffects)
+    * [inverseComboShops](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#inverseComboShops)
+    * [itemList](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#itemList)
+    * [worldBlacklist](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#worldBlacklist)
+    * [enabledContainers](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#enabledContainers)
 * **Database Logging & Notifications**
-    * [logging](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#logging)
-    * [offlinePurchaseNotifications](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#offlinePurchaseNotifications)
+    * [logging](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#logging)
+    * [offlinePurchaseNotifications](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#offlinePurchaseNotifications)
 * **Integrations**
-    * [hookWorldGuard](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#hookWorldGuard)
-    * [hookTowny](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#hookTowny)
-    * [dynmap-marker](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#dynmap-marker)
-    * [bluemap-marker](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#bluemap-marker)
+    * [worldGuard](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#worldguard)
+    * [lwc](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#lwc)
+    * [bentoBox](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#bentobox)
+    * [advancedRegionMarket](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#advancedregionmarket)
+    * [plotSquared](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#plotsquared)
+    * [bolt.trustIntegration](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#bolt-trustintegration)
+    * [blockProt.trustIntegration](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#blockprot-trustintegration)
+    * [hookTowny](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#hookTowny)
+    * [dynmap-marker](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#dynmap-marker)
+    * [bluemap-marker](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#bluemap-marker)
 * **Shop Performance Optimizations**
-    * [displayProcessInterval](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#displayProcessInterval)
-    * [displayMovementThreshold](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#displayMovementThreshold)
-    * [maxShopDisplayDistance](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#maxShopDisplayDistance)
-    * [shopSearchRadius](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#shopSearchRadius)
+    * [displayProcessInterval](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#displayProcessInterval)
+    * [displayMovementThreshold](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#displayMovementThreshold)
+    * [maxShopDisplayDistance](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#maxShopDisplayDistance)
+    * [shopSearchRadius](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#shopSearchRadius)
 * **Debug Tools**
-    * [logLevel](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#logLevel)
-    * [enableLogColor](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#enableLogColor)
-    * [debug](https://github.com/snowgears/shopbugs/wiki/Configuration-(config.yml)#debug)
+    * [logLevel](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#logLevel)
+    * [enableLogColor](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#enableLogColor)
+    * [debug](https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#debug)
 
 # General Settings
 
@@ -1123,20 +1129,35 @@ This feature is particularly valuable for players who run shops on your server, 
 
 The Shop plugin offers several powerful integrations with popular Minecraft plugins to enhance functionality, improve protection, and provide visual representation of shops on map plugins.
 
-## hookWorldGuard
-Controls whether the Shop plugin integrates with WorldGuard for enhanced region-based shop protection.
+## worldGuard
+Controls whether the Shop plugin integrates with WorldGuard for region-based shop protection and restrictions.
+
 ```yaml
-hookWorldGuard: false
+worldGuard:
+  enabled: true
+  requireAllowShopFlag: false
+  # ... other worldGuard settings ...
 ```
 
-This integration adds an extra layer of shop security by respecting WorldGuard regions and their protection flags:
+### worldGuard.enabled
+Master toggle for **all** WorldGuard behavior in Shop (creation restrictions, use restrictions, allow-shop flag registration, and region-owner checks).
 
-- When `false` (default): The Shop plugin will respect WorldGuard's basic region protection flags (`passthrough`, `build`, and `chest-access`) but won't use the custom `allow-shop` flag. This means players can create shops anywhere they have permission to build and access chests according to WorldGuard's standard protection system.
+- When `true` (default): Shop will apply WorldGuard restrictions (based on `worldGuard.createShopFlagChecks`, `worldGuard.useShopFlagChecks`, and optionally `worldGuard.requireAllowShopFlag`).
+- When `false`: Shop will **not** apply any WorldGuard-based restrictions and will **not** register or enforce the `allow-shop` flag.
 
-- When `true`: In addition to respecting the basic protection flags, the plugin will also check for a custom WorldGuard flag called `allow-shop`. This gives server administrators more granular control over where shops can be created within protected regions.
+### worldGuard.requireAllowShopFlag
+If enabled, requires WorldGuard regions to have the custom `allow-shop` flag set to allow shop creation.
+
+```yaml
+worldGuard:
+  enabled: true
+  requireAllowShopFlag: true
+```
+
+Note: This setting replaces the legacy `hookWorldGuard` option.
 
 ### Technical Details
-- When enabled, the plugin registers a custom WorldGuard flag called `allow-shop`
+- When `worldGuard.enabled` is `true` and `worldGuard.requireAllowShopFlag` is `true`, the plugin registers a custom WorldGuard flag called `allow-shop`
 - Shop creation is checked against multiple protection mechanisms:
   - The player must have permission to build in the region
   - The player must have chest access in the region
@@ -1159,18 +1180,18 @@ Here are practical examples of WorldGuard commands for configuring regions with 
 /rg define default_region
 
 # Create a region with passthrough permission
-# (Shop creation will be allowed if using default `hookWorldGuard: false`)
+# (Shop creation will be allowed with default WorldGuard flag checks)
 /rg define region_with_passthrough
 /rg flag region_with_passthrough passthrough allow
 
 # Create a region with both build and chest access
-# (Shop creation will be allowed if using default `hookWorldGuard: false`)
+# (Shop creation will be allowed with default WorldGuard flag checks)
 /rg define region_with_build_and_chest_access
 /rg flag region_with_build_and_chest_access build allow
 /rg flag region_with_build_and_chest_access chest-access allow
 
 # Create a region with the custom allow-shop flag
-# (Shop creation will be allowed if `hookWorldGuard: true` is configured)
+# (Shop creation will be allowed if `worldGuard.requireAllowShopFlag: true` is configured)
 /rg define my_shop_region
 /rg flag my_shop_region build allow
 /rg flag my_shop_region chest-access allow
@@ -1189,6 +1210,143 @@ Here are practical examples of WorldGuard commands for configuring regions with 
 /rg flag region_with_build_access chest-access deny
 
 ```
+
+## lwc
+Controls Shop's integration with **LWC** (protection cleanup + shop creation restrictions on protected chests).
+
+```yaml
+lwc:
+  enabled: true
+```
+
+- When `true` (default): Shop will integrate with LWC when LWC is installed.
+- When `false`: Shop will not apply any LWC-specific behavior even if LWC is installed.
+
+## bentoBox
+Controls Shop's integration with **BentoBox** (shop deletion on island delete/reset events).
+
+```yaml
+bentoBox:
+  enabled: true
+```
+
+## advancedRegionMarket
+Controls Shop's integration with **AdvancedRegionMarket (ARM)** (shop deletion on region restore events).
+
+```yaml
+advancedRegionMarket:
+  enabled: true
+```
+
+## plotSquared
+Controls Shop's integration with **PlotSquared** (shop deletion on plot clear/delete events).
+
+```yaml
+plotSquared:
+  enabled: true
+```
+
+## bolt.trustIntegration
+Controls the **Bolt Trust Players** integration (Shop v1.11 feature) that allows *trusted* players to open a shop's container normally.
+
+- **What it does**: When a **non-owner** right-clicks a shop container, Shop fires a pre-open event (`PlayerOpenShopEvent`). If Bolt considers the player allowed to open that protected container, Shop switches into **open-container mode**:
+  - The container opens normally.
+  - **No Shop click action / transaction is executed for that chest click.**
+  - The player is sent the "trusted open" message (`interaction.openTrusted`).
+- **When it triggers**:
+  - Only when **Bolt is installed** (detected at startup), and this integration toggle is enabled.
+  - Only for **shop container clicks** (the shop chest/barrel/etc. click flow).
+  - Only when the container is **protected by Bolt** and Bolt reports the player can open it.
+
+For a full player/admin explanation (including troubleshooting), see: **[Trust Players](https://github.com/snowgears/shop/wiki/Trust-Players)**.
+
+```yaml
+bolt:
+  trustIntegration:
+    enabled: true
+```
+
+### Requirements
+- **Bolt installed**: If Bolt is not present, this setting has no effect.
+
+### How to disable (exact YAML)
+
+```yaml
+bolt:
+  trustIntegration:
+    enabled: false
+```
+
+Disabling this restores the "normal Shop behavior" for non-owners clicking shop containers (Shop will no longer use Bolt trust to allow container opens).
+
+### Player-facing message (customizable)
+- **Message key**: `interaction.openTrusted` (in `chatConfig.yml`)
+- **Default text**:
+
+```yaml
+interaction:
+  openTrusted: "&7You have been trusted to open this shop by [owner]."
+```
+
+### Shop creation impact (protected chests)
+If a player tries to create a shop on a container that is already protected by **another** player (per Bolt), Shop can deny creation and send:
+- **Message key**: `interaction_issue.createOtherPlayer` (in `chatConfig.yml`)
+- **Default text**: `&cYou are not allowed to create a shop on this chest.`
+
+### Troubleshooting quick notes
+- **“I clicked the chest and it opened instead of buying/selling”**: If you see the `interaction.openTrusted` message, that click was treated as a trusted open, so **Shop did not transact**. Close the container and interact with the **shop sign** to buy/sell (see [Trust Players](https://github.com/snowgears/shop/wiki/Trust-Players)).
+- **“I disabled this but the chest still opens”**: Confirm you restarted/reloaded Shop after changing `config.yml`, and double-check the player is not the **shop owner** or a **Shop operator**. (Depending on the shop type, Shop may allow operators to open other players’ shop containers via Shop’s own logic.)
+
+## blockProt.trustIntegration
+Controls the **BlockProt Trust Players** integration (Shop v1.11 feature) that allows *trusted* players to open a shop's container normally.
+
+- **What it does**: When a **non-owner** right-clicks a shop container, Shop fires a pre-open event (`PlayerOpenShopEvent`). If BlockProt considers the player allowed (owner/friend access) on that protected container, Shop switches into **open-container mode**:
+  - The container opens normally.
+  - **No Shop click action / transaction is executed for that chest click.**
+  - The player is sent the "trusted open" message (`interaction.openTrusted`).
+- **When it triggers**:
+  - Only when **BlockProt is installed** (detected at startup), and this integration toggle is enabled.
+  - Only for **shop container clicks** (the shop chest/barrel/etc. click flow).
+  - Only when the container is **protected by BlockProt** and BlockProt reports the player can access it.
+
+For a full player/admin explanation (including troubleshooting), see: **[Trust Players](https://github.com/snowgears/shop/wiki/Trust-Players)**.
+
+```yaml
+blockProt:
+  trustIntegration:
+    enabled: true
+```
+
+### Requirements
+- **BlockProt installed**: If BlockProt is not present, this setting has no effect.
+
+### How to disable (exact YAML)
+
+```yaml
+blockProt:
+  trustIntegration:
+    enabled: false
+```
+
+Disabling this restores the "normal Shop behavior" for non-owners clicking shop containers (Shop will no longer use BlockProt trust to allow container opens).
+
+### Player-facing message (customizable)
+- **Message key**: `interaction.openTrusted` (in `chatConfig.yml`)
+- **Default text**:
+
+```yaml
+interaction:
+  openTrusted: "&7You have been trusted to open this shop by [owner]."
+```
+
+### Shop creation impact (protected chests)
+If a player tries to create a shop on a container that is already protected by **another** player (per BlockProt), Shop can deny creation and send:
+- **Message key**: `interaction_issue.createOtherPlayer` (in `chatConfig.yml`)
+- **Default text**: `&cYou are not allowed to create a shop on this chest.`
+
+### Troubleshooting quick notes
+- **“I clicked the chest and it opened instead of buying/selling”**: If you see the `interaction.openTrusted` message, that click was treated as a trusted open, so **Shop did not transact**. Close the container and interact with the **shop sign** to buy/sell (see [Trust Players](https://github.com/snowgears/shop/wiki/Trust-Players)).
+- **“I disabled this but the chest still opens”**: Confirm you restarted/reloaded Shop after changing `config.yml`, and double-check the player is not the **shop owner** or a **Shop operator**. (Depending on the shop type, Shop may allow operators to open other players’ shop containers via Shop’s own logic.)
 
 ## hookTowny
 Controls whether the Shop plugin integrates with Towny for town-based shop protection.
@@ -1299,17 +1457,17 @@ The `label` field supports the same placeholder variables as the dynmap integrat
 - BlueMap plugin must be installed on your server
 - The setting has no effect if BlueMap is not present
 
-## Automatic Integrations
+## Integration toggles (summary)
 
-The following plugins are automatically integrated when detected (no configuration needed):
+Shop automatically detects supported plugins, but each integration can be explicitly disabled via config:
 
-- **LWC**: Protects shops from being broken into by non-owners & allows purchases to be made through protected chests
-- **BentoBox**: Handles shop deletion when islands are reset or deleted
-- **AdvancedRegionMarket (ARM)**: Handles shop deletion when regions are reset
-- **PlotSquared**: Handles shop deletion when plots are reset or deleted
-- **Vault**: Provides economy support for currency-based shops (required for VAULT currency type)
-
-These integrations ensure that the Shop plugin works seamlessly with other popular server plugins without requiring additional configuration.
+- `worldGuard.enabled` (default `true`)
+- `lwc.enabled` (default `true`)
+- `bentoBox.enabled` (default `true`)
+- `advancedRegionMarket.enabled` (default `true`)
+- `plotSquared.enabled` (default `true`)
+- `bolt.trustIntegration.enabled` (default `true`)
+- `blockProt.trustIntegration.enabled` (default `true`)
 
 # Shop Performance Optimizations
 

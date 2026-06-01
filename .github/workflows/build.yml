@@ -81,10 +81,18 @@ jobs:
       run: |
         chmod +x ./buildMavenRepo.sh
         ./buildMavenRepo.sh
+
+    - name: Install Dynmap API (CI fallback)
+      run: |
+        chmod +x ./scripts/install-dynmap-api.sh
+        ./scripts/install-dynmap-api.sh
     
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
         mvn -B -nsu -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
+      # This is an optimization step only. It is known to be overly strict for some optional/provided integrations
+      # (e.g., external plugin APIs with unpublished transitive deps), which can cause spurious CI failures.
+      continue-on-error: true
       
     - name: Build
       run: mvn -B -nsu -T 1C -Drevision=${{ env.VERSION }} clean package
