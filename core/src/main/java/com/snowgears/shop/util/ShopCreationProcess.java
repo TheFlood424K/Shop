@@ -34,6 +34,7 @@ public class ShopCreationProcess {
     private ShopType shopType;
     boolean isAdmin;
     private PricePair pricePair;
+    private boolean destroyArmed;
 
     public AbstractDisplay display;
     private PlaceholderContext placeholderContext;
@@ -123,6 +124,16 @@ public class ShopCreationProcess {
 
     public ChatCreationStep getStep() { return step; }
     public void setStep(ChatCreationStep step) { this.step = step; }
+
+    public boolean isDestroyArmed() { return destroyArmed; }
+    public void setDestroyArmed(boolean destroyArmed) { this.destroyArmed = destroyArmed; }
+
+    // True for sign-based creation, where a real (uninitialized) shop and sign already exist on the chest.
+    public boolean isSignCreation() {
+        return step == ChatCreationStep.SIGN_CREATION
+                || step == ChatCreationStep.SIGN_ITEM
+                || step == ChatCreationStep.SIGN_BARTER_ITEM;
+    }
 
     public void setPricePair(PricePair pricePair){
         this.pricePair = pricePair;

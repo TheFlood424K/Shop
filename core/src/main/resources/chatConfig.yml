@@ -193,6 +193,7 @@ interaction_issue:
    useShopAlreadyInUse: "&cThis shop is in the middle of a transaction."
    destroyChest: "&cYou must remove the sign from this shop to break it."
    destroyUninitializedChest: "&cThis chest cannot be destroyed while a shop is being created for it."
+   destroyUninitializedChestCancel: "&cA shop is being created for this chest. &7Break it again to cancel."
    useOwnShop: "&7You cannot use your own shop."
    adminOpen: "&7Admin shops are not able to be opened."
    worldBlacklist: "&cShops are not allowed to be created in this world."

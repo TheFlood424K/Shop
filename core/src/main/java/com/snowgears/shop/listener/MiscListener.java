@@ -202,12 +202,16 @@ public class MiscListener implements Listener {
     }
 
     public boolean isChestInShopCreationProcess(Location location) {
+        return getShopCreationProcessByChest(location) != null;
+    }
+
+    public ShopCreationProcess getShopCreationProcessByChest(Location location) {
         for (ShopCreationProcess process : playerChatCreationSteps.values()) {
             if (process.getClickedChest().getLocation().equals(location)) {
-                return true;
+                return process;
             }
         }
-        return false;
+        return null;
     }
 
     // Fired anytime a player interacts with a block, air, or entity.
@@ -630,8 +634,21 @@ public class MiscListener implements Listener {
         } else if (plugin.getShopHandler().isChest(b)) {
             // Shop will not exist in ShopHandler if it is in the middle of a shop creation process
             // protect shops that are in the middle of a shop creation process from being destroyed
-            if (this.isChestInShopCreationProcess(b.getLocation())) {
-                ShopMessage.sendMessage("interactionIssue", "destroyUninitializedChest", player, null);
+            ShopCreationProcess process = this.getShopCreationProcessByChest(b.getLocation());
+            if (process != null) {
+                // The owner of a chest/chat creation can cancel it by breaking the chest a second time.
+                // Sign-based creation stays protected (a real shop and sign already exist on the chest).
+                if (process.getPlayerUUID().equals(player.getUniqueId()) && !process.isSignCreation()) {
+                    if (process.isDestroyArmed()) {
+                        // second deliberate attempt: cancel creation and let the chest break in the same hit
+                        this.cancelShopCreationProcess(player);
+                        return;
+                    }
+                    process.setDestroyArmed(true);
+                    ShopMessage.sendMessage("interactionIssue", "destroyUninitializedChestCancel", player, null);
+                } else {
+                    ShopMessage.sendMessage("interactionIssue", "destroyUninitializedChest", player, null);
+                }
                 event.setCancelled(true); // don't break chest
                 return;
             }
