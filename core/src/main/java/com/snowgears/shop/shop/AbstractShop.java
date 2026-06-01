@@ -53,6 +53,7 @@ public abstract class AbstractShop {
     protected boolean fakeSign;
 
     protected int stock;
+    protected Material cachedContainerType;
 
     public AbstractShop(Location signLoc, UUID player, double pri, int amt, Boolean admin, BlockFace facing) {
         this.signLocation = signLoc;
@@ -129,6 +130,9 @@ public abstract class AbstractShop {
             // matches the newly calculated stock (updateStock() only forces sign updates on change).
             this.signLinesRequireRefresh = true;
             this.updateStock();
+            // Prime the container type on the owning region thread so off-thread readers
+            // (e.g. the metrics task) can use the cached value without touching the block.
+            this.getContainerType();
             Shop.getPlugin().getLogger().debug("Loaded shop successfully: " + this);
             isLoaded = true;
             return true;
@@ -247,10 +251,13 @@ public abstract class AbstractShop {
     }
 
     public Material getContainerType() {
+        if(cachedContainerType != null)
+            return cachedContainerType;
         if(chestLocation == null || !this.isChunkLoaded())
             return null;
         try {
-            return chestLocation.getBlock().getType();
+            cachedContainerType = chestLocation.getBlock().getType();
+            return cachedContainerType;
         } catch (Exception e) {
             return null;
         }

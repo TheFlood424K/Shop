@@ -39,46 +39,65 @@ public class DisplayListener implements Listener {
 
     public void startRepeatingDisplayViewTask() {
         if (plugin.getDisplayTagOption() == DisplayTagOption.VIEW_SIGN) {
-            //run task every 15 ticks
-            repeatingViewTask = plugin.getFoliaLib().getScheduler().runTimer(() -> {
-                for (Player player : plugin.getServer().getOnlinePlayers()) {
-                    if (player != null) {
-                        try {
-                            Block block = player.getTargetBlockExact(8);
-                            if (block != null && block.getBlockData() instanceof WallSign) {
-                                AbstractShop shopObj = plugin.getShopHandler().getShop(block.getLocation());
-                                if (shopObj != null) {
-                                    shopObj.getDisplay().showDisplayTags(player);
-                                }
-                            }
-                        } catch (IllegalStateException e) {
-                            //do nothing, the block iterator missed a block for a player
-                        } catch (Exception e) {
-                            //do nothing, the block iterator missed a block for a player
+            repeatingViewTask =
+                    plugin.getFoliaLib().getScheduler().runTimer(() -> {
+
+                        for (Player player : plugin.getServer().getOnlinePlayers()) {
+                            if (player == null || !player.isOnline()) continue;
+
+                            plugin.getFoliaLib().getScheduler().runAtEntity(
+                                    player,
+                                    task -> {
+                                        try {
+                                            Block block = player.getTargetBlockExact(8);
+                                            if (block != null &&
+                                                    block.getBlockData() instanceof WallSign) {
+
+                                                AbstractShop shop =
+                                                        plugin.getShopHandler()
+                                                                .getShop(block.getLocation());
+
+                                                if (shop != null) {
+                                                    shop.getDisplay()
+                                                            .showDisplayTags(player);
+                                                }
+                                            }
+                                        } catch (Exception ignored) {}
+                                    }
+                            );
                         }
-                    }
-                }
-            }, 1, 15);
+                    }, 1, 15);
         }
 
-        // Run shop displays processing using configurable interval from config
-        repeatingDisplayTask = plugin.getFoliaLib().getScheduler().runTimerAsync(() -> {
-            // Process players in a staggered fashion to avoid overwhelming the server or client
-            List<Player> onlinePlayers = new ArrayList<>(plugin.getServer().getOnlinePlayers());
-            
-            for (int i = 0; i < onlinePlayers.size(); i++) {
-                Player player = onlinePlayers.get(i);
-                if (player != null && player.isOnline()) {
-                    // Add a slight staggered delay for each player to distribute packet sending
-                    final int playerIndex = i;
-                    plugin.getFoliaLib().getScheduler().runLater(() -> {
-                        if (player.isOnline()) {
-                            plugin.getShopHandler().processShopDisplaysNearPlayer(player);
-                        }
-                    }, playerIndex); // Stagger by 1 tick per player
-                }
-            }
-        }, 1, (long)(plugin.getDisplayProcessInterval() * 20)); // Convert seconds to ticks
+        startRepeatingDisplayProcessingTask();
+    }
+
+    private void startRepeatingDisplayProcessingTask() {
+
+        repeatingDisplayTask =
+                plugin.getFoliaLib().getScheduler().runTimer(() -> {
+
+                    List<Player> players =
+                            new ArrayList<>(plugin.getServer().getOnlinePlayers());
+
+                    for (int i = 0; i < players.size(); i++) {
+                        Player player = players.get(i);
+                        if (player == null || !player.isOnline()) continue;
+
+                        int delay = i;
+
+                        plugin.getFoliaLib().getScheduler().runAtEntityLater(
+                                player,
+                                task -> {
+                                    if (player.isOnline()) {
+                                        plugin.getShopHandler()
+                                                .processShopDisplaysNearPlayer(player);
+                                    }
+                                },
+                                delay
+                        );
+                    }
+                }, 1, (long) (plugin.getDisplayProcessInterval() * 20));
     }
 
     public DisplayListener(Shop instance) {

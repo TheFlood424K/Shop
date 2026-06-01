@@ -48,8 +48,8 @@ public class ShopHandler {
     private ConcurrentHashMap<UUID, List<Location>> playerShops = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String, List<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
     private ConcurrentHashMap<UUID, HashSet<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
-    private HashSet<UUID> playersProcessingShopDisplays = new HashSet<>();
-    private HashMap<UUID, Location> playersActiveShopDisplayTag = new HashMap<>();
+    private Set<UUID> playersProcessingShopDisplays = ConcurrentHashMap.newKeySet();
+    private ConcurrentHashMap<UUID, Location> playersActiveShopDisplayTag = new ConcurrentHashMap<>();
 
     //all loading of shops happens async at onEnable()
     //shops that still need to calculate their facing direction based on sign are considered "unloaded"
@@ -867,11 +867,11 @@ public class ShopHandler {
         for (AbstractShop shop : allShops.values()) {
             Material containerType = shop.getContainerType();
             if (containerType == null) continue;
-            if (containerType == Material.CHEST || containerType == Material.TRAPPED_CHEST) { chestShops++; }
+            if (containerType == Material.CHEST || containerType == Material.TRAPPED_CHEST
+                    || containerType.name().endsWith("COPPER_CHEST")) { chestShops++; }
             if (containerType == Material.BARREL) { barrelShops++; }
             if (containerType.name().endsWith("SHULKER_BOX")) { shulkerBoxShops++; }
         }
-        // Return a map of the container types
         Map<String, Integer> containerTypes = new HashMap<>();
         containerTypes.put("Chest Shops", chestShops);
         containerTypes.put("Barrel Shops", barrelShops);
