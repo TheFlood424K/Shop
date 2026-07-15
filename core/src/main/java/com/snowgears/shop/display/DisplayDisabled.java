@@ -2,12 +2,9 @@ package com.snowgears.shop.display;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.util.ArmorStandData;
-import net.minecraft.core.Direction;
-import net.minecraft.network.protocol.Packet;
 import org.bukkit.Location;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 public class DisplayDisabled extends AbstractDisplay {
