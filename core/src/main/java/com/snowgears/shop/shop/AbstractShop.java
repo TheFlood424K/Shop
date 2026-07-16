@@ -574,22 +574,93 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Returns true if the two blocks at the given location (feet and head) are safe
+     * for a player to stand in — i.e., passable (not solid) and not instantly harmful.
+     * Cobwebs, powder snow, and similar "soft" blocks that cause suffocation or
+     * movement penalties are also rejected.
+     */
+    private boolean isSafeBlock(Block block) {
+        Material type = block.getType();
+        if (!block.isPassable()) return false;
+        // Reject blocks that are technically passable but still harmful/undesirable
+        switch (type) {
+            case COBWEB:
+            case POWDER_SNOW:
+            case SWEET_BERRY_BUSH:
+            case CACTUS:
+            case FIRE:
+            case SOUL_FIRE:
+            case LAVA:
+            case MAGMA_BLOCK:
+                return false;
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Searches for a safe teleport location near the shop sign, spiralling outward
+     * from the preferred spot in front of the sign. Falls back to one block above
+     * the sign if no clear location is found within the search radius.
+     *
+     * Fixes issue snowgears#43: players could previously be teleported into solid
+     * blocks, cobwebs, or other hazardous blocks adjacent to the shop.
+     */
+    private Location findSafeTeleportLocation(Location preferred) {
+        // Check the preferred location first (in front of sign)
+        Block feet = preferred.getBlock();
+        Block head = feet.getRelative(BlockFace.UP);
+        if (isSafeBlock(feet) && isSafeBlock(head)) {
+            return preferred;
+        }
+
+        // Search in a small radius around the preferred spot at the same Y level,
+        // then one block up, then one block down.
+        int[] yOffsets = {0, 1, -1};
+        for (int yOff : yOffsets) {
+            for (int r = 1; r <= 3; r++) {
+                for (int dx = -r; dx <= r; dx++) {
+                    for (int dz = -r; dz <= r; dz++) {
+                        if (Math.abs(dx) != r && Math.abs(dz) != r) continue; // only check ring border
+                        Location candidate = preferred.clone().add(dx, yOff, dz);
+                        Block candidateFeet = candidate.getBlock();
+                        Block candidateHead = candidateFeet.getRelative(BlockFace.UP);
+                        if (isSafeBlock(candidateFeet) && isSafeBlock(candidateHead)) {
+                            // Snap to block centre
+                            candidate.setX(candidateFeet.getX() + 0.5);
+                            candidate.setZ(candidateFeet.getZ() + 0.5);
+                            return candidate;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Last resort: one block above the sign
+        Location fallback = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
+        fallback.setYaw(preferred.getYaw());
+        fallback.setPitch(preferred.getPitch());
+        return fallback;
+    }
+
     public void teleportPlayer(Player player){
         if(player == null)
             return;
 
+        Location preferred;
         if(chestLocation == null) {
             this.load();
-            Location loc = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
-            player.teleport(loc);
+            preferred = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
         }
         else {
-            Location loc = this.getSignLocation().getBlock().getRelative(facing).getLocation().add(0.5, 0, 0.5);
-            loc.setYaw(UtilMethods.faceToYaw(facing.getOppositeFace()));
-            loc.setPitch(25.0f);
-
-            player.teleport(loc);
+            preferred = this.getSignLocation().getBlock().getRelative(facing).getLocation().add(0.5, 0, 0.5);
+            preferred.setYaw(UtilMethods.faceToYaw(facing.getOppositeFace()));
+            preferred.setPitch(25.0f);
         }
+
+        Location safe = findSafeTeleportLocation(preferred);
+        player.teleport(safe);
         Shop.getPlugin().getShopListener().addTeleportCooldown(player);
     }
 
