@@ -208,7 +208,7 @@ public class Transaction {
         }
 
         // Check if any other plugins want to cancel the transaction
-        PlayerExchangeShopEvent e = new PlayerExchangeShopEvent(player, shop, this.transactionType, this.price, this.amountBeingSold);
+        PlayerExchangeShopEvent e = new PlayerExchangeShopEvent(player, shop);
         Bukkit.getPluginManager().callEvent(e);
         if (e.isCancelled()) {
             return this.setError(TransactionError.CANCELLED);
