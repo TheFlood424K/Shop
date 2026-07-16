@@ -382,6 +382,12 @@ public class PriceNegotiator {
     
     /**
      * Ensures we don't exceed the maximum purchase limit.
+     * <p>
+     * When capping to maxPurchaseAmount, the result is snapped down to the nearest
+     * multiple of originalAmountBeingSold so that the final quantity always maps
+     * cleanly to an integer number of price-units. Without this, a raw cap (e.g. 64
+     * items on a shop selling 48-for-1) produces a fractional price that cannot be
+     * paid with a physical-item currency, causing the invalid-rounding bug (issue #49).
      */
     private int ensureMaxPurchaseLimit(int itemsBeingBought, int maxPurchaseAmount, double pricePerItem) {
         if (itemsBeingBought > maxPurchaseAmount) {
@@ -389,7 +395,16 @@ public class PriceNegotiator {
                 System.out.println("itemsBeingBought > maxPurchaseAmount: " + itemsBeingBought + " > " + maxPurchaseAmount); 
             }
             
-            return maxPurchaseAmount;
+            // Snap down to the largest multiple of originalAmountBeingSold that fits within
+            // maxPurchaseAmount. This ensures the capped quantity aligns to a whole price-unit,
+            // preventing fractional prices when currency is a physical item.
+            int snapped = (maxPurchaseAmount / originalAmountBeingSold) * originalAmountBeingSold;
+            
+            if (debugLogging) {
+                System.out.println("ensureMaxPurchaseLimit snapped: " + maxPurchaseAmount + " -> " + snapped);
+            }
+            
+            return snapped;
         }
         
         return itemsBeingBought;
