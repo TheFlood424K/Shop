@@ -3,6 +3,7 @@ package com.snowgears.shop.integration.features;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 import com.snowgears.shop.event.PlayerDestroyShopEvent;
+import com.snowgears.shop.util.ShopCreationProcess;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -355,18 +356,163 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
         sendChatMessage(player, "sell");
         while (player.nextMessage() != null) {}
 
-        // Attempt to break the chest while creation is in progress
+        // The owner's first attempt warns them they can break again to cancel
         new PlayerSimulation(player).simulateBlockBreak(chestBlock);
-        assertEquals("§cThis chest cannot be destroyed while a shop is being created for it.", waitForNextMessage(player),
-                "Player should be warned chest cannot be destroyed during shop creation");
+        assertEquals("§cA shop is being created for this chest. §7Break it again to cancel.", waitForNextMessage(player),
+                "Owner should be warned chest cannot be destroyed and told they can break again to cancel");
         assertEquals(Material.CHEST, chestBlock.getType(), "Chest should not break during creation process");
     
-        // Attempt to break the chest while creation is in progress
+        // A different player attempting to break the chest always gets the original warning
         PlayerMock other = server.addPlayer();
         new PlayerSimulation(other).simulateBlockBreak(chestBlock);
         assertEquals("§cThis chest cannot be destroyed while a shop is being created for it.", waitForNextMessage(other),
                 "Player should be warned chest cannot be destroyed during shop creation");
         assertEquals(Material.CHEST, chestBlock.getType(), "Chest should not break during creation process");
+    }
+
+    @Test
+    void ownerSecondBreak_cancels_creation_and_breaks_chest() {
+        ServerMock server = getServer();
+        World world = server.addSimpleWorld("world");
+        PlayerMock player = server.addPlayer();
+        Block chestBlock = startSellChestCreation(server, world, player, new Location(world, 42, 65, 10));
+
+        // First attempt: warn the owner and arm the cancel; chest stays intact
+        new PlayerSimulation(player).simulateBlockBreak(chestBlock);
+        assertEquals("§cA shop is being created for this chest. §7Break it again to cancel.", waitForNextMessage(player),
+                "Owner should be told they can break again to cancel");
+        assertEquals(Material.CHEST, chestBlock.getType(), "Chest should not break on the first attempt");
+        assertNotNull(getPlugin().getMiscListener().getShopCreationProcess(player),
+                "Creation process should still be active after the first break");
+
+        // Second attempt by the owner: cancel the creation and break the chest in the same hit
+        new PlayerSimulation(player).simulateBlockBreak(chestBlock);
+        assertEquals("§cCancelled shop creation.", waitForNextMessage(player),
+                "Owner should be told the shop creation was cancelled");
+        assertEquals(Material.AIR, chestBlock.getType(), "Chest should break on the second attempt");
+        assertNull(getPlugin().getMiscListener().getShopCreationProcess(player),
+                "Creation process should be removed after cancel");
+        assertNull(getPlugin().getShopHandler().getShopByChest(chestBlock),
+                "No shop should be registered for the cancelled chest");
+    }
+
+    @Test
+    void nonOwner_cannot_cancel_creation_by_breaking() {
+        ServerMock server = getServer();
+        World world = server.addSimpleWorld("world");
+        PlayerMock player = server.addPlayer();
+        Block chestBlock = startSellChestCreation(server, world, player, new Location(world, 44, 65, 10));
+
+        PlayerMock other = server.addPlayer();
+
+        // A non-owner breaking repeatedly never arms or cancels the owner's creation
+        for (int i = 0; i < 2; i++) {
+            new PlayerSimulation(other).simulateBlockBreak(chestBlock);
+            assertEquals("§cThis chest cannot be destroyed while a shop is being created for it.", waitForNextMessage(other),
+                    "Non-owner should always get the original warning");
+            assertEquals(Material.CHEST, chestBlock.getType(), "Chest should never break for a non-owner during creation");
+        }
+        assertNotNull(getPlugin().getMiscListener().getShopCreationProcess(player),
+                "Owner's creation process should remain active");
+    }
+
+    @Test
+    void coincidentStartBreak_doesNotWarnOrArm() {
+        ServerMock server = getServer();
+        World world = server.addSimpleWorld("world");
+        PlayerMock player = server.addPlayer();
+        player.setOp(true);
+        setConfig("allowCreateMethodChest", true);
+
+        Location chestLoc = new Location(world, 46, 65, 10);
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+        world.getBlockAt(chestLoc.clone().add(0, 0, -1)).setType(Material.AIR);
+        stubCalculateBlockFaceForSign(BlockFace.NORTH);
+
+        // In creative a single click both starts creation (interact) and instantly breaks the block in the
+        // same tick. Simulate that by firing the break before any tick clears the just-interacted flag.
+        player.setSneaking(true);
+        ItemStack item = new ItemStack(Material.DIRT);
+        player.getInventory().setItemInMainHand(item);
+        server.getPluginManager().callEvent(new PlayerInteractEvent(
+                player, Action.LEFT_CLICK_BLOCK, item, chestBlock, BlockFace.NORTH, EquipmentSlot.HAND));
+        while (player.nextMessage() != null) {} // drain creation prompts without ticking
+
+        new PlayerSimulation(player).simulateBlockBreak(chestBlock);
+
+        assertNull(player.nextMessage(), "Coincident start break should not warn about cancelling");
+        assertEquals(Material.CHEST, chestBlock.getType(), "Chest must not break on the creation-start click");
+        ShopCreationProcess process = getPlugin().getMiscListener().getShopCreationProcess(player);
+        assertNotNull(process, "Creation process should still be active after the start click");
+        assertFalse(process.isDestroyArmed(), "Coincident start break must not arm the cancel");
+    }
+
+    @Test
+    void coincidentBarterSelectionBreak_doesNotCancelCreation() {
+        ServerMock server = getServer();
+        World world = server.addSimpleWorld("world");
+        PlayerMock player = server.addPlayer();
+        player.setOp(true);
+        setConfig("allowCreateMethodChest", true);
+
+        Location chestLoc = new Location(world, 48, 65, 10);
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+        world.getBlockAt(chestLoc.clone().add(0, 0, -1)).setType(Material.AIR);
+        stubCalculateBlockFaceForSign(BlockFace.NORTH);
+
+        // Start a barter creation and advance to the barter-item selection step
+        player.setSneaking(true);
+        ItemStack sellItem = new ItemStack(Material.DIRT);
+        player.getInventory().setItemInMainHand(sellItem);
+        server.getPluginManager().callEvent(new PlayerInteractEvent(
+                player, Action.LEFT_CLICK_BLOCK, sellItem, chestBlock, BlockFace.NORTH, EquipmentSlot.HAND));
+        server.getScheduler().performTicks(2);
+        sendChatMessage(player, "barter");
+        sendChatMessage(player, "1");
+        while (player.nextMessage() != null) {}
+
+        // The barter-item selection click: interact selects the barter item, and in creative the same click
+        // instantly breaks the block in the same tick. The coincident break must not cancel the creation.
+        ItemStack barterItem = new ItemStack(Material.DIAMOND);
+        player.getInventory().setItemInMainHand(barterItem);
+        server.getPluginManager().callEvent(new PlayerInteractEvent(
+                player, Action.LEFT_CLICK_BLOCK, barterItem, chestBlock, BlockFace.NORTH, EquipmentSlot.HAND));
+        new PlayerSimulation(player).simulateBlockBreak(chestBlock);
+
+        ShopCreationProcess process = getPlugin().getMiscListener().getShopCreationProcess(player);
+        assertNotNull(process, "Barter creation must not be cancelled by the selection click's coincident break");
+        assertNotNull(process.getBarterItemStack(), "Barter item should have been selected");
+        assertFalse(process.isDestroyArmed(), "Barter selection must not arm the cancel");
+        assertEquals(Material.CHEST, chestBlock.getType(), "Chest must not break during barter selection");
+    }
+
+    private Block startSellChestCreation(ServerMock server, World world, PlayerMock player, Location chestLoc) {
+        player.setOp(true);
+
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+        world.getBlockAt(chestLoc.clone().add(0, 0, -1)).setType(Material.AIR);
+
+        // Start creation by sneaking and left-clicking the chest with an item in hand, then pick a shop type
+        stubCalculateBlockFaceForSign(BlockFace.NORTH);
+        player.setSneaking(true);
+        ItemStack item = new ItemStack(Material.DIRT);
+        player.getInventory().setItemInMainHand(item);
+        PlayerInteractEvent startCreate = new PlayerInteractEvent(
+                player,
+                Action.LEFT_CLICK_BLOCK,
+                item,
+                chestBlock,
+                BlockFace.NORTH,
+                EquipmentSlot.HAND
+        );
+        server.getPluginManager().callEvent(startCreate);
+        server.getScheduler().performTicks(2);
+        sendChatMessage(player, "sell");
+        while (player.nextMessage() != null) {}
+        return chestBlock;
     }
 }
 

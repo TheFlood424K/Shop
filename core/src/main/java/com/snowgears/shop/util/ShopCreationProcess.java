@@ -34,6 +34,8 @@ public class ShopCreationProcess {
     private ShopType shopType;
     boolean isAdmin;
     private PricePair pricePair;
+    private boolean destroyArmed;
+    private volatile boolean justInteracted;
 
     public AbstractDisplay display;
     private PlaceholderContext placeholderContext;
@@ -123,6 +125,32 @@ public class ShopCreationProcess {
 
     public ChatCreationStep getStep() { return step; }
     public void setStep(ChatCreationStep step) { this.step = step; }
+
+    public boolean isDestroyArmed() { return destroyArmed; }
+    public void setDestroyArmed(boolean destroyArmed) { this.destroyArmed = destroyArmed; }
+
+    // True while the player is selecting an item to trade. Hitting the chest during these steps is part of
+    // the natural creation flow, not an attempt to destroy the chest, so it must never arm the cancel.
+    public boolean isAwaitingItemSelection() {
+        return step == ChatCreationStep.ITEM || step == ChatCreationStep.BARTER_ITEM;
+    }
+
+    // Marks that the player just clicked the chest to start or advance creation. In creative mode a single
+    // click both interacts and instantly breaks the block, so the coincident BlockBreakEvent (same tick) must
+    // not be treated as a destroy attempt. The flag clears on the next tick, leaving later breaks to act normally.
+    public void markInteracted() {
+        this.justInteracted = true;
+        Shop.getPlugin().getFoliaLib().getScheduler().runLater(() -> this.justInteracted = false, 1L);
+    }
+
+    public boolean wasJustInteracted() { return justInteracted; }
+
+    // True for sign-based creation, where a real (uninitialized) shop and sign already exist on the chest.
+    public boolean isSignCreation() {
+        return step == ChatCreationStep.SIGN_CREATION
+                || step == ChatCreationStep.SIGN_ITEM
+                || step == ChatCreationStep.SIGN_BARTER_ITEM;
+    }
 
     public void setPricePair(PricePair pricePair){
         this.pricePair = pricePair;

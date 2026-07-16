@@ -15,8 +15,8 @@ export MAVEN_OPTS="-Xms8g -Xmx16g"
 mvn -Drevision="$NEW_VERSION" clean package -T 8C #-o
 
 # Copy latest plugin in
-rm ../paper-test-1.21.8/plugins/Shop-*.jar 
-cp target/Shop-*.jar ../paper-test-1.21.8/plugins
+rm ../paper-test-26.1.2/plugins/Shop-*.jar 
+cp target/Shop-*.jar ../paper-test-26.1.2/plugins
 
-cd ../paper-test-1.21.8/
+cd ../paper-test-26.1.2/
 java -Xms4G -Xmx8G -jar paper*.jar --nogui

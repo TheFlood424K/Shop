@@ -19,6 +19,8 @@ More details: **[Trust Players](https://github.com/snowgears/shop/wiki/Trust-Pla
 3. Enter the amount of the item you want to buy/sell
 4. Enter the price you want to buy/sell the item for
 
+> **Started a shop by accident?** While a chest-based creation is in progress the chest is protected from being broken. If you actually wanted to remove the chest (for example while tearing down a storage room), just **break the chest again** after the warning to cancel the creation; the chest will break on that second hit.
+
 **`config.yml` Defaults:**
 
 ```yaml
