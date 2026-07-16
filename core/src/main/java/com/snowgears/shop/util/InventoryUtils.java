@@ -88,6 +88,16 @@ public class InventoryUtils {
         return amount;
     }
 
+    // Overload that accepts an already-created virtual inventory, to avoid double-cloning.
+    public static boolean hasRoomInInventory(Inventory virtualInventory, ItemStack itemStack) {
+        if (virtualInventory == null || itemStack.getAmount() >= (27 * 64))
+            return false;
+        if (itemStack.getAmount() <= 0)
+            return true;
+        int itemsLeftToAdd = addItem(getVirtualInventory(virtualInventory), itemStack);
+        return itemsLeftToAdd <= 0;
+    }
+
     public static boolean hasRoom(Inventory inventory, ItemStack itemStack) {
         if (inventory == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
             return false;

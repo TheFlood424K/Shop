@@ -81,6 +81,29 @@ public class TransactionParty {
         return EconomyUtils.canAcceptFunds(party, this.inventory, paymentAmount);
     }
 
+    // Check if we have enough space to receive a payment AFTER the items being sold are removed from the inventory.
+    // This elegantly handles the "full shop" case (issue #45): a SELL shop chest that is completely full of
+    // the sale item should still be usable, because removing the sold items frees up space for the payment.
+    public boolean canAcceptPaymentAfterRemoval(double paymentAmount, ItemStack itemToRemove) {
+        // If we are an admin, then we can accept the payment no matter what
+        if (this.isAdmin) { return true; }
+
+        // Simulate the post-sale inventory state using a virtual clone
+        Inventory virtualInventory = InventoryUtils.getVirtualInventory(this.inventory);
+        ItemStack removal = itemToRemove.clone();
+        InventoryUtils.removeItem(virtualInventory, removal);
+
+        if (this.currencyItem != null) {
+            // We are being paid with an item
+            ItemStack payment = this.currencyItem.clone();
+            payment.setAmount((int) paymentAmount);
+            return InventoryUtils.hasRoomInInventory(virtualInventory, payment);
+        }
+
+        // We are being paid through the normal economy (virtual currency — always fits)
+        return EconomyUtils.canAcceptFunds(party, this.inventory, paymentAmount);
+    }
+
     // Receive a payment and add it to the players wallet/inventory
     public void depositFunds(double paymentAmount) {
         // If we are an admin, then we don't deposit any funds

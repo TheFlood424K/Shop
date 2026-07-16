@@ -180,9 +180,19 @@ public class Transaction {
             else {  return this.setError(TransactionError.INVENTORY_FULL_SHOP); }
         }
 
-        // Check if the seller can accept the payment amount, aka if they have space for a currency item to be place into their inventory
-        if (!this.seller.canAcceptPayment(this.price)) {
-            // Failed Verification: The buyer does not have space to receive the item being bought
+        // Check if the seller can accept the payment amount, aka if they have space for a currency item to be placed into their inventory.
+        // For shop sellers (non-player), use the "after-removal" check: the items being sold will be removed first,
+        // potentially freeing up space for the incoming payment (fixes issue #45 - full shops).
+        boolean sellerCanAcceptPayment;
+        if (!this.seller.isPlayer()) {
+            ItemStack itemToRemove = this.itemBeingSold.clone();
+            itemToRemove.setAmount(this.amountBeingSold);
+            sellerCanAcceptPayment = this.seller.canAcceptPaymentAfterRemoval(this.price, itemToRemove);
+        } else {
+            sellerCanAcceptPayment = this.seller.canAcceptPayment(this.price);
+        }
+        if (!sellerCanAcceptPayment) {
+            // Failed Verification: The seller does not have space to receive the payment
             if (this.seller.isPlayer()) { return this.setError(TransactionError.INVENTORY_FULL_PLAYER); }
             else { return this.setError(TransactionError.INVENTORY_FULL_SHOP); }
         }
@@ -198,14 +208,12 @@ public class Transaction {
         }
 
         // Check if any other plugins want to cancel the transaction
-        PlayerExchangeShopEvent e = new PlayerExchangeShopEvent(player, shop);
+        PlayerExchangeShopEvent e = new PlayerExchangeShopEvent(player, shop, this.transactionType, this.price, this.amountBeingSold);
         Bukkit.getPluginManager().callEvent(e);
-        if(e.isCancelled()) {
-            if (TX_DEBUG_LOGGING) { System.out.println("!!! CANCELLED because of plugin hooking into shop!"); }
+        if (e.isCancelled()) {
             return this.setError(TransactionError.CANCELLED);
         }
 
-        // There were no errors, so we are good to proceed!
         if (TX_DEBUG_LOGGING) { System.out.println("Transaction Verified Successfully!"); }
         return this.setError(TransactionError.NONE);
     }
