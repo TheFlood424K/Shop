@@ -2,49 +2,42 @@ package com.snowgears.shop.hook;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.event.PlayerOpenShopEvent;
+import com.snowgears.shop.shop.AbstractShop;
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
-import me.ryanhamshire.GriefPrevention.PlayerData;
 
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 
 /**
  * Listener that integrates with GriefPrevention to allow players to buy from
  * shops located in claims where the player does not have build or container trust.
  *
- * <p>When a player right-clicks a shop chest that belongs to another player and the
- * chest is inside a GriefPrevention claim, GP normally blocks the interaction.
- * This hook fires on {@link PlayerOpenShopEvent} and, if the player's transaction is
- * purely a <em>shop action</em> (buy/sell), sets the mode to {@link PlayerOpenShopEvent.OpenMode#SHOP_ACTION}
- * so Shop's own logic handles the purchase without requiring GP container trust.</p>
- *
- * <p>The hook intentionally does <strong>not</strong> grant {@code OPEN_CONTAINER} access
- * (which would let the player freely browse the chest inventory). It only marks the
- * event as allowed so the shop transaction can proceed.</p>
+ * <h3>Event priority chain</h3>
+ * <ol>
+ *   <li><b>LOW</b> – {@link #onShopChestPreempt}: if the clicked block is a shop chest
+ *       and the player is an untrusted visitor, cancel the event early so that
+ *       GriefPrevention's {@code PlayerInteractEvent} handler (which runs at {@code NORMAL}
+ *       with {@code ignoreCancelled = true}) is skipped entirely. This prevents GP from
+ *       sending its "no permission" message to the player.</li>
+ *   <li><b>NORMAL</b> – GriefPrevention's own handler. Skipped because the event is
+ *       already cancelled.</li>
+ *   <li><b>HIGHEST</b> – Shop's {@code onShopChestClick}: un-cancels the event, fires
+ *       {@link PlayerOpenShopEvent}, and executes the buy/sell transaction.</li>
+ * </ol>
  */
 public class GriefPreventionTrustListener implements Listener {
 
     /**
-     * Returns {@code true} if GriefPrevention has a registered claim at the given
-     * location that would restrict the player, but we want to allow the shop action
-     * anyway.
-     *
-     * <p>Logic:
-     * <ol>
-     *   <li>If no claim exists at the location, return {@code false} (GP won't block
-     *       anything, so we have nothing to override).</li>
-     *   <li>If the player is the claim owner, return {@code false} (they already have
-     *       full access).</li>
-     *   <li>If the player already has container trust or higher (build/access), return
-     *       {@code false} (GP would allow them anyway).</li>
-     *   <li>Otherwise the player is untrusted — return {@code true} so we can permit
-     *       the shop transaction without full container access.</li>
-     * </ol>
-     * </p>
+     * Returns {@code true} if the player is inside a GriefPrevention claim at
+     * {@code shopLocation} but has neither build nor container trust, meaning GP
+     * would normally block the interaction and send a denial message.
      */
     private boolean shouldAllowShopAccess(Player player, Location shopLocation) {
         try {
@@ -62,9 +55,8 @@ public class GriefPreventionTrustListener implements Listener {
                 return false;
             }
 
-            // Check existing trust levels.
-            // hasContainerTrust / hasBuildTrust / hasAccessTrust all return a denial
-            // message String when NOT trusted, or null when trusted.
+            // allowBuild / allowContainers return null when the player IS trusted,
+            // or a non-null denial message when they are NOT trusted.
             String buildDenial     = claim.allowBuild(player, org.bukkit.Material.AIR);
             String containerDenial = claim.allowContainers(player);
 
@@ -74,7 +66,6 @@ public class GriefPreventionTrustListener implements Listener {
             }
 
             // Player is in a claim and has no container/build trust.
-            // Allow the shop action to proceed without granting full container access.
             return true;
         } catch (Exception e) {
             // Fail open: if anything goes wrong, don't block the shop interaction.
@@ -82,6 +73,51 @@ public class GriefPreventionTrustListener implements Listener {
         }
     }
 
+    /**
+     * Fires at LOW priority — before GriefPrevention (NORMAL, ignoreCancelled=true).
+     *
+     * <p>If the right-clicked block is a shop chest and the player would be blocked
+     * by GP, we pre-cancel the event so GP's handler is skipped and its denial
+     * message is never sent. Shop's own HIGHEST-priority handler will un-cancel
+     * the event and complete the transaction.</p>
+     */
+    @EventHandler(priority = EventPriority.LOW)
+    public void onShopChestPreempt(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (event.getClickedBlock() == null) return;
+        try {
+            if (event.getHand() == EquipmentSlot.OFF_HAND) return;
+        } catch (NoSuchMethodError ignored) {}
+
+        Shop plugin = Shop.getPlugin();
+        if (plugin == null || !plugin.isGriefPreventionTrustIntegrationEnabled()) return;
+
+        // Only act on shop chests.
+        if (!plugin.getShopHandler().isChest(event.getClickedBlock())) return;
+        AbstractShop shop = plugin.getShopHandler().getShopByChest(event.getClickedBlock());
+        if (shop == null) return;
+
+        Player player = event.getPlayer();
+
+        // Owner clicking their own shop — let everything proceed normally.
+        if (shop.getOwnerUUID().equals(player.getUniqueId())) return;
+
+        Location shopLocation = shop.getChestLocation();
+        if (shopLocation == null) return;
+
+        if (shouldAllowShopAccess(player, shopLocation)) {
+            // Cancel early so GP (NORMAL, ignoreCancelled=true) is skipped.
+            // Shop's HIGHEST handler will un-cancel and run the transaction.
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Fires on {@link PlayerOpenShopEvent} at HIGHEST priority.
+     *
+     * <p>Sets the event mode to {@link PlayerOpenShopEvent.OpenMode#SHOP_ACTION} so
+     * Shop executes the buy/sell transaction rather than opening the container.</p>
+     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerOpenShop(PlayerOpenShopEvent event) {
         Shop plugin = Shop.getPlugin();
@@ -97,11 +133,6 @@ public class GriefPreventionTrustListener implements Listener {
         if (shopLocation == null) return;
 
         if (shouldAllowShopAccess(event.getPlayer(), shopLocation)) {
-            // Keep mode as SHOP_ACTION — this tells Shop to execute the buy/sell
-            // transaction rather than open the container. GriefPrevention's own
-            // PlayerInteractEvent listener runs at NORMAL priority; Shop's
-            // onShopChestClick runs at HIGHEST and un-cancels the event when it
-            // executes a shop action, so the purchase goes through cleanly.
             event.setMode(PlayerOpenShopEvent.OpenMode.SHOP_ACTION);
         }
     }
