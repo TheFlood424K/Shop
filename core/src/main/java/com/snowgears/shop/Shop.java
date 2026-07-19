@@ -809,6 +809,7 @@ public class Shop extends JavaPlugin {
         metrics.addCustomChart(new SimplePie("display_shop_search_radius", () -> String.valueOf(shopSearchRadius)));
         metrics.addCustomChart(new SimplePie("display_batch_size", () -> String.valueOf(displayBatchSize)));
         metrics.addCustomChart(new SimplePie("display_batch_delay", () -> String.valueOf(displayBatchDelay)));
+        metrics.addCustomChart(new SimplePie("grief_prevention_enabled", () -> String.valueOf(griefPreventionTrustIntegrationEnabled && getServer().getPluginManager().getPlugin("GriefPrevention") != null)));
 
         debug_allowUseOwnShop = config.getBoolean("debug.allowUseOwnShop");
         debug_transactionDebugLogs = config.getBoolean("debug.transactionDebugLogs");
