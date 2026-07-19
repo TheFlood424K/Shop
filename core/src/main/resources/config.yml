@@ -340,6 +340,9 @@ bolt:
 blockProt:
    trustIntegration:
       enabled: true
+griefPrevention:
+  trustIntegration:
+    enabled: true
 
 # Setting this to true will force all Shops to be created in Towny regions where the players are residents #
 # Towny plugin must be installed for this feature to work #
