@@ -42,6 +42,7 @@ public class Shop extends JavaPlugin {
     private static final String CONFIG_PATH_PLOT_SQUARED_ENABLED = "plotSquared.enabled";
     private static final String CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED = "bolt.trustIntegration.enabled";
     private static final String CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED = "blockProt.trustIntegration.enabled";
+    private static final String CONFIG_PATH_GRIEF_PREVENTION_TRUST_INTEGRATION_ENABLED = "griefPrevention.trustIntegration.enabled";
 
     private ShopListener shopListener;
     private DisplayListener displayListener;
@@ -60,6 +61,7 @@ public class Shop extends JavaPlugin {
     private PlotSquaredHookListener plotSquaredHookListener;
     private BoltTrustListener boltTrustListener;
     private BlockProtTrustListener blockProtTrustListener;
+    private GriefPreventionTrustListener griefPreventionTrustListener;
 
     private boolean worldGuardIntegrationEnabled;
     private boolean lwcIntegrationEnabled;
@@ -68,6 +70,7 @@ public class Shop extends JavaPlugin {
     private boolean plotSquaredIntegrationEnabled;
     private boolean boltTrustIntegrationEnabled;
     private boolean blockProtTrustIntegrationEnabled;
+    private boolean griefPreventionTrustIntegrationEnabled;
 
     private ShopHandler shopHandler;
     private ShopGuiHandler guiHandler;
@@ -349,6 +352,7 @@ public class Shop extends JavaPlugin {
         plotSquaredIntegrationEnabled = config.getBoolean(CONFIG_PATH_PLOT_SQUARED_ENABLED, true);
         boltTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED, true);
         blockProtTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED, true);
+        griefPreventionTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_GRIEF_PREVENTION_TRUST_INTEGRATION_ENABLED, true);
 
         // WorldGuard integration is only active if the plugin is installed AND the integration toggle is enabled.
         boolean worldGuardDetected = getServer().getPluginManager().getPlugin("WorldGuard") != null;
@@ -635,6 +639,19 @@ public class Shop extends JavaPlugin {
                 this.getLogger().notice("BlockProt detected, but Shop BlockProt trust integration is disabled via `" + CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED + ": false`");
             }
         }
+        if(getServer().getPluginManager().getPlugin("GriefPrevention") != null){
+            if (griefPreventionTrustIntegrationEnabled) {
+                try {
+                    griefPreventionTrustListener = new GriefPreventionTrustListener();
+                    getServer().getPluginManager().registerEvents(griefPreventionTrustListener, this);
+                    this.getLogger().notice("GriefPrevention is installed, enabling trust integration so players can buy from shops in claims");
+                } catch (Exception e) {
+                    this.getLogger().warning("GriefPrevention detected but could not enable trust integration: " + e.getMessage());
+                }
+            } else {
+                this.getLogger().notice("GriefPrevention detected, but Shop GriefPrevention trust integration is disabled via `" + CONFIG_PATH_GRIEF_PREVENTION_TRUST_INTEGRATION_ENABLED + ": false`");
+            }
+        }
 
         int bstatsPluginId = 25211;
         metrics = new Metrics(plugin, bstatsPluginId);
@@ -861,6 +878,9 @@ public class Shop extends JavaPlugin {
         if(blockProtTrustListener != null){
             HandlerList.unregisterAll(blockProtTrustListener);
         }
+        if(griefPreventionTrustListener != null){
+            HandlerList.unregisterAll(griefPreventionTrustListener);
+        }
 
         plugin.getShopHandler().removeAllDisplays(null);
 
@@ -943,6 +963,7 @@ public class Shop extends JavaPlugin {
     public boolean isPlotSquaredIntegrationEnabled() { return plotSquaredIntegrationEnabled; }
     public boolean isBoltTrustIntegrationEnabled() { return boltTrustIntegrationEnabled; }
     public boolean isBlockProtTrustIntegrationEnabled() { return blockProtTrustIntegrationEnabled; }
+    public boolean isGriefPreventionTrustIntegrationEnabled() { return griefPreventionTrustIntegrationEnabled; }
 
     public boolean hookTowny(){
         return hookTowny;
