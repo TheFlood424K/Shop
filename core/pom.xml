@@ -77,6 +77,7 @@
             <id>dynmap-repo</id>
             <url>https://repo.mikeprimm.com/</url>
         </repository>
+        <!-- GriefPrevention is hosted on JitPack; no extra repo needed (jitpack.io already above) -->
     </repositories>
 
     <dependencyManagement>
@@ -192,6 +193,13 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- GriefPrevention API (soft dependency — plugin must be installed at runtime) -->
+        <dependency>
+            <groupId>com.github.TechFortress</groupId>
+            <artifactId>GriefPrevention</artifactId>
+            <version>16.18</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>us.dynmap</groupId>
             <artifactId>dynmap-api</artifactId>
@@ -275,7 +283,7 @@
                     <version>3.1.2</version>
                     <configuration>
                         <!-- When we eventually drop the compile target to Java 8, MockBukkit (still on 21) may
-                             need reflective access to JDK internals.  Keep the add-opens flag now so we don’t
+                             need reflective access to JDK internals.  Keep the add-opens flag now so we don't
                              forget later.  Harmless on 17+ runtimes. -->
                         <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
                         <!-- Parallel test execution -->
