@@ -22,23 +22,25 @@ import org.bukkit.inventory.EquipmentSlot;
  * <h3>Event priority chain</h3>
  * <ol>
  *   <li><b>LOW</b> – {@link #onShopChestPreempt}: if the clicked block is a shop chest
- *       and it is inside any GP claim, cancel the event early so that
+ *       inside a GP claim AND the player is NOT trusted, cancel the event early so that
  *       GriefPrevention's {@code PlayerInteractEvent} handler (which runs at {@code NORMAL}
  *       with {@code ignoreCancelled = true}) is skipped entirely. This prevents GP from
- *       sending its "no permission" message to the player regardless of trust level.</li>
- *   <li><b>NORMAL</b> – GriefPrevention's own handler. Skipped because the event is
- *       already cancelled.</li>
+ *       sending its "no permission" message to the player.
+ *       Trusted players and the claim owner are NOT cancelled here — their interaction
+ *       passes through normally so GP (and Bukkit) can open the chest for them.</li>
+ *   <li><b>NORMAL</b> – GriefPrevention's own handler. Skipped for untrusted players
+ *       because the event is already cancelled. Runs normally for trusted players.</li>
  *   <li><b>HIGHEST</b> – Shop's {@code onShopChestClick}: processes the buy/sell
- *       transaction normally (ignoreCancelled defaults to false so it still fires).</li>
+ *       transaction for untrusted players (ignoreCancelled defaults to false so it still
+ *       fires). Trusted players open the chest directly via Bukkit.</li>
  * </ol>
  */
 public class GriefPreventionTrustListener implements Listener {
 
     /**
      * Returns {@code true} if the shop chest is inside a GriefPrevention claim,
-     * meaning GP would potentially intercept the interaction and send a denial message.
-     * We pre-cancel for ALL claim interactions (trusted or not) so GP never fires.
-     * Shop's own HIGHEST handler decides whether the transaction is allowed.
+     * meaning GP would potentially intercept the interaction and send a denial message
+     * for players without trust.
      */
     private boolean isInGriefPreventionClaim(Location shopLocation) {
         try {
@@ -84,10 +86,14 @@ public class GriefPreventionTrustListener implements Listener {
     /**
      * Fires at LOW priority — before GriefPrevention (NORMAL, ignoreCancelled=true).
      *
-     * <p>If the right-clicked block is a shop chest inside any GP claim, pre-cancel
-     * the event so GP's handler is skipped entirely and its denial message is never
-     * sent. Shop's own HIGHEST-priority handler still fires (ignoreCancelled=false by
-     * default) and completes or denies the transaction based on its own logic.</p>
+     * <p>If the right-clicked block is a shop chest inside a GP claim, pre-cancel
+     * the event ONLY for players who are NOT trusted. Trusted players and the claim
+     * owner are left alone so their interaction flows through Bukkit normally and the
+     * chest opens for them as expected.</p>
+     *
+     * <p>For untrusted players, pre-cancelling here skips GP's denial message while
+     * still allowing Shop's HIGHEST-priority handler to run (ignoreCancelled=false) and
+     * complete the buy/sell transaction.</p>
      */
     @EventHandler(priority = EventPriority.LOW)
     public void onShopChestPreempt(PlayerInteractEvent event) {
@@ -108,10 +114,13 @@ public class GriefPreventionTrustListener implements Listener {
         Location shopLocation = shop.getChestLocation();
         if (shopLocation == null) return;
 
-        // Pre-cancel for ANY shop chest inside a GP claim so GP never fires its
-        // build-denial message. Trusted players and owners are handled below.
         if (isInGriefPreventionClaim(shopLocation)) {
-            event.setCancelled(true);
+            // Only pre-cancel for untrusted players so GP never fires its denial message.
+            // Trusted players and the claim owner must NOT be cancelled — their event must
+            // pass through so that Bukkit (and GP itself) opens the chest normally.
+            if (!hasTrustInClaim(event.getPlayer(), shopLocation)) {
+                event.setCancelled(true);
+            }
         }
     }
 
@@ -122,6 +131,11 @@ public class GriefPreventionTrustListener implements Listener {
      * to {@link PlayerOpenShopEvent.OpenMode#OPEN_CONTAINER} so they can access the
      * chest directly. Otherwise leave the default {@code SHOP_ACTION} mode so the
      * normal buy/sell transaction runs.</p>
+     *
+     * <p>Note: for trusted players the {@code PlayerInteractEvent} is no longer
+     * pre-cancelled, so in most cases Bukkit will have already opened the chest
+     * before this event fires. This handler acts as a safety net in case the Shop
+     * plugin intercepts the open itself.</p>
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerOpenShop(PlayerOpenShopEvent event) {
