@@ -284,9 +284,12 @@ public abstract class AbstractDisplay {
         caseStandData.setLocation(location);
 
         // Set the hologram yaw to face toward the player (opposite of the shop sign's facing direction)
-        BlockFace facing = getShop().getFacing();
-        if (facing != null) {
-            caseStandData.setYaw(DisplayUtil.blockfaceToYaw(facing.getOppositeFace()));
+        AbstractShop shop = getShop();
+        if (shop != null) {
+            BlockFace facing = shop.getFacing();
+            if (facing != null) {
+                caseStandData.setYaw(DisplayUtil.blockfaceToYaw(facing.getOppositeFace()));
+            }
         }
 
         spawnArmorStandPacket(player, caseStandData, text);
