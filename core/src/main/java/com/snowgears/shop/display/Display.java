@@ -1,7 +1,9 @@
 package com.snowgears.shop.display;
 
 import com.snowgears.shop.Shop;
+import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.util.ArmorStandData;
+import com.snowgears.shop.util.DisplayUtil;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.block.BlockFace;
@@ -31,6 +33,13 @@ public class Display extends AbstractDisplay {
             entity.setVisibleByDefault(false);
             entity.setPersistent(false);
             entity.setItemStack(is);
+
+            // Rotate the display item to match the shop sign's facing direction
+            AbstractShop shop = getShop();
+            if (shop != null && shop.getFacing() != null) {
+                entity.setRotation(DisplayUtil.blockfaceToYaw(shop.getFacing()), 0);
+            }
+
             entity.setTransformation(new Transformation(
                     new Vector3f(0, 0.5f, 0),
                     new AxisAngle4f(0, 0, 0, 1),
