@@ -34,17 +34,24 @@ public class Display extends AbstractDisplay {
             entity.setPersistent(false);
             entity.setItemStack(is);
 
-            // Rotate the display item to match the shop sign's facing direction
+            // Zero out interpolation so transformation is applied immediately with no client-side blending
+            entity.setInterpolationDelay(0);
+            entity.setInterpolationDuration(0);
+            entity.setTeleportDuration(0);
+
+            // Encode the shop sign's facing direction as a Y-axis rotation inside the transformation
+            // rather than using setRotation(), which can fight with the display transform and cause flicker
+            float yawRad = 0f;
             AbstractShop shop = getShop();
             if (shop != null && shop.getFacing() != null) {
-                entity.setRotation(DisplayUtil.blockfaceToYaw(shop.getFacing()), 0);
+                yawRad = (float) Math.toRadians(DisplayUtil.blockfaceToYaw(shop.getFacing()));
             }
 
             entity.setTransformation(new Transformation(
                     new Vector3f(0, 0.5f, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
+                    new AxisAngle4f(0f, 0f, 0f, 1f),
                     new Vector3f(0.4f, 0.4f, 0.4f),
-                    new AxisAngle4f(0, 0, 0, 1)
+                    new AxisAngle4f(yawRad, 0f, 1f, 0f)
             ));
 
             addDisplayEntity(entity);
