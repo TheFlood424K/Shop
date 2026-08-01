@@ -396,7 +396,8 @@ public class MiscListener implements Listener {
                 case SHOP_TYPE:
                     ShopType type = plugin.getShopCreationUtil().getShopType(event.getMessage());
                     if(type == null){
-                        process.cleanup();
+                        // cleanup() touches player entity tracking — must run on main thread
+                        process.cleanupAsync();
                         playerChatCreationSteps.remove(player.getUniqueId());
                         return;
                     }
@@ -424,7 +425,8 @@ public class MiscListener implements Listener {
                     } catch (NumberFormatException e) {
                         ShopMessage.sendMessage("interactionIssue", "line2", player, null);
                         ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
-                        process.cleanup();
+                        // cleanup() touches player entity tracking — must run on main thread
+                        process.cleanupAsync();
                         //instead of cancelling the chat event, just let them know what they typed wasnt a number and break them out of the creation process so they aren't chat locked
                         playerChatCreationSteps.remove(player.getUniqueId());
                         return;
@@ -446,7 +448,8 @@ public class MiscListener implements Listener {
                     double price = plugin.getShopCreationUtil().getShopPrice(player, event.getMessage(), process.getShopType());
                     if(price == -1){
                         //instead of cancelling the chat event, just let them know what they typed wasnt a number and break them out of the creation process so they aren't chat locked
-                        process.cleanup();
+                        // cleanup() touches player entity tracking — must run on main thread
+                        process.cleanupAsync();
                         playerChatCreationSteps.remove(player.getUniqueId());
                         return;
                     }
@@ -459,7 +462,8 @@ public class MiscListener implements Listener {
                     }
                     if(process.getStep() == ShopCreationProcess.ChatCreationStep.FINISHED){
                         process.createShop(player);
-                        process.cleanup();
+                        // cleanup() touches player entity tracking — must run on main thread
+                        process.cleanupAsync();
                         playerChatCreationSteps.remove(player.getUniqueId());
                     }
                     break;
@@ -467,7 +471,8 @@ public class MiscListener implements Listener {
                     double priceCombo = plugin.getShopCreationUtil().getShopPriceCombo(player, event.getMessage(), process.getShopType());
                     if(priceCombo == -1){
                         //instead of cancelling the chat event, just let them know what they typed wasnt a number and break them out of the creation process so they aren't chat locked
-                        process.cleanup();
+                        // cleanup() touches player entity tracking — must run on main thread
+                        process.cleanupAsync();
                         playerChatCreationSteps.remove(player.getUniqueId());
                         return;
                     }
@@ -476,7 +481,8 @@ public class MiscListener implements Listener {
 
                     if(process.getStep() == ShopCreationProcess.ChatCreationStep.FINISHED){
                         process.createShop(player);
-                        process.cleanup();
+                        // cleanup() touches player entity tracking — must run on main thread
+                        process.cleanupAsync();
                         playerChatCreationSteps.remove(player.getUniqueId());
                     }
                     break;
@@ -495,7 +501,8 @@ public class MiscListener implements Listener {
                         ShopMessage.sendMessage("interactionIssue", "line2", player, null);
                         ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
                         //instead of cancelling the chat event, just let them know what they typed wasnt a number and break them out of the creation process so they aren't chat locked
-                        process.cleanup();
+                        // cleanup() touches player entity tracking — must run on main thread
+                        process.cleanupAsync();
                         playerChatCreationSteps.remove(player.getUniqueId());
                         return;
                     }
@@ -504,7 +511,8 @@ public class MiscListener implements Listener {
 
                     if(process.getStep() == ShopCreationProcess.ChatCreationStep.FINISHED) {
                         process.createShop(player);
-                        process.cleanup();
+                        // cleanup() touches player entity tracking — must run on main thread
+                        process.cleanupAsync();
                         playerChatCreationSteps.remove(player.getUniqueId());
                     }
                     break;
@@ -514,7 +522,8 @@ public class MiscListener implements Listener {
                     // This will happen if the user was meant to select an ITEM or BARTER_ITEM, and exited the window
                     // without selecting their item to buy.
                     // This prevents chat from being locked for the player
-                    process.cleanup();
+                    // cleanup() touches player entity tracking — must run on main thread
+                    process.cleanupAsync();
                     this.cancelShopCreationProcess(player);
                     break;
             }
