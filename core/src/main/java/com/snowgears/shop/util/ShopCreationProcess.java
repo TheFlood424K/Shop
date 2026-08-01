@@ -56,9 +56,28 @@ public class ShopCreationProcess {
         this.placeholderContext.setProcess(this);
     }
 
+    /**
+     * Cleans up display entities. Must only be called from the main server thread.
+     * If called from an async context (e.g. AsyncPlayerChatEvent), use cleanupAsync() instead.
+     */
     public void cleanup() {
         if (this.display.isEnabled()) {
             this.display.removeDisplayEntities(player, true);
+        }
+    }
+
+    /**
+     * Schedules cleanup on the main thread. Safe to call from async event handlers
+     * such as AsyncPlayerChatEvent, where calling player.hideEntity() directly would
+     * trigger an IllegalStateException from Spigot's AsyncCatcher.
+     */
+    public void cleanupAsync() {
+        if (this.display.isEnabled()) {
+            Bukkit.getScheduler().runTask(Shop.getPlugin(), () -> {
+                if (this.display.isEnabled()) {
+                    this.display.removeDisplayEntities(player, true);
+                }
+            });
         }
     }
 
