@@ -15,11 +15,12 @@
     </parent>
 
     <properties>
-        <!-- Pinned to a specific stable build to avoid Adventure classpath gaps with WorldGuard 7.0.18.
-             The open-ended range [26.1.2.build,) was resolving to builds that include
-             net.kyori.adventure.text.object.PlayerHeadObjectContents / ObjectContentsLike,
-             which are not present in WorldGuard's transitive Adventure dependency. -->
-        <paper.version>26.2.build.91-stable</paper.version>
+        <!-- Pinned to the 26.1.2 build range to stay on 1.21.4 and avoid Adventure
+             classpath gaps introduced in 26.2.x builds. WorldGuard 7.0.18 pulls in an
+             older Adventure jar that lacks net.kyori.adventure.text.object.* classes
+             present in Paper 26.2 builds. Locking to [26.1.2.build,) keeps us on the
+             latest stable 26.1.2 build without accidentally resolving to 26.2.x. -->
+        <paper.version>[26.1.2.build,)</paper.version>
     </properties>
 
     <!-- core module info -->
@@ -158,6 +159,28 @@
                 <exclusion>
                     <groupId>org.bstats</groupId>
                     <artifactId>bstats-bukkit</artifactId>
+                </exclusion>
+                <!-- Exclude WorldGuard's older transitive Adventure jars so Paper's
+                     bundled Adventure version (which includes adventure-text-object.*)
+                     wins on the compile classpath. Without these exclusions, WorldGuard's
+                     Adventure 4.14.x shadows Paper's Adventure 4.17+, causing
+                     "class file not found" errors for PlayerHeadObjectContents and
+                     ObjectContentsLike in WorldGuardHook.java. -->
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-legacy</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-plain</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-gson</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
