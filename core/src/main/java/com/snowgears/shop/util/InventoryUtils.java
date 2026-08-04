@@ -3,8 +3,6 @@ package com.snowgears.shop.util;
 
 import com.snowgears.shop.Shop;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.ComponentIteratorType;
-import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.Style;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -234,18 +232,38 @@ public class InventoryUtils {
             itemStack2.setItemMeta(i2Meta);
         }
 
-        // Normalize font tags on display names before comparing.
-        // isSimilar() compares Component objects byte-for-byte, so two items
-        // that look identical but were given different font: keys (e.g. one via
-        // a resource pack, one via a vanilla command) would incorrectly fail the
-        // similarity check. We rebuild the display name Component with font(null)
-        // on both sides, preserving all other styling (color, bold, italic, etc.).
-        if (i1Meta != null && i1Meta.hasDisplayName()) {
-            i1Meta.displayName(stripFont(i1Meta.displayName()));
+        // Normalize font tags on display names and lore before comparing.
+        // isSimilar() compares Component objects byte-for-byte, including the
+        // font: key. Items whose display name or lore were assigned a custom
+        // resource-pack font will fail the check even when visually identical.
+        // We rebuild every Component with font(null), preserving all other
+        // styling (color, bold, italic, etc.). Only the clones are modified.
+        if (i1Meta != null) {
+            if (i1Meta.hasDisplayName()) {
+                i1Meta.displayName(stripFont(i1Meta.displayName()));
+            }
+            if (i1Meta.hasLore()) {
+                List<Component> lore = i1Meta.lore();
+                List<Component> normalizedLore = new ArrayList<>();
+                for (Component line : lore) {
+                    normalizedLore.add(stripFont(line));
+                }
+                i1Meta.lore(normalizedLore);
+            }
             itemStack1.setItemMeta(i1Meta);
         }
-        if (i2Meta != null && i2Meta.hasDisplayName()) {
-            i2Meta.displayName(stripFont(i2Meta.displayName()));
+        if (i2Meta != null) {
+            if (i2Meta.hasDisplayName()) {
+                i2Meta.displayName(stripFont(i2Meta.displayName()));
+            }
+            if (i2Meta.hasLore()) {
+                List<Component> lore = i2Meta.lore();
+                List<Component> normalizedLore = new ArrayList<>();
+                for (Component line : lore) {
+                    normalizedLore.add(stripFont(line));
+                }
+                i2Meta.lore(normalizedLore);
+            }
             itemStack2.setItemMeta(i2Meta);
         }
 
