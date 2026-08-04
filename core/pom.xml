@@ -89,20 +89,20 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.intellectualsites.bom</groupId> <!-- PlotSquared -->
+                <groupId>com.intellectualsites.bom</groupId>
                 <artifactId>bom-newest</artifactId>
                 <version>1.52</version>
-                <scope>import</scope>
                 <type>pom</type>
+                <scope>import</scope>
             </dependency>
-		    <dependency>
-				<groupId>net.kyori</groupId>
-				<artifactId>adventure-bom</artifactId>
-				<version>4.26.1</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-		</dependencies>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-bom</artifactId>
+                <version>4.26.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
     </dependencyManagement>
 
     <dependencies>
@@ -146,29 +146,30 @@
             <version>${paper.version}</version>
             <scope>provided</scope>
         </dependency>
+
         <!-- Explicit Adventure API provided dep so that net.kyori.adventure.text.object.*
-             (e.g. PlayerHeadObjectContents, introduced in Adventure 4.17) is on the compile
-             classpath even though WorldGuard 7.0.18 only bundles Adventure 4.14.x.
-             Scope is 'provided' because Paper itself bundles Adventure at runtime. -->
-		
-		<dependencies>
-		  <dependency>
-		    <groupId>net.kyori</groupId>
-		    <artifactId>adventure-api</artifactId>
-		  </dependency>
-		  <dependency>
-		    <groupId>net.kyori</groupId>
-		    <artifactId>adventure-text-minimessage</artifactId>
-		  </dependency>
-		  <dependency>
-		    <groupId>net.kyori</groupId>
-		    <artifactId>adventure-text-serializer-gson</artifactId>
-		  </dependency>
-		  <dependency>
-		    <groupId>net.kyori</groupId>
-		    <artifactId>adventure-text-serializer-legacy</artifactId>
-		  </dependency>
-		</dependencies>
+             is on the compile classpath. Paper itself bundles Adventure at runtime. -->
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-minimessage</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-gson</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-legacy</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
@@ -191,8 +192,6 @@
                     <groupId>org.bstats</groupId>
                     <artifactId>bstats-bukkit</artifactId>
                 </exclusion>
-                <!-- Exclude WorldGuard's older transitive Adventure jars so the explicit
-                     adventure-api 4.17.0 provided dep above wins on the compile classpath. -->
                 <exclusion>
                     <groupId>net.kyori</groupId>
                     <artifactId>adventure-api</artifactId>
@@ -223,14 +222,12 @@
             <version>2.3.2</version>
             <scope>provided</scope>
         </dependency>
-        <!-- Bolt chest protection API -->
         <dependency>
             <groupId>org.popcraft</groupId>
             <artifactId>bolt-bukkit</artifactId>
             <version>1.1.33</version>
             <scope>provided</scope>
         </dependency>
-        <!-- BlockProt API -->
         <dependency>
             <groupId>com.github.spnda</groupId>
             <artifactId>BlockProt</artifactId>
@@ -247,7 +244,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <!-- GriefPrevention API (soft dependency — plugin must be installed at runtime) -->
         <dependency>
             <groupId>com.github.TechFortress</groupId>
             <artifactId>griefprevention</artifactId>
@@ -257,11 +253,6 @@
         <dependency>
             <groupId>us.dynmap</groupId>
             <artifactId>dynmap-api</artifactId>
-            <!--
-              Dynmap publishes this artifact on https://repo.mikeprimm.com/.
-              Note: some CI environments cannot reach that host; see scripts/install-dynmap-api.sh for a CI-safe
-              alternative that installs the same coordinates from GitHub Releases.
-            -->
             <version>3.2-beta-1</version>
             <scope>provided</scope>
         </dependency>
@@ -298,7 +289,7 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>2.1.214</version> <!-- Updating to 2.2.220 broke things, leave it here for now -->
+            <version>2.1.214</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -312,7 +303,6 @@
             <version>24.0.1</version>
             <scope>provided</scope>
         </dependency>
-        <!-- FoliaLib dependency -->
         <dependency>
             <groupId>com.github.technicallycoded</groupId>
             <artifactId>FoliaLib</artifactId>
