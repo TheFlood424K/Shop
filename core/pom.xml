@@ -15,7 +15,11 @@
     </parent>
 
     <properties>
-        <paper.version>[26.1.2.build,)</paper.version>
+        <!-- Pinned to a specific stable build to avoid Adventure classpath gaps with WorldGuard 7.0.18.
+             The open-ended range [26.1.2.build,) was resolving to builds that include
+             net.kyori.adventure.text.object.PlayerHeadObjectContents / ObjectContentsLike,
+             which are not present in WorldGuard's transitive Adventure dependency. -->
+        <paper.version>26.2.build.91-stable</paper.version>
     </properties>
 
     <!-- core module info -->
