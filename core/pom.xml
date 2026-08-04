@@ -15,13 +15,13 @@
     </parent>
 
     <properties>
-        <!-- Clamped to [26.1.2.build,26.2) so Maven never resolves a 26.2.x build.
+        <!-- Pinned to exact 26.1.2 build.
              Paper 26.2 ships Adventure 4.17+ which introduces
              net.kyori.adventure.text.object.* classes that WorldGuard 7.0.18
              (compiled against Adventure 4.14.x) cannot satisfy at compile time.
-             Remove the upper bound once WorldGuard releases a version that targets
+             Remove the pin once WorldGuard releases a version that targets
              Adventure 4.17+. -->
-        <paper.version>[26.1.2.build,26.2)</paper.version>
+        <paper.version>26.1.2</paper.version>
     </properties>
 
     <!-- core module info -->
@@ -139,6 +139,16 @@
             <version>${paper.version}</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Explicit Adventure API provided dep so that net.kyori.adventure.text.object.*
+             (e.g. PlayerHeadObjectContents, introduced in Adventure 4.17) is on the compile
+             classpath even though WorldGuard 7.0.18 only bundles Adventure 4.14.x.
+             Scope is 'provided' because Paper itself bundles Adventure at runtime. -->
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-api</artifactId>
+            <version>4.17.0</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
@@ -161,12 +171,8 @@
                     <groupId>org.bstats</groupId>
                     <artifactId>bstats-bukkit</artifactId>
                 </exclusion>
-                <!-- Exclude WorldGuard's older transitive Adventure jars so Paper's
-                     bundled Adventure version (which includes adventure-text-object.*)
-                     wins on the compile classpath. Without these exclusions, WorldGuard's
-                     Adventure 4.14.x shadows Paper's Adventure 4.17+, causing
-                     "class file not found" errors for PlayerHeadObjectContents and
-                     ObjectContentsLike in WorldGuardHook.java. -->
+                <!-- Exclude WorldGuard's older transitive Adventure jars so the explicit
+                     adventure-api 4.17.0 provided dep above wins on the compile classpath. -->
                 <exclusion>
                     <groupId>net.kyori</groupId>
                     <artifactId>adventure-api</artifactId>
