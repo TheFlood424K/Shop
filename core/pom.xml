@@ -15,12 +15,13 @@
     </parent>
 
     <properties>
-        <!-- Pinned to the 26.1.2 build range to stay on 1.21.4 and avoid Adventure
-             classpath gaps introduced in 26.2.x builds. WorldGuard 7.0.18 pulls in an
-             older Adventure jar that lacks net.kyori.adventure.text.object.* classes
-             present in Paper 26.2 builds. Locking to [26.1.2.build,) keeps us on the
-             latest stable 26.1.2 build without accidentally resolving to 26.2.x. -->
-        <paper.version>[26.1.2.build,)</paper.version>
+        <!-- Clamped to [26.1.2.build,26.2) so Maven never resolves a 26.2.x build.
+             Paper 26.2 ships Adventure 4.17+ which introduces
+             net.kyori.adventure.text.object.* classes that WorldGuard 7.0.18
+             (compiled against Adventure 4.14.x) cannot satisfy at compile time.
+             Remove the upper bound once WorldGuard releases a version that targets
+             Adventure 4.17+. -->
+        <paper.version>[26.1.2.build,26.2)</paper.version>
     </properties>
 
     <!-- core module info -->
