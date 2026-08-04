@@ -2,6 +2,10 @@ package com.snowgears.shop.util;
 
 
 import com.snowgears.shop.Shop;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ComponentIteratorType;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.Style;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.ShulkerBox;
@@ -140,6 +144,26 @@ public class InventoryUtils {
         return amount;
     }
 
+    /**
+     * Rebuilds a Component tree with all font() keys set to null.
+     * All other styling (color, bold, italic, underlined, strikethrough,
+     * obfuscated, insertion, click/hover events) is preserved exactly.
+     * This ensures that two Components whose only difference is the font
+     * tag are treated as equal during item comparison.
+     */
+    private static Component stripFont(Component component) {
+        Style normalized = component.style().font(null);
+        Component result = component.style(normalized);
+        if (!component.children().isEmpty()) {
+            List<Component> normalizedChildren = new ArrayList<>();
+            for (Component child : component.children()) {
+                normalizedChildren.add(stripFont(child));
+            }
+            result = result.children(normalizedChildren);
+        }
+        return result;
+    }
+
     public static boolean itemstacksAreSimilar(ItemStack i1, ItemStack i2){
         if(i1 == null || i2 == null)
             return false;
@@ -207,6 +231,21 @@ public class InventoryUtils {
             i1Meta.setAttributeModifiers(i1Meta.getAttributeModifiers());
             i2Meta.setAttributeModifiers(i2Meta.getAttributeModifiers());
             itemStack1.setItemMeta(i1Meta);
+            itemStack2.setItemMeta(i2Meta);
+        }
+
+        // Normalize font tags on display names before comparing.
+        // isSimilar() compares Component objects byte-for-byte, so two items
+        // that look identical but were given different font: keys (e.g. one via
+        // a resource pack, one via a vanilla command) would incorrectly fail the
+        // similarity check. We rebuild the display name Component with font(null)
+        // on both sides, preserving all other styling (color, bold, italic, etc.).
+        if (i1Meta != null && i1Meta.hasDisplayName()) {
+            i1Meta.displayName(stripFont(i1Meta.displayName()));
+            itemStack1.setItemMeta(i1Meta);
+        }
+        if (i2Meta != null && i2Meta.hasDisplayName()) {
+            i2Meta.displayName(stripFont(i2Meta.displayName()));
             itemStack2.setItemMeta(i2Meta);
         }
 
