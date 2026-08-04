@@ -87,13 +87,13 @@ jobs:
     
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
-        mvn -B -nsu -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
+        mvn -B -U -ntp -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
       # This is an optimization step only. It is known to be overly strict for some optional/provided integrations
       # (e.g., external plugin APIs with unpublished transitive deps), which can cause spurious CI failures.
       continue-on-error: true
       
     - name: Build
-      run: mvn -B -nsu -T 1C -Drevision=${{ env.VERSION }} clean package
+      run: mvn -B -U -ntp -T 1C -Drevision=${{ env.VERSION }} clean package
 
     - name: Publish Test Results
       if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
@@ -189,4 +189,4 @@ jobs:
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: target/Shop-*.jar 
+        files: target/Shop-*.jar
