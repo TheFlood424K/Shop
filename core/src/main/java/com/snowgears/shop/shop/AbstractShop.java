@@ -161,11 +161,13 @@ public abstract class AbstractShop {
             return stock;
         }
         if(this.getInventory() == null || this.getItemStack() == null) {
-            //if stock is already calculated but now inventory is null, use old stock value
-            if(stock != -1)
-                return stock;
-            else
-                stock = -1;
+            // Bug fix: when the chunk is unloaded, getInventory() returns null because
+            // isChunkLoaded() is false. Returning the stale cached stock in that case
+            // is misleading — callers (e.g. TransactionHandler) may use that value to
+            // approve a transaction against a chest that isn't actually accessible.
+            // Return -1 so that the shop is treated as "stock unknown" until the chunk
+            // is loaded and calculateStock() can do a real count.
+            stock = -1;
             return stock;
         }
         int itemsInShop = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());

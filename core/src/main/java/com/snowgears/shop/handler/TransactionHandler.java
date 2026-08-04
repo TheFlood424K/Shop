@@ -46,9 +46,11 @@ public class TransactionHandler {
             return;
         }
 
-        //delete shop if it does not have a chest attached to it
-        if(!(plugin.getShopHandler().isChest(shop.getChestLocation().getBlock()))){
-            plugin.getLogger().warning("Deleting Shop because chest does not exist! " + shop);
+        // Bug fix: chestLocation is only set inside AbstractShop.load(), which runs deferred on
+        // chunk load. If a player somehow interacts with the shop before load() completes,
+        // chestLocation will be null and the .getBlock() call below would throw a NPE.
+        if(shop.getChestLocation() == null || !(plugin.getShopHandler().isChest(shop.getChestLocation().getBlock()))){
+            plugin.getLogger().warning("Deleting Shop because chest location is null or chest does not exist! " + shop);
             shop.delete();
             return;
         }
@@ -203,20 +205,31 @@ public class TransactionHandler {
         if(shopMessageCooldown.containsKey(shop.getSignLocation()))
             return false;
         else{
-            shopMessageCooldown.put(shop.getSignLocation(), shop.getOwnerUUID());
+            // Capture the sign location so the cooldown entry can always be removed even if
+            // the shop object is deleted before the 2-minute window elapses (Bug fix: the
+            // old code fell into the TODO path and left a dangling entry in the cooldown map
+            // when the shop was deleted mid-cooldown, permanently breaking owner notifications
+            // for any new shop created at the same location within that window).
+            final Location signLoc = shop.getSignLocation();
+            shopMessageCooldown.put(signLoc, shop.getOwnerUUID());
 
             plugin.getFoliaLib().getScheduler().runLater(new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if(shop != null){
-                        if(shopMessageCooldown.containsKey(shop.getSignLocation())){
-                            shopMessageCooldown.remove(shop.getSignLocation());
-                        }
-                    }
-                    //TODO if shop is null, should you clear the entire cooldown list so that that location isn't messed up?
+                    shopMessageCooldown.remove(signLoc);
                 }
             }, 2400); //make cooldown 2 minutes
         }
         return true;
+    }
+
+    /**
+     * Clears the notify-owner cooldown for a given sign location.
+     * Should be called from ShopHandler.removeShop() so that a shop deleted
+     * during the 2-minute window doesn't block notifications on a replacement
+     * shop at the same location.
+     */
+    public void clearNotifyOwnerCooldown(Location signLocation) {
+        shopMessageCooldown.remove(signLocation);
     }
 }
