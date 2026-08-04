@@ -21,7 +21,7 @@
              (compiled against Adventure 4.14.x) cannot satisfy at compile time.
              Remove the pin once WorldGuard releases a version that targets
              Adventure 4.17+. -->
-        <paper.version>26.1.2</paper.version>
+        <paper.version>26.1.2.build.74-stable</paper.version>
     </properties>
 
     <!-- core module info -->
