@@ -154,6 +154,14 @@
             <artifactId>adventure-api</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- adventure-nbt is needed at compile time because UtilMethods references
+             net.kyori.adventure.text.object.PlayerHeadObjectContents, which lives
+             in adventure-nbt (not adventure-api). Version managed by adventure-bom. -->
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-nbt</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-minimessage</artifactId>
@@ -326,15 +334,10 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.5</version>
                     <configuration>
-                        <!-- When we eventually drop the compile target to Java 8, MockBukkit (still on 21) may
-                             need reflective access to JDK internals.  Keep the add-opens flag now so we don't
-                             forget later.  Harmless on 17+ runtimes. -->
                         <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
-                        <!-- Parallel test execution -->
                         <parallel>methods</parallel>
                         <forkCount>1</forkCount>
                         <reuseForks>true</reuseForks>
-                        <!-- Ensure JDK 25 is available for tests because MockBukkit 4 requires 21+ -->
                         <jdkToolchain>
                             <version>25</version>
                             <vendor>any</vendor>
@@ -344,7 +347,6 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- Toolchains plugin: ensure JDK 25 is used for compilation and tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-toolchains-plugin</artifactId>
@@ -365,7 +367,6 @@
                     </toolchains>
                 </configuration>
             </plugin>
-            <!-- Always enable JaCoCo agent and reporting by default -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -415,7 +416,6 @@
                                     <pattern>org.mariadb.jdbc</pattern>
                                     <shadedPattern>com.snowgears.shop.artifact.mariadbjdbc</shadedPattern>
                                 </relocation>
-                                <!-- FoliaLib relocation -->
                                 <relocation>
                                     <pattern>com.tcoded.folialib</pattern>
                                     <shadedPattern>com.snowgears.shop.artifact.folialib</shadedPattern>
@@ -425,7 +425,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Ensure Surefire picks up ${argLine} (JaCoCo agent) in this module -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -445,7 +444,6 @@
     </build>
 
     <profiles>
-        
         <profile>
             <id>coverage-report</id>
             <build>
