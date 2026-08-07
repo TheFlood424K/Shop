@@ -137,6 +137,15 @@
             <version>2.0.18</version>
             <scope>test</scope>
         </dependency>
+        <!-- json-simple is a transitive dependency of LWC (provided scope at runtime)
+             but is not on the test classpath; add it explicitly so LWCTrustIntegrationTest
+             does not throw NoClassDefFoundError: org/json/simple/JSONObject -->
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>1.1.1</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Core Dependencies -->
         <dependency>
@@ -329,10 +338,15 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.5</version>
                     <configuration>
-                        <argLine>${argLine} -XX:+EnableDynamicAgentLoading -Djdk.attach.allowAttachSelf=true --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+                        <!-- When we eventually drop the compile target to Java 8, MockBukkit (still on 21) may
+                             need reflective access to JDK internals.  Keep the add-opens flag now so we don't
+                             forget later.  Harmless on 17+ runtimes. -->
+                        <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+                        <!-- Parallel test execution -->
                         <parallel>methods</parallel>
                         <forkCount>1</forkCount>
                         <reuseForks>true</reuseForks>
+                        <!-- Ensure JDK 25 is available for tests because MockBukkit 4 requires 21+ -->
                         <jdkToolchain>
                             <version>25</version>
                             <vendor>any</vendor>
@@ -367,7 +381,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.13</version>
+                <version>0.8.11</version>
                 <configuration>
                     <propertyName>argLine</propertyName>
                     <append>true</append>
@@ -423,13 +437,13 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Ensure Surefire picks up argLine from JaCoCo in this module -->
+            <!-- Ensure Surefire picks up ${argLine} (JaCoCo agent) in this module -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.5</version>
                 <configuration>
-                    <argLine>${argLine} -XX:+EnableDynamicAgentLoading -Djdk.attach.allowAttachSelf=true --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+                    <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
                     <parallel>methods</parallel>
                     <forkCount>1</forkCount>
                     <reuseForks>true</reuseForks>
@@ -451,7 +465,7 @@
                     <plugin>
                         <groupId>org.jacoco</groupId>
                         <artifactId>jacoco-maven-plugin</artifactId>
-                        <version>0.8.13</version>
+                        <version>0.8.11</version>
                         <executions>
                             <execution>
                                 <id>report-only</id>
