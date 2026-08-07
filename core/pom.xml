@@ -169,14 +169,6 @@
             <artifactId>adventure-text-serializer-legacy</artifactId>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <!-- adventure-text-serializer-nbt was removed from adventure-bom in 4.17.0;
-                 version must be declared explicitly here. Pin to match the rest of Adventure. -->
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-nbt</artifactId>
-            <version>4.26.1</version>
-            <scope>provided</scope>
-        </dependency>
 
         <dependency>
             <groupId>it.unimi.dsi</groupId>
@@ -342,7 +334,7 @@
                         <parallel>methods</parallel>
                         <forkCount>1</forkCount>
                         <reuseForks>true</reuseForks>
-                        <!-- Ensure JDK 21 is available for tests because MockBukkit 4 requires 21 -->
+                        <!-- Ensure JDK 25 is available for tests because MockBukkit 4 requires 21+ -->
                         <jdkToolchain>
                             <version>25</version>
                             <vendor>any</vendor>
@@ -352,7 +344,7 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- Toolchains plugin: ensure JDK 21 is available for tests because MockBukkit 4 requires 21, but we still want to compile with a lower Java target in mind -->
+            <!-- Toolchains plugin: ensure JDK 25 is used for compilation and tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-toolchains-plugin</artifactId>
