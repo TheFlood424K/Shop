@@ -15,12 +15,11 @@
     </parent>
 
     <properties>
-        <!-- Pinned to Paper 26.1.2. WorldGuard 7.0.16 is the last release that
-             explicitly targets MC 26.1.2. Adventure is pinned to 4.16.0 which
-             is the last release that does NOT include
-             net.kyori.adventure.text.object.PlayerHeadObjectContents;
-             that class was introduced in Adventure 4.17.0 and causes compile
-             failures against Paper 26.1.2's bundled Adventure. -->
+        <!-- Pinned to exact 26.1.2 build.
+             Paper 26.2 ships Adventure 4.17+ which introduces
+             net.kyori.adventure.text.object.* classes that WorldGuard 7.0.18
+             (compiled against Adventure 4.17.x) can satisfy at compile time.
+             Remove the pin once a newer stable Paper build is validated. -->
         <paper.version>26.1.2.build.74-stable</paper.version>
     </properties>
 
@@ -95,12 +94,10 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Adventure 4.16.0: last release before PlayerHeadObjectContents
-                 was introduced in 4.17.0. Compatible with Paper 26.1.2. -->
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-bom</artifactId>
-                <version>4.16.0</version>
+                <version>4.26.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -127,11 +124,10 @@
             <version>5.23.0</version>
             <scope>test</scope>
         </dependency>
-        <!-- Latest MockBukkit for Paper 26.1.2 -->
         <dependency>
             <groupId>org.mockbukkit.mockbukkit</groupId>
             <artifactId>mockbukkit-v26.1.2</artifactId>
-            <version>4.115.0</version>
+            <version>4.114.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -150,26 +146,30 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Explicit Adventure API provided dep so that net.kyori.adventure.text.*
+        <!-- Explicit Adventure API provided dep so that net.kyori.adventure.text.object.*
              is on the compile classpath. Paper itself bundles Adventure at runtime. -->
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
+		    <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-minimessage</artifactId>
+		    <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-gson</artifactId>
+		    <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-legacy</artifactId>
+		    <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
 
@@ -185,11 +185,10 @@
             <version>1.7</version>
             <scope>provided</scope>
         </dependency>
-        <!-- WorldGuard 7.0.16: last release targeting MC 1.21.11 / Paper 26.1.2 -->
         <dependency>
             <groupId>com.sk89q.worldguard</groupId>
             <artifactId>worldguard-bukkit</artifactId>
-            <version>7.0.16</version>
+            <version>7.0.18</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -330,10 +329,15 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.5</version>
                     <configuration>
+                        <!-- When we eventually drop the compile target to Java 8, MockBukkit (still on 21) may
+                             need reflective access to JDK internals.  Keep the add-opens flag now so we don't
+                             forget later.  Harmless on 17+ runtimes. -->
                         <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+                        <!-- Parallel test execution -->
                         <parallel>methods</parallel>
                         <forkCount>1</forkCount>
                         <reuseForks>true</reuseForks>
+                        <!-- Ensure JDK 25 is available for tests because MockBukkit 4 requires 21+ -->
                         <jdkToolchain>
                             <version>25</version>
                             <vendor>any</vendor>
@@ -368,7 +372,8 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
+                <!-- 0.8.13: first release with Java 25 (class file major version 69) support -->
+                <version>0.8.13</version>
                 <configuration>
                     <propertyName>argLine</propertyName>
                     <append>true</append>
@@ -452,7 +457,8 @@
                     <plugin>
                         <groupId>org.jacoco</groupId>
                         <artifactId>jacoco-maven-plugin</artifactId>
-                        <version>0.8.11</version>
+                        <!-- 0.8.13: first release with Java 25 (class file major version 69) support -->
+                        <version>0.8.13</version>
                         <executions>
                             <execution>
                                 <id>report-only</id>
