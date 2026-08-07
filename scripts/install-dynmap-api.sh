@@ -12,6 +12,11 @@ set -euo pipefail
 #
 # This script fetches the Dynmap *spigot* jar from GitHub Releases and installs it as a "provided" compile-time
 # dependency. We only need the API classes to compile; the runtime plugin still supplies the real implementation.
+#
+# NOTE: We run the mvn install:install-file command from within $tmp_dir (which has no pom.xml) so that Maven
+# cannot walk up to the multi-module project POM. Without this isolation, Maven validates all modules before
+# executing the goal, and rejects BOM-managed deps (like adventure-text-serializer-nbt) that have no explicit
+# version — because the BOM hasn't been fetched yet at that point.
 
 # The Maven coordinate version we want present locally (must match core/pom.xml).
 DYNMAP_API_VERSION="${DYNMAP_API_VERSION:-3.2-beta-1}"
@@ -48,16 +53,19 @@ curl -fsSL --retry 3 --retry-delay 2 --max-time 120 -o "${jar_path}" "${DOWNLOAD
 mkdir -p "${DEST_DIR}"
 
 echo "Installing into Maven local repo (${LOCAL_REPO}) as ${GROUP_ID}:${ARTIFACT_ID}:${DYNMAP_API_VERSION}"
-mvn -B -q \
-  -Dmaven.repo.local="${LOCAL_REPO}" \
-  -DgroupId="${GROUP_ID}" \
-  -DartifactId="${ARTIFACT_ID}" \
-  -Dversion="${DYNMAP_API_VERSION}" \
-  -Dpackaging="${PACKAGING}" \
-  -Dfile="${jar_path}" \
-  -DgeneratePom=true \
-  install:install-file
+# Run from $tmp_dir (no pom.xml there) so Maven cannot discover the multi-module project POM
+# and attempt to validate it before the adventure-bom has been resolved.
+(
+  cd "${tmp_dir}"
+  mvn -B -q \
+    -Dmaven.repo.local="${LOCAL_REPO}" \
+    -DgroupId="${GROUP_ID}" \
+    -DartifactId="${ARTIFACT_ID}" \
+    -Dversion="${DYNMAP_API_VERSION}" \
+    -Dpackaging="${PACKAGING}" \
+    -Dfile="${jar_path}" \
+    -DgeneratePom=true \
+    install:install-file
+)
 
 echo "Installed: ${DEST_JAR}"
-
-

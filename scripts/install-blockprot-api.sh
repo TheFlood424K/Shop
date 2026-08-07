@@ -14,6 +14,11 @@ set -euo pipefail
 #
 # This installs that jar as a "provided" compile-time dependency with a generated (dependency-less) POM. We only
 # need the de.sean.blockprot.bukkit.* API classes to compile; the runtime plugin still supplies the real impl.
+#
+# NOTE: We run the mvn install:install-file command from within $tmp_dir (which has no pom.xml) so that Maven
+# cannot walk up to the multi-module project POM. Without this isolation, Maven validates all modules before
+# executing the goal, and rejects BOM-managed deps (like adventure-text-serializer-nbt) that have no explicit
+# version — because the BOM hasn't been fetched yet at that point.
 
 # The Maven coordinate version we want present locally (must match core/pom.xml).
 BLOCKPROT_VERSION="${BLOCKPROT_VERSION:-1.2.6}"
@@ -43,14 +48,19 @@ echo "Downloading BlockProt from: ${DOWNLOAD_URL}"
 curl -fsSL --retry 3 --retry-delay 2 --max-time 120 -o "${jar_path}" "${DOWNLOAD_URL}"
 
 echo "Installing into Maven local repo (${LOCAL_REPO}) as ${GROUP_ID}:${ARTIFACT_ID}:${BLOCKPROT_VERSION}"
-mvn -B -q \
-  -Dmaven.repo.local="${LOCAL_REPO}" \
-  -DgroupId="${GROUP_ID}" \
-  -DartifactId="${ARTIFACT_ID}" \
-  -Dversion="${BLOCKPROT_VERSION}" \
-  -Dpackaging="${PACKAGING}" \
-  -Dfile="${jar_path}" \
-  -DgeneratePom=true \
-  install:install-file
+# Run from $tmp_dir (no pom.xml there) so Maven cannot discover the multi-module project POM
+# and attempt to validate it before the adventure-bom has been resolved.
+(
+  cd "${tmp_dir}"
+  mvn -B -q \
+    -Dmaven.repo.local="${LOCAL_REPO}" \
+    -DgroupId="${GROUP_ID}" \
+    -DartifactId="${ARTIFACT_ID}" \
+    -Dversion="${BLOCKPROT_VERSION}" \
+    -Dpackaging="${PACKAGING}" \
+    -Dfile="${jar_path}" \
+    -DgeneratePom=true \
+    install:install-file
+)
 
 echo "Installed: ${DEST_JAR}"
