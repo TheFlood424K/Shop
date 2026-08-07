@@ -329,17 +329,10 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.5</version>
                     <configuration>
-                        <!-- Java 21+ requires explicit opt-in for dynamic agent loading (needed by Mockito
-                             inline mock maker to instrument classes like com.griefcraft.model.Protection).
-                             -XX:+EnableDynamicAgentLoading  – suppresses the JVM warning / error
-                             -Djdk.attach.allowAttachSelf=true – lets byte-buddy attach to the same JVM
-                             --add-opens java.base/java.lang=ALL-UNNAMED – retained for MockBukkit reflective access -->
                         <argLine>${argLine} -XX:+EnableDynamicAgentLoading -Djdk.attach.allowAttachSelf=true --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
-                        <!-- Parallel test execution -->
                         <parallel>methods</parallel>
                         <forkCount>1</forkCount>
                         <reuseForks>true</reuseForks>
-                        <!-- Ensure JDK 25 is available for tests because MockBukkit 4 requires 21+ -->
                         <jdkToolchain>
                             <version>25</version>
                             <vendor>any</vendor>
@@ -374,7 +367,6 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <!-- 0.8.13: first release with Java 25 (class file major version 69) support -->
                 <version>0.8.13</version>
                 <configuration>
                     <propertyName>argLine</propertyName>
@@ -431,7 +423,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Ensure Surefire picks up ${argLine} (JaCoCo agent) in this module -->
+            <!-- Ensure Surefire picks up argLine from JaCoCo in this module -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -459,7 +451,6 @@
                     <plugin>
                         <groupId>org.jacoco</groupId>
                         <artifactId>jacoco-maven-plugin</artifactId>
-                        <!-- 0.8.13: first release with Java 25 (class file major version 69) support -->
                         <version>0.8.13</version>
                         <executions>
                             <execution>
