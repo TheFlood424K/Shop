@@ -18,9 +18,8 @@
         <!-- Pinned to exact 26.1.2 build.
              Paper 26.2 ships Adventure 4.17+ which introduces
              net.kyori.adventure.text.object.* classes that WorldGuard 7.0.18
-             (compiled against Adventure 4.14.x) cannot satisfy at compile time.
-             Remove the pin once WorldGuard releases a version that targets
-             Adventure 4.17+. -->
+             (compiled against Adventure 4.17.x) can satisfy at compile time.
+             Remove the pin once a newer stable Paper build is validated. -->
         <paper.version>26.1.2.build.74-stable</paper.version>
     </properties>
 
@@ -110,7 +109,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>6.1.1</version>
+            <version>5.12.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -185,7 +184,7 @@
         <dependency>
             <groupId>com.sk89q.worldguard</groupId>
             <artifactId>worldguard-bukkit</artifactId>
-            <version>7.0.0</version>
+            <version>7.0.18</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
