@@ -170,8 +170,11 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <!-- adventure-text-serializer-nbt was removed from adventure-bom in 4.17.0;
+                 version must be declared explicitly here. Pin to match the rest of Adventure. -->
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-nbt</artifactId>
+            <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
 
