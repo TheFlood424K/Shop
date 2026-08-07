@@ -413,9 +413,14 @@ public class Shop extends JavaPlugin {
         //Loading the itemCurrency from a file makes it easier to allow servers to use detailed itemstacks as the server's economy item
         File itemCurrencyFile = new File(fileDirectory, "itemCurrency.yml");
         if(itemCurrencyFile.exists()){
-            YamlConfiguration currencyConfig = YamlConfiguration.loadConfiguration(itemCurrencyFile);
-            itemCurrency = currencyConfig.getItemStack("item");
-            itemCurrency.setAmount(1);
+            try {
+                YamlConfiguration currencyConfig = YamlConfiguration.loadConfiguration(itemCurrencyFile);
+                itemCurrency = currencyConfig.getItemStack("item");
+                if (itemCurrency != null) itemCurrency.setAmount(1);
+            } catch (Exception | Error e) {
+                this.getLogger().warning("Error loading itemCurrency from file, falling back to EMERALD: " + e.getMessage());
+                itemCurrency = new ItemStack(Material.EMERALD);
+            }
         }
         else{
             try {
