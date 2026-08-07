@@ -69,8 +69,6 @@ jobs:
           </toolchain>
         </toolchains>
         EOF
-        echo "Toolchains written:"
-        cat ~/.m2/toolchains.xml
 
     - name: Build Maven Repository
       run: |
@@ -130,7 +128,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.JAR_FILENAME }}
-        path: target/Shop-*.jar
+        path: '**/target/Shop-*.jar'
         
     - name: Upload diff-cover HTML artifact
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
@@ -191,4 +189,4 @@ jobs:
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: target/Shop-*.jar
+        files: '**/target/Shop-*.jar'
