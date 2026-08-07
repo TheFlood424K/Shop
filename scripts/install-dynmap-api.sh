@@ -12,6 +12,10 @@ set -euo pipefail
 #
 # This script fetches the Dynmap *spigot* jar from GitHub Releases and installs it as a "provided" compile-time
 # dependency. We only need the API classes to compile; the runtime plugin still supplies the real implementation.
+#
+# NOTE: We pass "-f /dev/null" to the mvn install:install-file invocation so that Maven does NOT walk up to and
+# evaluate the multi-module project POM. Without this, Maven tries to validate all modules (including shop-core)
+# before the adventure-bom BOM has been fetched, causing a false "version missing" error for any BOM-managed dep.
 
 # The Maven coordinate version we want present locally (must match core/pom.xml).
 DYNMAP_API_VERSION="${DYNMAP_API_VERSION:-3.2-beta-1}"
@@ -48,7 +52,11 @@ curl -fsSL --retry 3 --retry-delay 2 --max-time 120 -o "${jar_path}" "${DOWNLOAD
 mkdir -p "${DEST_DIR}"
 
 echo "Installing into Maven local repo (${LOCAL_REPO}) as ${GROUP_ID}:${ARTIFACT_ID}:${DYNMAP_API_VERSION}"
+# -f /dev/null prevents Maven from discovering and validating the multi-module project POM,
+# which would fail if BOM-managed dependencies (like adventure-text-serializer-nbt) have not
+# yet had their BOM resolved.
 mvn -B -q \
+  -f /dev/null \
   -Dmaven.repo.local="${LOCAL_REPO}" \
   -DgroupId="${GROUP_ID}" \
   -DartifactId="${ARTIFACT_ID}" \
@@ -59,5 +67,3 @@ mvn -B -q \
   install:install-file
 
 echo "Installed: ${DEST_JAR}"
-
-
