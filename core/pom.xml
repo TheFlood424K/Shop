@@ -137,6 +137,15 @@
             <version>2.0.18</version>
             <scope>test</scope>
         </dependency>
+        <!-- json-simple is a transitive dependency of LWC (provided scope at runtime)
+             but is not on the test classpath; add it explicitly so LWCTrustIntegrationTest
+             does not throw NoClassDefFoundError: org/json/simple/JSONObject -->
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>1.1.1</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Core Dependencies -->
         <dependency>
@@ -372,7 +381,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
+                <version>0.8.13</version>
                 <configuration>
                     <propertyName>argLine</propertyName>
                     <append>true</append>

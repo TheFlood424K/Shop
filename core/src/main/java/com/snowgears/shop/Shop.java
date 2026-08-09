@@ -416,13 +416,18 @@ public class Shop extends JavaPlugin {
             try {
                 YamlConfiguration currencyConfig = YamlConfiguration.loadConfiguration(itemCurrencyFile);
                 itemCurrency = currencyConfig.getItemStack("item");
-                if (itemCurrency != null) itemCurrency.setAmount(1);
-            } catch (Exception | Error e) {
-                this.getLogger().warning("Error loading itemCurrency from file, falling back to EMERALD: " + e.getMessage());
-                itemCurrency = new ItemStack(Material.EMERALD);
+                if (itemCurrency != null) {
+                    itemCurrency.setAmount(1);
+                }
+            } catch (Exception e) {
+                this.getLogger().warning("Error loading itemCurrency from file (will use default EMERALD): " + e.getMessage());
+                itemCurrency = null;
+            } catch (Error e) {
+                this.getLogger().warning("Error loading itemCurrency from file (will use default EMERALD): " + e.getMessage());
+                itemCurrency = null;
             }
         }
-        else{
+        if (itemCurrency == null) {
             try {
                 itemCurrency = new ItemStack(Material.EMERALD);
                 itemCurrencyFile.createNewFile();

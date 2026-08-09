@@ -54,21 +54,9 @@ jobs:
     - name: Generate Maven toolchains.xml (JDK 25)
       run: |
         mkdir -p ~/.m2
-        cat > ~/.m2/toolchains.xml <<EOF
-        <?xml version="1.0" encoding="UTF-8"?>
-        <toolchains>
-          <toolchain>
-            <type>jdk</type>
-            <provides>
-              <version>25</version>
-              <vendor>any</vendor>
-            </provides>
-            <configuration>
-              <jdkHome>${JAVA_HOME}</jdkHome>
-            </configuration>
-          </toolchain>
-        </toolchains>
-        EOF
+        printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
+        echo "Generated toolchains.xml:"
+        cat ~/.m2/toolchains.xml
 
     - name: Build Maven Repository
       run: |
@@ -93,7 +81,7 @@ jobs:
       continue-on-error: true
       
     - name: Build
-      run: mvn -B -U -ntp -T 1C -Drevision=${{ env.VERSION }} clean package
+      run: mvn -B -nsu -T 1C -Drevision=${{ env.VERSION }} clean package
 
     - name: Publish Test Results
       if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)

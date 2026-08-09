@@ -27,11 +27,43 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockito.Mockito;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("integration")
 public class LWCTrustIntegrationTest extends BaseMockBukkitTest {
+
+    /**
+     * Minimal Protection stub that avoids Mockito inline-mocking of the
+     * com.griefcraft.model.Protection concrete class, which fails on Java 25
+     * due to module / bytecode restrictions.
+     *
+     * Only the two methods exercised by these tests are overridden;
+     * everything else delegates to the no-arg superclass constructor.
+     */
+    private static class FakeProtection extends Protection {
+        private Player owner;
+        final AtomicBoolean removed = new AtomicBoolean(false);
+
+        FakeProtection(Player owner) {
+            this.owner = owner;
+        }
+
+        FakeProtection() {
+            this.owner = null;
+        }
+
+        @Override
+        public Player getBukkitOwner() {
+            return owner;
+        }
+
+        @Override
+        public void remove() {
+            removed.set(true);
+        }
+    }
 
     @Test
     void lwc_deniesCreationOnOtherPlayersProtectedChest_nonOp_abortsCreation_sendsCreateOtherPlayer() {
@@ -47,10 +79,9 @@ public class LWCTrustIntegrationTest extends BaseMockBukkitTest {
         Block chestBlock = world.getBlockAt(chestLoc);
 
         LWC lwc = Mockito.mock(LWC.class);
-        Protection protection = Mockito.mock(Protection.class);
         Player otherOwner = Mockito.mock(Player.class);
         Mockito.when(otherOwner.getUniqueId()).thenReturn(UUID.randomUUID());
-        Mockito.when(protection.getBukkitOwner()).thenReturn(otherOwner);
+        FakeProtection protection = new FakeProtection(otherOwner);
         Mockito.when(lwc.findProtection(Mockito.any(Location.class))).thenReturn(protection);
 
         LWCHookListener listener = TestReflection.allocateInstance(LWCHookListener.class);
@@ -76,7 +107,7 @@ public class LWCTrustIntegrationTest extends BaseMockBukkitTest {
             assertNull(plugin.getShopHandler().getShopByChest(chestBlock), "No shop should be registered for the chest");
             Mockito.verify(lwc, Mockito.atLeastOnce()).findProtection(Mockito.any(Location.class));
 
-            String expected = "§cYou are not allowed to create a shop on this chest.";
+            String expected = "\u00a7cYou are not allowed to create a shop on this chest.";
             var remaining = PlayerMessageTestUtil.drainMessages(server, creator, 200, 20);
             assertTrue(remaining.contains(expected), "Expected to receive message: " + expected + " but got: " + remaining);
         } finally {
@@ -99,10 +130,9 @@ public class LWCTrustIntegrationTest extends BaseMockBukkitTest {
         Location chestLoc = new Location(world, 31, 65, 50);
 
         LWC lwc = Mockito.mock(LWC.class);
-        Protection protection = Mockito.mock(Protection.class);
         Player otherOwner = Mockito.mock(Player.class);
         Mockito.when(otherOwner.getUniqueId()).thenReturn(UUID.randomUUID());
-        Mockito.when(protection.getBukkitOwner()).thenReturn(otherOwner);
+        FakeProtection protection = new FakeProtection(otherOwner);
         Mockito.when(lwc.findProtection(Mockito.any(Location.class))).thenReturn(protection);
 
         LWCHookListener listener = TestReflection.allocateInstance(LWCHookListener.class);
@@ -127,7 +157,7 @@ public class LWCTrustIntegrationTest extends BaseMockBukkitTest {
             assertNotNull(created, "Creation should succeed when LWC integration is disabled");
             Mockito.verify(lwc, Mockito.never()).findProtection(Mockito.any(Location.class));
 
-            String denied = "§cYou are not allowed to create a shop on this chest.";
+            String denied = "\u00a7cYou are not allowed to create a shop on this chest.";
             var remaining = PlayerMessageTestUtil.drainMessages(server, creator, 200, 20);
             assertFalse(remaining.contains(denied), "Denial message should not be sent when LWC integration is disabled");
         } finally {
@@ -162,7 +192,7 @@ public class LWCTrustIntegrationTest extends BaseMockBukkitTest {
         owner.setSneaking(false);
 
         LWC lwc = Mockito.mock(LWC.class);
-        Protection protection = Mockito.mock(Protection.class);
+        FakeProtection protection = new FakeProtection();
         Mockito.when(lwc.findProtection(Mockito.any(Block.class))).thenReturn(protection);
 
         LWCHookListener listener = TestReflection.allocateInstance(LWCHookListener.class);
@@ -182,7 +212,7 @@ public class LWCTrustIntegrationTest extends BaseMockBukkitTest {
             );
             server.getPluginManager().callEvent(event);
 
-            Mockito.verify(protection).remove();
+            assertTrue(protection.removed.get(), "Protection.remove() should have been called");
         } finally {
             HandlerList.unregisterAll(listener);
         }
@@ -215,7 +245,7 @@ public class LWCTrustIntegrationTest extends BaseMockBukkitTest {
         owner.setSneaking(false);
 
         LWC lwc = Mockito.mock(LWC.class);
-        Protection protection = Mockito.mock(Protection.class);
+        FakeProtection protection = new FakeProtection();
         Mockito.when(lwc.findProtection(Mockito.any(Block.class))).thenReturn(protection);
 
         LWCHookListener listener = TestReflection.allocateInstance(LWCHookListener.class);
@@ -236,11 +266,9 @@ public class LWCTrustIntegrationTest extends BaseMockBukkitTest {
             server.getPluginManager().callEvent(event);
 
             Mockito.verify(lwc, Mockito.never()).findProtection(Mockito.any(Block.class));
-            Mockito.verify(protection, Mockito.never()).remove();
+            assertFalse(protection.removed.get(), "Protection.remove() should NOT have been called when LWC integration is disabled");
         } finally {
             HandlerList.unregisterAll(listener);
         }
     }
 }
-
-
