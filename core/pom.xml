@@ -410,7 +410,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.4.1</version>
+                <!-- Upgraded from 3.4.1: version 3.4.1 throws IllegalArgumentException
+                     "Unsupported class file major version 69" when shading Java 25-compiled
+                     classes (major version 69). 3.6.0 added support for Java 25. -->
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
