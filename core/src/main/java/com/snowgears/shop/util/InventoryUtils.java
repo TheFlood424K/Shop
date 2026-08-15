@@ -232,16 +232,29 @@ public class InventoryUtils {
             itemStack2.setItemMeta(i2Meta);
         }
 
-        // Normalize font tags on display names and lore before comparing.
-        // isSimilar() compares Component objects byte-for-byte, including the
-        // font: key. Items whose display name or lore were assigned a custom
-        // resource-pack font will fail the check even when visually identical.
-        // We rebuild every Component with font(null), preserving all other
-        // styling (color, bold, italic, etc.). Only the clones are modified.
+        // Normalize font tags on display names, item names, and lore before comparing.
+        // isSimilar() compares Component objects byte-for-byte, including the font: key.
+        // Items whose name or lore were assigned a custom resource-pack font will fail
+        // the check even when visually identical. We rebuild every Component with
+        // font(null), preserving all other styling (color, bold, italic, etc.).
+        // Only the clones are modified.
+        //
+        // Three separate component fields are normalized:
+        //   1. displayName()  — minecraft:custom_name  (set via ItemMeta#displayName)
+        //   2. itemName()     — minecraft:item_name    (set via ItemMeta#itemName, Paper 1.20.5+)
+        //   3. lore()         — minecraft:lore
+        //
+        // itemName() is guarded with try/catch(NoSuchMethodError) so this compiles and
+        // runs correctly on older Spigot/Paper builds that predate the itemName API.
         if (i1Meta != null) {
             if (i1Meta.hasDisplayName()) {
                 i1Meta.displayName(stripFont(i1Meta.displayName()));
             }
+            try {
+                if (i1Meta.hasItemName()) {
+                    i1Meta.itemName(stripFont(i1Meta.itemName()));
+                }
+            } catch (NoSuchMethodError ignored) {}
             if (i1Meta.hasLore()) {
                 List<Component> lore = i1Meta.lore();
                 List<Component> normalizedLore = new ArrayList<>();
@@ -256,6 +269,11 @@ public class InventoryUtils {
             if (i2Meta.hasDisplayName()) {
                 i2Meta.displayName(stripFont(i2Meta.displayName()));
             }
+            try {
+                if (i2Meta.hasItemName()) {
+                    i2Meta.itemName(stripFont(i2Meta.itemName()));
+                }
+            } catch (NoSuchMethodError ignored) {}
             if (i2Meta.hasLore()) {
                 List<Component> lore = i2Meta.lore();
                 List<Component> normalizedLore = new ArrayList<>();
