@@ -229,7 +229,14 @@ public class MiscListener implements Listener {
         
         final Player player = event.getPlayer();
 
-
+        // Always read the item from the player's main hand directly.
+        // event.getItem() returns a legacy Bukkit ItemStack copy that can strip
+        // custom data components (custom fonts in item_name/lore, custom model data,
+        // custom NBT components) introduced in Paper 1.20.5+. Using getItemInMainHand()
+        // ensures the full Paper-native ItemStack with all custom components is used.
+        final ItemStack itemInHand = player.getInventory().getItemInMainHand();
+        // Treat an empty hand the same way as a null/AIR item from the event.
+        final boolean handIsEmpty = itemInHand.getType() == Material.AIR;
 
         if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
             final Block clicked = event.getClickedBlock();
@@ -246,14 +253,14 @@ public class MiscListener implements Listener {
                 }
 
                 //creative selection listener will handle if item is null
-                if(event.getItem() == null || event.getItem().getType() == Material.AIR)
+                if(handIsEmpty)
                     return;
                 
                 boolean initializedShop;
                 if(shop.getType() == ShopType.BARTER && shop.getItemStack() != null && shop.getSecondaryItemStack() == null)
-                    initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, shop.getItemStack(), event.getItem());
+                    initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, shop.getItemStack(), itemInHand);
                 else
-                    initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, event.getItem(), null);
+                    initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, itemInHand, null);
 
                 if(initializedShop){
                     plugin.getShopCreationUtil().sendCreationSuccess(player, shop);
@@ -281,7 +288,7 @@ public class MiscListener implements Listener {
                     return;
                 }
 
-                if(event.getItem() == null || event.getItem().getType() == Material.AIR){
+                if(handIsEmpty){
                     if(plugin.allowCreativeSelection()) {
                         //TODO this section needs to check if the current step is to get the barter item
                         ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
@@ -319,10 +326,10 @@ public class MiscListener implements Listener {
                     ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
                     plugin.getLogger().debug("Current Shop Creation Process: " + currentProcess);
                     if (currentProcess != null && currentProcess.getStep() == ShopCreationProcess.ChatCreationStep.BARTER_ITEM) {
-                        if (!plugin.getShopCreationUtil().itemsCanBeInitialized(player, currentProcess.getItemStack(), event.getItem())) {
+                        if (!plugin.getShopCreationUtil().itemsCanBeInitialized(player, currentProcess.getItemStack(), itemInHand)) {
                             return;
                         }
-                        currentProcess.setBarterItemStack(event.getItem());
+                        currentProcess.setBarterItemStack(itemInHand);
                         currentProcess.markInteracted();
                         currentProcess.displayFloatingText(currentProcess.getShopType().toString(), "createHitChestBarterAmount");
                         return;
@@ -353,7 +360,7 @@ public class MiscListener implements Listener {
 
                 //since player is creating a shop via clicking a chest with an item, create a new object to track the steps of that process
                 ShopCreationProcess process = new ShopCreationProcess(player, clicked, signFacing);
-                process.setItemStack(event.getItem());
+                process.setItemStack(itemInHand);
                 playerChatCreationSteps.put(player.getUniqueId(), process);
                 lastChatCreation.put(player.getUniqueId(), new Date().getTime());
                 process.markInteracted();
