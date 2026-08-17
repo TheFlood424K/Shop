@@ -104,20 +104,29 @@ public class TransactionParty {
         return EconomyUtils.canAcceptFunds(party, this.inventory, paymentAmount);
     }
 
-    // Receive a payment and add it to the players wallet/inventory
-    public void depositFunds(double paymentAmount) {
+    /**
+     * Receive a payment and add it to the party's wallet/inventory.
+     *
+     * @return true if the full payment was deposited successfully; false if any
+     *         item-currency overflow could not be inserted (chest still full).
+     *         Always returns true for virtual-currency (Vault) payments because
+     *         Vault deposits cannot partially fail.
+     */
+    public boolean depositFunds(double paymentAmount) {
         // If we are an admin, then we don't deposit any funds
-        if (this.isAdmin) { return; }
+        if (this.isAdmin) { return true; }
 
         if (this.currencyItem != null) {
-            // We are being paid with an item
+            // We are being paid with an item — verify every unit was actually stored.
             ItemStack payment = this.currencyItem.clone();
             payment.setAmount((int) paymentAmount);
-            InventoryUtils.addItem(this.inventory, payment);
-        } else {
-            // We are being paid using our normal currency
-            EconomyUtils.addFunds(party, this.inventory, paymentAmount);
+            int leftover = InventoryUtils.addItem(this.inventory, payment);
+            return leftover == 0;
         }
+
+        // We are being paid using our normal currency (Vault — cannot partially fail)
+        EconomyUtils.addFunds(party, this.inventory, paymentAmount);
+        return true;
     }
 
     // Make a payment for a purchase

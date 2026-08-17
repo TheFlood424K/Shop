@@ -226,19 +226,41 @@ public class Transaction {
         ItemStack itemSold = this.itemBeingSold.clone();
         itemSold.setAmount(this.amountBeingSold);
 
-        // Swap funds
+        // Step 1: Deduct the payment from the buyer.
         boolean paymentSuccessful = this.buyer.deductFunds(this.price);
-        // Verify we took the funds from the buyer
         if (!paymentSuccessful) {
             if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
             else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
         }
-        // Pay the seller the funds
-        this.seller.depositFunds(this.price);
 
-        // Swap Item
-        this.seller.deductItem(itemSold);
-        this.buyer.depositItem(itemSold);
+        // Step 2: For non-player (chest) sellers, remove the sold item from the chest BEFORE depositing
+        // the payment. verify() already confirmed space via canAcceptPaymentAfterRemoval(), which simulates
+        // the chest state after removal. Executing in this order guarantees the freed slot is actually
+        // available when depositFunds() runs, preventing item-currency overflow/loss.
+        // For player sellers the original order (pay → receive item) is unchanged.
+        if (!this.seller.isPlayer()) {
+            // Remove the sold item first to free up space in the chest.
+            this.seller.deductItem(itemSold);
+
+            // Now deposit the payment into the (now partially-emptied) chest.
+            boolean depositSuccessful = this.seller.depositFunds(this.price);
+            if (!depositSuccessful) {
+                // Rollback: restore the sold item to the chest and refund the buyer.
+                // This should never happen in practice (verify() already confirmed space
+                // post-removal), but guards against any race condition or edge case.
+                this.seller.depositItem(itemSold);
+                this.buyer.depositFunds(this.price);
+                return this.setError(TransactionError.INVENTORY_FULL_SHOP);
+            }
+
+            // Give the sold item to the buyer.
+            this.buyer.depositItem(itemSold);
+        } else {
+            // Player seller — original order: pay seller, then transfer item.
+            this.seller.depositFunds(this.price);
+            this.seller.deductItem(itemSold);
+            this.buyer.depositItem(itemSold);
+        }
 
         // Special handling for Gamble shops!
         if (shop.getType() == ShopType.GAMBLE) {
