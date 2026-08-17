@@ -373,13 +373,24 @@ public abstract class AbstractShop {
         if (is == null) return;
 
         // Remove "0 Damage" from item meta (old config bug)
-        this.item = this.removeZeroDamageMeta(is.clone());
+        ItemStack cleaned = this.removeZeroDamageMeta(is.clone());
+
+        // Strip custom font tags from the stored reference item so that crate plugin
+        // items (e.g. PhoenixCrates using Lettertype / a custom resource-pack font)
+        // are stored font-neutrally. Without this, removeZeroDamageMeta() may
+        // reconstruct the item via createItemStack(componentString), which bakes
+        // the font key back into the Component tree. The stored item then diverges
+        // from the live item in the player's hand even though itemstacksAreSimilar()
+        // strips fonts at comparison time — the asymmetry means the shop never
+        // recognises the item when the player hits the chest.
+        this.item = InventoryUtils.stripFontFromItem(cleaned);
         this.calculateStock();
         this.updateSign(true);
     }
 
     public void setSecondaryItemStack(ItemStack is) {
-        this.secondaryItem = this.removeZeroDamageMeta(is.clone());
+        ItemStack cleaned = this.removeZeroDamageMeta(is.clone());
+        this.secondaryItem = InventoryUtils.stripFontFromItem(cleaned);
         this.calculateStock();
         this.updateSign(true);
     }

@@ -148,8 +148,13 @@ public class InventoryUtils {
      * obfuscated, insertion, click/hover events) is preserved exactly.
      * This ensures that two Components whose only difference is the font
      * tag are treated as equal during item comparison.
+     *
+     * Public so that AbstractShop can call it at item-storage time to
+     * normalise the stored reference item (this.item) immediately,
+     * preventing asymmetry when removeZeroDamageMeta() reconstructs the
+     * item via createItemStack(componentString) which bakes the font back in.
      */
-    private static Component stripFont(Component component) {
+    public static Component stripFont(Component component) {
         Style normalized = component.style().font(null);
         Component result = component.style(normalized);
         if (!component.children().isEmpty()) {
@@ -160,6 +165,41 @@ public class InventoryUtils {
             result = result.children(normalizedChildren);
         }
         return result;
+    }
+
+    /**
+     * Strips custom font tags from all text components on an ItemStack's meta
+     * (displayName, itemName, lore) in-place on a clone, then returns the clone.
+     *
+     * Used by AbstractShop.setItemStack() / setSecondaryItemStack() so that the
+     * stored reference item is always font-neutral at rest, avoiding mismatches
+     * when comparing against live items from crate plugins (e.g. PhoenixCrates)
+     * that embed a custom resource-pack font in their item names/lore.
+     */
+    public static ItemStack stripFontFromItem(ItemStack item) {
+        if (item == null) return null;
+        ItemStack clone = item.clone();
+        ItemMeta meta = clone.getItemMeta();
+        if (meta == null) return clone;
+
+        if (meta.hasDisplayName()) {
+            meta.displayName(stripFont(meta.displayName()));
+        }
+        try {
+            if (meta.hasItemName()) {
+                meta.itemName(stripFont(meta.itemName()));
+            }
+        } catch (NoSuchMethodError ignored) {}
+        if (meta.hasLore()) {
+            List<Component> lore = meta.lore();
+            List<Component> normalizedLore = new ArrayList<>();
+            for (Component line : lore) {
+                normalizedLore.add(stripFont(line));
+            }
+            meta.lore(normalizedLore);
+        }
+        clone.setItemMeta(meta);
+        return clone;
     }
 
     public static boolean itemstacksAreSimilar(ItemStack i1, ItemStack i2){
