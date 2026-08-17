@@ -15,12 +15,7 @@
     </parent>
 
     <properties>
-        <!-- Pinned to exact 26.1.2 build.
-             Paper 26.2 ships Adventure 4.17+ which introduces
-             net.kyori.adventure.text.object.* classes that WorldGuard 7.0.18
-             (compiled against Adventure 4.17.x) can satisfy at compile time.
-             Remove the pin once a newer stable Paper build is validated. -->
-        <paper.version>26.1.2.build.74-stable</paper.version>
+        <paper.version>26.2.build.112-stable</paper.version>
     </properties>
 
     <!-- core module info -->
@@ -126,8 +121,8 @@
         </dependency>
         <dependency>
             <groupId>org.mockbukkit.mockbukkit</groupId>
-            <artifactId>mockbukkit-v26.1.2</artifactId>
-            <version>4.114.0</version>
+            <artifactId>mockbukkit-v26.2</artifactId>
+            <version>4.116.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
