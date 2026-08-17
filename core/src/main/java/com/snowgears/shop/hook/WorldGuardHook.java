@@ -176,8 +176,7 @@ public class WorldGuardHook {
             if (allowShopFlag != null) {
                 return query.testState(wgLoc, player, allowShopFlag);
             } else if (deprecated_boolean_allowShopFlag != null) {
-                Boolean shopFlagValue = query.queryValue(wgLoc, player, deprecated_boolean_allowShopFlag);
-                return Boolean.TRUE.equals(shopFlagValue);
+                return query.testState(wgLoc, player, deprecated_boolean_allowShopFlag);
             }
             
             return false;
