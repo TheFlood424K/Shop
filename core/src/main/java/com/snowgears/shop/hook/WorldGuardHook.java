@@ -176,7 +176,10 @@ public class WorldGuardHook {
             if (allowShopFlag != null) {
                 return query.testState(wgLoc, player, allowShopFlag);
             } else if (deprecated_boolean_allowShopFlag != null) {
-                return query.testState(wgLoc, player, deprecated_boolean_allowShopFlag);
+                // BooleanFlag cannot be passed to testState (which only accepts StateFlag).
+                // Use queryValue instead and treat null as false.
+                Boolean value = query.queryValue(wgLoc, player, deprecated_boolean_allowShopFlag);
+                return Boolean.TRUE.equals(value);
             }
             
             return false;
@@ -293,7 +296,9 @@ public class WorldGuardHook {
         }
         try {
             LocalPlayer localPlayer = WorldGuardPlugin.inst().wrapPlayer(player);
-            RegionManager regions = WorldGuard.getInstance().getPlatform().getRegionContainer().get(localPlayer.getWorld());
+            // Use BukkitAdapter to get the WorldEdit world to avoid Adventure ObjectContentsLike linkage errors
+            com.sk89q.worldedit.world.World wgWorld = BukkitAdapter.adapt(location.getWorld());
+            RegionManager regions = WorldGuard.getInstance().getPlatform().getRegionContainer().get(wgWorld);
             BlockVector3 vLoc = BlockVector3.at(location.getX(), location.getY(), location.getZ());
             if(regions == null || regions.size() == 0)
                 return false;
