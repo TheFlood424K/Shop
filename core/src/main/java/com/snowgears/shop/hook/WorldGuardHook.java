@@ -20,6 +20,7 @@ import com.sk89q.worldguard.protection.flags.Flag;
 import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.flags.registry.FlagConflictException;
 import com.sk89q.worldguard.protection.managers.RegionManager;
+import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
 import com.sk89q.worldguard.protection.flags.registry.FlagRegistry;
 
@@ -295,21 +296,30 @@ public class WorldGuardHook {
             return false;
         }
         try {
-            LocalPlayer localPlayer = WorldGuardPlugin.inst().wrapPlayer(player);
-            // Use BukkitAdapter to get the WorldEdit world to avoid Adventure ObjectContentsLike linkage errors
+            // Resolve RegionManager via BukkitAdapter to avoid Adventure ObjectContentsLike linkage.
+            // Do NOT call wrapPlayer here — LocalPlayer.isOwnerOfAll touches Adventure internals
+            // that are absent from the compile-time classpath on newer Paper builds.
             com.sk89q.worldedit.world.World wgWorld = BukkitAdapter.adapt(location.getWorld());
             RegionManager regions = WorldGuard.getInstance().getPlatform().getRegionContainer().get(wgWorld);
             BlockVector3 vLoc = BlockVector3.at(location.getX(), location.getY(), location.getZ());
-            if(regions == null || regions.size() == 0)
+            if (regions == null || regions.size() == 0)
                 return false;
 
             ApplicableRegionSet set = regions.getApplicableRegions(vLoc);
             if (set.size() == 0)
                 return false;
 
-            if(regions.getApplicableRegions(vLoc).isOwnerOfAll(localPlayer)){
-                return true;
+            // Check owner domain of every applicable region directly using the player UUID.
+            // This avoids calling isOwnerOfAll(LocalPlayer) which triggers the Adventure linkage.
+            java.util.UUID uuid = player.getUniqueId();
+            String nameLower = player.getName().toLowerCase(java.util.Locale.ROOT);
+            for (ProtectedRegion region : set) {
+                com.sk89q.worldguard.domains.DefaultDomain owners = region.getOwners();
+                if (!owners.contains(uuid) && !owners.getPlayers().contains(nameLower)) {
+                    return false;
+                }
             }
+            return true;
         } catch (NoClassDefFoundError ignore) {
         }
         return false;
