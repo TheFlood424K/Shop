@@ -13,7 +13,6 @@ import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
-import com.sk89q.worldguard.protection.association.RegionAssociable;
 import com.sk89q.worldguard.protection.flags.BooleanFlag;
 import com.sk89q.worldguard.protection.flags.Flag;
 import com.sk89q.worldguard.protection.flags.StateFlag;
@@ -83,24 +82,20 @@ public class WorldGuardHook {
     /**
      * Isolated inner class loaded only when WorldGuard is on the classpath.
      *
-     * We intentionally never import or reference LocalPlayer or WorldGuardPlugin
-     * here. Those types transitively extend/implement Adventure interfaces that
-     * include net.kyori.adventure.text.object.ObjectContentsLike, which is absent
-     * from the Paper compile-time API jar on newer builds. Even a cast to a null
-     * literal of that type is enough for javac to fail with
-     * "cannot access ObjectContentsLike".
+     * We intentionally never import or reference LocalPlayer, WorldGuardPlugin,
+     * or RegionAssociable here. Those types transitively extend/implement Adventure
+     * interfaces that include net.kyori.adventure.text.object.ObjectContentsLike,
+     * which is absent from the Paper compile-time API jar on newer builds.
      *
-     * Instead, flag queries use RegionAssociable.UNKNOWN — WorldGuard's own
-     * "no-player" sentinel that carries no Adventure dependency.
+     * For non-player flag queries, null is passed as the RegionAssociable
+     * argument — this is the approach documented in the WorldGuard API docs
+     * ("If you are trying to lookup a flag that doesn't use a player, use null").
      */
     private static class Internal {
         private static StateFlag allowShopFlag;
         private static BooleanFlag deprecated_boolean_allowShopFlag;
         private static final FlagRegistry registry = WorldGuard.getInstance().getFlagRegistry();
         private static final Map<String, StateFlag> flagCache = new ConcurrentHashMap<>();
-
-        /** The UNKNOWN associable is WorldGuard's sentinel for "no player context". */
-        private static final RegionAssociable SUBJECT = RegionAssociable.UNKNOWN;
 
         public static void registerAllowShopFlag(Shop plugin) {
             Bukkit.getLogger().log(Level.INFO, "[Shop] Registering WorldGuard flag '" + FLAG_ALLOW_SHOP + "'");
@@ -158,9 +153,9 @@ public class WorldGuardHook {
 
         private static boolean checkAllowShopFlag(RegionQuery query, com.sk89q.worldedit.util.Location wgLoc) {
             if (allowShopFlag != null) {
-                return query.testState(wgLoc, SUBJECT, allowShopFlag);
+                return query.testState(wgLoc, null, allowShopFlag);
             } else if (deprecated_boolean_allowShopFlag != null) {
-                Boolean value = query.queryValue(wgLoc, SUBJECT, deprecated_boolean_allowShopFlag);
+                Boolean value = query.queryValue(wgLoc, null, deprecated_boolean_allowShopFlag);
                 return Boolean.TRUE.equals(value);
             }
             return false;
@@ -179,7 +174,7 @@ public class WorldGuardHook {
             for (String flagName : flagNames) {
                 StateFlag flag = getStateFlagByName(flagName);
                 if (flag != null) {
-                    if (query.queryState(wgLoc, SUBJECT, flag) == targetState) return true;
+                    if (query.queryState(wgLoc, null, flag) == targetState) return true;
                 }
             }
             return false;
