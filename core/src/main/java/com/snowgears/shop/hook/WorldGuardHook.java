@@ -2,6 +2,7 @@ package com.snowgears.shop.hook;
 
 import com.snowgears.shop.Shop;
 
+import java.lang.reflect.Method;
 import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -82,20 +83,58 @@ public class WorldGuardHook {
     /**
      * Isolated inner class loaded only when WorldGuard is on the classpath.
      *
-     * We intentionally never import or reference LocalPlayer, WorldGuardPlugin,
-     * or RegionAssociable here. Those types transitively extend/implement Adventure
-     * interfaces that include net.kyori.adventure.text.object.ObjectContentsLike,
-     * which is absent from the Paper compile-time API jar on newer builds.
+     * RegionQuery.testState(), queryState(), and queryValue() all accept a
+     * RegionAssociable parameter. WorldGuard 7.0.18 was compiled against an
+     * Adventure snapshot that introduced net.kyori.adventure.text.object.ObjectContentsLike,
+     * which RegionAssociable's hierarchy references. That class is not present in
+     * any published Adventure release jar, so javac fails when it tries to resolve
+     * the full type hierarchy for those method signatures — even when null is passed.
      *
-     * For non-player flag queries, null is passed as the RegionAssociable
-     * argument — this is the approach documented in the WorldGuard API docs
-     * ("If you are trying to lookup a flag that doesn't use a player, use null").
+     * Fix: invoke those three methods via reflection so javac never needs to resolve
+     * the RegionAssociable type hierarchy at compile time. The method signatures are
+     * looked up by name and parameter types that ARE available (RegionQuery,
+     * com.sk89q.worldedit.util.Location, Flag/StateFlag/BooleanFlag arrays), with
+     * the associable parameter typed as Object (passed as null).
      */
     private static class Internal {
         private static StateFlag allowShopFlag;
         private static BooleanFlag deprecated_boolean_allowShopFlag;
         private static final FlagRegistry registry = WorldGuard.getInstance().getFlagRegistry();
         private static final Map<String, StateFlag> flagCache = new ConcurrentHashMap<>();
+
+        // Reflected method handles — resolved once, reused on every call.
+        // testState(Location, RegionAssociable, StateFlag...)
+        private static final Method TEST_STATE;
+        // queryState(Location, RegionAssociable, StateFlag...)
+        private static final Method QUERY_STATE;
+        // queryValue(Location, RegionAssociable, Flag)
+        private static final Method QUERY_VALUE;
+
+        static {
+            Method testState = null;
+            Method queryState = null;
+            Method queryValue = null;
+            try {
+                Class<?> regionAssociableClass = Class.forName(
+                        "com.sk89q.worldguard.protection.regions.RegionAssociable");
+                Class<?> wgLocClass = com.sk89q.worldedit.util.Location.class;
+                Class<?> stateFlagArrayClass = StateFlag[].class;
+
+                testState = RegionQuery.class.getMethod(
+                        "testState", wgLocClass, regionAssociableClass, stateFlagArrayClass);
+                queryState = RegionQuery.class.getMethod(
+                        "queryState", wgLocClass, regionAssociableClass, stateFlagArrayClass);
+                queryValue = RegionQuery.class.getMethod(
+                        "queryValue", wgLocClass, regionAssociableClass, Flag.class);
+            } catch (Exception e) {
+                Bukkit.getLogger().log(Level.SEVERE,
+                        "[Shop] Failed to reflect RegionQuery methods — WorldGuard flag checks will be disabled: "
+                        + e.getMessage());
+            }
+            TEST_STATE = testState;
+            QUERY_STATE = queryState;
+            QUERY_VALUE = queryValue;
+        }
 
         public static void registerAllowShopFlag(Shop plugin) {
             Bukkit.getLogger().log(Level.INFO, "[Shop] Registering WorldGuard flag '" + FLAG_ALLOW_SHOP + "'");
@@ -153,9 +192,11 @@ public class WorldGuardHook {
 
         private static boolean checkAllowShopFlag(RegionQuery query, com.sk89q.worldedit.util.Location wgLoc) {
             if (allowShopFlag != null) {
-                return query.testState(wgLoc, null, allowShopFlag);
+                // testState(Location, RegionAssociable, StateFlag...) — associable = null
+                return reflectTestState(query, wgLoc, allowShopFlag);
             } else if (deprecated_boolean_allowShopFlag != null) {
-                Boolean value = query.queryValue(wgLoc, null, deprecated_boolean_allowShopFlag);
+                // queryValue(Location, RegionAssociable, Flag) — associable = null
+                Object value = reflectQueryValue(query, wgLoc, deprecated_boolean_allowShopFlag);
                 return Boolean.TRUE.equals(value);
             }
             return false;
@@ -174,10 +215,51 @@ public class WorldGuardHook {
             for (String flagName : flagNames) {
                 StateFlag flag = getStateFlagByName(flagName);
                 if (flag != null) {
-                    if (query.queryState(wgLoc, null, flag) == targetState) return true;
+                    // queryState(Location, RegionAssociable, StateFlag...) — associable = null
+                    Object result = reflectQueryState(query, wgLoc, flag);
+                    if (targetState.equals(result)) return true;
                 }
             }
             return false;
+        }
+
+        // --- Reflection helpers (avoid any compile-time reference to RegionAssociable) ---
+
+        private static boolean reflectTestState(RegionQuery query,
+                                                com.sk89q.worldedit.util.Location wgLoc,
+                                                StateFlag flag) {
+            if (TEST_STATE == null) return false;
+            try {
+                Object result = TEST_STATE.invoke(query, wgLoc, null, new StateFlag[]{flag});
+                return Boolean.TRUE.equals(result);
+            } catch (Exception e) {
+                Bukkit.getLogger().log(Level.WARNING, "[Shop] testState reflection failed: " + e.getMessage());
+                return false;
+            }
+        }
+
+        private static Object reflectQueryState(RegionQuery query,
+                                                com.sk89q.worldedit.util.Location wgLoc,
+                                                StateFlag flag) {
+            if (QUERY_STATE == null) return null;
+            try {
+                return QUERY_STATE.invoke(query, wgLoc, null, new StateFlag[]{flag});
+            } catch (Exception e) {
+                Bukkit.getLogger().log(Level.WARNING, "[Shop] queryState reflection failed: " + e.getMessage());
+                return null;
+            }
+        }
+
+        private static Object reflectQueryValue(RegionQuery query,
+                                                com.sk89q.worldedit.util.Location wgLoc,
+                                                Flag<?> flag) {
+            if (QUERY_VALUE == null) return null;
+            try {
+                return QUERY_VALUE.invoke(query, wgLoc, null, flag);
+            } catch (Exception e) {
+                Bukkit.getLogger().log(Level.WARNING, "[Shop] queryValue reflection failed: " + e.getMessage());
+                return null;
+            }
         }
 
         private static StateFlag getStateFlagByName(String flagName) {
