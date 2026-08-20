@@ -82,17 +82,23 @@
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>com.intellectualsites.bom</groupId>
-                <artifactId>bom-newest</artifactId>
-                <version>1.52</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
+            <!-- adventure-bom MUST come before bom-newest so that Adventure 4.26.1
+                 wins for all transitive resolution. bom-newest (IntellectualSites)
+                 locks Adventure to an older version internally; placing adventure-bom
+                 first ensures 4.26.1 is used everywhere, including the transitive
+                 adventure-api pulled in by adventure-text-serializer-plain which
+                 provides net.kyori.adventure.text.object.ObjectContentsLike. -->
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-bom</artifactId>
                 <version>4.26.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.intellectualsites.bom</groupId>
+                <artifactId>bom-newest</artifactId>
+                <version>1.52</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -185,6 +191,16 @@
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-plain</artifactId>
 		    <version>4.26.1</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- adventure-text-serializer-ansi provides net.kyori.adventure.text.object.ObjectContentsLike
+             (split into its own module in Adventure 4.17.0+). Required at compile time because
+             WorldGuard 7.0.18's RegionAssociable / RegionQuery hierarchy references this type,
+             and javac must resolve all types in a method signature even when null is passed. -->
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-ansi</artifactId>
+            <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
 
