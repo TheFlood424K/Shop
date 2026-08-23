@@ -8,7 +8,6 @@ import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.block.BlockFace;
 import java.util.Collections;
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.DisplayType;
@@ -60,15 +59,22 @@ public abstract class BaseMockBukkitTest {
 
     @AfterEach
     void tearDownServer() {
-        // Must disable, otherwise shutdown is slow at test end
-        plugin.onDisable();
-        server.getScheduler().waitAsyncTasksFinished();
-
-        // Unmock the server to cleanup after ourselves
-        MockBukkit.unmock();
-
-        server = null;
-        plugin = null;
+        try {
+            // Guard: plugin may be null if MockBukkit.load() threw (e.g. missing classpath dep).
+            // Always ensure unmock() is called so subsequent tests don't see "Already mocking".
+            if (plugin != null) {
+                // Must disable, otherwise shutdown is slow at test end
+                plugin.onDisable();
+            }
+            if (server != null) {
+                server.getScheduler().waitAsyncTasksFinished();
+            }
+        } finally {
+            // Unmock the server to cleanup after ourselves
+            MockBukkit.unmock();
+            server = null;
+            plugin = null;
+        }
     }
 
     protected ServerMock getServer() {
