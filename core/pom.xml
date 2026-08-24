@@ -402,7 +402,7 @@
         </dependency>
     </dependencies>
 
-    <!--  this shade plugin is to shade in hikari so that database connections can be used -->
+    <!--  this shade plugin is to shade in hikari so that database connections can be used -->\
     <build>
         <pluginManagement>
             <plugins>
@@ -415,8 +415,10 @@
                              need reflective access to JDK internals.  Keep the add-opens flag now so we don't
                              forget later.  Harmless on 17+ runtimes. -->
                         <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
-                        <!-- Parallel test execution -->
-                        <parallel>methods</parallel>
+                        <!-- MockBukkit 4.116.1's ItemStackMock static initializer is NOT thread-safe.
+                             Running tests in parallel causes a JVM circular ExceptionInInitializerError
+                             which cascades as NoClassDefFoundError across all 84 tests.
+                             Tests must run single-threaded (no <parallel>) to avoid this deadlock. -->
                         <forkCount>1</forkCount>
                         <reuseForks>true</reuseForks>
                         <!-- Ensure JDK 25 is available for tests because MockBukkit 4 requires 21+ -->
@@ -520,7 +522,10 @@
                 <version>3.5.5</version>
                 <configuration>
                     <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
-                    <parallel>methods</parallel>
+                    <!-- MockBukkit 4.116.1's ItemStackMock static initializer is NOT thread-safe.
+                         Running tests in parallel causes a JVM circular ExceptionInInitializerError
+                         which cascades as NoClassDefFoundError across all 84 tests.
+                         Tests must run single-threaded (no <parallel>) to avoid this deadlock. -->
                     <forkCount>1</forkCount>
                     <reuseForks>true</reuseForks>
                     <jdkToolchain>
