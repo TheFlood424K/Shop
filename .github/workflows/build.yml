@@ -81,7 +81,14 @@ jobs:
       continue-on-error: true
       
     - name: Build
-      run: mvn -B -nsu -T 1C -Drevision=${{ env.VERSION }} clean package
+      # NOTE: -T 1C (parallel module builds) is intentionally omitted.
+      # MockBukkit 4.116.1's ItemStackMock static initializer is NOT thread-safe.
+      # Parallel reactor builds cause concurrent Surefire JVMs to race on
+      # ItemStackMock.<clinit>, producing a circular ExceptionInInitializerError
+      # that cascades as NoClassDefFoundError across all tests.
+      # Sequential module execution (no -T flag) ensures ItemStackMock is only
+      # initialized once at a time.
+      run: mvn -B -nsu -Drevision=${{ env.VERSION }} clean package
 
     - name: Publish Test Results
       if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
