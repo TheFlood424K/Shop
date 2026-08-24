@@ -107,15 +107,13 @@
 
     <dependencies>
         <!-- Unit Testing -->
-        <!-- MockBukkit 4.116.1 requires JUnit Jupiter 6.x on the test classpath.
-             Running against junit-jupiter 5.x causes a binary-incompatibility that
-             prevents ItemStackMock's static initializer from completing, cascading as
-             NoClassDefFoundError across all tests.
-             Mockito 5.23.0 targets the stable JUnit Platform API and is JUnit-6-compatible. -->
+        <!-- MockBukkit 4.x requires JUnit Jupiter 5.x (JUnit 6 does not exist).
+             5.11.4 is the latest stable 5.x release and is fully compatible with
+             MockBukkit 4.116.1. Mockito 5.23.0 is JUnit-5-compatible. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>6.1.3</version>
+            <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
         <dependency>
