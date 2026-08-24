@@ -149,47 +149,6 @@
             <version>1.1.1</version>
             <scope>test</scope>
         </dependency>
-        <!-- Adventure jars are declared `provided` above (Paper bundles them at runtime),
-             but Maven does NOT put `provided` deps on the test classpath.
-             MockBukkit loads Adventure classes (BookLike, ComponentLike, etc.) at runtime
-             during MockBukkit.mock() / MockBukkit.load(), so we need them in `test` scope
-             as well. Versions are pinned to 4.26.1 via adventure-bom in dependencyManagement. -->
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-api</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-minimessage</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-gson</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-legacy</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-plain</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-ansi</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
 
         <!-- Core Dependencies -->
         <dependency>
@@ -201,31 +160,35 @@
 
         <!-- Explicit Adventure API provided deps so that net.kyori.adventure.text.object.*
              and related serializer types are on the compile classpath.
+             Adventure jars are also needed on the test classpath because MockBukkit loads
+             Adventure classes at runtime during MockBukkit.mock() / MockBukkit.load().
+             Declaring them as `provided` puts them on both compile AND test classpaths
+             (Maven includes provided-scope deps in the test classpath automatically).
              WorldGuard's transitive Adventure jars are excluded below and replaced by
              this explicit set pinned to 4.26.1 via adventure-bom.
              Paper itself bundles Adventure at runtime. -->
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
-		    <version>4.26.1</version>
+            <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-minimessage</artifactId>
-		    <version>4.26.1</version>
+            <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-gson</artifactId>
-		    <version>4.26.1</version>
+            <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-legacy</artifactId>
-		    <version>4.26.1</version>
+            <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
         <!-- Required to satisfy WorldGuard 7.0.18 compile-time type references
@@ -233,7 +196,7 @@
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-plain</artifactId>
-		    <version>4.26.1</version>
+            <version>4.26.1</version>
             <scope>provided</scope>
         </dependency>
         <!-- adventure-text-serializer-ansi provides net.kyori.adventure.text.object.ObjectContentsLike
@@ -402,7 +365,7 @@
         </dependency>
     </dependencies>
 
-    <!--  this shade plugin is to shade in hikari so that database connections can be used -->\
+    <!-- this shade plugin is to shade in hikari so that database connections can be used -->
     <build>
         <pluginManagement>
             <plugins>
@@ -538,7 +501,6 @@
     </build>
 
     <profiles>
-        
         <profile>
             <id>coverage-report</id>
             <build>
