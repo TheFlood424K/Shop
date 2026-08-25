@@ -82,12 +82,11 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- adventure-bom MUST come before bom-newest so that Adventure 4.26.1
-                 wins for all transitive resolution. bom-newest (IntellectualSites)
-                 locks Adventure to an older version internally; placing adventure-bom
-                 first ensures 4.26.1 is used everywhere, including the transitive
-                 adventure-api pulled in by adventure-text-serializer-plain which
-                 provides net.kyori.adventure.text.object.ObjectContentsLike. -->
+            <!-- adventure-bom pins Adventure 4.26.1 for compile/provided deps (paper-api, WorldGuard, etc.).
+                 MockBukkit 4.116.1 brings its own Adventure 5.x transitive chain; we exclude those
+                 transitive adventure artifacts from MockBukkit below so that our pinned 4.26.1 jars
+                 (declared as `provided`) remain on the test classpath without version conflicts.
+                 bom-newest (IntellectualSites) is imported AFTER so that adventure-bom takes precedence. -->
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-bom</artifactId>
@@ -107,9 +106,11 @@
 
     <dependencies>
         <!-- Unit Testing -->
-        <!-- MockBukkit 4.x requires JUnit Jupiter 5.x (JUnit 6 does not exist).
-             5.11.4 is the latest stable 5.x release and is fully compatible with
-             MockBukkit 4.116.1. Mockito 5.23.0 is JUnit-5-compatible. -->
+        <!-- MockBukkit 4.x requires JUnit Jupiter 5.x.
+             MockBukkit 4.116.1 internally uses Adventure 5.x; we exclude its transitive
+             adventure artifacts below and rely on our own `provided`-scoped 4.26.1 jars
+             (which Maven includes on the test classpath) to satisfy all Adventure references
+             including net.kyori.adventure.inventory.BookLike used in ItemStackMock. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -133,6 +134,68 @@
             <artifactId>mockbukkit-v26.2</artifactId>
             <version>4.116.1</version>
             <scope>test</scope>
+            <exclusions>
+                <!-- Exclude MockBukkit's transitive Adventure 5.x jars so that our
+                     `provided`-scoped Adventure 4.26.1 declarations win on the test classpath.
+                     Without these exclusions, Maven resolves a mix of 4.x and 5.x Adventure
+                     artifacts which causes binary incompatibility (missing BookLike, etc.). -->
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-key</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-minimessage</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-gson</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-legacy</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-plain</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-ansi</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-json</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-serializer-commons</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-text-logger-slf4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-nbt</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-platform-bukkit</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-platform-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-platform-viaversion</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -147,54 +210,6 @@
             <groupId>com.googlecode.json-simple</groupId>
             <artifactId>json-simple</artifactId>
             <version>1.1.1</version>
-            <scope>test</scope>
-        </dependency>
-        <!-- MockBukkit's ItemStackMock static initializer references net.kyori.adventure.inventory.BookLike
-             (via adventure-api). Because paper-api is 'provided' and MockBukkit brings its own
-             transitive adventure-api, version conflicts can cause the JVM to fail to initialize
-             ItemStackMock with NoClassDefFoundError at test time. Declaring adventure-api explicitly
-             as 'test' scope guarantees that the correct 4.26.1 jar is on the test classpath and
-             takes precedence over any conflicting transitive version. -->
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-api</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-key</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-minimessage</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-gson</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-legacy</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-plain</artifactId>
-            <version>4.26.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-ansi</artifactId>
-            <version>4.26.1</version>
             <scope>test</scope>
         </dependency>
 
@@ -214,6 +229,8 @@
              (Maven includes provided-scope deps in the test classpath automatically).
              WorldGuard's transitive Adventure jars are excluded below and replaced by
              this explicit set pinned to 4.26.1 via adventure-bom.
+             MockBukkit's transitive Adventure 5.x jars are excluded from mockbukkit-v26.2
+             above so these 4.26.1 jars take precedence on the test classpath.
              Paper itself bundles Adventure at runtime. -->
         <dependency>
             <groupId>net.kyori</groupId>
@@ -422,17 +439,9 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.5</version>
                     <configuration>
-                        <!-- When we eventually drop the compile target to Java 8, MockBukkit (still on 21) may
-                             need reflective access to JDK internals.  Keep the add-opens flag now so we don't
-                             forget later.  Harmless on 17+ runtimes. -->
                         <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
-                        <!-- MockBukkit 4.116.1's ItemStackMock static initializer is NOT thread-safe.
-                             Running tests in parallel causes a JVM circular ExceptionInInitializerError
-                             which cascades as NoClassDefFoundError across all 84 tests.
-                             Tests must run single-threaded (no <parallel>) to avoid this deadlock. -->
                         <forkCount>1</forkCount>
                         <reuseForks>true</reuseForks>
-                        <!-- Ensure JDK 25 is available for tests because MockBukkit 4 requires 21+ -->
                         <jdkToolchain>
                             <version>25</version>
                             <vendor>any</vendor>
