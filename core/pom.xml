@@ -148,6 +148,29 @@
                 <artifactId>adventure-text-logger-slf4j</artifactId>
                 <version>${adventure.version}</version>
             </dependency>
+            <!-- adventure-platform-* — pin these too so any transitive pull gets 4.3.4
+                 (the version that ships with Adventure 4.26.1 era) rather than an older
+                 one that would drag in adventure-api < 4.17.0 without BookLike. -->
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-platform-api</artifactId>
+                <version>4.3.4</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-platform-bukkit</artifactId>
+                <version>4.3.4</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-platform-facet</artifactId>
+                <version>4.3.4</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-platform-viaversion</artifactId>
+                <version>4.3.4</version>
+            </dependency>
             <!-- IntellectualSites BOM after our Adventure pins so it cannot override them -->
             <dependency>
                 <groupId>com.intellectualsites.bom</groupId>
@@ -186,7 +209,9 @@
              the explicit test-scope declarations below (pinned to 4.26.1) are the
              ONLY Adventure jars on the test classpath. Without these exclusions Maven
              places both the MockBukkit-transitive version AND our pinned version on
-             the classpath, causing the binary incompatibility (missing BookLike etc.). -->
+             the classpath, causing the binary incompatibility (missing BookLike etc.).
+             adventure-platform-facet is the key offender: it pulls adventure-api < 4.17.0
+             which does not contain BookLike, causing ItemStackMock.<clinit> to fail. -->
         <dependency>
             <groupId>org.mockbukkit.mockbukkit</groupId>
             <artifactId>mockbukkit-v26.2</artifactId>
@@ -207,6 +232,7 @@
                 <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-logger-slf4j</artifactId></exclusion>
                 <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-bukkit</artifactId></exclusion>
                 <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-api</artifactId></exclusion>
+                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-facet</artifactId></exclusion>
                 <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-viaversion</artifactId></exclusion>
                 <exclusion><groupId>net.kyori</groupId><artifactId>examination-api</artifactId></exclusion>
                 <exclusion><groupId>net.kyori</groupId><artifactId>examination-string</artifactId></exclusion>
@@ -309,12 +335,17 @@
             <artifactId>paper-api</artifactId>
             <version>${paper.version}</version>
             <scope>provided</scope>
+            <!-- paper-api transitively brings adventure-platform-* which in turn pulls
+                 old adventure-api versions (< 4.17.0, before BookLike existed).
+                 Exclude them here so the dependencyManagement pin to 4.26.1 / 4.3.4
+                 is the only copy on the classpath. -->
+            <exclusions>
+                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-bukkit</artifactId></exclusion>
+                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-api</artifactId></exclusion>
+                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-facet</artifactId></exclusion>
+                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-viaversion</artifactId></exclusion>
+            </exclusions>
         </dependency>
-
-        <!-- paper-api transitively brings Adventure at provided scope for compile-time
-             resolution. No need to re-declare individual Adventure artifacts as provided
-             here — doing so created duplicate G:A entries that caused Maven to silently
-             drop the test-scope versions from the Surefire classpath. -->
 
         <dependency>
             <groupId>it.unimi.dsi</groupId>
