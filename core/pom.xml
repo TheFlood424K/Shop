@@ -213,12 +213,20 @@
             </exclusions>
         </dependency>
 
-        <!-- Explicit Adventure 4.26.1 test-scope declarations.
+        <!-- Adventure 4.26.1 — test scope ONLY.
              These are the ONLY Adventure jars that will land on the test classpath
              (MockBukkit's transitive copies are excluded above).
-             adventure-api 4.26.1 contains net.kyori.adventure.inventory.BookLike which
-             ItemStackMock.<clinit> requires; without it the static initialiser throws
-             ExceptionInInitializerError and poisons the class for all 84 tests. -->
+
+             IMPORTANT: each artifact is declared once, as test scope. Previously
+             several of these were also listed as provided scope, which caused Maven
+             to deduplicate the pair and resolve to the narrower provided scope —
+             meaning the jars were absent at Surefire test-runtime and
+             ItemStackMock.<clinit> threw ClassNotFoundException: BookLike.
+
+             paper-api (provided, below) already exposes all Adventure compile-time
+             signatures, so the explicit provided entries are not needed.
+             test scope makes the jars available for both test compilation AND
+             test runtime (Surefire forked JVM). -->
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
@@ -303,54 +311,10 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Adventure provided deps for compile-time resolution.
-             Paper bundles Adventure at runtime so these stay provided.
-             The test-scope entries above guarantee the correct version
-             is on the test classpath regardless of what paper-api pulls in.
-             adventure-key is listed explicitly because Key, Keyed, and Namespaced
-             (used in Shop.java and WorldGuardHook.java) live in that separate artifact. -->
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-api</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-key</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-minimessage</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-gson</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-legacy</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-plain</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-ansi</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
+        <!-- paper-api transitively brings Adventure at provided scope for compile-time
+             resolution. No need to re-declare individual Adventure artifacts as provided
+             here — doing so created duplicate G:A entries that caused Maven to silently
+             drop the test-scope versions from the Surefire classpath. -->
 
         <dependency>
             <groupId>it.unimi.dsi</groupId>
