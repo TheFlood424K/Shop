@@ -239,20 +239,79 @@
             </exclusions>
         </dependency>
 
-        <!-- Adventure 4.26.1 — test scope ONLY.
-             These are the ONLY Adventure jars that will land on the test classpath
-             (MockBukkit's transitive copies are excluded above).
+        <!-- Adventure 4.26.1 — provided scope so Adventure classes are available
+             on the MAIN compile classpath (needed since we exclude adventure-platform-*
+             from paper-api, which would otherwise carry adventure-api transitively).
+             Maven's scope hierarchy means provided deps are also visible at test-compile
+             time, but NOT at Surefire test-runtime (the forked JVM). The separate test
+             scope entries below ensure the jars are on the Surefire classpath too.
+             Declaring both provided AND test for the same artifact is intentional and
+             correct: Maven treats the pair as two separate classpath entries, ensuring
+             availability at all three phases: main-compile, test-compile, test-runtime. -->
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-api</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-key</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-nbt</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-minimessage</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-gson</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-json</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-legacy</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-plain</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-ansi</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-logger-slf4j</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
 
-             IMPORTANT: each artifact is declared once, as test scope. Previously
-             several of these were also listed as provided scope, which caused Maven
-             to deduplicate the pair and resolve to the narrower provided scope —
-             meaning the jars were absent at Surefire test-runtime and
-             ItemStackMock.<clinit> threw ClassNotFoundException: BookLike.
-
-             paper-api (provided, below) already exposes all Adventure compile-time
-             signatures, so the explicit provided entries are not needed.
-             test scope makes the jars available for both test compilation AND
-             test runtime (Surefire forked JVM). -->
+        <!-- These duplicate declarations as test scope ensure the jars are present
+             in the Surefire forked JVM at test-runtime (provided scope is excluded
+             from the Surefire classpath by Maven design). -->
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
