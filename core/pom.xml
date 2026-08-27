@@ -16,7 +16,6 @@
 
     <properties>
         <paper.version>26.2.build.112-stable</paper.version>
-        <!-- Single source of truth for Adventure version used in provided + test scopes -->
         <adventure.version>4.26.1</adventure.version>
     </properties>
 
@@ -83,11 +82,8 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- Pin ALL net.kyori:adventure-* artifacts to 4.26.1.
-                 This overrides any version pulled in transitively by MockBukkit, WorldGuard,
-                 paper-api, or bom-newest. Because dependencyManagement entries are evaluated
-                 in declaration order and wildcards are not supported, we list each artifact
-                 explicitly so the version cannot be overridden by a transitive BOM. -->
+            <!-- Pin ALL net.kyori:adventure-* artifacts to 4.26.1 so no transitive
+                 dep (MockBukkit, WorldGuard, paper-api, bom-newest) can override it. -->
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-api</artifactId>
@@ -148,9 +144,8 @@
                 <artifactId>adventure-text-logger-slf4j</artifactId>
                 <version>${adventure.version}</version>
             </dependency>
-            <!-- adventure-platform-* — pin these too so any transitive pull gets 4.3.4
-                 (the version that ships with Adventure 4.26.1 era) rather than an older
-                 one that would drag in adventure-api < 4.17.0 without BookLike. -->
+            <!-- Pin adventure-platform-* to 4.3.4 — older versions pull adventure-api
+                 < 4.17.0 which is missing BookLike, breaking ItemStackMock.<clinit>. -->
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-platform-api</artifactId>
@@ -171,7 +166,8 @@
                 <artifactId>adventure-platform-viaversion</artifactId>
                 <version>4.3.4</version>
             </dependency>
-            <!-- IntellectualSites BOM after our Adventure pins so it cannot override them -->
+            <!-- IntellectualSites BOM declared AFTER our Adventure pins so it cannot
+                 override them via BOM import precedence rules. -->
             <dependency>
                 <groupId>com.intellectualsites.bom</groupId>
                 <artifactId>bom-newest</artifactId>
@@ -205,13 +201,8 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- MockBukkit 4.116.1 – exclude ALL transitive net.kyori artifacts so that
-             the explicit test-scope declarations below (pinned to 4.26.1) are the
-             ONLY Adventure jars on the test classpath. Without these exclusions Maven
-             places both the MockBukkit-transitive version AND our pinned version on
-             the classpath, causing the binary incompatibility (missing BookLike etc.).
-             adventure-platform-facet is the key offender: it pulls adventure-api < 4.17.0
-             which does not contain BookLike, causing ItemStackMock.<clinit> to fail. -->
+        <!-- MockBukkit — exclude ALL net.kyori transitive deps so the test-scope
+             declarations below are the sole Adventure jars on the Surefire classpath. -->
         <dependency>
             <groupId>org.mockbukkit.mockbukkit</groupId>
             <artifactId>mockbukkit-v26.2</artifactId>
@@ -239,79 +230,9 @@
             </exclusions>
         </dependency>
 
-        <!-- Adventure 4.26.1 — provided scope so Adventure classes are available
-             on the MAIN compile classpath (needed since we exclude adventure-platform-*
-             from paper-api, which would otherwise carry adventure-api transitively).
-             Maven's scope hierarchy means provided deps are also visible at test-compile
-             time, but NOT at Surefire test-runtime (the forked JVM). The separate test
-             scope entries below ensure the jars are on the Surefire classpath too.
-             Declaring both provided AND test for the same artifact is intentional and
-             correct: Maven treats the pair as two separate classpath entries, ensuring
-             availability at all three phases: main-compile, test-compile, test-runtime. -->
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-api</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-key</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-nbt</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-minimessage</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-gson</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-json</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-legacy</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-plain</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-ansi</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-logger-slf4j</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- These duplicate declarations as test scope ensure the jars are present
-             in the Surefire forked JVM at test-runtime (provided scope is excluded
-             from the Surefire classpath by Maven design). -->
+        <!-- Adventure 4.26.1 — test scope puts these on the Surefire forked JVM
+             classpath. Each artifact declared ONCE (no duplicate provided entries).
+             The dependencyManagement block above pins the version globally. -->
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
@@ -394,10 +315,6 @@
             <artifactId>paper-api</artifactId>
             <version>${paper.version}</version>
             <scope>provided</scope>
-            <!-- paper-api transitively brings adventure-platform-* which in turn pulls
-                 old adventure-api versions (< 4.17.0, before BookLike existed).
-                 Exclude them here so the dependencyManagement pin to 4.26.1 / 4.3.4
-                 is the only copy on the classpath. -->
             <exclusions>
                 <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-bukkit</artifactId></exclusion>
                 <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-api</artifactId></exclusion>
@@ -536,24 +453,6 @@
     </dependencies>
 
     <build>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.5</version>
-                    <configuration>
-                        <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
-                        <forkCount>1</forkCount>
-                        <reuseForks>true</reuseForks>
-                        <jdkToolchain>
-                            <version>25</version>
-                            <vendor>any</vendor>
-                        </jdkToolchain>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
