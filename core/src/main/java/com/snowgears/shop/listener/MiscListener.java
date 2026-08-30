@@ -216,17 +216,23 @@ public class MiscListener implements Listener {
 
     // Fired anytime a player interacts with a block, air, or entity.
     // This is used to handle shop creation and initialization.
-    // Generally, events shouldn't be cancelled here, as this is the first event in a chain, 
+    // Generally, events shouldn't be cancelled here, as this is the first event in a chain,
     // and we should allow other event handlers down the chain to handle more specific situations.
-    @EventHandler
+    //
+    // ignoreCancelled = false is intentional: crate-key plugins (e.g. PhoenixCrates) cancel
+    // PlayerInteractEvent at HIGHEST priority before our NORMAL-priority handler would normally
+    // see it.  By running at HIGH priority with ignoreCancelled = false we ensure that a player
+    // hitting an un-initialized shop sign with a crate key (or any item whose interact event was
+    // cancelled by another plugin) still triggers shop initialization correctly.  We never modify
+    // the world in the sign-hit branch, so processing a cancelled event there is safe.
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
     public void onBlockInteract(PlayerInteractEvent event) {
-        if (event.isCancelled()) { return; }
         try {
             if (event.getHand() == EquipmentSlot.OFF_HAND) {
                 return; // off hand version, ignore.
             }
         } catch (NoSuchMethodError error) {}
-        
+
         final Player player = event.getPlayer();
 
         // Always read the item from the player's main hand directly.
@@ -247,6 +253,9 @@ public class MiscListener implements Listener {
                     return;
 
                 // We only want to handle shops that exist but are not initialized.
+                // This branch intentionally does NOT check event.isCancelled() — crate-key
+                // plugins cancel the interact event for their keys, which would otherwise
+                // silently swallow the sign-hit and prevent shop initialization.
                 AbstractShop shop = plugin.getShopHandler().getShop(clicked.getLocation());
                 if (shop == null || shop.isInitialized()) {
                     return;
@@ -255,7 +264,7 @@ public class MiscListener implements Listener {
                 //creative selection listener will handle if item is null
                 if(handIsEmpty)
                     return;
-                
+
                 boolean initializedShop;
                 if(shop.getType() == ShopType.BARTER && shop.getItemStack() != null && shop.getSecondaryItemStack() == null)
                     initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, shop.getItemStack(), itemInHand);
@@ -270,6 +279,11 @@ public class MiscListener implements Listener {
                 return;
             }
             else if(plugin.getShopHandler().isChest(clicked)){
+
+                // For chest-based creation, respect cancellation from other plugins —
+                // unlike the sign-hit path above, this path modifies creation state and
+                // we don't want to interfere with cancelled interactions on chests.
+                if (event.isCancelled()) { return; }
 
                 if(!plugin.getAllowCreationMethodChest())
                     return;
@@ -477,7 +491,7 @@ public class MiscListener implements Listener {
                 case ITEM_PRICE_COMBO:
                     double priceCombo = plugin.getShopCreationUtil().getShopPriceCombo(player, event.getMessage(), process.getShopType());
                     if(priceCombo == -1){
-                        //instead of cancelling the chat event, just let them know what they typed wasnt a number and break them out of the creation process so they aren't chat locked
+                        //instead of cancelling the chat event, just let them know what they typed wasnt a number and break them out of the creation process so they aren't chat loaded
                         // cleanup() touches player entity tracking — must run on main thread
                         process.cleanupAsync();
                         playerChatCreationSteps.remove(player.getUniqueId());
