@@ -16,6 +16,8 @@
 
     <properties>
         <paper.version>26.2.build.112-stable</paper.version>
+        <!-- Adventure version matching paper-api 26.2 -->
+        <adventure.version>5.2.0</adventure.version>
     </properties>
 
     <!-- core module info -->
@@ -89,6 +91,44 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <!-- Pin Adventure to 5.2.0 (matches paper-api 26.2) — overrides
+                 whatever the IntellectualSites BOM declares for net.kyori. -->
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-api</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-key</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-minimessage</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-gson</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-legacy</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-plain</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-nbt</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -102,12 +142,6 @@
             <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
-		<dependency>
-		    <groupId>net.kyori</groupId>
-		    <artifactId>adventure-api</artifactId>
-		    <version>5.2.0</version>
-		    <scope>test</scope>
-		</dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
@@ -126,7 +160,6 @@
             <version>4.116.1</version>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
@@ -148,6 +181,45 @@
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>${paper.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Adventure: explicit provided deps so javac sees all Adventure types
+             referenced by our source and paper-api's own signatures.
+             Versions are managed by dependencyManagement above (5.2.0). -->
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-key</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-minimessage</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-gson</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-legacy</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-plain</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-nbt</artifactId>
             <scope>provided</scope>
         </dependency>
 
