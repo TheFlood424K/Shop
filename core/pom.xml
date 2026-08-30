@@ -324,6 +324,17 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <!-- Exclude the compile-only Adventure stub so it never
+                             ships inside the final shaded artifact. -->
+                        <exclude>net/kyori/adventure/text/object/PlayerHeadObjectContents*.class</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.6.2</version>
                 <executions>
