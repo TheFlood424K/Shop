@@ -198,14 +198,10 @@
             <version>5.23.0</version>
             <scope>test</scope>
         </dependency>
-
-        <!-- MockBukkit v26.1.2 — uses Adventure 4.x. Exclude ALL net.kyori
-             transitive deps so the provided-scope declarations below are the
-             sole Adventure jars on both compile and Surefire classpaths. -->
         <dependency>
             <groupId>org.mockbukkit.mockbukkit</groupId>
-            <artifactId>mockbukkit-v26.1.2</artifactId>
-            <version>4.113.3</version>
+            <artifactId>mockbukkit-v26.2</artifactId>
+            <version>4.116.1</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion><groupId>net.kyori</groupId><artifactId>adventure-api</artifactId></exclusion>
