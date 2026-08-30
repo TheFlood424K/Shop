@@ -16,10 +16,12 @@
 
     <properties>
         <paper.version>26.2.build.112-stable</paper.version>
-        <!-- adventure.version intentionally removed: Adventure is provided
-             transitively by paper-api. Pinning it here caused
-             ItemStackMock.<clinit> to blow up because our pinned version
-             differed from the one MockBukkit was compiled against. -->
+        <!-- adventure-api version must match what Paper 26.2.build.112-stable
+             ships transitively. This pin overrides the IntellectualSites BOM
+             so that MockBukkit, paper-api, and our compile classpath all see
+             the same Adventure JAR. Update this if paper.version changes.
+             Check: https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/ -->
+        <adventure.version>4.21.0</adventure.version>
         <!-- adventure-platform-* is a separate release line from adventure-api -->
         <adventure.platform.version>4.4.1</adventure.platform.version>
     </properties>
@@ -87,14 +89,48 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- IntellectualSites BOM — Adventure pins removed so Paper's
-                 transitive version is used unchanged on the test classpath. -->
+            <!-- IntellectualSites BOM — provides versions for PlotSquared etc.
+                 Adventure pins below override whatever the BOM declares so that
+                 the test classpath uses exactly what Paper 26.2 ships. -->
             <dependency>
                 <groupId>com.intellectualsites.bom</groupId>
                 <artifactId>bom-newest</artifactId>
                 <version>1.52</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- Adventure: align to Paper 26.2 to avoid NoClassDefFoundError
+                 (DialogLike etc.) when MockBukkit initialises the Bukkit registry. -->
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-api</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-key</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-legacy</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-plain</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-gson</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-nbt</artifactId>
+                <version>${adventure.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -126,9 +162,6 @@
             <artifactId>mockbukkit-v26.2</artifactId>
             <version>4.116.1</version>
             <scope>test</scope>
-            <!-- No Adventure exclusions needed: MockBukkit declares no
-                 Adventure deps of its own — it gets them from paper-api,
-                 which we also pull in for tests below. -->
         </dependency>
 
         <dependency>

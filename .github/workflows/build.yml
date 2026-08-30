@@ -79,6 +79,26 @@ jobs:
       # This is an optimization step only. It is known to be overly strict for some optional/provided integrations
       # (e.g., external plugin APIs with unpublished transitive deps), which can cause spurious CI failures.
       continue-on-error: true
+
+    - name: Print resolved test dependency tree (Adventure / MockBukkit)
+      run: |
+        mvn -B -nsu -Drevision=${{ env.VERSION }} -pl core -am \
+          dependency:tree \
+          -Dscope=test \
+          -Dverbose \
+          -Dincludes=net.kyori,io.papermc.paper,org.mockbukkit.mockbukkit \
+          -DoutputFile=core/target/test-dependency-tree.txt 2>&1 | tail -60
+        echo "===== Resolved Adventure paths ====="
+        grep -Ei "kyori|adventure|mockbukkit|paper-api" core/target/test-dependency-tree.txt || true
+      continue-on-error: true
+
+    - name: Upload dependency tree artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-dependency-tree
+        path: core/target/test-dependency-tree.txt
+        if-no-files-found: warn
       
     - name: Build
       # NOTE: -T 1C (parallel module builds) is intentionally omitted.
