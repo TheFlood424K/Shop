@@ -12,6 +12,7 @@ import org.bukkit.block.data.type.WallSign;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.ArmorMeta;
@@ -40,7 +41,7 @@ import org.bukkit.util.io.BukkitObjectInputStream;
 
 public class UtilMethods {
 
-    private static ArrayList<Material> nonIntrusiveMaterials = new ArrayList<Material>();
+    private static ArrayList<Material> nonIntrusiveMaterials = new ArrayList<>();
 
     public static String trimForSign(String text) {
         final int MAX_SIGN_WIDTH = 80; // Maximum width allowed on a sign line
@@ -243,7 +244,7 @@ public class UtilMethods {
         String[] sp = cleanLocation.split("\\s+");
 
         try {
-            return new Location(world, Integer.valueOf(sp[1]), Integer.valueOf(sp[2]), Integer.valueOf(sp[3]));
+            return new Location(world, Integer.parseInt(sp[1]), Integer.parseInt(sp[2]), Integer.parseInt(sp[3]));
         } catch (Exception e){
             return null;
         }
@@ -376,8 +377,11 @@ public class UtilMethods {
     }
 
     public static int getDurabilityPercent(ItemStack item) {
-        if (item.getType().getMaxDurability() > 0) {
-            double dur = ((double)(item.getType().getMaxDurability() - item.getDurability()) / (double)item.getType().getMaxDurability());
+        short maxDurability = item.getType().getMaxDurability();
+        if (maxDurability > 0) {
+            ItemMeta meta = item.getItemMeta();
+            int damage = (meta instanceof Damageable) ? ((Damageable) meta).getDamage() : 0;
+            double dur = (double)(maxDurability - damage) / (double) maxDurability;
             return (int)(dur * 100);
         }
         return 100;
@@ -433,7 +437,17 @@ public class UtilMethods {
     }
 
     public static String translate(String key){
-        return new TranslatableComponent(key).toPlainText();
+        // TranslatableComponent#toPlainText() is deprecated; use the Adventure
+        // plain-text serializer when running on Paper, fall back to BungeeCord on Spigot.
+        try {
+            net.kyori.adventure.text.Component component =
+                net.kyori.adventure.text.Component.translatable(key);
+            return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                .plainText().serialize(component);
+        } catch (NoClassDefFoundError e) {
+            // Spigot / older server without Adventure on the classpath
+            return new TranslatableComponent(key).toPlainText();
+        }
     }
 
     public static String formatTickTime(int ticks){
