@@ -16,7 +16,10 @@
 
     <properties>
         <paper.version>26.2.build.112-stable</paper.version>
-        <adventure.version>4.26.1</adventure.version>
+        <!-- adventure.version intentionally removed: Adventure is provided
+             transitively by paper-api. Pinning it here caused
+             ItemStackMock.<clinit> to blow up because our pinned version
+             differed from the one MockBukkit was compiled against. -->
         <!-- adventure-platform-* is a separate release line from adventure-api -->
         <adventure.platform.version>4.4.1</adventure.platform.version>
     </properties>
@@ -84,90 +87,8 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- Pin ALL net.kyori:adventure-* core artifacts to 4.26.1 so no
-                 transitive dep can override it. -->
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-api</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-key</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-nbt</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-text-minimessage</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-text-serializer-gson</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-text-serializer-json</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-text-serializer-json-legacy-impl</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-text-serializer-legacy</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-text-serializer-plain</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-text-serializer-ansi</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-text-serializer-commons</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-text-logger-slf4j</artifactId>
-                <version>${adventure.version}</version>
-            </dependency>
-            <!-- Pin adventure-platform-* to 4.4.1 (separate release line from adventure-api) -->
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-platform-api</artifactId>
-                <version>${adventure.platform.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-platform-bukkit</artifactId>
-                <version>${adventure.platform.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-platform-facet</artifactId>
-                <version>${adventure.platform.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.kyori</groupId>
-                <artifactId>adventure-platform-viaversion</artifactId>
-                <version>${adventure.platform.version}</version>
-            </dependency>
-            <!-- IntellectualSites BOM declared AFTER our Adventure pins -->
+            <!-- IntellectualSites BOM — Adventure pins removed so Paper's
+                 transitive version is used unchanged on the test classpath. -->
             <dependency>
                 <groupId>com.intellectualsites.bom</groupId>
                 <artifactId>bom-newest</artifactId>
@@ -205,91 +126,9 @@
             <artifactId>mockbukkit-v26.2</artifactId>
             <version>4.116.1</version>
             <scope>test</scope>
-            <exclusions>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-api</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-key</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-nbt</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-minimessage</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-gson</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-json</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-json-legacy-impl</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-legacy</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-plain</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-ansi</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-commons</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-logger-slf4j</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-bukkit</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-api</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-facet</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-viaversion</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>examination-api</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>examination-string</artifactId></exclusion>
-            </exclusions>
-        </dependency>
-
-        <!-- Explicit test-scope Adventure jars so MockBukkit's ItemStackMock
-             static initializer can find them at test runtime. The provided-scope
-             entries below satisfy compile-time only; test forks need these on
-             the classpath explicitly. -->
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-api</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-key</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-nbt</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-minimessage</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-gson</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-json</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-legacy</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-plain</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-ansi</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-logger-slf4j</artifactId>
-            <version>${adventure.version}</version>
-            <scope>test</scope>
+            <!-- No Adventure exclusions needed: MockBukkit declares no
+                 Adventure deps of its own — it gets them from paper-api,
+                 which we also pull in for tests below. -->
         </dependency>
 
         <dependency>
@@ -309,81 +148,11 @@
              COMPILE / PROVIDED DEPENDENCIES
              ================================================================ -->
 
-        <!-- Adventure 4.26.1 — provided so src/main/java can compile against
-             these types (which Paper exposes in its API). Paper supplies them
-             at runtime on the server. -->
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-api</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-key</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-nbt</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-minimessage</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-gson</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-json</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-legacy</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-plain</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-ansi</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-logger-slf4j</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>${paper.version}</version>
             <scope>provided</scope>
-            <exclusions>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-bukkit</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-api</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-facet</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-platform-viaversion</artifactId></exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -405,13 +174,6 @@
             <scope>provided</scope>
             <exclusions>
                 <exclusion><groupId>org.bstats</groupId><artifactId>bstats-bukkit</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-api</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-key</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-minimessage</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-legacy</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-plain</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-text-serializer-gson</artifactId></exclusion>
-                <exclusion><groupId>net.kyori</groupId><artifactId>adventure-nbt</artifactId></exclusion>
             </exclusions>
         </dependency>
         <dependency>
