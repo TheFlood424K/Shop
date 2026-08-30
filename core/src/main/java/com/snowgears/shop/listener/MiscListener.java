@@ -8,7 +8,8 @@ import com.snowgears.shop.hook.WorldGuardHook;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ShopType;
 import com.snowgears.shop.util.*;
-import net.md_5.bungee.api.chat.TextComponent;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -26,7 +27,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.SignChangeEvent;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -408,21 +408,22 @@ public class MiscListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerChat(AsyncPlayerChatEvent event){
+    public void onPlayerChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
         if(playerChatCreationSteps.containsKey(player.getUniqueId())){
             ShopCreationProcess process = playerChatCreationSteps.get(player.getUniqueId());
-            plugin.getLogger().debug("Shop Creation Process: " + process.getStep() + " Player " + player.getName() + " input: " + event.getMessage(), true);
+            String message = PlainTextComponentSerializer.plainText().serialize(event.message());
+            plugin.getLogger().debug("Shop Creation Process: " + process.getStep() + " Player " + player.getName() + " input: " + message, true);
             switch (process.getStep()){
                 case SHOP_TYPE:
-                    ShopType type = plugin.getShopCreationUtil().getShopType(event.getMessage());
+                    ShopType type = plugin.getShopCreationUtil().getShopType(message);
                     if(type == null){
                         // cleanup() touches player entity tracking — must run on main thread
                         process.cleanupAsync();
                         playerChatCreationSteps.remove(player.getUniqueId());
                         return;
                     }
-                    boolean isAdmin = plugin.getShopCreationUtil().getShopIsAdmin(event.getMessage());
+                    boolean isAdmin = plugin.getShopCreationUtil().getShopIsAdmin(message);
                     process.setShopType(type);
                     process.setAdmin(isAdmin);
                     event.setCancelled(true);
@@ -435,7 +436,7 @@ public class MiscListener implements Listener {
                 case ITEM_AMOUNT:
                     int amount = 0;
                     try {
-                        String textAmt = UtilMethods.cleanNumberText(event.getMessage());
+                        String textAmt = UtilMethods.cleanNumberText(message);
                         amount = Integer.parseInt(textAmt);
                         if (amount < 1) {
                             ShopMessage.sendMessage("interactionIssue", "line2", player, null);
@@ -466,7 +467,7 @@ public class MiscListener implements Listener {
                     }
                     break;
                 case ITEM_PRICE:
-                    double price = plugin.getShopCreationUtil().getShopPrice(player, event.getMessage(), process.getShopType());
+                    double price = plugin.getShopCreationUtil().getShopPrice(player, message, process.getShopType());
                     if(price == -1){
                         //instead of cancelling the chat event, just let them know what they typed wasnt a number and break them out of the creation process so they aren't chat locked
                         // cleanup() touches player entity tracking — must run on main thread
@@ -489,7 +490,7 @@ public class MiscListener implements Listener {
                     }
                     break;
                 case ITEM_PRICE_COMBO:
-                    double priceCombo = plugin.getShopCreationUtil().getShopPriceCombo(player, event.getMessage(), process.getShopType());
+                    double priceCombo = plugin.getShopCreationUtil().getShopPriceCombo(player, message, process.getShopType());
                     if(priceCombo == -1){
                         //instead of cancelling the chat event, just let them know what they typed wasnt a number and break them out of the creation process so they aren't chat loaded
                         // cleanup() touches player entity tracking — must run on main thread
@@ -510,7 +511,7 @@ public class MiscListener implements Listener {
                 case BARTER_ITEM_AMOUNT:
                     int barterAmount = 0;
                     try {
-                        String textAmt = UtilMethods.cleanNumberText(event.getMessage());
+                        String textAmt = UtilMethods.cleanNumberText(message);
                         barterAmount = Integer.parseInt(textAmt);
                         if (barterAmount < 1) {
                             ShopMessage.sendMessage("interactionIssue", "line2", player, null);
