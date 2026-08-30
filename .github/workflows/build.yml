@@ -80,16 +80,21 @@ jobs:
       # (e.g., external plugin APIs with unpublished transitive deps), which can cause spurious CI failures.
       continue-on-error: true
 
-    - name: Print resolved test dependency tree (Adventure / MockBukkit)
+    - name: Print resolved core test dependency tree (Adventure / MockBukkit)
+      # Run from core/ so -DoutputFile is relative to that module's basedir.
+      # This avoids the reactor path mis-routing that produced an empty artifact.
+      working-directory: core
       run: |
-        mvn -B -nsu -Drevision=${{ env.VERSION }} -pl core -am \
+        mkdir -p target
+        mvn -B -nsu -ntp -Drevision=${{ env.VERSION }} \
           dependency:tree \
           -Dscope=test \
           -Dverbose \
-          -Dincludes=net.kyori,io.papermc.paper,org.mockbukkit.mockbukkit \
-          -DoutputFile=core/target/test-dependency-tree.txt 2>&1 | tail -60
-        echo "===== Resolved Adventure paths ====="
-        grep -Ei "kyori|adventure|mockbukkit|paper-api" core/target/test-dependency-tree.txt || true
+          -DoutputType=text \
+          -DoutputFile=target/full-test-dependency-tree.txt
+        echo "===== Adventure / Paper / MockBukkit paths ====="
+        grep -Ei "net\.kyori|adventure|mockbukkit|paper-api" \
+          target/full-test-dependency-tree.txt || true
       continue-on-error: true
 
     - name: Upload dependency tree artifact
@@ -97,7 +102,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-dependency-tree
-        path: core/target/test-dependency-tree.txt
+        path: core/target/full-test-dependency-tree.txt
         if-no-files-found: warn
       
     - name: Build

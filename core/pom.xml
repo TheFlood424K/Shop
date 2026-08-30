@@ -16,12 +16,12 @@
 
     <properties>
         <paper.version>26.2.build.112-stable</paper.version>
-        <!-- adventure-api version must match what Paper 26.2.build.112-stable
-             ships transitively. This pin overrides the IntellectualSites BOM
-             so that MockBukkit, paper-api, and our compile classpath all see
-             the same Adventure JAR. Update this if paper.version changes.
-             Check: https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/ -->
-        <adventure.version>4.21.0</adventure.version>
+        <!-- adventure-api 4.24.0 is the earliest stable release that contains
+             net.kyori.adventure.dialog.DialogLike (introduced in 4.22.0).
+             This pin overrides the IntellectualSites BOM so MockBukkit,
+             paper-api, and our compile classpath all see the same Adventure JAR.
+             Update this if paper.version changes. -->
+        <adventure.version>4.24.0</adventure.version>
         <!-- adventure-platform-* is a separate release line from adventure-api -->
         <adventure.platform.version>4.4.1</adventure.platform.version>
     </properties>
@@ -100,8 +100,9 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Adventure: align to Paper 26.2 to avoid NoClassDefFoundError
-                 (DialogLike etc.) when MockBukkit initialises the Bukkit registry. -->
+            <!-- Adventure: pin to 4.24.0 which contains DialogLike (since 4.22.0).
+                 These entries come AFTER the BOM import so they win the
+                 nearest-definition rule and override whatever the BOM declares. -->
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-api</artifactId>
@@ -130,6 +131,11 @@
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-nbt</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-minimessage</artifactId>
                 <version>${adventure.version}</version>
             </dependency>
         </dependencies>
