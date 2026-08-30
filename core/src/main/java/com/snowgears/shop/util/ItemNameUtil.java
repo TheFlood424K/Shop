@@ -40,19 +40,16 @@ public class ItemNameUtil {
             String itemType = item.getType().name();
             if(itemType.endsWith("_SMITHING_TEMPLATE")) {
                 String templateType = itemType.replace("_SMITHING_TEMPLATE", "");
-                // Extract the template pattern name (e.g., "EYE" from "EYE_ARMOR_TRIM_SMITHING_TEMPLATE")
                 if(templateType.endsWith("_ARMOR_TRIM")) {
                     ChatColor trimNameColor = ChatColor.YELLOW;
-                    // Aqua: "Vex", "Spire", "Eye" and "Ward"
                     if (templateType.contains("VEX") || templateType.contains("SPIRE") || templateType.contains("EYE") || templateType.contains("WARD")) {
                         trimNameColor = ChatColor.AQUA;
-                    } else if (templateType.contains("SILENCE")) {  trimNameColor = ChatColor.LIGHT_PURPLE; }
+                    } else if (templateType.contains("SILENCE")) { trimNameColor = ChatColor.LIGHT_PURPLE; }
                     String formattedName = UtilMethods.capitalize(templateType.toLowerCase().replace("_", " "));
                     return new TextComponent(trimNameColor.toString() + formattedName);
                 } else if(templateType.equals("NETHERITE_UPGRADE")) {
                     return new TextComponent(ChatColor.YELLOW.toString() + "Netherite Upgrade Template");
                 } else {
-                    // For any other potential smithing templates
                     String formattedName = UtilMethods.capitalize(templateType.toLowerCase().replace("_", " "));
                     return new TextComponent(ChatColor.YELLOW.toString() + formattedName);
                 }
@@ -77,9 +74,8 @@ public class ItemNameUtil {
                 name.setColor(net.md_5.bungee.api.ChatColor.YELLOW);
                 return name;
             }
-        } catch (Exception e) {} catch (Error e) {} // Backwards compatibility
+        } catch (Exception e) {} catch (Error e) {}
 
-        // Fallback to the material name
         return getNameTranslatable(item.getType());
     }
 
@@ -91,99 +87,61 @@ public class ItemNameUtil {
     }
 
     public static TextComponent getEnchantmentTranslatable(Enchantment enchantment){
-        // Enchantment `getTranslationKey()` was added in 1.20.4, much later than Material/everywhere else...
+        // Enchantment#getTranslationKey() was added in 1.20.4
         if (!MCVersion.atLeast("1.20.4")) {
             return new TextComponent(getEnchantmentName(enchantment));
         }
         return new TextComponent(new TranslatableComponent(enchantment.getTranslationKey()));
     }
 
-    // Legacy method for getting the enchantment name
+    /**
+     * Legacy enchantment name lookup used on servers older than 1.20.4.
+     * Uses getKey().getKey() (NamespacedKey) instead of the removed getName() method.
+     */
     public static String getEnchantmentName(Enchantment enchantment){
-        //        System.out.println(enchantment.getName());
-        //        System.out.println(enchantment.getKey().getKey());
-        //        System.out.println(enchantment.getKey().getNamespace());
-        switch (enchantment.getName()) {
-            case "ARROW_DAMAGE":
-                return "Power";
-            case "ARROW_FIRE":
-                return "Flame";
-            case "ARROW_INFINITE":
-                return "Infinity";
-            case "ARROW_KNOCKBACK":
-                return "Punch";
-            case "BINDING_CURSE":
-                return "Curse of Binding";
-            case "CHANNELING":
-                return "Channeling";
-            case "DAMAGE_ALL":
-                return "Sharpness";
-            case "DAMAGE_ARTHROPODS":
-                return "Bane of Arthropods";
-            case "DAMAGE_UNDEAD":
-                return "Smite";
-            case "DEPTH_STRIDER":
-                return "Depth Strider";
-            case "DIG_SPEED":
-                return "Efficiency";
-            case "DURABILITY":
-                return "Unbreaking";
-            case "FIRE_ASPECT":
-                return "Fire Aspect";
-            case "FROST_WALKER":
-                return "Frost Walker";
-            case "IMPALING":
-                return "Impaling";
-            case "KNOCKBACK":
-                return "Knockback";
-            case "LOOT_BONUS_BLOCKS":
-                return "Fortune";
-            case "LOOT_BONUS_MOBS":
-                return "Looting";
-            case "LOYALTY":
-                return "Loyalty";
-            case "LUCK":
-                return "Luck of the Sea";
-            case "LURE":
-                return "Lure";
-            case "MENDING":
-                return "Mending";
-            case "MULTISHOT":
-                return "Multishot";
-            case "OXYGEN":
-                return "Respiration";
-            case "PIERCING":
-                return "Piercing";
-            case "PROTECTION_ENVIRONMENTAL":
-                return "Protection";
-            case "PROTECTION_EXPLOSIONS":
-                return "Blast Protection";
-            case "PROTECTION_FALL":
-                return "Feather Falling";
-            case "PROTECTION_FIRE":
-                return "Fire Protection";
-            case "PROTECTION_PROJECTILE":
-                return "Projectile Protection";
-            case "QUICK_CHARGE":
-                return "Quick Charge";
-            case "RIPTIDE":
-                return "Riptide";
-            case "SILK_TOUCH":
-                return "Silk Touch";
-            case "SOUL_SPEED":
-                return "Soul Speed";
-            case "SWEEPING_EDGE":
-                return "Sweeping Edge";
-            case "SWIFT_SNEAK":
-                return "Swift Sneak";
-            case "THORNS":
-                return "Thorns";
-            case "VANISHING_CURSE":
-                return "Cure of Vanishing";
-            case "WATER_WORKER":
-                return "Aqua Affinity";
+        switch (enchantment.getKey().getKey()) {
+            case "power":                  return "Power";
+            case "flame":                  return "Flame";
+            case "infinity":               return "Infinity";
+            case "punch":                  return "Punch";
+            case "binding_curse":          return "Curse of Binding";
+            case "channeling":             return "Channeling";
+            case "sharpness":              return "Sharpness";
+            case "bane_of_arthropods":     return "Bane of Arthropods";
+            case "smite":                  return "Smite";
+            case "depth_strider":          return "Depth Strider";
+            case "efficiency":             return "Efficiency";
+            case "unbreaking":             return "Unbreaking";
+            case "fire_aspect":            return "Fire Aspect";
+            case "frost_walker":           return "Frost Walker";
+            case "impaling":               return "Impaling";
+            case "knockback":              return "Knockback";
+            case "fortune":                return "Fortune";
+            case "looting":                return "Looting";
+            case "loyalty":                return "Loyalty";
+            case "luck_of_the_sea":        return "Luck of the Sea";
+            case "lure":                   return "Lure";
+            case "mending":                return "Mending";
+            case "multishot":              return "Multishot";
+            case "respiration":            return "Respiration";
+            case "piercing":               return "Piercing";
+            case "protection":             return "Protection";
+            case "blast_protection":       return "Blast Protection";
+            case "feather_falling":        return "Feather Falling";
+            case "fire_protection":        return "Fire Protection";
+            case "projectile_protection":  return "Projectile Protection";
+            case "quick_charge":           return "Quick Charge";
+            case "riptide":                return "Riptide";
+            case "silk_touch":             return "Silk Touch";
+            case "soul_speed":             return "Soul Speed";
+            case "sweeping_edge":
+            case "sweeping":               return "Sweeping Edge";
+            case "swift_sneak":            return "Swift Sneak";
+            case "thorns":                 return "Thorns";
+            case "vanishing_curse":        return "Curse of Vanishing";
+            case "aqua_affinity":          return "Aqua Affinity";
             default:
-                return UtilMethods.capitalize(enchantment.getName().toLowerCase().replace("_", " "));
+                return UtilMethods.capitalize(enchantment.getKey().getKey().toLowerCase().replace("_", " "));
         }
     }
 }
