@@ -1,19 +1,19 @@
 package net.kyori.adventure.text.object;
 
 /**
- * Compile-time stub for net.kyori.adventure.text.object.PlayerHeadObjectContents.
+ * Compile-only stub.
  *
  * WorldGuard 7.0.18 was built against an Adventure snapshot that introduced
- * this class. It is absent from every published adventure-api release jar,
- * so javac cannot resolve the full type hierarchy of WorldGuard classes at
- * compile time — even when the code never calls these methods directly.
+ * {@code net.kyori.adventure.text.object.PlayerHeadObjectContents} and its
+ * nested {@code SkinSource} interface. Neither class exists in any published
+ * Adventure release jar, so javac cannot resolve the transitive type closure
+ * of {@code RegionQuery}'s method signatures at compile time — even when
+ * those methods are invoked only via reflection.
  *
- * This stub satisfies the compiler. The real implementation is provided at
- * runtime by Paper's bundled Adventure, so this class is never loaded on a
- * live server.
- *
- * Do not add any members — the interface contract must remain compatible with
- * whatever Paper ships.
+ * This stub satisfies the compiler. It is excluded from the final shaded jar
+ * by {@code maven-jar-plugin} so it is never present at runtime.
  */
-public interface PlayerHeadObjectContents extends ObjectContentsLike {
+public interface PlayerHeadObjectContents {
+    /** Compile-only stub for the nested SkinSource type. */
+    interface SkinSource {}
 }
