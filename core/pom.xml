@@ -17,6 +17,8 @@
     <properties>
         <paper.version>26.2.build.112-stable</paper.version>
         <adventure.version>4.26.1</adventure.version>
+        <!-- adventure-platform-* is a separate release line from adventure-api -->
+        <adventure.platform.version>4.4.1</adventure.platform.version>
     </properties>
 
     <!-- core module info -->
@@ -82,8 +84,8 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- Pin ALL net.kyori:adventure-* artifacts to 4.26.1 so no transitive
-                 dep can override it. -->
+            <!-- Pin ALL net.kyori:adventure-* core artifacts to 4.26.1 so no
+                 transitive dep can override it. -->
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-api</artifactId>
@@ -144,26 +146,26 @@
                 <artifactId>adventure-text-logger-slf4j</artifactId>
                 <version>${adventure.version}</version>
             </dependency>
-            <!-- Pin adventure-platform-* to 4.3.4 -->
+            <!-- Pin adventure-platform-* to 4.4.1 (separate release line from adventure-api) -->
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-platform-api</artifactId>
-                <version>4.3.4</version>
+                <version>${adventure.platform.version}</version>
             </dependency>
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-platform-bukkit</artifactId>
-                <version>4.3.4</version>
+                <version>${adventure.platform.version}</version>
             </dependency>
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-platform-facet</artifactId>
-                <version>4.3.4</version>
+                <version>${adventure.platform.version}</version>
             </dependency>
             <dependency>
                 <groupId>net.kyori</groupId>
                 <artifactId>adventure-platform-viaversion</artifactId>
-                <version>4.3.4</version>
+                <version>${adventure.platform.version}</version>
             </dependency>
             <!-- IntellectualSites BOM declared AFTER our Adventure pins -->
             <dependency>
@@ -223,6 +225,71 @@
                 <exclusion><groupId>net.kyori</groupId><artifactId>examination-api</artifactId></exclusion>
                 <exclusion><groupId>net.kyori</groupId><artifactId>examination-string</artifactId></exclusion>
             </exclusions>
+        </dependency>
+
+        <!-- Explicit test-scope Adventure jars so MockBukkit's ItemStackMock
+             static initializer can find them at test runtime. The provided-scope
+             entries below satisfy compile-time only; test forks need these on
+             the classpath explicitly. -->
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-api</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-key</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-nbt</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-minimessage</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-gson</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-json</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-legacy</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-plain</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-ansi</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-logger-slf4j</artifactId>
+            <version>${adventure.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
