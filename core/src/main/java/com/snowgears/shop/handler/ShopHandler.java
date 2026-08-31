@@ -4,6 +4,7 @@ import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.AbstractDisplay;
 import com.snowgears.shop.display.DisplayType;
 import com.snowgears.shop.shop.AbstractShop;
+import com.snowgears.shop.shop.BarterShop;
 import com.snowgears.shop.shop.ComboShop;
 import com.snowgears.shop.shop.ShopType;
 import com.snowgears.shop.util.DisplayUtil;
@@ -25,7 +26,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.ItemMeta;
+import org.bukkit.inventory.PlayerInventory;
 
 import java.io.File;
 import java.io.IOException;
@@ -261,10 +263,6 @@ public class ShopHandler {
 
         if (changed) {
             Shop.getPlugin().getLogger().debug("Removed Shop internally from ShopHandler: " + shop);
-            // Immediate force save if there were any changes since we deleted a shop 
-            // Note that we don't pass forceSave down, it is only a flag on if we should trigger the save attempt immediately
-            // we only hold off on doing this if we are bulk deleting shops for users to prevent repeated saves.
-            // The forceSave flag should rarely be `false`, and you should be careful when setting it to false.
             if (forceSave) {
                 this.saveShops(shop.getOwnerUUID(), true);
             }
@@ -279,7 +277,6 @@ public class ShopHandler {
             for(Location shopLocation : shopLocations) {
                 AbstractShop shop = getShop(shopLocation);
                 if(shop != null){
-                    // Run at the shop's location to ensure it works in the correct region in Folia
                     plugin.getFoliaLib().getScheduler().runAtLocation(shopLocation, task -> {
                         boolean loadSuccess = shop.load();
                         if(loadSuccess) {
@@ -300,6 +297,33 @@ public class ShopHandler {
         if(!shopLocations.contains(shop.getSignLocation())) {
             shopLocations.add(shop.getSignLocation());
             unloadedShopsByChunk.put(chunkKey, shopLocations);
+        }
+    }
+
+    /**
+     * Rebuild all shop displays in a given chunk (re-spawns displays for online players).
+     * Called from ShopListener when a chunk is loaded or a player enters a chunk.
+     */
+    public void rebuildDisplaysInChunk(Chunk chunk) {
+        String key = UtilMethods.getChunkKey(chunk);
+        List<Location> shopLocations = getShopLocations(key);
+        if (shopLocations.isEmpty()) return;
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            for (Location loc : shopLocations) {
+                AbstractShop shop = getShop(loc);
+                if (shop == null) continue;
+                // Only act on this shop if the player is within display range
+                try {
+                    if (player.getWorld().equals(loc.getWorld()) &&
+                            player.getLocation().distanceSquared(loc) <=
+                            plugin.getMaxShopDisplayDistance() * plugin.getMaxShopDisplayDistance()) {
+                        if (!hasActiveDisplay(player, loc)) {
+                            shop.getDisplay().spawn(player);
+                            addActiveShopDisplay(player, loc);
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
         }
     }
 
@@ -380,25 +404,10 @@ public class ShopHandler {
         return shopLocations;
     }
 
-    /**
-     * Gets shop locations near a specific location within a default radius of 1 chunk
-     * (which covers a 3x3 chunk area)
-     * 
-     * @param location The center location to search around
-     * @return HashSet of shop locations in the surrounding chunks
-     */
     public HashSet<Location> getShopLocationsNearLocation(Location location) {
         return getShopLocationsNearLocation(location, plugin.getShopSearchRadius());
     }
 
-    /**
-     * Gets shop locations near a specific location within a specified chunk radius
-     * 
-     * @param location The center location to search around
-     * @param chunkRadius The radius (in chunks) to search around the center location
-     *                    A radius of 1 means a 3x3 chunk area, 2 means 5x5, etc.
-     * @return HashSet of shop locations in the surrounding chunks
-     */
     public HashSet<Location> getShopLocationsNearLocation(Location location, int chunkRadius) {
         if (chunkRadius < 0) {
             throw new IllegalArgumentException("Chunk radius cannot be negative");
@@ -410,7 +419,6 @@ public class ShopHandler {
         
         HashSet<Location> shopsNearLocation = new HashSet<>();
         
-        // Loop through all chunks in the specified radius
         for (int x = -chunkRadius; x <= chunkRadius; x++) {
             for (int z = -chunkRadius; z <= chunkRadius; z++) {
                 String chunkKey = UtilMethods.createChunkKey(worldName, chunkX + x, chunkZ + z);
@@ -422,27 +430,13 @@ public class ShopHandler {
         return shopsNearLocation;
     }
 
-    /**
-     * Gets actual shop objects near a specific location within the default radius
-     * 
-     * @param location The center location to search around
-     * @return List of shops in the surrounding chunks
-     */
     public List<AbstractShop> getShopsNearLocation(Location location) {
         return getShopsNearLocation(location, plugin.getShopSearchRadius());
     }
 
-    /**
-     * Gets actual shop objects near a specific location within a specified chunk radius
-     * 
-     * @param location The center location to search around
-     * @param chunkRadius The radius (in chunks) to search around the center location
-     * @return List of shops in the surrounding chunks
-     */
     public List<AbstractShop> getShopsNearLocation(Location location, int chunkRadius) {
         List<AbstractShop> shopsNearLocation = new ArrayList<>();
         
-        // Get shop locations in the specified radius
         for (Location shopLocation : getShopLocationsNearLocation(location, chunkRadius)) {
             AbstractShop shop = getShop(shopLocation);
             if (shop != null) {
@@ -453,23 +447,11 @@ public class ShopHandler {
         return shopsNearLocation;
     }
 
-    /**
-     * Gets shop locations near a specific location within a specified chunk radius,
-     * filtered by maximum distance in blocks.
-     * 
-     * @param location The center location to search around
-     * @param chunkRadius The radius (in chunks) to search around the center location
-     * @param maxDistanceSquared The maximum squared distance (in blocks) to include shops
-     *                          Using squared distance avoids expensive square root calculations
-     * @return HashSet of shop locations within the distance limit
-     */
     public HashSet<Location> getShopLocationsNearLocationWithinDistance(Location location, int chunkRadius, double maxDistanceSquared) {
         HashSet<Location> nearbyLocations = getShopLocationsNearLocation(location, chunkRadius);
         HashSet<Location> filteredLocations = new HashSet<>();
         
-        // Filter by distance
         for (Location shopLocation : nearbyLocations) {
-            // Using distanceSquared is more efficient than distance
             try {
                 if (location.distanceSquared(shopLocation) <= maxDistanceSquared) {
                     filteredLocations.add(shopLocation);
@@ -482,14 +464,6 @@ public class ShopHandler {
         return filteredLocations;
     }
 
-    /**
-     * Gets actual shop objects near a specific location within a specified radius in blocks
-     * 
-     * @param location The center location to search around
-     * @param chunkRadius The radius (in chunks) to search around the center location
-     * @param maxDistance The maximum distance (in blocks) to include shops
-     * @return List of shops within the distance limit
-     */
     public List<AbstractShop> getShopsNearLocationWithinDistance(Location location, int chunkRadius, double maxDistance) {
         List<AbstractShop> shops = new ArrayList<>();
         double maxDistanceSquared = maxDistance * maxDistance;
@@ -505,78 +479,57 @@ public class ShopHandler {
     }
 
     public void processShopDisplaysNearPlayer(Player player){
-        // If the player is already being processed, don't start another process
         if (playersProcessingShopDisplays.contains(player.getUniqueId())) {
             return;
         }
         
-        // Get current player location
         Location currentLocation = player.getLocation();
         
-        // Check if player has moved enough to warrant processing
         Location lastLocation = lastProcessedLocations.get(player.getUniqueId());
         double movementThreshold = plugin.getDisplayMovementThreshold();
         
-        // Skip processing if player hasn't moved enough and this isn't the first check
         if (lastLocation != null && 
             lastLocation.getWorld().equals(currentLocation.getWorld()) && 
             lastLocation.distanceSquared(currentLocation) < (movementThreshold * movementThreshold)) {
             return;
         }
         
-        // Mark player as being processed to prevent concurrent processing
         playersProcessingShopDisplays.add(player.getUniqueId());
         
-        // Schedule display processing task at the player's entity
         plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
             try {
-                // Use a local variable for current location to avoid race conditions
                 Location playerLocation = player.getLocation();
                 
-                // Update the last processed location immediately to prevent multiple processings
                 lastProcessedLocations.put(player.getUniqueId(), playerLocation.clone());
                 
-                // Get all shop locations within the maximum display distance in one batch
                 HashSet<Location> nearbyShopLocations = getShopLocationsNearLocationWithinDistance(
                     playerLocation, 
                     plugin.getShopSearchRadius(), 
                     plugin.getMaxShopDisplayDistance() * plugin.getMaxShopDisplayDistance()
                 );
                 
-                // Create a batch operation for all displays to minimize interference
-                // This helps prevent the "bouncing" effect when displays are created one by one
                 processBatchDisplayUpdates(player, playerLocation, nearbyShopLocations);
                 
             } catch (Exception e) {
                 plugin.getLogger().warning("Error processing shop displays for player " + player.getName());
                 e.printStackTrace();
             } finally {
-                // Always ensure player is removed from processing list
                 playersProcessingShopDisplays.remove(player.getUniqueId());
             }
         }, 1);
     }
 
-    /**
-     * Process all shop displays in a single coordinated batch to minimize visual artifacts
-     * @param player The player to update displays for
-     * @param playerLocation The player's current location
-     * @param shopLocations Set of shop locations to process
-     */
     private void processBatchDisplayUpdates(Player player, Location playerLocation, HashSet<Location> shopLocations) {
         if (!player.isOnline()) return;
         
-        // Log the processing if in debug mode
         plugin.getLogger().debug("Processing batch display update for " + player.getName() + 
             " at " + playerLocation.getWorld().getName() + 
             " [" + playerLocation.getBlockX() + "," + playerLocation.getBlockY() + "," + playerLocation.getBlockZ() + "]" +
             " with " + shopLocations.size() + " nearby shops");
         
-        // First, collect all displays that need to be shown and those that need to be removed
         HashSet<Location> displaysToShow = new HashSet<>();
         HashSet<Location> displaysToRemove = new HashSet<>();
         
-        // Determine which displays to show and which to remove
         for (Location shopLocation : shopLocations) {
             AbstractShop shop = getShop(shopLocation);
             if (shop == null) continue;
@@ -584,15 +537,12 @@ public class ShopHandler {
             double distance = playerLocation.distance(shop.getSignLocation());
             
             if (distance < plugin.getMaxShopDisplayDistance()) {
-                // Within display distance, should be shown
                 displaysToShow.add(shopLocation);
             } else {
-                // Too far, should be removed
                 displaysToRemove.add(shopLocation);
             }
         }
         
-        // Also identify any current displays that are no longer in range
         if (playersWithActiveShopDisplays.containsKey(player.getUniqueId())) {
             HashSet<Location> activeDisplays = new HashSet<>(playersWithActiveShopDisplays.get(player.getUniqueId()));
             for (Location displayLocation : activeDisplays) {
@@ -602,7 +552,6 @@ public class ShopHandler {
             }
         }
         
-        // Process removals first to prevent interference with new spawns
         for (Location locationToRemove : displaysToRemove) {
             AbstractShop shop = getShop(locationToRemove);
             if (shop != null) {
@@ -611,10 +560,7 @@ public class ShopHandler {
             }
         }
         
-        // Short delay before processing additions to ensure removals are complete
-        // This helps prevent the visual "refresh" effect
         plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
-            // Now process additions in priority order (closest first)
             List<Map.Entry<Location, Double>> sortedLocations = new ArrayList<>();
             
             for (Location locationToShow : displaysToShow) {
@@ -624,11 +570,8 @@ public class ShopHandler {
                 }
             }
             
-            // Sort by distance (closest first)
             sortedLocations.sort(Comparator.comparing(Map.Entry::getValue));
             
-            // Process in distance order with small delays between batches to reduce visual clutter
-            // Use configurable batch size from config
             int batchSize = plugin.getDisplayBatchSize();
             int batchDelay = plugin.getDisplayBatchDelay();
             int totalBatches = (sortedLocations.size() + batchSize - 1) / batchSize;
@@ -638,7 +581,6 @@ public class ShopHandler {
             for (int batch = 0; batch < totalBatches; batch++) {
                 final int currentBatch = batch;
                 
-                // Add a configurable delay between batches
                 plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
                     if (!player.isOnline()) return;
                     
@@ -654,55 +596,35 @@ public class ShopHandler {
                             addActiveShopDisplay(player, locationToShow);
                         }
                     }
-                }, batch * batchDelay); // Configurable delay between batches
+                }, batch * batchDelay);
             }
-        }, 2); // 2 tick delay after removals
+        }, 2);
     }
 
     public void clearShopDisplaysNearPlayer(Player player){
         if(playersWithActiveShopDisplays.containsKey(player.getUniqueId()))
             playersWithActiveShopDisplays.remove(player.getUniqueId());
         
-        // Also remove player from last processed locations
         lastProcessedLocations.remove(player.getUniqueId());
-        
-        // Also remove from processing list to avoid any potential deadlocks
         playersProcessingShopDisplays.remove(player.getUniqueId());
-        
-        // Clear teleport cooldown as well
         teleportCooldowns.remove(player.getUniqueId());
-
     }
 
-    /**
-     * Force shop display processing for a player, ignoring movement threshold checks.
-     * This should be called after teleportation or world changes.
-     * 
-     * @param player The player to process shop displays for
-     */
     public void forceProcessShopDisplaysNearPlayer(Player player) {
-        // Check if player is on teleport cooldown
         Long lastTeleport = teleportCooldowns.get(player.getUniqueId());
         long currentTime = System.currentTimeMillis();
         
-        // If player is on cooldown, skip this update
         if (lastTeleport != null && currentTime - lastTeleport < TELEPORT_COOLDOWN_MS) {
             plugin.getLogger().debug("Skipping display update for " + player.getName() + " - on teleport cooldown");
             return;
         }
         
-        // Set teleport cooldown
         teleportCooldowns.put(player.getUniqueId(), currentTime);
-        
-        // Remove from processing list if somehow still in there
         playersProcessingShopDisplays.remove(player.getUniqueId());
-        
-        // Remove any previous location tracking
         lastProcessedLocations.remove(player.getUniqueId());
         
         plugin.getLogger().debug("Force processing shop displays for " + player.getName() + " after teleport");
         
-        // Clear all existing displays for this player to ensure a clean slate
         plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
             if (player.isOnline()) {
                 if (playersWithActiveShopDisplays.containsKey(player.getUniqueId())) {
@@ -719,12 +641,11 @@ public class ShopHandler {
                     playersWithActiveShopDisplays.remove(player.getUniqueId());
                 }
                 
-                // Process displays after a short delay to ensure all removals are complete
                 plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
                     if (player.isOnline()) {
                         processShopDisplaysNearPlayer(player);
                     }
-                }, 10); // Increased from 5 to 10 ticks to ensure all chunks are loaded
+                }, 10);
             }
         }, 1);
     }
@@ -765,7 +686,6 @@ public class ShopHandler {
             if (!oldShopSignLocation.equals(shopSignLocation)) {
                 AbstractShop oldShop = getShop(oldShopSignLocation);
                 if (oldShop != null && oldShop.getDisplay() != null) {
-                    // Use a separate task to remove the old display to avoid interference
                     plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
                         if (player.isOnline()) {
                             oldShop.getDisplay().removeDisplayEntities(player, true);
@@ -775,7 +695,6 @@ public class ShopHandler {
             }
         }
         
-        // Only update after a short delay to prevent visual glitches
         plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
             if (player.isOnline()) {
                 playersActiveShopDisplayTag.put(player.getUniqueId(), shopSignLocation);
@@ -871,25 +790,92 @@ public class ShopHandler {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Item-list helpers used by CommandHandler and ShopCreationUtil
+    // -----------------------------------------------------------------------
+
     /**
-     * Saves the shops for a player.
-     * 
-     * @param player The UUID of the player to save the shops for.
-     * @return The number of shops saved.
-     * 1+: Total number of shops saved for player
-     * 0:  No shops need updating (file was not touched)
-     * -1: No shops for player exist (file was deleted)
-     * -2: Failed to save new shop file, left original file intact
-     * -3: Backup file exists, but needs to be manually restored
-     * -5: Critical error, total data loss for player, all files are missing
+     * Returns true when the given ItemStack is allowed by the item list
+     * (or when the item list feature is disabled).
      */
+    public boolean passesItemListCheck(ItemStack item) {
+        if (plugin.getItemListType() == ItemListType.NONE) return true;
+        if (itemListItems.isEmpty()) return plugin.getItemListType() == ItemListType.BLACKLIST;
+        boolean inList = false;
+        for (ItemStack listItem : itemListItems) {
+            if (listItem != null && listItem.getType() == item.getType()) {
+                inList = true;
+                break;
+            }
+        }
+        // WHITELIST: must be in list.  BLACKLIST: must NOT be in list.
+        return plugin.getItemListType() == ItemListType.WHITELIST ? inList : !inList;
+    }
+
+    /**
+     * Adds all unique item types from the given inventory to the item list file
+     * and reloads the in-memory list.
+     */
+    public void addInventoryToItemList(PlayerInventory inventory) {
+        String itemListPath = plugin.getItemListPath();
+        if (itemListPath == null || itemListPath.isEmpty()) return;
+        File itemListFile = new File(plugin.getDataFolder(), itemListPath);
+        YamlConfiguration config = itemListFile.exists()
+                ? YamlConfiguration.loadConfiguration(itemListFile)
+                : new YamlConfiguration();
+        int nextKey = config.contains("items") ? config.getConfigurationSection("items").getKeys(false).size() + 1 : 1;
+        for (ItemStack stack : inventory.getContents()) {
+            if (stack == null || stack.getType() == Material.AIR) continue;
+            boolean already = false;
+            if (config.contains("items")) {
+                for (String k : config.getConfigurationSection("items").getKeys(false)) {
+                    ItemStack existing = config.getItemStack("items." + k);
+                    if (existing != null && existing.getType() == stack.getType()) { already = true; break; }
+                }
+            }
+            if (!already) {
+                ItemStack toSave = stack.clone(); toSave.setAmount(1);
+                config.set("items." + nextKey, toSave);
+                nextKey++;
+            }
+        }
+        try { config.save(itemListFile); } catch (IOException e) { plugin.getLogger().warning("Could not save item list: " + e.getMessage()); }
+        initItemList();
+    }
+
+    /**
+     * Removes all item types found in the given inventory from the item list file
+     * and reloads the in-memory list.
+     */
+    public void removeInventoryFromItemList(PlayerInventory inventory) {
+        String itemListPath = plugin.getItemListPath();
+        if (itemListPath == null || itemListPath.isEmpty()) return;
+        File itemListFile = new File(plugin.getDataFolder(), itemListPath);
+        if (!itemListFile.exists()) return;
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(itemListFile);
+        if (!config.contains("items")) return;
+        Set<String> keys = new HashSet<>(config.getConfigurationSection("items").getKeys(false));
+        for (String k : keys) {
+            ItemStack existing = config.getItemStack("items." + k);
+            if (existing == null) continue;
+            for (ItemStack stack : inventory.getContents()) {
+                if (stack != null && stack.getType() == existing.getType()) {
+                    config.set("items." + k, null);
+                    break;
+                }
+            }
+        }
+        try { config.save(itemListFile); } catch (IOException e) { plugin.getLogger().warning("Could not save item list: " + e.getMessage()); }
+        initItemList();
+    }
+
+    // -----------------------------------------------------------------------
+
     private boolean immediateShutdown = false;
     public int saveShops(final UUID player){ return saveShops(player, false); }
     public int saveShops(final UUID player, boolean force){
-        // If the plugin is in immediate shutdown mode, skip saving any new files to protect against data loss
         if (this.immediateShutdown) return -5;
 
-        // Check if any of the players shops want to be saved
         String playerName = player == this.getAdminUUID() ? "admin" : plugin.getServer().getOfflinePlayer(player).getName();
         int numWantingToUpdate = numShopsNeedSave(player);
         if (!force && numWantingToUpdate == 0 && getNumberOfShops(player) > 0) {
@@ -897,7 +883,6 @@ public class ShopHandler {
             return 0;
         }
 
-        // There are shops that need to be saved, so go ahead and save the file!
         plugin.getLogger().debug("attempting to save shops for player " + playerName + " (" + player.toString() + ") isAdmin: " + (player == Shop.getPlugin().getShopHandler().getAdminUUID()));
         File currentFile = null;
         try {
@@ -918,7 +903,6 @@ public class ShopHandler {
 
             plugin.getLogger().trace("    current file " + currentFile);
 
-            // We will build the YAML in-memory and write via a temp file to avoid data loss.
             YamlConfiguration config = new YamlConfiguration();
             plugin.getLogger().trace("    preparing yaml for " + currentFile);
 
@@ -931,11 +915,9 @@ public class ShopHandler {
 
             int shopNumber = 0;
             for (AbstractShop shop : shopList) {
-                //this is to remove a bug that caused one shop to be saved to multiple files at one point
                 if(!shop.getOwnerUUID().equals(player))
                     continue;
 
-                //don't save shops that are not initialized with items
                 if (shop.isInitialized()) {
                     shopNumber++;
                     config.set("shops." + owner + "." + shopNumber + ".id", shop.getId().toString());
@@ -955,10 +937,9 @@ public class ShopHandler {
                     if(shop.getDisplay().getType() != null) {
                         config.set("shops." + owner + "." + shopNumber + ".displayType", shop.getDisplay().getType().toString());
                     }
-                    else{ //not sure why I have to do this but if I don't it will be set to LARGE_ITEM for some reason (I cannot find right now)
+                    else{
                         config.set("shops." + owner + "." + shopNumber + ".displayType", null);
                     }
-                    //only write the variable if true
                     if(shop.isFakeSign()){
                         config.set("shops." + owner + "." + shopNumber + ".fakeSign", shop.isFakeSign());
                     }
@@ -984,24 +965,20 @@ public class ShopHandler {
                 }
             }
             
-            // Only generate the stringified config for logging if spam logging is enabled
             if (plugin.getLogger().isLevelEnabled(ShopLogger.SPAM)) {
                 plugin.getLogger().spam("    built config to save... \n" + config.saveToString());
             }
             
-            // ---------- Safe file write ----------
             Path targetPath = currentFile.toPath();
             Path tempFile = Files.createTempFile(targetPath.getParent(), owner + "_", ".tmp");
             config.save(tempFile.toFile());
             try {
-                // Atomic moves are very safe, so we use them if possible
                 Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
                 plugin.getLogger().helpful("Saved " + shopNumber + " Shops for Player " + playerName + " to file: " + currentFile);
                 return shopNumber;
             } catch (Error | Exception ex) {
                 plugin.getLogger().debug("Error during atomic move", ex);
                 plugin.getLogger().debug("Filesystem does not support atomic move; using manual two-step replacement with backup...");
-                // Filesystem does not support atomic move; use manual two-step replacement with backup
                 Path backupPath = targetPath.resolveSibling(targetPath.getFileName().toString() + ".bak");
                 try {
                     if (Files.exists(targetPath)) {
@@ -1012,7 +989,6 @@ public class ShopHandler {
                     plugin.getLogger().debug("Moving new shop file for " + playerName + " from (" + tempFile + ") to (" + targetPath + ")");
                     Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
                     plugin.getLogger().debug("Successfully moved new shop file for " + playerName + " from (" + tempFile + ") to (" + targetPath + ")!");
-                    // New file written successfully – delete backup
                     if (Files.exists(backupPath)) {
                         plugin.getLogger().debug("Deleting temporary backup of old shop file for " + playerName + " from (" + backupPath + ")");
                         Files.deleteIfExists(backupPath);
@@ -1022,11 +998,10 @@ public class ShopHandler {
                     plugin.getLogger().helpful("Saved " + shopNumber + " Shops for Player " + playerName + " to file: " + currentFile);
                     return shopNumber;
                 } catch (Error | Exception moveEx) {
-                    // Attempt to restore from backup on failure
                     plugin.getLogger().severe("Critical error writing updated shop file for (" + playerName + ") to (" + targetPath + ")! This issue should not be ignored! Error message: " + moveEx.getMessage());
                     try {
                         if (Files.exists(targetPath)) {
-                            plugin.getLogger().warning("Original file was left untouched. Player shop updates were not saved!" );
+                            plugin.getLogger().warning("Original file was left untouched. Player shop updates were not saved!");
                         } else if (Files.exists(backupPath)) {
                             plugin.getLogger().warning("Restoring backup player shop file for " + playerName + " from (" + backupPath + ") to (" + targetPath + ")");
                             Files.move(backupPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
@@ -1035,9 +1010,8 @@ public class ShopHandler {
                     } catch (Error | Exception restoreEx) {
                         plugin.getLogger().severe("Failed to restore backup player shop file for " + playerName + " from (" + backupPath + ") to (" + targetPath + ")! Exception: " + restoreEx.getMessage());
                     }
-                    // Double check that the file was restored successfully and/or the current state of the files
                     if (Files.exists(targetPath)) {
-                        plugin.getLogger().warning("Original file was left untouched. Player shop updates were not saved!" );
+                        plugin.getLogger().warning("Original file was left untouched. Player shop updates were not saved!");
                         return -2;
                     }
                     else if (Files.exists(backupPath)) {
@@ -1045,10 +1019,8 @@ public class ShopHandler {
                         plugin.getLogger().severe("You will need to manually restore this players backup file from (" + backupPath + ") to (" + targetPath + ")!");
                         return -3;
                     } else {
-                        // uh... no files exist somehow? Should never get here, but just in case since this is a critical failure
                         plugin.getLogger().severe("Possible data loss detected! Original file does not exist and Backup file does not exist for player (" + playerName + ")! Original MISSING: (" + targetPath + "), Backup MISSING: (" + backupPath + ")!!!");
                         plugin.getLogger().severe("Do not startup the plugin again until you have traced and fixed the issue! You may delete a new player file with each startup if the issue is not fixed!");
-                        // Immediate shutdown of server. Something is very wrong.
                         plugin.getLogger().severe("Shutting down plugin immediately to prevent Shop save data loss...");
                         Bukkit.getPluginManager().disablePlugin(plugin);
                         this.immediateShutdown = true;
@@ -1057,13 +1029,9 @@ public class ShopHandler {
                 }
             }
         } catch (Error | Exception e){
-            // log severe: the player file failed to be generated/saved
             plugin.getLogger().severe("Unable to update/save player shop file for (" + playerName + ") at (" + currentFile + ")! Original file was left untouched. Error message: " + e.getMessage());
-            // log warning: Are these Shop files from an older version of the Minecraft? 
             plugin.getLogger().warning("Are these Shop player files from an older version of the Minecraft? You can run into issues with Item NBT data not migrating correctly if you jump forward/skip too many MC versions at a time. You might be able to fix this error by copying the affected player(s) file(s) to a new test server (you do not have to copy the world, but should if you are able to) and starting up the server in each 'skipped' version of Minecraft with the Shop plugin's `debug_forceResaveAll` config option set to `true`. This will force a resave of all Shop files and will update any NBT changes between the last run version of Minecraft and the new one you are trying to use.");
-            // log about if they are unable to fix this error they might have to delete the Shop plugin data folder to start fresh
             plugin.getLogger().severe("If you are unable to fix this error, you will need to delete or manually fix the affected player shop file at (" + currentFile + ") in order to allow them to create new Shops and make this error go away. This will delete all Shops for the player and will require the player to re-add their shops.");
-            // log stack trace at debug level
             plugin.getLogger().debug("Stacktrace: ", e);
             return -2;
         }
@@ -1160,11 +1128,11 @@ public class ShopHandler {
                         }
 
                         double price = config.getDouble(path + ".price");
+                        double priceSell = config.getDouble(path + ".priceSell", -1);
                         int amount = config.getInt(path + ".amount");
                         int stock = config.getInt(path + ".stock", -1);
                         ItemStack item = config.getItemStack(path + ".item");
                         ItemStack barterItem = config.getItemStack(path + ".itemBarter");
-                        double priceSell = config.getDouble(path + ".priceSell", -1);
                         boolean fakeSign = config.getBoolean(path + ".fakeSign", false);
 
                         String facingString = config.getString(path + ".facing");
@@ -1185,24 +1153,27 @@ public class ShopHandler {
                             try { displayType = DisplayType.valueOf(displayTypeString); } catch (IllegalArgumentException e) { }
                         }
 
-                        AbstractShop shop = plugin.getShopFactory().createShop(
-                            shopType, signLocation, ownerUUID, price, amount, item, isAdmin
+                        // Use the existing AbstractShop.create() factory — priceSell is the combo buy price.
+                        // Passing -1 for priceSell on non-combo shops is harmless; ComboShop ignores it.
+                        double comboPriceSell = (shopType == ShopType.COMBO && priceSell >= 0) ? priceSell : 0;
+                        AbstractShop shop = AbstractShop.create(
+                            signLocation, ownerUUID, price, comboPriceSell, amount, isAdmin, shopType, facing
                         );
 
                         if (shop == null) continue;
 
                         if (shopId != null) shop.setId(shopId);
-                        if (facing != null) { shop.setFacing(facing); }
-                        else { addUnloadedShopToChunkList(shop); }
-                        if (stock >= 0) shop.setStock(stock);
+                        // If facing was null we don't know the direction yet — defer to chunk-load
+                        if (facing == null) { addUnloadedShopToChunkList(shop); }
+                        // Restore saved stock without triggering a chest scan (chest may be unloaded)
+                        if (stock >= 0) shop.setStockOnLoad(stock);
                         if (fakeSign) shop.setFakeSign(true);
-                        if (displayType != null) shop.getDisplay().setType(displayType);
+                        // setType(type, announce) — false = silent, no display rebuild
+                        if (displayType != null) shop.getDisplay().setType(displayType, false);
                         if (shopType == ShopType.BARTER && barterItem != null) {
-                            ((com.snowgears.shop.shop.BarterShop) shop).setSecondaryItemStack(barterItem);
+                            ((BarterShop) shop).setSecondaryItemStack(barterItem);
                         }
-                        if (shopType == ShopType.COMBO && priceSell >= 0) {
-                            ((ComboShop) shop).setPriceSell(priceSell);
-                        }
+                        if (item != null) shop.setItemStack(item);
 
                         addShop(shop);
                         shopsLoaded++;
@@ -1250,6 +1221,7 @@ public class ShopHandler {
     public ArrayList<ItemStack> getItemListItems() { return itemListItems; }
 
     private void initItemList() {
+        itemListItems.clear();
         if (plugin.getItemListType() == ItemListType.NONE) return;
         String itemListPath = plugin.getItemListPath();
         if (itemListPath == null || itemListPath.isEmpty()) return;
