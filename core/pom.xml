@@ -303,37 +303,6 @@
             <version>2.11.0</version>
             <scope>provided</scope>
         </dependency>
-
-        <!-- ================================================================
-             TEST DEPENDENCIES
-             ================================================================ -->
-
-        <!--
-            MockBukkit is published to Maven Central under the group
-            org.mockbukkit.mockbukkit with an artifactId that matches the
-            MC/Paper version it targets (e.g. mockbukkit-v26.1.2).
-            The old com.github.MockBukkit:MockBukkit JitPack coordinates
-            no longer publish stable releases and v26.x tags do not exist
-            there.  Use the official Maven Central artifact instead.
-        -->
-        <dependency>
-            <groupId>org.mockbukkit.mockbukkit</groupId>
-            <artifactId>mockbukkit-v26.1.2</artifactId>
-            <version>4.115.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.11.4</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>5.14.2</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
