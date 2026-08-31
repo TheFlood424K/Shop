@@ -81,8 +81,6 @@ jobs:
       continue-on-error: true
 
     - name: Build
-      # NOTE: -T 1C (parallel module builds) is intentionally omitted.
-      # Sequential module execution ensures no concurrent Surefire JVM races.
       run: mvn -B -nsu -Drevision=${{ env.VERSION }} clean package
 
     - name: Publish Test Results
@@ -95,6 +93,16 @@ jobs:
         reporter: java-junit
         fail-on-error: false
         fail-on-empty: false
+
+    # - name: Upload coverage to Codecov
+    #   uses: codecov/codecov-action@v4
+    #   continue-on-error: true
+    #   with:
+    #     files: '**/target/site/jacoco/jacoco.xml'
+    #     flags: java
+    #     fail_ci_if_error: false
+    #     verbose: true
+    #     # no need for token, it's not required for our use case
       
     - name: Generate diff-cover report
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
