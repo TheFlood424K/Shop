@@ -63,27 +63,29 @@ public class BluemapHookListener implements Listener {
                 String markerID = UtilMethods.getCleanLocation(shop.getSignLocation(), true);
 
                 //adjust the markers so the icons line up nice with the actual chests on bluemap
-                int x = shop.getSignLocation().getBlockX();
-                int z = shop.getSignLocation().getBlockZ();
+                double x = shop.getSignLocation().getBlockX();
+                double y = shop.getSignLocation().getBlockY() + 1.0;
+                double z = shop.getSignLocation().getBlockZ();
                 switch (shop.getFacing()){
                     case NORTH:
-                        x++;
-                        z++;
+                        x += 1.0;
+                        z += 1.0;
                         break;
                     case EAST:
-                        z++;
+                        z += 1.0;
                         break;
                     case WEST:
-                        x++;
+                        x += 1.0;
                         break;
                     default:
                         break;
                 }
 
+                // Use explicit double literals to avoid the deprecated int overload of position()
                 POIMarker marker = POIMarker.builder()
                         .label(shopDetails)
                         .icon(markerIcon, 0, 0)
-                        .position((double) x, (double) (shop.getSignLocation().getBlockY() + 1), (double) z)
+                        .position(x, y, z)
                         .minDistance(markerMinDistance)
                         .maxDistance(markerMaxDistance)
                         .build();

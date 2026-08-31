@@ -352,8 +352,8 @@ public class UtilMethods {
         if(item.getItemMeta() != null && item.getItemMeta() instanceof ArmorMeta){
             ArmorMeta armorMeta = (ArmorMeta) item.getItemMeta();
             if (armorMeta.getTrim() != null) {
-                String material = translate(armorMeta.getTrim().getMaterial().getTranslationKey());
-                String pattern = translate(armorMeta.getTrim().getPattern().getTranslationKey());
+                String material = translate(armorMeta.getTrim().getMaterial().translationKey());
+                String pattern = translate(armorMeta.getTrim().getPattern().translationKey());
                 formattedMessage.addExtra(" [" + pattern.replace(" Armor Trim", ""));
                 formattedMessage.addExtra(" (" + material.replace(" Material", "") + ")]");
             }
@@ -462,7 +462,8 @@ public class UtilMethods {
         formattedEffects.addExtra(" (");
         for (int i = 0; i < numEffects; i++) {
             PotionEffect effect = effects.get(i);
-            formattedEffects.addExtra(new TranslatableComponent(effect.getType().getTranslationKey()));
+            // Use translationKey() instead of the deprecated getTranslationKey()
+            formattedEffects.addExtra(new TranslatableComponent(effect.getType().translationKey()));
             if(effect.getAmplifier() > 0) { formattedEffects.addExtra(formatRomanNumerals(effect.getAmplifier() + 1)); }
             boolean isInstantEffect = effect.getType().equals(org.bukkit.potion.PotionEffectType.INSTANT_HEALTH) ||
                                      effect.getType().equals(org.bukkit.potion.PotionEffectType.INSTANT_DAMAGE);
