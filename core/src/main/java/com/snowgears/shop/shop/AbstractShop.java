@@ -13,7 +13,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
 import org.bukkit.Sound;
-import org.bukkit.Effect;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.WallSign;
 import org.bukkit.entity.Player;
@@ -219,6 +218,11 @@ public abstract class AbstractShop {
         this.stock = stock;
     }
 
+    /** Alias for setStockOnLoad used during shop loading. */
+    public void setStock(int stock) {
+        this.stock = stock;
+    }
+
     public boolean isInitialized(){
         return (item != null);
     }
@@ -358,6 +362,11 @@ public abstract class AbstractShop {
 
     public BlockFace getFacing(){
         return facing;
+    }
+
+    /** Sets the facing direction; used during shop loading before the chunk is loaded. */
+    public void setFacing(BlockFace facing) {
+        this.facing = facing;
     }
 
     public ItemStack getGuiIcon(){
@@ -737,10 +746,10 @@ public abstract class AbstractShop {
         try {
             if (success) {
                 if (Shop.getPlugin().playSounds()) player.playSound(this.getSignLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0F, 1.0F);
-                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.STEP_SOUND, Material.EMERALD_BLOCK);
+                if (Shop.getPlugin().playEffects()) player.playSound(this.getChestLocation(), Sound.BLOCK_STONE_STEP, 1.0F, 1.2F);
             } else {
                 if (Shop.getPlugin().playSounds()) player.playSound(this.getSignLocation(), Sound.ITEM_SHIELD_BLOCK, 1.0F, 1.0F);
-                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.STEP_SOUND, Material.REDSTONE_BLOCK);
+                if (Shop.getPlugin().playEffects()) player.playSound(this.getChestLocation(), Sound.BLOCK_STONE_STEP, 0.8F, 0.8F);
             }
         } catch (Error e){
         } catch (Exception e) {}
