@@ -74,6 +74,9 @@
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
         </repository>
         <repository>
             <id>dynmap-repo</id>
@@ -307,10 +310,13 @@
         <!-- ================================================================
              TEST DEPENDENCIES
              ================================================================ -->
+        <!-- MockBukkit for Paper 26.2 — hosted on JitPack via branch snapshot.
+             groupId/artifactId follow the new org.mockbukkit.mockbukkit scheme.
+             See: https://github.com/MockBukkit/MockBukkit -->
         <dependency>
             <groupId>com.github.MockBukkit</groupId>
             <artifactId>MockBukkit</artifactId>
-            <version>v26.2</version>
+            <version>v26.2-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
         <dependency>
