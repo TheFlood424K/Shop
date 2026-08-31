@@ -47,6 +47,10 @@ public class ComboShop extends AbstractShop {
         return priceSell;
     }
 
+    public void setPriceSell(double priceSell) {
+        this.priceSell = priceSell;
+    }
+
     @Override
     protected int calculateStock(){
         if(this.isAdmin) {
