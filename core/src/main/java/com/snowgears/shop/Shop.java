@@ -15,6 +15,7 @@ import com.snowgears.shop.hook.WorldGuardHook.WorldGuardConfig;
 import com.snowgears.shop.util.Metrics;
 import com.snowgears.shop.util.Metrics.*;
 import de.bluecolored.bluemap.api.BlueMapAPI;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -523,7 +524,9 @@ public class Shop extends JavaPlugin {
                 getServer().getPluginManager().disablePlugin(plugin);
                 return;
             }
-            this.getLogger().info("Shops will use " + itemNameUtil.getName(itemCurrency).toPlainText() + "(s) as the currency on the server.");
+            this.getLogger().info("Shops will use "
+                    + PlainTextComponentSerializer.plainText().serialize(itemNameUtil.getName(itemCurrency))
+                    + "(s) as the currency on the server.");
         }
 
         // Load CommandHandler by initializing it once
