@@ -14,20 +14,17 @@ public class ItemNameUtil {
     public ItemNameUtil() { }
 
     public String translate(String key){
-        return new TranslatableComponent(key).toPlainText();
+        return UtilMethods.translate(key);
     }
 
     public TextComponent getName(ItemStack item){
         if(item == null)
             return new TextComponent("");
 
-
-        // Check if there is a name embedded in the item, aka named by an anvil or command
         if(item.getItemMeta() != null && item.getItemMeta().getDisplayName() != null && !item.getItemMeta().getDisplayName().isEmpty()){
             return (TextComponent) ShopMessage.componentFromLegacy(item.getItemMeta().getDisplayName());
         }
 
-        // Add custom formatting for player heads
         if(item.getItemMeta() != null && item.getItemMeta() instanceof SkullMeta){
             SkullMeta skullMeta = (SkullMeta) item.getItemMeta();
             if (skullMeta.getOwningPlayer() != null) {
@@ -35,7 +32,6 @@ public class ItemNameUtil {
             }
         }
 
-        // Add support for displaying smithing template types
         if(item.getItemMeta() != null) {
             String itemType = item.getType().name();
             if(itemType.endsWith("_SMITHING_TEMPLATE")) {
@@ -56,7 +52,6 @@ public class ItemNameUtil {
             }
         }
 
-        // Add custom potion formatting
         if(item.getItemMeta() != null && item.getItemMeta() instanceof PotionMeta){
             PotionMeta potionMeta = (PotionMeta) item.getItemMeta();
             if (potionMeta.getBasePotionType() != null) {
@@ -68,7 +63,6 @@ public class ItemNameUtil {
         }
 
         try {
-            // Ominous Bottle's are Yellow *shrug*
             if (item.getItemMeta() != null && item.getItemMeta() instanceof org.bukkit.inventory.meta.OminousBottleMeta) {
                 TextComponent name = getNameTranslatable(item.getType());
                 name.setColor(net.md_5.bungee.api.ChatColor.YELLOW);
@@ -83,20 +77,20 @@ public class ItemNameUtil {
         if (!MCVersion.isTranslationSupported()) {
             return new TextComponent(UtilMethods.capitalize(material.name().toLowerCase().replace("_", " ")));
         }
-        return new TextComponent(new TranslatableComponent(material.getTranslationKey()));
+        // Use translationKey() — the non-deprecated replacement for getTranslationKey()
+        return new TextComponent(new TranslatableComponent(material.translationKey()));
     }
 
     public static TextComponent getEnchantmentTranslatable(Enchantment enchantment){
-        // Enchantment#getTranslationKey() was added in 1.20.4
         if (!MCVersion.atLeast("1.20.4")) {
             return new TextComponent(getEnchantmentName(enchantment));
         }
-        return new TextComponent(new TranslatableComponent(enchantment.getTranslationKey()));
+        // Use translationKey() — the non-deprecated replacement for getTranslationKey()
+        return new TextComponent(new TranslatableComponent(enchantment.translationKey()));
     }
 
     /**
      * Legacy enchantment name lookup used on servers older than 1.20.4.
-     * Uses getKey().getKey() (NamespacedKey) instead of the removed getName() method.
      */
     public static String getEnchantmentName(Enchantment enchantment){
         switch (enchantment.getKey().getKey()) {
