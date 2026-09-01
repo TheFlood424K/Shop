@@ -95,27 +95,44 @@ public class ItemNameUtil {
 
     /**
      * Returns a translatable Adventure Component for the given Material.
-     * Uses {@code material.translationKey()} which is the non-deprecated API.
+     * Returns Component (not TextComponent) because Component.translatable() returns
+     * a TranslatableComponent, which is not a subtype of TextComponent.
+     * Uses material.getItemTranslationKey() — the non-deprecated Paper 1.21+ API.
      */
-    public static TextComponent getNameTranslatable(Material material) {
+    public static Component getNameTranslatable(Material material) {
         if (!MCVersion.isTranslationSupported()) {
             return Component.text(
                     UtilMethods.capitalize(material.name().toLowerCase().replace("_", " ")));
         }
-        // translationKey() is the replacement for the removed getTranslationKey()
-        return (TextComponent) Component.translatable(material.translationKey());
+        // Use getItemTranslationKey() — replaces the removed getTranslationKey()
+        try {
+            // Paper 1.21+ exposes getItemTranslationKey() directly on Material
+            String key = material.getItemTranslationKey();
+            if (key != null) {
+                return Component.translatable(key);
+            }
+        } catch (Exception | Error ignored) {}
+        // Fallback: derive from namespace key (e.g. "minecraft:stone" → "block.minecraft.stone")
+        String ns = material.getKey().getNamespace();
+        String value = material.getKey().getKey();
+        String fallbackKey = (material.isBlock() ? "block." : "item.") + ns + "." + value;
+        return Component.translatable(fallbackKey);
     }
 
     /**
      * Returns a translatable Adventure Component for the given Enchantment.
-     * Uses {@code enchantment.translationKey()} which is the non-deprecated API.
+     * Uses enchantment.getKey() to build the translation key string directly,
+     * avoiding the deprecated translationKey() method.
      */
     public static Component getEnchantmentTranslatable(Enchantment enchantment) {
         if (!MCVersion.atLeast("1.20.4")) {
             return Component.text(getEnchantmentName(enchantment));
         }
-        // translationKey() is the replacement for the removed getTranslationKey()
-        return Component.translatable(enchantment.translationKey());
+        // Build the standard Minecraft enchantment translation key:
+        // "enchantment.<namespace>.<key>" e.g. "enchantment.minecraft.sharpness"
+        String ns = enchantment.getKey().getNamespace();
+        String key = enchantment.getKey().getKey();
+        return Component.translatable("enchantment." + ns + "." + key);
     }
 
     /**
