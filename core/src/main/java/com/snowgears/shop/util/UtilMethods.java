@@ -1,9 +1,11 @@
 package com.snowgears.shop.util;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.ChatColor;
 import com.snowgears.shop.Shop;
-import net.md_5.bungee.api.chat.TextComponent;
-import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -40,6 +42,44 @@ import org.bukkit.util.io.BukkitObjectInputStream;
 public class UtilMethods {
 
     private static ArrayList<Material> nonIntrusiveMaterials = new ArrayList<Material>();
+
+    /**
+     * Returns true if the server is running Minecraft 1.17 or newer.
+     * In Paper 1.21+ (26.x) we are always on 1.17+, so this always returns true.
+     * Kept as a method for callers that guard 1.17-specific features (glowing signs,
+     * light blocks, etc.) behind this check.
+     */
+    public static boolean isMCVersion17Plus() {
+        try {
+            String version = Bukkit.getBukkitVersion(); // e.g. "1.21.4-R0.1-SNAPSHOT"
+            String[] parts = version.split("\\.");
+            int major = Integer.parseInt(parts[0]);
+            int minor = Integer.parseInt(parts[1].split("-")[0]);
+            return (major > 1) || (major == 1 && minor >= 17);
+        } catch (Exception e) {
+            return true; // Assume modern if we can't parse
+        }
+    }
+
+    /**
+     * Copies an InputStream to a File.
+     * Used when extracting default resource files from the plugin jar.
+     */
+    public static void copy(InputStream in, File file) {
+        if (in == null) return;
+        try {
+            OutputStream out = new FileOutputStream(file);
+            byte[] buf = new byte[1024];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+            out.close();
+            in.close();
+        } catch (Exception e) {
+            Shop.getPlugin().getLogger().warning("Error copying resource file to " + file.getPath() + ": " + e.getMessage());
+        }
+    }
 
     public static String trimForSign(String text) {
         final int MAX_SIGN_WIDTH = 80;
@@ -392,12 +432,10 @@ public class UtilMethods {
     }
 
     /**
-     * Translates a translation key to plain text using the Bukkit translation mechanism.
-     * Replaces the removed BungeeCord TranslatableComponent.toPlainText() approach.
+     * Translates a translation key to plain text.
+     * Client-side translation is handled by Adventure components in modern Paper.
      */
     public static String translate(String key){
-        // Use the key directly as fallback plain text — client-side translation
-        // is handled by Adventure components in modern Paper.
         return key;
     }
 
@@ -431,8 +469,12 @@ public class UtilMethods {
         return msgStr;
     }
 
-    public static TextComponent getEnchantmentsComponent(ItemStack item){
-        TextComponent formattedMessage = new TextComponent("");
+    /**
+     * Builds an Adventure TextComponent describing enchantments/trims/music discs
+     * on the given ItemStack. Replaces the old BungeeCord TextComponent approach.
+     */
+    public static Component getEnchantmentsComponent(ItemStack item){
+        net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
 
         if(item.getItemMeta() instanceof EnchantmentStorageMeta || item.getEnchantments().size() > 0){
             Map<Enchantment, Integer> enchantsMap;
@@ -441,16 +483,16 @@ public class UtilMethods {
             }
             else { enchantsMap = item.getEnchantments(); }
 
-            if(enchantsMap == null || enchantsMap.isEmpty()) return formattedMessage;
-
-            formattedMessage.addExtra(" [");
-            int i=0;
-            for(Map.Entry<Enchantment, Integer> entry : enchantsMap.entrySet()){
-                formattedMessage.addExtra((BaseComponent) ItemNameUtil.getEnchantmentTranslatable(entry.getKey()));
-                formattedMessage.addExtra(formatRomanNumerals(entry.getValue()));
-                i++;
-                if(i != enchantsMap.size()) formattedMessage.addExtra(", ");
-                else formattedMessage.addExtra("]");
+            if(enchantsMap != null && !enchantsMap.isEmpty()) {
+                builder.append(Component.text(" ["));
+                int i = 0;
+                for(Map.Entry<Enchantment, Integer> entry : enchantsMap.entrySet()){
+                    builder.append(ItemNameUtil.getEnchantmentTranslatable(entry.getKey()));
+                    builder.append(Component.text(formatRomanNumerals(entry.getValue())));
+                    i++;
+                    if(i != enchantsMap.size()) builder.append(Component.text(", "));
+                    else builder.append(Component.text("]"));
+                }
             }
         }
 
@@ -459,8 +501,8 @@ public class UtilMethods {
             if (armorMeta.getTrim() != null) {
                 String material = translate(armorMeta.getTrim().getMaterial().translationKey());
                 String pattern = translate(armorMeta.getTrim().getPattern().translationKey());
-                formattedMessage.addExtra(" [" + pattern.replace(" Armor Trim", ""));
-                formattedMessage.addExtra(" (" + material.replace(" Material", "") + ")]");
+                builder.append(Component.text(" [" + pattern.replace(" Armor Trim", "")));
+                builder.append(Component.text(" (" + material.replace(" Material", "") + ")]"));
             }
         }
 
@@ -470,26 +512,26 @@ public class UtilMethods {
             if(itemType.startsWith("MUSIC_DISC_")) {
                 String trackName = itemType.replace("MUSIC_DISC_", "");
                 String formattedName = capitalize(trackName.toLowerCase().replace("_", " "));
-                formattedMessage.addExtra(" [Song: " + formattedName + "]");
+                builder.append(Component.text(" [Song: " + formattedName + "]"));
             }
-            else if(itemType.equals("MUSIC_DISC")) { formattedMessage.addExtra(" [Song: Unknown]"); }
-            else if(itemType.equals("PIGSTEP")) { formattedMessage.addExtra(" [Song: Pigstep]"); }
-            else if(itemType.equals("OTHERSIDE")) { formattedMessage.addExtra(" [Song: Otherside]"); }
-            else if(itemType.equals("FIVE")) { formattedMessage.addExtra(" [Song: 5]"); }
-            else if(itemType.equals("RELIC")) { formattedMessage.addExtra(" [Song: Relic]"); }
+            else if(itemType.equals("MUSIC_DISC")) { builder.append(Component.text(" [Song: Unknown]")); }
+            else if(itemType.equals("PIGSTEP")) { builder.append(Component.text(" [Song: Pigstep]")); }
+            else if(itemType.equals("OTHERSIDE")) { builder.append(Component.text(" [Song: Otherside]")); }
+            else if(itemType.equals("FIVE")) { builder.append(Component.text(" [Song: 5]")); }
+            else if(itemType.equals("RELIC")) { builder.append(Component.text(" [Song: Relic]")); }
 
             else if(itemType.equals("GOAT_HORN")) {
                 try {
                     org.bukkit.inventory.meta.MusicInstrumentMeta instrumentMeta = (org.bukkit.inventory.meta.MusicInstrumentMeta) item.getItemMeta();
                     if (instrumentMeta.getInstrument() != null) {
                         String instrumentName = capitalize(instrumentMeta.getInstrument().getKey().getKey().replace("_", " "));
-                        formattedMessage.addExtra(" [" + instrumentName + "]");
+                        builder.append(Component.text(" [" + instrumentName + "]"));
                     }
                 } catch (Exception e) {}
             }
         }
 
-        return formattedMessage;
+        return builder.build();
     }
 
     private static void initializeNonIntrusiveMaterials(){
