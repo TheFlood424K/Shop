@@ -214,6 +214,17 @@ public abstract class AbstractShop {
         return stock;
     }
 
+    public int getMaxStock() {
+        if (isAdmin) return Integer.MAX_VALUE;
+        if (!isInitialized() || amount <= 0 || item == null) return 0;
+        Inventory inventory = getInventory();
+        if (inventory == null) return 0;
+        int maxStackSize = item.getMaxStackSize();
+        if (maxStackSize <= 0) return 0;
+        int totalCapacity = inventory.getStorageContents().length * maxStackSize;
+        return totalCapacity / amount;
+    }
+
     public void setStockOnLoad(int stock){
         this.stock = stock;
     }
@@ -331,7 +342,7 @@ public abstract class AbstractShop {
 
     public String getPriceString() {
         if(this.type == ShopType.BARTER && this.isInitialized()){
-            return (int)this.getPrice() + " " + Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()).toPlainText();
+            return (int)this.getPrice() + " " + ShopMessage.toPlain(Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()));
         }
         return Shop.getPlugin().getPriceString(this.price, false);
     }
@@ -471,7 +482,7 @@ public abstract class AbstractShop {
             // Add all lore lines
             PlaceholderContext context = new PlaceholderContext();
             context.setShop(this);
-            lore.add(ShopMessage.format(loreLine, context).toLegacyText());
+            lore.add(ShopMessage.toLegacy(ShopMessage.format(loreLine, context)));
         }
 
         ItemMeta iconMeta = guiIcon.getItemMeta();
@@ -765,8 +776,8 @@ public abstract class AbstractShop {
                 ", price=" + price +
                 ", amount=" + amount +
                 ", stock=" + stock +
-                ", item=" + (item != null ? Shop.getPlugin().getItemNameUtil().getName(item).toPlainText() : "null") +
-                (secondaryItem != null ? ", secondaryItem=" + Shop.getPlugin().getItemNameUtil().getName(secondaryItem).toPlainText() : "") +
+                ", item=" + (item != null ? ShopMessage.toPlain(Shop.getPlugin().getItemNameUtil().getName(item)) : "null") +
+                (secondaryItem != null ? ", secondaryItem=" + ShopMessage.toPlain(Shop.getPlugin().getItemNameUtil().getName(secondaryItem)) : "") +
                 ", id=" + this.getId().toString().substring(0,5) +
                 ", filename=" + this.getOwnerUUID() + ".yml" +
                 ", needsSave=" + this.needsSave +

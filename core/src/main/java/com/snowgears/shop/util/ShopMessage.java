@@ -584,28 +584,28 @@ public class ShopMessage {
         registerPlaceholder("[combo buy shop owner]", context -> {
             if (context.getShop() instanceof ComboShop) {
                 ComboShop cs = (ComboShop) context.getShop();
-                if (cs.getBuyShop() != null) return Component.text(cs.getBuyShop().getOwnerName());
+                return Component.text(cs.getOwnerName());
             }
             return null;
         });
         registerPlaceholder("[combo sell shop owner]", context -> {
             if (context.getShop() instanceof ComboShop) {
                 ComboShop cs = (ComboShop) context.getShop();
-                if (cs.getSellShop() != null) return Component.text(cs.getSellShop().getOwnerName());
+                return Component.text(cs.getOwnerName());
             }
             return null;
         });
         registerPlaceholder("[combo buy price]", context -> {
             if (context.getShop() instanceof ComboShop) {
                 ComboShop cs = (ComboShop) context.getShop();
-                if (cs.getBuyShop() != null) return Component.text(UtilMethods.formatLongToKString(cs.getBuyShop().getPrice(), false));
+                return Component.text(UtilMethods.formatLongToKString(cs.getPriceBuy(), false));
             }
             return null;
         });
         registerPlaceholder("[combo sell price]", context -> {
             if (context.getShop() instanceof ComboShop) {
                 ComboShop cs = (ComboShop) context.getShop();
-                if (cs.getSellShop() != null) return Component.text(UtilMethods.formatLongToKString(cs.getSellShop().getPrice(), false));
+                return Component.text(UtilMethods.formatLongToKString(cs.getPriceSell(), false));
             }
             return null;
         });
@@ -748,6 +748,51 @@ public class ShopMessage {
 
     public static String getUnformattedMessage(String key, String subkey) {
         return messageMap.get(key + "." + subkey);
+    }
+
+    public static List<String> getUnformattedMessageList(String key, String subkey) {
+        if (chatConfig == null) return Collections.emptyList();
+        String path = key + "." + subkey;
+        if (chatConfig.isList(path)) return chatConfig.getStringList(path);
+        String message = chatConfig.getString(path);
+        if (message != null && !message.isEmpty()) return Collections.singletonList(message);
+        return Collections.emptyList();
+    }
+
+    public static String formatMessage(String message, AbstractShop shop) {
+        PlaceholderContext context = new PlaceholderContext();
+        context.setShop(shop);
+        return toLegacy(format(message, context));
+    }
+
+    public static String formatMessage(String message, AbstractShop shop, Player player, boolean unused) {
+        PlaceholderContext context = new PlaceholderContext();
+        context.setShop(shop);
+        if (player != null) context.setPlayer(player);
+        return toLegacy(format(message, context));
+    }
+
+    public static String[] getSignLines(AbstractShop shop, ShopType type) {
+        return getSignLines(type.toString(), shop);
+    }
+
+    public static String[] getSignLines(String shopType, AbstractShop shop) {
+        String[] templates = getShopSignText(shopType);
+        String[] lines = Arrays.copyOf(templates, 4);
+        PlaceholderContext context = new PlaceholderContext();
+        context.setShop(shop);
+        for (int i = 0; i < lines.length; i++) {
+            lines[i] = toLegacy(format(lines[i], context));
+        }
+        return lines;
+    }
+
+    public static String getMessageFromOrders(ShopType transactionType, String viewerType, double price, int amount) {
+        String key = "transaction." + transactionType.name() + "." + viewerType;
+        String message = chatConfig != null ? chatConfig.getString(key) : null;
+        if (message == null) return "";
+        message = message.replace("[price]", UtilMethods.formatLongToKString(price, true));
+        return message.replace("[item amount]", String.valueOf(amount));
     }
 
     public static String[] getShopSignText(String shopType) {
