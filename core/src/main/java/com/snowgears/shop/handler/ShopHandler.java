@@ -894,4 +894,24 @@ public class ShopHandler {
             }
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Shop count helpers — used by ShopMessage placeholder lambdas
+    // -------------------------------------------------------------------------
+
+    /** Returns the total number of shops currently loaded across all players. */
+    public int getNumberOfShops() {
+        return allShops.size();
+    }
+
+    /** Returns the number of shops owned by the given player UUID. */
+    public int getNumberOfShops(UUID playerUUID) {
+        List<Location> locs = playerShops.get(playerUUID);
+        return locs != null ? locs.size() : 0;
+    }
+
+    /** Convenience overload — returns the number of shops owned by the given online player. */
+    public int getNumberOfShops(Player player) {
+        return getNumberOfShops(player.getUniqueId());
+    }
 }
