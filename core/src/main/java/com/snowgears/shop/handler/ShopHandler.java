@@ -759,3 +759,139 @@ public class ShopHandler {
         // Now process normally - the missing last location will trigger a fresh update
         processShopDisplaysNearPlayer(player);
     }
+
+    public boolean hasActiveDisplay(Player player, Location shopLocation) {
+        if (!playersWithActiveShopDisplays.containsKey(player.getUniqueId()))
+            return false;
+        return playersWithActiveShopDisplays.get(player.getUniqueId()).contains(shopLocation);
+    }
+
+    public void addActiveShopDisplay(Player player, Location shopLocation) {
+        HashSet<Location> activeDisplays = playersWithActiveShopDisplays.getOrDefault(player.getUniqueId(), new HashSet<>());
+        activeDisplays.add(shopLocation);
+        playersWithActiveShopDisplays.put(player.getUniqueId(), activeDisplays);
+    }
+
+    public void removeActiveShopDisplay(Player player, Location shopLocation) {
+        if (playersWithActiveShopDisplays.containsKey(player.getUniqueId())) {
+            playersWithActiveShopDisplays.get(player.getUniqueId()).remove(shopLocation);
+        }
+    }
+
+    public boolean isChest(Block block) {
+        return block.getType() == Material.CHEST || block.getType() == Material.TRAPPED_CHEST;
+    }
+
+    public UUID getAdminUUID() {
+        return adminUUID;
+    }
+
+    public ArrayList<ItemStack> getItemListItems() {
+        return itemListItems;
+    }
+
+    private List<Location> getUnloadedShopsByChunk(String chunkKey) {
+        List<Location> shopLocations;
+        if (unloadedShopsByChunk.containsKey(chunkKey)) {
+            shopLocations = unloadedShopsByChunk.get(chunkKey);
+        } else {
+            shopLocations = new ArrayList<>();
+        }
+        return shopLocations;
+    }
+
+    private void initItemList() {
+        itemListItems.clear();
+        File itemListFile = new File(plugin.getDataFolder(), "itemList.yml");
+        if (!itemListFile.exists()) return;
+
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(itemListFile);
+        List<?> rawList = config.getList("items");
+        if (rawList == null) return;
+
+        for (Object obj : rawList) {
+            if (obj instanceof ItemStack) {
+                itemListItems.add((ItemStack) obj);
+            }
+        }
+    }
+
+    public void loadShops() {
+        File shopsFolder = new File(plugin.getDataFolder(), "shops");
+        if (!shopsFolder.exists() || !shopsFolder.isDirectory()) return;
+
+        File[] playerFolders = shopsFolder.listFiles(File::isDirectory);
+        if (playerFolders == null) return;
+
+        for (File playerFolder : playerFolders) {
+            UUID playerUUID;
+            try {
+                playerUUID = UUID.fromString(playerFolder.getName());
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+
+            File[] shopFiles = playerFolder.listFiles((dir, name) -> name.endsWith(".yml"));
+            if (shopFiles == null) continue;
+
+            for (File shopFile : shopFiles) {
+                try {
+                    AbstractShop shop = AbstractShop.loadFromFile(plugin, shopFile, playerUUID);
+                    if (shop != null) {
+                        if (shop.isMissingData()) {
+                            addUnloadedShopToChunkList(shop);
+                        }
+                        addShop(shop);
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.SEVERE, "Error loading shop from file: " + shopFile.getName(), e);
+                }
+            }
+        }
+    }
+
+    public void saveShops(UUID playerUUID, boolean immediate) {
+        List<AbstractShop> shops = getShops(playerUUID);
+        if (shops.isEmpty()) return;
+
+        if (immediate) {
+            for (AbstractShop shop : shops) {
+                if (shop.needsSave()) {
+                    shop.saveToFile();
+                }
+            }
+        } else {
+            plugin.getFoliaLib().getScheduler().runLater(() -> {
+                for (AbstractShop shop : shops) {
+                    if (shop.needsSave()) {
+                        shop.saveToFile();
+                    }
+                }
+            }, 1);
+        }
+    }
+
+    public void saveAllShops() {
+        for (AbstractShop shop : getAllShops()) {
+            if (shop.needsSave()) {
+                shop.saveToFile();
+            }
+        }
+    }
+
+    public void addInventoryToItemList(PlayerInventory inventory) {
+        for (ItemStack item : inventory.getContents()) {
+            if (item != null && !itemListItems.contains(item)) {
+                itemListItems.add(item.clone());
+            }
+        }
+    }
+
+    public void removeInventoryFromItemList(PlayerInventory inventory) {
+        for (ItemStack item : inventory.getContents()) {
+            if (item != null) {
+                itemListItems.removeIf(listItem -> listItem != null && listItem.getType() == item.getType());
+            }
+        }
+    }
+}
