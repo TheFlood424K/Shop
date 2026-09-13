@@ -25,9 +25,22 @@ jobs:
       with:
         java-version: '25'
         distribution: 'temurin'
+        # Built-in Maven cache — restores/saves ~/.m2/repository keyed on pom.xml files.
+        # This alone handles normal dependency caching between runs.
         cache: 'maven'
-        
-    - name: Cache SpigotBuildTools
+
+    # Explicit cache for the local Maven repository so the key can be tuned
+    # independently and the cache is always saved even when the build fails.
+    - name: Cache Maven local repository
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+        save-always: true
+
+    - name: Cache SpigotBuildTools output
       uses: actions/cache@v4
       with:
         path: |
@@ -35,6 +48,20 @@ jobs:
         key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
         restore-keys: |
           ${{ runner.os }}-spigot-
+
+    # Cache the Spigot/CraftBukkit jars that BuildTools installs into the
+    # local Maven repo so they survive across runs even when the spigot
+    # cache above misses (e.g. after a Dockerfile change).
+    - name: Cache Spigot Maven artifacts
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.m2/repository/org/spigotmc
+          ~/.m2/repository/org/bukkit
+        key: ${{ runner.os }}-spigot-maven-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
+        restore-keys: |
+          ${{ runner.os }}-spigot-maven-
+        save-always: true
         
     - name: Compute version with commit hash
       run: |
