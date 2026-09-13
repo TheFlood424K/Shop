@@ -13,6 +13,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.ChatColor;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,9 +27,7 @@ import java.util.stream.Collectors;
 public class LogHandler {
 
     private Shop plugin;
-
     private HikariDataSource dataSource;
-
     private boolean enabled;
 
     public LogHandler(Shop plugin, YamlConfiguration shopConfig){
@@ -41,9 +40,7 @@ public class LogHandler {
             this.enabled = false;
             return;
         }
-
-        if(!enabled)
-            return;
+        if(!enabled) return;
 
         // Force inclusion of the H2 driver class so that it will be compiled into our jar.
         // Without this it just ignores the H2 driver and it gets removed when we minimize our jar!
@@ -61,7 +58,6 @@ public class LogHandler {
             plugin.getLogger().log(Level.WARNING, "Error establishing connection to defined database. Logging will not be used.");
             return;
         }
-
         try {
             initDb();
         } catch (SQLException e){
@@ -70,7 +66,6 @@ public class LogHandler {
             plugin.getLogger().log(Level.WARNING, "Error initializing tables in database. Logging will not be used.");
             return;
         }
-
         plugin.getLogger().notice("Shop Database Logging initialized successfully!");
         plugin.getLogger().helpful("Offline Purchase Notifications are Enabled!");
     }
@@ -82,8 +77,7 @@ public class LogHandler {
         int port = shopConfig.getInt("logging.port");
         String username = shopConfig.getString("logging.user");
         String password = shopConfig.getString("logging.password");
-
-       List<String> connectionProperties = shopConfig.getStringList("logging.properties");
+        List<String> connectionProperties = shopConfig.getStringList("logging.properties");
 
         if(type.equalsIgnoreCase("OFF")) {
             this.enabled = false;
@@ -94,12 +88,10 @@ public class LogHandler {
 
         if (type.equalsIgnoreCase("MYSQL")) {
             dataSource = new HikariDataSource();
-
             String jdbcURL = "jdbc:mysql://"+serverName+":"+port+"/"+databaseName;
             for(String property : connectionProperties){
                 jdbcURL += "?"+property;
             }
-
             dataSource.setJdbcUrl(jdbcURL);
             dataSource.setUsername(username);
             dataSource.setPassword(password);
@@ -107,8 +99,7 @@ public class LogHandler {
             dataSource.setMaximumPoolSize(10);
             dataSource.setMaxLifetime(600000);
             dataSource.setPoolName("MYSQL");
-        }
-        else if (type.equalsIgnoreCase("MARIADB")) {
+        } else if (type.equalsIgnoreCase("MARIADB")) {
             HikariConfig config = new HikariConfig();
             config.setDataSourceClassName("org.mariadb.jdbc.MariaDbDataSource");
             config.addDataSourceProperty("serverName", serverName);
@@ -120,10 +111,8 @@ public class LogHandler {
             config.setMaximumPoolSize(10);
             config.setMaxLifetime(600000);
             config.setPoolName("MARIADB");
-
             dataSource = new HikariDataSource(config);
-        }
-        else if (type.equalsIgnoreCase("FILE")) {
+        } else if (type.equalsIgnoreCase("FILE")) {
             HikariConfig config = new HikariConfig();
             config.setDriverClassName("org.h2.Driver");
             String jdbcURL = "jdbc:h2:" + plugin.getDataFolder().getAbsolutePath() + "/data/" + databaseName + ";MODE=MySQL";
@@ -134,15 +123,12 @@ public class LogHandler {
             config.setMaximumPoolSize(10);
             config.setMaxLifetime(600000);
             config.setPoolName("FILE");
-
             dataSource = new HikariDataSource(config);
-        }
-        else {
+        } else {
             plugin.getLogger().log(Level.WARNING, "Unsupported database type! Please check your `config.yml` file! type: " + type);
             this.enabled = false;
             return;
         }
-
         this.enabled = true;
     }
 
@@ -156,32 +142,34 @@ public class LogHandler {
         if (actionType == ShopActionType.INIT) {
             plugin.getLogger().notice(
                     player.getName() + " created a " + shop.getType().name().toUpperCase() + " shop at ("
-                            + "x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ()
-                            + ") item: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText())
-                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getSecondaryItemStack()).toPlainText()) : "")
+                            + "x: " + shop.getChestLocation().getBlockX()
+                            + " y: " + shop.getChestLocation().getBlockY()
+                            + " z: " + shop.getChestLocation().getBlockZ()
+                            + ") item: " + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getItemStack())))
+                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getSecondaryItemStack()))) : "")
             );
         }
         if (actionType == ShopActionType.DESTROY) {
             plugin.getLogger().notice(
                     player.getName() + " destroyed a " + shop.getType().name().toUpperCase() + " shop at ("
-                            + "x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ()
-                            + ") item: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText())
-                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getSecondaryItemStack()).toPlainText()) : "")
+                            + "x: " + shop.getChestLocation().getBlockX()
+                            + " y: " + shop.getChestLocation().getBlockY()
+                            + " z: " + shop.getChestLocation().getBlockZ()
+                            + ") item: " + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getItemStack())))
+                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getSecondaryItemStack()))) : "")
             );
         }
-
         if (!this.enabled) return;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (Connection conn = dataSource.getConnection();
-                PreparedStatement stmt = conn.prepareStatement("INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);");
+                 PreparedStatement stmt = conn.prepareStatement(
+                         "INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);");
             ){
                 stmt.setTimestamp(1, new Timestamp(new Date().getTime()));
                 stmt.setString(2, player.getUniqueId().toString());
-                if (shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()))
-                    stmt.setString(3, "admin");
-                else
-                    stmt.setString(3, shop.getOwnerUUID().toString());
+                if (shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID())) stmt.setString(3, "admin");
+                else stmt.setString(3, shop.getOwnerUUID().toString());
                 String shop_uuid = "";
                 if (shop.getId() != null && shop.getId().toString() != null) shop_uuid = shop.getId().toString();
                 stmt.setString(4, shop_uuid);
@@ -200,11 +188,15 @@ public class LogHandler {
 
     public void logTransaction(Player player, AbstractShop shop, ShopType transactionType, double price, int amount){
         plugin.getLogger().helpful(
-            "Shop " + shop.getType().name().toUpperCase() + " from/to " + player.getName() + ": "
-                + ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText()) + "(x" + amount + ")" + " for " + plugin.getPriceString(price, true)
-                + " | Shop owned by " + shop.getOwnerName() + " at (x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ() + ")"
+                "Shop " + shop.getType().name().toUpperCase() + " from/to " + player.getName() + ": "
+                        + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getItemStack())))
+                        + "(x" + amount + ")"
+                        + " for " + plugin.getPriceString(price, true)
+                        + " | Shop owned by " + shop.getOwnerName()
+                        + " at (x: " + shop.getChestLocation().getBlockX()
+                        + " y: " + shop.getChestLocation().getBlockY()
+                        + " z: " + shop.getChestLocation().getBlockZ() + ")"
         );
-
         try {
             boolean isBarterOrItemCurrency = transactionType == ShopType.BARTER || plugin.getCurrencyType() == CurrencyType.ITEM;
             txMetrics.addTransaction(amount, price, isBarterOrItemCurrency);
@@ -217,7 +209,9 @@ public class LogHandler {
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (
                 Connection conn = dataSource.getConnection();
-                PreparedStatement logTxStmt = conn.prepareStatement("INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) VALUES(?, ?, ?, ?, ?);", Statement.RETURN_GENERATED_KEYS);
+                PreparedStatement logTxStmt = conn.prepareStatement(
+                        "INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) VALUES(?, ?, ?, ?, ?);",
+                        Statement.RETURN_GENERATED_KEYS);
             ) {
                 logTxStmt.setString(1, transactionType.toString().toUpperCase());
                 logTxStmt.setDouble(2, price);
@@ -227,7 +221,6 @@ public class LogHandler {
                     logTxStmt.setString(5, UtilMethods.itemStackToBase64(shop.getSecondaryItemStack()));
                 else
                     logTxStmt.setNull(5, Types.VARCHAR);
-
                 logTxStmt.execute();
                 ResultSet txRS = logTxStmt.getGeneratedKeys();
                 txRS.next();
@@ -245,7 +238,8 @@ public class LogHandler {
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (
                 Connection conn = dataSource.getConnection();
-                PreparedStatement actionStmt = conn.prepareStatement("INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, transaction_id, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
+                PreparedStatement actionStmt = conn.prepareStatement(
+                        "INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, transaction_id, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
             ) {
                 actionStmt.setTimestamp(1, new Timestamp(new Date().getTime()));
                 actionStmt.setString(2, player.getUniqueId().toString());
@@ -276,7 +270,6 @@ public class LogHandler {
             return;
         }
         offlineTransactions.setIsCalculating(true);
-
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             String query = "SELECT * from shop_action RIGHT JOIN shop_transaction on shop_action.transaction_id = shop_transaction.id where owner_uuid=? and ts > ?;";
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
@@ -291,7 +284,6 @@ public class LogHandler {
                 Map<ItemStack, Integer> itemsSold = new HashMap<>();
 
                 // Prepare and execute the statement
-
                 stmt.setString(1, offlineTransactions.getPlayerUUID().toString());
                 stmt.setTimestamp(2, new Timestamp(offlineTransactions.getLastPlayed()));
                 ResultSet resultSet = stmt.executeQuery();
@@ -300,7 +292,6 @@ public class LogHandler {
                 if (resultSet != null) {
                     while (resultSet.next()) {
                         size++;
-
                         // Extract transaction data
                         String purchaserUUID = resultSet.getString("player_uuid");
                         String tType = resultSet.getString("t_type");
@@ -308,12 +299,10 @@ public class LogHandler {
                         int amount = resultSet.getInt("amount");
                         String item = resultSet.getString("item");
                         String barterItem = resultSet.getString("barter_item"); // May be null
-
                         String shopWorld = resultSet.getString("shop_world");
                         int shopX = resultSet.getInt("shop_x");
                         int shopY = resultSet.getInt("shop_y");
                         int shopZ = resultSet.getInt("shop_z");
-
                         Location loc = new Location(Bukkit.getWorld(shopWorld), shopX, shopY, shopZ);
 
                         ItemStack itemstack = UtilMethods.itemStackFromBase64(item);
@@ -350,7 +339,6 @@ public class LogHandler {
                         if (purchaserUUID != null && !purchaserUUID.isEmpty()) {
                             purchaser = Bukkit.getServer().getOfflinePlayer(UUID.fromString(purchaserUUID));
                         }
-
                         offlineTransactions.addTx(loc, ShopType.valueOf(tType), price, purchaser, amount, itemstack, barterItemstack);
                     }
                 }
@@ -362,6 +350,7 @@ public class LogHandler {
                 offlineTransactions.setItemsBought(itemsBought);
                 offlineTransactions.setItemsSold(itemsSold);
                 offlineTransactions.setIsCalculating(false);
+
             } catch (SQLException e){
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to get offline transactions.");
                 e.printStackTrace();
@@ -386,8 +375,7 @@ public class LogHandler {
                 plugin.getLogger().log(Level.WARNING, "Could not establish database connection!");
                 plugin.getLogger().log(Level.WARNING, "Purchase Database Logging and Offline Purchase notifications are disabled!");
                 throw new SQLException("Could not establish database connection.");
-            }
-            else{
+            } else{
                 enabled = true;
                 plugin.getLogger().debug("Established connection to database.");
             }
@@ -400,7 +388,7 @@ public class LogHandler {
     private static class TransactionMetrics {
         private int transactionCount = 0;
         private int itemVolume = 0;
-        
+
         public void addTransaction(int itemCount, double price, boolean isBarterOrItemCurrency) {
             transactionCount++;
             itemVolume += itemCount;
@@ -409,22 +397,11 @@ public class LogHandler {
                 itemVolume += (int)price;
             }
         }
-        
-        public void resetTransactionCount() {
-            transactionCount = 0;
-        }
 
-        public void resetItemVolume() {
-            itemVolume = 0;
-        }
-        
-        public int getTransactionCount() {
-            return transactionCount;
-        }
-        
-        public int getItemVolume() {
-            return itemVolume;
-        }
+        public void resetTransactionCount() { transactionCount = 0; }
+        public void resetItemVolume() { itemVolume = 0; }
+        public int getTransactionCount() { return transactionCount; }
+        public int getItemVolume() { return itemVolume; }
     }
 
     // Get the number of transactions during the last 30 minutes
@@ -451,8 +428,7 @@ public class LogHandler {
         // This file contains statements to create our inital tables.
         // it is located in the resources.
         String setup;
-        try (InputStream in = plugin.getResource("dbsetup.sql")) { //TODO this is throwing an error. cannot access class jdk.xml.internal.SecuritySupport (in module java.xml) because module java.xml does not export jdk.xml.internal to unnamed module
-//            setup = new String(in.readAllBytes()); // Java 9+ way
+        try (InputStream in = plugin.getResource("dbsetup.sql")) {
             setup = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining("\n")); // Legacy way
         } catch (IOException e) {
             e.printStackTrace();
@@ -461,11 +437,8 @@ public class LogHandler {
         }
         // Mariadb can only handle a single query per statement. We need to split at ;.
         String[] queries = setup.split(";");
-
         // execute each query to the database.
         for (String query : queries) {
-            // If you use the legacy way you have to check for empty queries here.
-            //if (query.isBlank())) continue;
             if (query.isEmpty()) continue;
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (

@@ -23,7 +23,6 @@ import com.tcoded.folialib.wrapper.task.WrappedTask;
 public class ShopCreationProcess {
 
     private ChatCreationStep step;
-
     private Player player;
     private UUID processUUID;
     private UUID playerUUID;
@@ -36,7 +35,6 @@ public class ShopCreationProcess {
     private PricePair pricePair;
     private boolean destroyArmed;
     private volatile boolean justInteracted;
-
     public AbstractDisplay display;
     private PlaceholderContext placeholderContext;
 
@@ -47,7 +45,6 @@ public class ShopCreationProcess {
         this.clickedChest = clickedChest;
         this.clickedFace = clickedFace;
         this.step = ChatCreationStep.ITEM;
-
         // Displays instructions on top of the chest
         this.display = Shop.getPlugin().getShopHandler().createDisplay(clickedChest.getLocation());
         // Setup placeholder context for ShopMessage
@@ -81,17 +78,9 @@ public class ShopCreationProcess {
         }
     }
 
-    public Block getClickedChest() {
-        return clickedChest;
-    }
-
-    public BlockFace getClickedFace() {
-        return clickedFace;
-    }
-
-    public ShopType getShopType() {
-        return shopType;
-    }
+    public Block getClickedChest() { return clickedChest; }
+    public BlockFace getClickedFace() { return clickedFace; }
+    public ShopType getShopType() { return shopType; }
 
     public void setShopType(ShopType shopType) {
         this.shopType = shopType;
@@ -101,17 +90,11 @@ public class ShopCreationProcess {
             this.step = ChatCreationStep.ITEM_AMOUNT;
     }
 
-    public boolean isAdmin() {
-        return isAdmin;
-    }
-
-    public void setAdmin(boolean admin) {
-        isAdmin = admin;
-    }
+    public boolean isAdmin() { return isAdmin; }
+    public void setAdmin(boolean admin) { isAdmin = admin; }
 
     public int getItemAmount() {
-        if(itemStack == null)
-            return 0;
+        if(itemStack == null) return 0;
         return itemStack.getAmount();
     }
 
@@ -119,15 +102,13 @@ public class ShopCreationProcess {
         this.itemStack.setAmount(itemAmount);
         if(this.shopType == ShopType.BARTER){
             this.step = ChatCreationStep.BARTER_ITEM;
-        }
-        else {
+        } else {
             this.step = ChatCreationStep.ITEM_PRICE;
         }
     }
 
     public int getBarterItemAmount() {
-        if(barterItemStack == null)
-            return 0;
+        if(barterItemStack == null) return 0;
         return barterItemStack.getAmount();
     }
 
@@ -137,26 +118,20 @@ public class ShopCreationProcess {
     }
 
     public PricePair getPricePair(){
-        if(pricePair == null)
-            this.pricePair = new PricePair(0, 0);
+        if(pricePair == null) this.pricePair = new PricePair(0, 0);
         return pricePair;
     }
 
     public ChatCreationStep getStep() { return step; }
     public void setStep(ChatCreationStep step) { this.step = step; }
-
     public boolean isDestroyArmed() { return destroyArmed; }
     public void setDestroyArmed(boolean destroyArmed) { this.destroyArmed = destroyArmed; }
 
-    // True while the player is selecting an item to trade. Hitting the chest during these steps is part of
-    // the natural creation flow, not an attempt to destroy the chest, so it must never arm the cancel.
+    // True while the player is selecting an item to trade.
     public boolean isAwaitingItemSelection() {
         return step == ChatCreationStep.ITEM || step == ChatCreationStep.BARTER_ITEM;
     }
 
-    // Marks that the player just clicked the chest to start or advance creation. In creative mode a single
-    // click both interacts and instantly breaks the block, so the coincident BlockBreakEvent (same tick) must
-    // not be treated as a destroy attempt. The flag clears on the next tick, leaving later breaks to act normally.
     public void markInteracted() {
         this.justInteracted = true;
         Shop.getPlugin().getFoliaLib().getScheduler().runLater(() -> this.justInteracted = false, 1L);
@@ -164,7 +139,6 @@ public class ShopCreationProcess {
 
     public boolean wasJustInteracted() { return justInteracted; }
 
-    // True for sign-based creation, where a real (uninitialized) shop and sign already exist on the chest.
     public boolean isSignCreation() {
         return step == ChatCreationStep.SIGN_CREATION
                 || step == ChatCreationStep.SIGN_ITEM
@@ -181,25 +155,19 @@ public class ShopCreationProcess {
 
     public void createShop(Player player){
         final ShopCreationProcess process = this;
-        // Run task at the chest block location to ensure it runs in the correct region in Folia
         Shop.getPlugin().getFoliaLib().getScheduler().runAtLocation(clickedChest.getLocation(), task -> {
-            //TODO do some calculation here if clickedFace is filled with a block or UP / DOWN was clicked
             Block signBlock = clickedChest.getRelative(clickedFace);
             signBlock.setType(Material.OAK_WALL_SIGN);
-
             if(signBlock.getBlockData() instanceof WallSign) {
                 Directional wallSignData = (Directional) signBlock.getBlockData();
                 wallSignData.setFacing(clickedFace);
                 signBlock.setBlockData(wallSignData);
             }
-
-            AbstractShop shop = Shop.getPlugin().getShopCreationUtil().createShop(Bukkit.getPlayer(playerUUID), clickedChest, signBlock, getPricePair(), getItemAmount(), isAdmin, shopType, clickedFace, true);
-            if(shop == null) {
-                return;
-            }
-
+            AbstractShop shop = Shop.getPlugin().getShopCreationUtil().createShop(
+                    Bukkit.getPlayer(playerUUID), clickedChest, signBlock,
+                    getPricePair(), getItemAmount(), isAdmin, shopType, clickedFace, true);
+            if(shop == null) { return; }
             boolean initializedShop = Shop.getPlugin().getShopCreationUtil().initializeShop(shop, player, itemStack, barterItemStack);
-
             if(initializedShop) {
                 Shop.getPlugin().getShopCreationUtil().sendCreationSuccess(player, shop);
                 Shop.getPlugin().getLogHandler().logAction(player, shop, ShopActionType.INIT);
@@ -207,21 +175,10 @@ public class ShopCreationProcess {
         });
     }
 
-    public UUID getUniqueID(){
-        return processUUID;
-    }
-
-    public UUID getPlayerUUID(){
-        return playerUUID;
-    }
-
-    public ItemStack getItemStack() {
-        return itemStack;
-    }
-
-    public ItemStack getBarterItemStack() {
-        return barterItemStack;
-    }
+    public UUID getUniqueID(){ return processUUID; }
+    public UUID getPlayerUUID(){ return playerUUID; }
+    public ItemStack getItemStack() { return itemStack; }
+    public ItemStack getBarterItemStack() { return barterItemStack; }
 
     public void setItemStack(ItemStack itemStack) {
         this.itemStack = itemStack.clone();
@@ -235,8 +192,7 @@ public class ShopCreationProcess {
     }
 
     public void setPrice(double price){
-        if(pricePair == null)
-            pricePair = new PricePair(price, 0);
+        if(pricePair == null) pricePair = new PricePair(price, 0);
         pricePair.setPrice(price);
         if(this.shopType == ShopType.COMBO)
             this.step = ChatCreationStep.ITEM_PRICE_COMBO;
@@ -245,44 +201,42 @@ public class ShopCreationProcess {
     }
 
     public void setPriceCombo(double priceCombo){
-        if(pricePair == null)
-            pricePair = new PricePair(0, priceCombo);
+        if(pricePair == null) pricePair = new PricePair(0, priceCombo);
         pricePair.setPriceCombo(priceCombo);
         this.step = ChatCreationStep.FINISHED;
     }
 
+    public double getPrice() {
+        return getPricePair().getPrice();
+    }
+
     public void displayFloatingText(String key, String subkey) {
-        // Check if feature is enabled or not.
         if (!Shop.getPlugin().getConfig().getBoolean("displayFloatingCreateText") || !this.display.isEnabled()) {
             ShopMessage.sendMessage(key, subkey, this, player);
             return;
         }
-        // Build the lines
         String unformatted = ShopMessage.getUnformattedMessage(key, subkey);
-        String formatted = ShopMessage.format(unformatted, this.placeholderContext).toLegacyText();
+        // Fix 2: toLegacyText() removed — use ShopMessage.toLegacy() helper
+        String formatted = ShopMessage.toLegacy(ShopMessage.format(unformatted, this.placeholderContext));
         List<String> lines = UtilMethods.splitStringIntoLines(formatted, ShopMessage.getTargetMaxLength());
-        // Display the lines
         displayFloatingLines(lines);
     }
 
     public void displayFloatingTextList(String key, String subkey) {
-        // Check if feature is enabled or not.
         if (!Shop.getPlugin().getConfig().getBoolean("displayFloatingCreateText") || !this.display.isEnabled()) {
             for (String message : ShopMessage.getUnformattedMessageList(key, subkey)) {
-                if (message != null && !message.isEmpty())
-                    ShopMessage.sendMessage(message, player);
+                if (message != null && !message.isEmpty()) ShopMessage.sendMessage(message, player);
             }
             return;
         }
         List<String> lines = new ArrayList<>();
-        // Build the lines
         for (String unformatted : ShopMessage.getUnformattedMessageList(key, subkey)) {
             if (unformatted != null && !unformatted.isEmpty()){
-                String formatted = ShopMessage.format(unformatted, this.placeholderContext).toLegacyText();
+                // Fix 2: toLegacyText() removed — use ShopMessage.toLegacy() helper
+                String formatted = ShopMessage.toLegacy(ShopMessage.format(unformatted, this.placeholderContext));
                 lines.addAll(UtilMethods.splitStringIntoLines(formatted, ShopMessage.getTargetMaxLength()));
             }
         }
-        // Display the lines
         displayFloatingLines(lines);
     }
 
@@ -291,10 +245,8 @@ public class ShopCreationProcess {
             Shop.getPlugin().getLogger().warning("Unable to display floating text for player " + player.getName() + ", Display is disabled");
             return;
         }
-        // Remove any existing text
         this.display.removeDisplayEntities(player, true);
-
-        Location loc = this.clickedChest.getLocation().clone().add(0.5,0.625 + (0.248*lines.size()),0.5);
+        Location loc = this.clickedChest.getLocation().clone().add(0.5, 0.625 + (0.248 * lines.size()), 0.5);
         int i = 0;
         for (String line : lines) {
             this.display.createTagEntity(player, line, loc.clone().add(0, (i * -0.248), 0));
@@ -304,27 +256,9 @@ public class ShopCreationProcess {
 
     public enum ChatCreationStep {
         // Sign creation steps
-        SIGN_CREATION,
-        SIGN_ITEM,
-        SIGN_BARTER_ITEM,
-
+        SIGN_CREATION, SIGN_ITEM, SIGN_BARTER_ITEM,
         // Chat creation steps
-        ITEM,
-
-        SHOP_TYPE,
-
-        ITEM_AMOUNT,
-
-        ITEM_PRICE,
-
-        ITEM_PRICE_COMBO,
-
-        BARTER_ITEM,
-
-        BARTER_ITEM_AMOUNT,
-
-        FINISHED
+        ITEM, SHOP_TYPE, ITEM_AMOUNT, ITEM_PRICE, ITEM_PRICE_COMBO,
+        BARTER_ITEM, BARTER_ITEM_AMOUNT, FINISHED
     }
-
-
 }
