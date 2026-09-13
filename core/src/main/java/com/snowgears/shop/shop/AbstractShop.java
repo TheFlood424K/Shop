@@ -24,6 +24,7 @@ import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.*;
 
@@ -160,19 +161,12 @@ public abstract class AbstractShop {
             return stock;
         }
         if(this.getInventory() == null || this.getItemStack() == null) {
-            // Bug fix: when the chunk is unloaded, getInventory() returns null because
-            // isChunkLoaded() is false. Returning the stale cached stock in that case
-            // is misleading — callers (e.g. TransactionHandler) may use that value to
-            // approve a transaction against a chest that isn't actually accessible.
-            // Return -1 so that the shop is treated as "stock unknown" until the chunk
-            // is loaded and calculateStock() can do a real count.
             stock = -1;
             return stock;
         }
         int itemsInShop = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
         stock = itemsInShop / this.getAmount();
         if(stock == 0 && Shop.getPlugin().getAllowPartialSales()){
-            // Calculate the minimum items required to show as in stock
             int minItemAmountRequired = (int) Math.ceil(1 / this.getPricePerItem());
 
             if(itemsInShop >= minItemAmountRequired){
@@ -211,6 +205,11 @@ public abstract class AbstractShop {
         if(isAdmin){
             return Integer.MAX_VALUE;
         }
+        return stock;
+    }
+
+    /** Returns max stock (same as current stock field for non-admin shops). */
+    public int getMaxStock(){
         return stock;
     }
 
@@ -331,7 +330,8 @@ public abstract class AbstractShop {
 
     public String getPriceString() {
         if(this.type == ShopType.BARTER && this.isInitialized()){
-            return (int)this.getPrice() + " " + Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()).toPlainText();
+            // Fix 3: toPlainText() removed in Adventure API — use PlainTextComponentSerializer
+            return (int)this.getPrice() + " " + PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()));
         }
         return Shop.getPlugin().getPriceString(this.price, false);
     }
@@ -385,13 +385,7 @@ public abstract class AbstractShop {
         ItemStack cleaned = this.removeZeroDamageMeta(is.clone());
 
         // Strip custom font tags from the stored reference item so that crate plugin
-        // items (e.g. PhoenixCrates using Lettertype / a custom resource-pack font)
-        // are stored font-neutrally. Without this, removeZeroDamageMeta() may
-        // reconstruct the item via createItemStack(componentString), which bakes
-        // the font key back into the Component tree. The stored item then diverges
-        // from the live item in the player's hand even though itemstacksAreSimilar()
-        // strips fonts at comparison time — the asymmetry means the shop never
-        // recognises the item when the player hits the chest.
+        // items are stored font-neutrally.
         this.item = InventoryUtils.stripFontFromItem(cleaned);
         this.calculateStock();
         this.updateSign(true);
@@ -406,24 +400,18 @@ public abstract class AbstractShop {
 
     public ItemStack removeZeroDamageMeta(ItemStack item) {
         try {
-            // In the past we used to explicitly set the durability of an item to be 0, this caused blocks/items to be saved
-            // with extra NBT data that we don't actually want. For example, dirt shouldn't have a damage of 0.
-            // Detect if we set it to 0, and if so, remove it from the ItemMeta!
             if (item.getItemMeta() instanceof Damageable && ((Damageable) item.getItemMeta()).getDamage() == 0) {
-                String components = item.getItemMeta().getAsComponentString(); // example: "[minecraft:damage=53]"
+                String components = item.getItemMeta().getAsComponentString();
 
-                // Remove it from the array
-                components = components.replace(",minecraft:damage=0", ""); // Middle of an array
-                components = components.replace("minecraft:damage=0,", ""); // Start of an array
-                components = components.replace("minecraft:damage=0", ""); // Only object in array
+                components = components.replace(",minecraft:damage=0", "");
+                components = components.replace("minecraft:damage=0,", "");
+                components = components.replace("minecraft:damage=0", "");
 
-                // Convert it back into an item
-                String itemTypeKey = item.getType().getKey().toString(); // example: "minecraft:diamond_sword"
-                String itemAsString = itemTypeKey + components; // results in: "minecraft:diamond_sword[minecraft:damage=53]"
+                String itemTypeKey = item.getType().getKey().toString();
+                String itemAsString = itemTypeKey + components;
                 return Bukkit.getItemFactory().createItemStack(itemAsString);
             }
 
-            // Default return original item
             return item;
         } catch (Exception e) {
             Shop.getPlugin().getLogger().debug("Error removing zero damage meta from item: " + item);
@@ -469,9 +457,10 @@ public abstract class AbstractShop {
             // Don't add barter line to non barter shops
             if(loreLine.contains("[barter item]") && this.getType() != ShopType.BARTER) continue;
             // Add all lore lines
+            // Fix 2: toLegacyText() removed — use ShopMessage.toLegacy() helper
             PlaceholderContext context = new PlaceholderContext();
             context.setShop(this);
-            lore.add(ShopMessage.format(loreLine, context).toLegacyText());
+            lore.add(ShopMessage.toLegacy(ShopMessage.format(loreLine, context)));
         }
 
         ItemMeta iconMeta = guiIcon.getItemMeta();
@@ -526,23 +515,21 @@ public abstract class AbstractShop {
             String[] oldLines = signBlock.getLines();
             String[] newLines = signLines.clone();
             boolean hasSignUpdate = false;
-            // If the sign lines are the same, don't update them!
             boolean linesMatch = newLines[0].equals(oldLines[0]) && newLines[1].equals(oldLines[1]) && newLines[2].equals(oldLines[2]) && newLines[3].equals(oldLines[3]);
 
             if (!isInitialized()) {
-                hasSignUpdate = true; // force update the sign
+                hasSignUpdate = true;
                 signBlock.setLine(0, ChatColor.RED + ChatColor.stripColor(newLines[0]));
                 signBlock.setLine(1, ChatColor.RED + ChatColor.stripColor(newLines[1]));
                 signBlock.setLine(2, ChatColor.RED + ChatColor.stripColor(newLines[2]));
                 signBlock.setLine(3, ChatColor.RED + ChatColor.stripColor(newLines[3]));
             } else if (!linesMatch) {
-                hasSignUpdate = true; // force update the sign
+                hasSignUpdate = true;
                 signBlock.setLine(0, newLines[0]);
                 signBlock.setLine(1, newLines[1]);
                 signBlock.setLine(2, newLines[2]);
                 signBlock.setLine(3, newLines[3]);
             }
-            // If the sign is glowing, update it if the setting has changed
             if(isMCVersion17Plus()) {
                 boolean shouldGlow = Shop.getPlugin().getGlowingSignText();
                 if (shouldGlow != signBlock.isGlowingText()) { 
@@ -550,10 +537,8 @@ public abstract class AbstractShop {
                     signBlock.setGlowingText(shouldGlow);
                 }
             }
-            // Update the sign if it has changed
             if (hasSignUpdate) { signBlock.update(true); }
 
-            // Update the floating holograms for anybody who currently has them open
             if (display != null) display.updateDisplayTags();
         }, 2);
     }
@@ -561,7 +546,6 @@ public abstract class AbstractShop {
     public void delete() { this.delete(true); }
     public void delete(boolean forceSave) {
         try {
-            // First, remove the shop from the shop handler in case of any errors with later methods.
             Shop.getPlugin().getShopHandler().removeShop(this, forceSave);
 
             if(UtilMethods.isMCVersion17Plus() && Shop.getPlugin().getDisplayLightLevel() > 0 && this.getChestLocation() != null) {
@@ -585,7 +569,6 @@ public abstract class AbstractShop {
                 signBlock.update(true);
             }
 
-            // Finally, remove any active displays
             if (display != null) {
                 display.remove(null);
             }
@@ -596,16 +579,9 @@ public abstract class AbstractShop {
         }
     }
 
-    /**
-     * Returns true if the two blocks at the given location (feet and head) are safe
-     * for a player to stand in — i.e., passable (not solid) and not instantly harmful.
-     * Cobwebs, powder snow, and similar "soft" blocks that cause suffocation or
-     * movement penalties are also rejected.
-     */
     private boolean isSafeBlock(Block block) {
         Material type = block.getType();
         if (!block.isPassable()) return false;
-        // Reject blocks that are technically passable but still harmful/undesirable
         switch (type) {
             case COBWEB:
             case POWDER_SNOW:
@@ -621,35 +597,23 @@ public abstract class AbstractShop {
         }
     }
 
-    /**
-     * Searches for a safe teleport location near the shop sign, spiralling outward
-     * from the preferred spot in front of the sign. Falls back to one block above
-     * the sign if no clear location is found within the search radius.
-     *
-     * Fixes issue snowgears#43: players could previously be teleported into solid
-     * blocks, cobwebs, or other hazardous blocks adjacent to the shop.
-     */
     private Location findSafeTeleportLocation(Location preferred) {
-        // Check the preferred location first (in front of sign)
         Block feet = preferred.getBlock();
         Block head = feet.getRelative(BlockFace.UP);
         if (isSafeBlock(feet) && isSafeBlock(head)) {
             return preferred;
         }
 
-        // Search in a small radius around the preferred spot at the same Y level,
-        // then one block up, then one block down.
         int[] yOffsets = {0, 1, -1};
         for (int yOff : yOffsets) {
             for (int r = 1; r <= 3; r++) {
                 for (int dx = -r; dx <= r; dx++) {
                     for (int dz = -r; dz <= r; dz++) {
-                        if (Math.abs(dx) != r && Math.abs(dz) != r) continue; // only check ring border
+                        if (Math.abs(dx) != r && Math.abs(dz) != r) continue;
                         Location candidate = preferred.clone().add(dx, yOff, dz);
                         Block candidateFeet = candidate.getBlock();
                         Block candidateHead = candidateFeet.getRelative(BlockFace.UP);
                         if (isSafeBlock(candidateFeet) && isSafeBlock(candidateHead)) {
-                            // Snap to block centre
                             candidate.setX(candidateFeet.getX() + 0.5);
                             candidate.setZ(candidateFeet.getZ() + 0.5);
                             return candidate;
@@ -659,7 +623,6 @@ public abstract class AbstractShop {
             }
         }
 
-        // Last resort: one block above the sign
         Location fallback = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
         fallback.setYaw(preferred.getYaw());
         fallback.setPitch(preferred.getPitch());
@@ -708,7 +671,7 @@ public abstract class AbstractShop {
     public boolean executeClickAction(PlayerInteractEvent event, ShopClickType clickType){
         ShopAction action = Shop.getPlugin().getShopAction(clickType);
         if(action == null)
-            return false; //there is no action mapped to this click type
+            return false;
         Player player = event.getPlayer();
 
         switch(action) {
@@ -722,13 +685,10 @@ public abstract class AbstractShop {
                 this.printSalesInfo(player);
                 break;
             case CYCLE_DISPLAY:
-                //player clicked another player's shop sign
                 if (!this.getOwnerName().equals(player.getName())) {
-                    //player has permission to change another player's shop display
                     if((!Shop.getPlugin().usePerms() && player.isOp()) || (Shop.getPlugin().usePerms() && player.hasPermission("shop.operator"))) {
                         this.getDisplay().cycleType(player);
                     }
-                //player clicked own shop sign
                 } else {
                     if(Shop.getPlugin().usePerms() && !player.hasPermission("shop.setdisplay"))
                         return false;
@@ -765,8 +725,9 @@ public abstract class AbstractShop {
                 ", price=" + price +
                 ", amount=" + amount +
                 ", stock=" + stock +
-                ", item=" + (item != null ? Shop.getPlugin().getItemNameUtil().getName(item).toPlainText() : "null") +
-                (secondaryItem != null ? ", secondaryItem=" + Shop.getPlugin().getItemNameUtil().getName(secondaryItem).toPlainText() : "") +
+                // Fix 3: toPlainText() removed — use PlainTextComponentSerializer
+                ", item=" + (item != null ? PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(item)) : "null") +
+                (secondaryItem != null ? ", secondaryItem=" + PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(secondaryItem)) : "") +
                 ", id=" + this.getId().toString().substring(0,5) +
                 ", filename=" + this.getOwnerUUID() + ".yml" +
                 ", needsSave=" + this.needsSave +
