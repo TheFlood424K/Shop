@@ -31,15 +31,16 @@ public class OfflineTransactions {
     }
 
     public void addTx(Location location, ShopType transactionType, double price, OfflinePlayer purchaser, int amount, ItemStack itemSold, ItemStack barterItem) {
-        // load message and perform initial formatting
-        String formattedMessage = ShopMessage.getMessageFromOrders(transactionType, "owner", price, amount);
+        // Fix 1: pass ShopType key as lowercase String, not the enum object
+        String formattedMessage = ShopMessage.getMessageFromOrders(transactionType.name().toLowerCase(), "owner", price, amount);
         // Add rest of the formatting
         PlaceholderContext context = new PlaceholderContext();
         context.setOfflinePlayer(purchaser);
         context.setItem(itemSold);
         context.setBarterItem(barterItem);
         context.setLocation(location);
-        formattedMessage = ShopMessage.format("• " + formattedMessage, context).toLegacyText();
+        // Fix 2: toLegacyText() removed — use ShopMessage.toLegacy() helper
+        formattedMessage = ShopMessage.toLegacy(ShopMessage.format("\u2022 " + formattedMessage, context));
         txStrings.add(formattedMessage);
     }
 
