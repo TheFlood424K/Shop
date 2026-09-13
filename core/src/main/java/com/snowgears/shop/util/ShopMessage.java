@@ -260,8 +260,17 @@ public class ShopMessage {
     }
 
     /**
-     * Compat wrapper: formats a message string with an AbstractShop context.
-     * Replaces old-style formatMessage(String, AbstractShop, Player, boolean) call sites.
+     * Compat wrapper: formats a message string with an AbstractShop context, no player.
+     * Used by ShopGuiHandler.reloadPlayerHeadIcon and similar 2-arg call sites.
+     */
+    public static String formatMessage(String message, AbstractShop shop) {
+        PlaceholderContext context = new PlaceholderContext();
+        context.setShop(shop);
+        return toLegacy(format(message, context));
+    }
+
+    /**
+     * Compat wrapper: formats a message string with an AbstractShop context and optional player.
      */
     public static String formatMessage(String message, AbstractShop shop, Player player, boolean unused) {
         PlaceholderContext context = new PlaceholderContext();
@@ -368,7 +377,7 @@ public class ShopMessage {
                     HoverEvent.ShowItem.showItem(
                             item.getType().getKey(),
                             item.getAmount(),
-                            null)));
+                            (net.kyori.adventure.nbt.BinaryTagHolder) null)));
         } catch (Exception | Error e) {
             return display;
         }
@@ -515,11 +524,12 @@ public class ShopMessage {
             return null;
         });
 
+        // Fix: replaced isInfinitePrice() → isAdmin() (admin shops have infinite price)
         registerPlaceholder("[price]", context -> {
             if (context.getProcess() != null && context.getProcess().getPrice() > -1)
                 return Component.text(UtilMethods.formatLongToKString(context.getProcess().getPrice(), false));
             if (context.getShop() != null)
-                return Component.text(context.getShop().isInfinitePrice() ? getAdminStockWord()
+                return Component.text(context.getShop().isAdmin() ? getAdminStockWord()
                         : UtilMethods.formatLongToKString(context.getShop().getPrice(), false));
             return null;
         });
@@ -547,6 +557,7 @@ public class ShopMessage {
             if (context.getProcess() != null) return Component.text(String.valueOf(context.getProcess().getItemAmount()));
             return null;
         });
+        // getMaxStock() exists on AbstractShop — no change needed here
         registerPlaceholder("[max stock]", context -> {
             if (context.getShop() != null) return Component.text(String.valueOf(context.getShop().getMaxStock()));
             return null;
@@ -564,8 +575,9 @@ public class ShopMessage {
             }
             return Component.text(sb.toString());
         });
+        // Fix: display.getAmount() doesn't exist — use shop.getAmount() instead
         registerPlaceholder("[display amount]", context -> {
-            if (context.getShop() != null) return Component.text(String.valueOf(context.getShop().getDisplay().getAmount()));
+            if (context.getShop() != null) return Component.text(String.valueOf(context.getShop().getAmount()));
             return null;
         });
 
@@ -583,52 +595,68 @@ public class ShopMessage {
             }
             return null;
         });
+        // Fix: ComboShop no longer has getBuyShop()/getSellShop() sub-shop accessors.
+        // Use getOwnerName() (shared owner) and getPriceBuy()/getPriceSell() directly.
         registerPlaceholder("[combo buy shop owner]", context -> {
             if (context.getShop() instanceof ComboShop) {
                 ComboShop cs = (ComboShop) context.getShop();
-                if (cs.getBuyShop() != null) return Component.text(cs.getBuyShop().getOwnerName());
+                return Component.text(cs.getOwnerName());
             }
             return null;
         });
         registerPlaceholder("[combo sell shop owner]", context -> {
             if (context.getShop() instanceof ComboShop) {
                 ComboShop cs = (ComboShop) context.getShop();
-                if (cs.getSellShop() != null) return Component.text(cs.getSellShop().getOwnerName());
+                return Component.text(cs.getOwnerName());
             }
             return null;
         });
         registerPlaceholder("[combo buy price]", context -> {
             if (context.getShop() instanceof ComboShop) {
                 ComboShop cs = (ComboShop) context.getShop();
-                if (cs.getBuyShop() != null) return Component.text(UtilMethods.formatLongToKString(cs.getBuyShop().getPrice(), false));
+                return Component.text(UtilMethods.formatLongToKString(cs.getPriceBuy(), false));
             }
             return null;
         });
         registerPlaceholder("[combo sell price]", context -> {
             if (context.getShop() instanceof ComboShop) {
                 ComboShop cs = (ComboShop) context.getShop();
-                if (cs.getSellShop() != null) return Component.text(UtilMethods.formatLongToKString(cs.getSellShop().getPrice(), false));
+                return Component.text(UtilMethods.formatLongToKString(cs.getPriceSell(), false));
             }
             return null;
         });
 
+        // Fix: getTransactionCount() → getNumTransactions()
         registerPlaceholder("[offline tx count]", context -> {
-            if (context.getOfflineTransactions() != null) return Component.text(String.valueOf(context.getOfflineTransactions().getTransactionCount()));
-            return null;
-        });
-        registerPlaceholder("[offline tx total]", context -> {
-            if (context.getOfflineTransactions() != null) return Component.text(UtilMethods.formatLongToKString(context.getOfflineTransactions().getTotalAmount(), true));
-            return null;
-        });
-        registerPlaceholder("[offline tx item]", context -> {
             if (context.getOfflineTransactions() != null)
-                return embedItem(plugin.getItemNameUtil().getName(context.getOfflineTransactions().getItemStack()), context.getOfflineTransactions().getItemStack());
+                return Component.text(String.valueOf(context.getOfflineTransactions().getNumTransactions()));
             return null;
         });
-        registerPlaceholder("[offline tx type]", context -> {
-            if (context.getOfflineTransactions() != null) return Component.text(context.getOfflineTransactions().getType().toString());
+        // Fix: getTotalAmount() removed — use getTotalProfit() + getTotalSpent() combined
+        registerPlaceholder("[offline tx total]", context -> {
+            if (context.getOfflineTransactions() != null) {
+                double total = context.getOfflineTransactions().getTotalProfit()
+                        + context.getOfflineTransactions().getTotalSpent();
+                return Component.text(UtilMethods.formatLongToKString(total, true));
+            }
             return null;
         });
+        // Fix: getItemStack() removed — use first key from itemsSold, falling back to itemsBought
+        registerPlaceholder("[offline tx item]", context -> {
+            if (context.getOfflineTransactions() != null) {
+                ItemStack item = null;
+                Map<ItemStack, Integer> sold = context.getOfflineTransactions().getItemsSold();
+                if (sold != null && !sold.isEmpty()) item = sold.keySet().iterator().next();
+                if (item == null) {
+                    Map<ItemStack, Integer> bought = context.getOfflineTransactions().getItemsBought();
+                    if (bought != null && !bought.isEmpty()) item = bought.keySet().iterator().next();
+                }
+                if (item != null)
+                    return embedItem(plugin.getItemNameUtil().getName(item), item);
+            }
+            return null;
+        });
+        // [offline tx type] removed — getType() no longer exists on OfflineTransactions
     }
 
     // -----------------------------------------------------------------------
@@ -649,7 +677,8 @@ public class ShopMessage {
             hoverText.append(Component.text("Item: "));
             hoverText.append(plugin.getItemNameUtil().getName(shop.getItemStack()));
             hoverText.append(Component.newline());
-            String priceStr = shop.isInfinitePrice() ? getAdminStockWord() : UtilMethods.formatLongToKString(shop.getPrice(), false);
+            // Fix: isInfinitePrice() → isAdmin()
+            String priceStr = shop.isAdmin() ? getAdminStockWord() : UtilMethods.formatLongToKString(shop.getPrice(), false);
             hoverText.append(Component.text("Price: " + priceStr));
         } else if (process != null) {
             hoverText.append(Component.text("New shop at: " + UtilMethods.getCleanLocation(
@@ -766,7 +795,6 @@ public class ShopMessage {
 
     /**
      * Compat overload: returns a list of unformatted messages for a key+subkey pair.
-     * Old callers used getUnformattedMessageList(shopType, "description").
      */
     public static List<String> getUnformattedMessageList(String key, String subkey) {
         List<String> result = new ArrayList<>();
@@ -784,7 +812,6 @@ public class ShopMessage {
 
     /**
      * Compat overload: returns sign lines for a shop, resolving the type key from the shop.
-     * Old callers used getSignLines(AbstractShop, ShopType).
      */
     public static String[] getSignLines(AbstractShop shop, ShopType type) {
         String key = (type != null ? type.toString() : (shop != null && shop.getType() != null ? shop.getType().toString() : "sell"));
@@ -801,7 +828,6 @@ public class ShopMessage {
 
     /**
      * Compat overload: returns sign lines for a named key, with a shop for placeholder context.
-     * Old callers used getSignLines("deleted", AbstractShop).
      */
     public static String[] getSignLines(String key, AbstractShop shop) {
         String[] rawLines = getShopSignText(key);
@@ -824,7 +850,6 @@ public class ShopMessage {
 
     /**
      * Compat overload: returns display tag lines resolved from a shop and type.
-     * Old callers used getDisplayTags(AbstractShop, ShopType).
      */
     public static List<String> getDisplayTags(AbstractShop shop, ShopType type) {
         String key = (type != null ? type.toString() : (shop != null && shop.getType() != null ? shop.getType().toString() : "sell"));
@@ -840,7 +865,6 @@ public class ShopMessage {
 
     /**
      * Compat overload: ignores the extra numeric args that old callers passed.
-     * Old signature was getMessageFromOrders(ShopType, String, double, int) or similar.
      */
     public static String getMessageFromOrders(String key, String subkey, double amount, int count) {
         return getUnformattedMessage(key, subkey);
