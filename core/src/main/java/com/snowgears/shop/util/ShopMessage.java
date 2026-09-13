@@ -373,11 +373,11 @@ public class ShopMessage {
         if (item == null || display == null) return display != null ? display : Component.empty();
         if (disableItemHover) return display;
         try {
+            // Adventure 5.x: BinaryTagHolder was removed from net.kyori.adventure.nbt.
+            // Use the 2-arg showItem(key, amount) overload which omits NBT data.
             return display.hoverEvent(HoverEvent.showItem(
-                    HoverEvent.ShowItem.showItem(
-                            item.getType().getKey(),
-                            item.getAmount(),
-                            (net.kyori.adventure.nbt.BinaryTagHolder) null)));
+                    item.getType().getKey(),
+                    item.getAmount()));
         } catch (Exception | Error e) {
             return display;
         }

@@ -228,8 +228,8 @@ public class LogHandler {
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
                 e.printStackTrace();
-            } catch (IOException e) {
-                plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING,"Error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
                 e.printStackTrace();
             }
 
@@ -355,12 +355,8 @@ public class LogHandler {
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to get offline transactions.");
                 e.printStackTrace();
                 offlineTransactions.setIsCalculating(false);
-            } catch (IOException e) {
-                plugin.getLogger().log(Level.WARNING,"IOException occurred while trying to get offline transactions. Unable to parse itemstack from base64!");
-                e.printStackTrace();
-                offlineTransactions.setIsCalculating(false);
-            } catch (ClassNotFoundException e) {
-                plugin.getLogger().log(Level.WARNING,"ClassNotFoundException occurred while trying to get offline transactions. Unable to parse itemstack from base64!");
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING,"Exception occurred while trying to get offline transactions.");
                 e.printStackTrace();
                 offlineTransactions.setIsCalculating(false);
             }
