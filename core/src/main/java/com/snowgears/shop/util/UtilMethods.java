@@ -45,25 +45,37 @@ public class UtilMethods {
 
     /**
      * Returns true if the server is running Minecraft 1.17 or newer.
-     * In Paper 1.21+ (26.x) we are always on 1.17+, so this always returns true.
-     * Kept as a method for callers that guard 1.17-specific features (glowing signs,
-     * light blocks, etc.) behind this check.
      */
     public static boolean isMCVersion17Plus() {
         try {
-            String version = Bukkit.getBukkitVersion(); // e.g. "1.21.4-R0.1-SNAPSHOT"
+            String version = Bukkit.getBukkitVersion();
             String[] parts = version.split("\\.");
             int major = Integer.parseInt(parts[0]);
             int minor = Integer.parseInt(parts[1].split("-")[0]);
             return (major > 1) || (major == 1 && minor >= 17);
         } catch (Exception e) {
-            return true; // Assume modern if we can't parse
+            return true;
+        }
+    }
+
+    /**
+     * Returns true if the server is running Minecraft 1.14 or newer.
+     * Kept as a compat method for callers that guard 1.14-specific features.
+     */
+    public static boolean isMCVersion14Plus() {
+        try {
+            String version = Bukkit.getBukkitVersion();
+            String[] parts = version.split("\\.");
+            int major = Integer.parseInt(parts[0]);
+            int minor = Integer.parseInt(parts[1].split("-")[0]);
+            return (major > 1) || (major == 1 && minor >= 14);
+        } catch (Exception e) {
+            return true;
         }
     }
 
     /**
      * Copies an InputStream to a File.
-     * Used when extracting default resource files from the plugin jar.
      */
     public static void copy(InputStream in, File file) {
         if (in == null) return;
@@ -193,6 +205,90 @@ public class UtilMethods {
         return true;
     }
 
+    /**
+     * Strips non-numeric characters from a price/number string and returns it clean.
+     * E.g. "$1,234.56" → "1234.56"
+     */
+    public static String cleanNumberText(String text) {
+        if (text == null) return "0";
+        return text.replaceAll("[^0-9.]", "");
+    }
+
+    /**
+     * Splits a string into lines of at most maxLength characters each.
+     * Used for wrapping display text.
+     */
+    public static List<String> splitStringIntoLines(String text, int maxLength) {
+        List<String> lines = new ArrayList<>();
+        if (text == null || text.isEmpty()) return lines;
+        String[] words = text.split(" ");
+        StringBuilder current = new StringBuilder();
+        for (String word : words) {
+            if (current.length() == 0) {
+                current.append(word);
+            } else if (current.length() + 1 + word.length() <= maxLength) {
+                current.append(" ").append(word);
+            } else {
+                lines.add(current.toString());
+                current = new StringBuilder(word);
+            }
+        }
+        if (current.length() > 0) lines.add(current.toString());
+        return lines;
+    }
+
+    /**
+     * Returns the multiplier value for an item amount string.
+     * E.g. "x4" → 4, "4" → 4, null/invalid → 1.
+     */
+    public static int getMultiplyValue(String text) {
+        if (text == null) return 1;
+        String cleaned = text.replaceAll("[^0-9]", "");
+        if (cleaned.isEmpty()) return 1;
+        try {
+            return Integer.parseInt(cleaned);
+        } catch (NumberFormatException e) {
+            return 1;
+        }
+    }
+
+    /**
+     * Serialises an ItemStack to a Base64 string.
+     * Returns null on failure.
+     */
+    public static String itemStackToBase64(ItemStack item) {
+        if (item == null) return null;
+        try {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            BukkitObjectOutputStream dataOutput = new BukkitObjectOutputStream(outputStream);
+            dataOutput.writeObject(item);
+            dataOutput.close();
+            return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+        } catch (IOException e) {
+            Shop.getPlugin().getLogger().warning("Error serialising ItemStack to Base64: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Deserialises an ItemStack from a Base64 string.
+     * Returns null on failure.
+     */
+    public static ItemStack itemStackFromBase64(String base64) {
+        if (base64 == null || base64.isEmpty()) return null;
+        try {
+            byte[] bytes = Base64.getDecoder().decode(base64);
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
+            BukkitObjectInputStream dataInput = new BukkitObjectInputStream(inputStream);
+            ItemStack item = (ItemStack) dataInput.readObject();
+            dataInput.close();
+            return item;
+        } catch (IOException | ClassNotFoundException e) {
+            Shop.getPlugin().getLogger().warning("Error deserialising ItemStack from Base64: " + e.getMessage());
+            return null;
+        }
+    }
+
     public static BlockFace yawToFace(float yaw) {
         final BlockFace[] axis = {BlockFace.SOUTH, BlockFace.WEST, BlockFace.NORTH, BlockFace.EAST};
         return axis[Math.round(yaw / 90f) & 0x3];
@@ -264,10 +360,6 @@ public class UtilMethods {
         }
     }
 
-    /**
-     * Checks if a chunk is loaded.
-     * Use this instead of location.getChunk().isChunkLoaded() to avoid forcing a chunk load.
-     */
     public static boolean isChunkLoaded(Location location) {
         if (location == null || location.getWorld() == null) { return false; }
         return location.getWorld().isChunkLoaded(UtilMethods.floor(location.getBlockX()) >> 4, UtilMethods.floor(location.getBlockZ()) >> 4);
@@ -433,7 +525,6 @@ public class UtilMethods {
 
     /**
      * Translates a translation key to plain text.
-     * Client-side translation is handled by Adventure components in modern Paper.
      */
     public static String translate(String key){
         return key;
@@ -471,7 +562,7 @@ public class UtilMethods {
 
     /**
      * Builds an Adventure TextComponent describing enchantments/trims/music discs
-     * on the given ItemStack. Replaces the old BungeeCord TextComponent approach.
+     * on the given ItemStack.
      */
     public static Component getEnchantmentsComponent(ItemStack item){
         net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
@@ -499,10 +590,11 @@ public class UtilMethods {
         if(item.getItemMeta() != null && item.getItemMeta() instanceof ArmorMeta){
             ArmorMeta armorMeta = (ArmorMeta) item.getItemMeta();
             if (armorMeta.getTrim() != null) {
-                String material = translate(armorMeta.getTrim().getMaterial().translationKey());
-                String pattern = translate(armorMeta.getTrim().getPattern().translationKey());
-                builder.append(Component.text(" [" + pattern.replace(" Armor Trim", "")));
-                builder.append(Component.text(" (" + material.replace(" Material", "") + ")]"));
+                // Use getKey().getKey() instead of deprecated translationKey()
+                String material = armorMeta.getTrim().getMaterial().getKey().getKey().replace("_", " ");
+                String pattern = armorMeta.getTrim().getPattern().getKey().getKey().replace("_", " ");
+                builder.append(Component.text(" [" + capitalize(pattern)));
+                builder.append(Component.text(" (" + capitalize(material) + ")]"));
             }
         }
 
@@ -541,7 +633,7 @@ public class UtilMethods {
         nonIntrusiveMaterials.add(Material.WATER);
         nonIntrusiveMaterials.add(Material.LAVA);
         nonIntrusiveMaterials.add(Material.TALL_GRASS);
-        nonIntrusiveMaterials.add(Material.GRASS);
+        nonIntrusiveMaterials.add(Material.SHORT_GRASS);
         nonIntrusiveMaterials.add(Material.FERN);
         nonIntrusiveMaterials.add(Material.LARGE_FERN);
         nonIntrusiveMaterials.add(Material.DEAD_BUSH);
