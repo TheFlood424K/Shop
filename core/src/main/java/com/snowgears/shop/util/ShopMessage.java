@@ -89,38 +89,26 @@ public class ShopMessage {
     // Adventure helpers
     // -----------------------------------------------------------------------
 
-    /**
-     * Converts a legacy-formatted string (§ / & colour codes) to an Adventure Component.
-     * Used by ItemNameUtil and any caller that has a raw legacy string.
-     */
     public static Component componentFromLegacy(String legacy) {
         if (legacy == null || legacy.isEmpty()) return Component.empty();
         return LegacyComponentSerializer.legacySection().deserialize(
                 ChatColor.translateAlternateColorCodes('&', legacy));
     }
 
-    /**
-     * Serialises an Adventure Component back to a legacy string (§ codes).
-     * Used as a fallback when we need a plain string (e.g. for sign lines).
-     */
     public static String toLegacy(Component component) {
         if (component == null) return "";
         return LegacyComponentSerializer.legacySection().serialize(component);
     }
 
-    /**
-     * Strips all formatting and returns plain text.
-     */
     public static String toPlain(Component component) {
         if (component == null) return "";
         return PlainTextComponentSerializer.plainText().serialize(component);
     }
 
     // -----------------------------------------------------------------------
-    // Colour helpers (replaces BungeeCord ChatColor methods)
+    // Colour helpers
     // -----------------------------------------------------------------------
 
-    /** Parses a colour code string (e.g. "&a", "§c", "#RRGGBB") into a TextColor. */
     public static TextColor getTextColor(String code) {
         if (code == null) return null;
         if (code.matches(HEX_CODE_REGEX)) {
@@ -151,7 +139,6 @@ public class ShopMessage {
         return null;
     }
 
-    /** Returns true if the code string represents a formatting code (bold, italic, …). */
     private static boolean isFormattingCode(String code) {
         if (code == null || code.length() < 2) return false;
         char c = Character.toLowerCase(code.charAt(1));
@@ -223,7 +210,6 @@ public class ShopMessage {
         for (String part : parts) {
             plugin.getLogger().trace("[ShopMessage.format] part: " + part);
 
-            // --- colour / formatting code ---
             if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
                 try {
                     char c = Character.toLowerCase(part.charAt(1));
@@ -244,11 +230,10 @@ public class ShopMessage {
                     }
                     continue;
                 } catch (Exception e) {
-                    // fall through — treat as literal text
+                    // fall through
                 }
             }
 
-            // --- placeholder ---
             Component partComponent;
             if (part.matches(PLACEHOLDER_REGEX) && placeholders.containsKey(part.toLowerCase())) {
                 plugin.getLogger().hyper("[ShopMessage.format]     matched PLACEHOLDER_REGEX: " + part);
@@ -257,7 +242,6 @@ public class ShopMessage {
                 partComponent = Component.text(part);
             }
 
-            // Apply accumulated formatting
             TextComponent.Builder partBuilder = partComponent.toBuilder();
             if (latestColor != null) partBuilder.color(latestColor);
             if (isBold)          partBuilder.decoration(TextDecoration.BOLD, true);
@@ -273,6 +257,24 @@ public class ShopMessage {
         Component result = builder.build();
         plugin.getLogger().spam("[ShopMessage] postFormat: " + toLegacy(result), true);
         return result;
+    }
+
+    /**
+     * Compat wrapper: formats a message string with an AbstractShop context.
+     * Replaces old-style formatMessage(String, AbstractShop, Player, boolean) call sites.
+     */
+    public static Component formatMessage(String message, AbstractShop shop, Player player, boolean unused) {
+        PlaceholderContext context = new PlaceholderContext();
+        context.setShop(shop);
+        if (player != null) context.setPlayer(player);
+        return format(message, context);
+    }
+
+    /**
+     * Compat wrapper: formats a message string with a PlaceholderContext.
+     */
+    public static Component formatMessage(String message, PlaceholderContext context) {
+        return format(message, context);
     }
 
     // -----------------------------------------------------------------------
@@ -354,7 +356,7 @@ public class ShopMessage {
     }
 
     // -----------------------------------------------------------------------
-    // embedItem — builds a Component with an item-hover event
+    // embedItem
     // -----------------------------------------------------------------------
 
     @SuppressWarnings("unchecked")
@@ -635,7 +637,6 @@ public class ShopMessage {
 
     @SuppressWarnings("unchecked")
     private static HoverEvent<?> getShopInfoHoverEvent(PlaceholderContext context) {
-        // Build a multi-line Component describing the shop
         TextComponent.Builder hoverText = Component.text();
         AbstractShop shop = context.getShop();
         ShopCreationProcess process = context.getProcess();
@@ -748,6 +749,45 @@ public class ShopMessage {
 
     public static String getUnformattedMessage(String key, String subkey) {
         return messageMap.get(key + "." + subkey);
+    }
+
+    /**
+     * Compat: returns a list of all unformatted messages for a given top-level key.
+     * Old callers used getUnformattedMessageList(key) to get all sub-messages.
+     */
+    public static List<String> getUnformattedMessageList(String key) {
+        List<String> result = new ArrayList<>();
+        for (Map.Entry<String, String> entry : messageMap.entrySet()) {
+            if (entry.getKey().startsWith(key + ".") || entry.getKey().equals(key)) {
+                result.add(entry.getValue());
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Compat: returns sign lines for a given shop type key.
+     * Old callers used getSignLines(shopType) instead of getShopSignText(shopType).
+     */
+    public static String[] getSignLines(String shopType) {
+        return getShopSignText(shopType);
+    }
+
+    /**
+     * Compat: returns display tag lines for a given shop type key.
+     * Old callers used getDisplayTags(shopType) instead of getDisplayText(shopType).
+     */
+    public static List<String> getDisplayTags(String shopType) {
+        return getDisplayText(shopType);
+    }
+
+    /**
+     * Compat: returns a list of formatted message strings from chatConfig for a
+     * given key path, used by order/transaction message systems.
+     * Old callers used getMessageFromOrders(key, subkey).
+     */
+    public static String getMessageFromOrders(String key, String subkey) {
+        return getUnformattedMessage(key, subkey);
     }
 
     public static String[] getShopSignText(String shopType) {
