@@ -179,7 +179,7 @@ public abstract class AbstractDisplay {
         }
 
         try {
-            ArrayList<String> displayTags = ShopMessage.getDisplayTags(getShop(), getShop().getType());
+            List<String> displayTags = ShopMessage.getDisplayTags(getShop(), getShop().getType());
 
             Location lowerTagLocation = getShop().getChestLocation().clone().add(0,1,0);
             lowerTagLocation = lowerTagLocation.add(0.5, 0.5, 0.5);

@@ -831,7 +831,7 @@ public class ShopHandler {
             if (containerType == Material.CHEST || containerType == Material.TRAPPED_CHEST
                     || containerType.name().endsWith("COPPER_CHEST")) { chestShops++; }
             if (containerType == Material.BARREL) { barrelShops++; }
-            if (containerType.name().endsWith("SHULKER_BOX")) { shulkerBoxShops++; }
+            if (containerType.name().endsWith("_SHULKER_BOX")) { shulkerBoxShops++; }
         }
         Map<String, Integer> containerTypes = new HashMap<>();
         containerTypes.put("Chest Shops", chestShops);
@@ -1271,9 +1271,9 @@ public class ShopHandler {
                 break;
             }
         }
-        // WHITELIST: must be on list. BLACKLIST: must NOT be on list.
-        if (listType == ItemListType.WHITELIST) return isOnList;
-        if (listType == ItemListType.BLACKLIST) return !isOnList;
+        // ALLOW_LIST: must be on list. DENY_LIST: must NOT be on list.
+        if (listType == ItemListType.ALLOW_LIST) return isOnList;
+        if (listType == ItemListType.DENY_LIST) return !isOnList;
         return true;
     }
 
