@@ -25,6 +25,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 import java.io.File;
 import java.io.IOException;
@@ -1185,8 +1186,13 @@ public class ShopHandler {
                             try { displayType = DisplayType.valueOf(displayTypeString); } catch (IllegalArgumentException e) { }
                         }
 
-                        AbstractShop shop = plugin.getShopFactory().createShop(
-                            shopType, signLocation, ownerUUID, price, amount, item, isAdmin
+                        // Fix 5: plugin.getShopFactory() doesn't exist — use AbstractShop.create() static factory.
+                        // Signature: create(Location, UUID, double price, double priCombo, int amt, Boolean admin, ShopType, BlockFace)
+                        // priceSell is the combo sell price; pass 0.0 for non-combo shops (unused).
+                        // facing may be null here; setFacing() is called below if non-null.
+                        AbstractShop shop = AbstractShop.create(
+                            signLocation, ownerUUID, price, (priceSell >= 0 ? priceSell : 0.0),
+                            amount, isAdmin, shopType, facing != null ? facing : BlockFace.NORTH
                         );
 
                         if (shop == null) continue;
@@ -1196,7 +1202,8 @@ public class ShopHandler {
                         else { addUnloadedShopToChunkList(shop); }
                         if (stock >= 0) shop.setStock(stock);
                         if (fakeSign) shop.setFakeSign(true);
-                        if (displayType != null) shop.getDisplay().setType(displayType);
+                        // Fix 6: setType(DisplayType) requires a second boolean arg — pass true to trigger display rebuild
+                        if (displayType != null) shop.getDisplay().setType(displayType, true);
                         if (shopType == ShopType.BARTER && barterItem != null) {
                             ((com.snowgears.shop.shop.BarterShop) shop).setSecondaryItemStack(barterItem);
                         }
@@ -1248,6 +1255,56 @@ public class ShopHandler {
 
     public int getItemListSize() { return itemListItems.size(); }
     public ArrayList<ItemStack> getItemListItems() { return itemListItems; }
+
+    /**
+     * Fix 8: passesItemListCheck — check whether an ItemStack is permitted by the item list.
+     * If the list is empty (ItemListType.NONE or no entries loaded), all items are allowed.
+     */
+    public boolean passesItemListCheck(ItemStack item) {
+        if (item == null) return false;
+        if (itemListItems.isEmpty()) return true;
+        ItemListType listType = plugin.getItemListType();
+        boolean isOnList = false;
+        for (ItemStack allowed : itemListItems) {
+            if (allowed != null && allowed.getType() == item.getType()) {
+                isOnList = true;
+                break;
+            }
+        }
+        // WHITELIST: must be on list. BLACKLIST: must NOT be on list.
+        if (listType == ItemListType.WHITELIST) return isOnList;
+        if (listType == ItemListType.BLACKLIST) return !isOnList;
+        return true;
+    }
+
+    /**
+     * Fix 9: addInventoryToItemList — adds all non-null items from a player's inventory
+     * to the runtime item list. Does not persist to disk.
+     */
+    public void addInventoryToItemList(PlayerInventory inv) {
+        for (ItemStack item : inv.getContents()) {
+            if (item == null) continue;
+            boolean alreadyPresent = false;
+            for (ItemStack existing : itemListItems) {
+                if (existing != null && existing.getType() == item.getType()) {
+                    alreadyPresent = true;
+                    break;
+                }
+            }
+            if (!alreadyPresent) itemListItems.add(item.clone());
+        }
+    }
+
+    /**
+     * Fix 9: removeInventoryFromItemList — removes items matching the types in a player's
+     * inventory from the runtime item list. Does not persist to disk.
+     */
+    public void removeInventoryFromItemList(PlayerInventory inv) {
+        for (ItemStack item : inv.getContents()) {
+            if (item == null) continue;
+            itemListItems.removeIf(existing -> existing != null && existing.getType() == item.getType());
+        }
+    }
 
     private void initItemList() {
         ItemListType listType = plugin.getItemListType();
