@@ -242,7 +242,7 @@ public class ShopMessage {
                 partComponent = Component.text(part);
             }
 
-            TextComponent.Builder partBuilder = partComponent.toBuilder();
+            TextComponent.Builder partBuilder = Component.text().append(partComponent);
             if (latestColor != null) partBuilder.color(latestColor);
             if (isBold)          partBuilder.decoration(TextDecoration.BOLD, true);
             if (isItalic)        partBuilder.decoration(TextDecoration.ITALIC, true);
@@ -263,11 +263,11 @@ public class ShopMessage {
      * Compat wrapper: formats a message string with an AbstractShop context.
      * Replaces old-style formatMessage(String, AbstractShop, Player, boolean) call sites.
      */
-    public static Component formatMessage(String message, AbstractShop shop, Player player, boolean unused) {
+    public static String formatMessage(String message, AbstractShop shop, Player player, boolean unused) {
         PlaceholderContext context = new PlaceholderContext();
         context.setShop(shop);
         if (player != null) context.setPlayer(player);
-        return format(message, context);
+        return toLegacy(format(message, context));
     }
 
     /**
@@ -753,7 +753,6 @@ public class ShopMessage {
 
     /**
      * Compat: returns a list of all unformatted messages for a given top-level key.
-     * Old callers used getUnformattedMessageList(key) to get all sub-messages.
      */
     public static List<String> getUnformattedMessageList(String key) {
         List<String> result = new ArrayList<>();
@@ -766,27 +765,84 @@ public class ShopMessage {
     }
 
     /**
-     * Compat: returns sign lines for a given shop type key.
-     * Old callers used getSignLines(shopType) instead of getShopSignText(shopType).
+     * Compat overload: returns a list of unformatted messages for a key+subkey pair.
+     * Old callers used getUnformattedMessageList(shopType, "description").
+     */
+    public static List<String> getUnformattedMessageList(String key, String subkey) {
+        List<String> result = new ArrayList<>();
+        String value = getUnformattedMessage(key, subkey);
+        if (value != null && !value.isEmpty()) result.add(value);
+        return result;
+    }
+
+    /**
+     * Compat: returns sign lines for a given shop type key string.
      */
     public static String[] getSignLines(String shopType) {
         return getShopSignText(shopType);
     }
 
     /**
+     * Compat overload: returns sign lines for a shop, resolving the type key from the shop.
+     * Old callers used getSignLines(AbstractShop, ShopType).
+     */
+    public static String[] getSignLines(AbstractShop shop, ShopType type) {
+        String key = (type != null ? type.toString() : (shop != null && shop.getType() != null ? shop.getType().toString() : "sell"));
+        String[] rawLines = getShopSignText(key);
+        if (shop == null) return rawLines;
+        PlaceholderContext context = new PlaceholderContext();
+        context.setShop(shop);
+        String[] formatted = new String[rawLines.length];
+        for (int i = 0; i < rawLines.length; i++) {
+            formatted[i] = toLegacy(format(rawLines[i], context));
+        }
+        return formatted;
+    }
+
+    /**
+     * Compat overload: returns sign lines for a named key, with a shop for placeholder context.
+     * Old callers used getSignLines("deleted", AbstractShop).
+     */
+    public static String[] getSignLines(String key, AbstractShop shop) {
+        String[] rawLines = getShopSignText(key);
+        if (shop == null) return rawLines;
+        PlaceholderContext context = new PlaceholderContext();
+        context.setShop(shop);
+        String[] formatted = new String[rawLines.length];
+        for (int i = 0; i < rawLines.length; i++) {
+            formatted[i] = toLegacy(format(rawLines[i], context));
+        }
+        return formatted;
+    }
+
+    /**
      * Compat: returns display tag lines for a given shop type key.
-     * Old callers used getDisplayTags(shopType) instead of getDisplayText(shopType).
      */
     public static List<String> getDisplayTags(String shopType) {
         return getDisplayText(shopType);
     }
 
     /**
-     * Compat: returns a list of formatted message strings from chatConfig for a
-     * given key path, used by order/transaction message systems.
-     * Old callers used getMessageFromOrders(key, subkey).
+     * Compat overload: returns display tag lines resolved from a shop and type.
+     * Old callers used getDisplayTags(AbstractShop, ShopType).
+     */
+    public static List<String> getDisplayTags(AbstractShop shop, ShopType type) {
+        String key = (type != null ? type.toString() : (shop != null && shop.getType() != null ? shop.getType().toString() : "sell"));
+        return getDisplayText(key);
+    }
+
+    /**
+     * Compat: returns a formatted message string for a given key path.
      */
     public static String getMessageFromOrders(String key, String subkey) {
+        return getUnformattedMessage(key, subkey);
+    }
+
+    /**
+     * Compat overload: ignores the extra numeric args that old callers passed.
+     * Old signature was getMessageFromOrders(ShopType, String, double, int) or similar.
+     */
+    public static String getMessageFromOrders(String key, String subkey, double amount, int count) {
         return getUnformattedMessage(key, subkey);
     }
 
