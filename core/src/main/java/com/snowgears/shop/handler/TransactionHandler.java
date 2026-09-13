@@ -174,7 +174,8 @@ public class TransactionHandler {
     private void sendExchangeMessagesAndLog(AbstractShop shop, Player player, ShopType transactionType, Transaction transaction) {
 
         double price = transaction.getPrice();
-        String message = ShopMessage.getMessageFromOrders(transactionType, "user", price, transaction.getAmount());
+        // Fix 1: ShopType cannot be passed as String — use .name().toLowerCase() as message key
+        String message = ShopMessage.getMessageFromOrders(transactionType.name().toLowerCase(), "user", price, transaction.getAmount());
 
         ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(player, PlayerSettings.Option.NOTIFICATION_SALE_USER);
         if(guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) {
@@ -185,7 +186,8 @@ public class TransactionHandler {
 
         Player owner = Bukkit.getPlayer(shop.getOwnerUUID());
         if ((owner != null) && (!shop.isAdmin())) {
-            message = ShopMessage.getMessageFromOrders(transactionType, "owner", price, transaction.getAmount());
+            // Fix 1: same pattern — ShopType → String key
+            message = ShopMessage.getMessageFromOrders(transactionType.name().toLowerCase(), "owner", price, transaction.getAmount());
 
             guiIcon = plugin.getGuiHandler().getIconFromOption(owner, PlayerSettings.Option.NOTIFICATION_SALE_OWNER);
             if(guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) {
