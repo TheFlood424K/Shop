@@ -11,14 +11,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       checks: write
 
     steps:
     - uses: actions/checkout@v7.0.1
       with:
-        # Full history is required for the diff-cover git range comparison.
+        # Full history is required for the diff-cover git range comparison
+        # and for the changelog commit-log between tags.
         fetch-depth: 0
 
     - name: Set up JDK
@@ -35,9 +36,7 @@ jobs:
         printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
 
     # Single combined cache for both the SpigotBuildTools working directory
-    # and the installed Spigot/Bukkit Maven artifacts. Previously two separate
-    # cache steps shared the identical key and paths, meaning one was always
-    # redundant. Merging them halves cache upload/download overhead.
+    # and the installed Spigot/Bukkit Maven artifacts.
     - name: Cache Spigot build outputs and Maven artifacts
       uses: actions/cache@v6.1.0
       with:
@@ -81,10 +80,6 @@ jobs:
 
     # -ntp  suppresses artifact download progress lines (the main source of log noise).
     # -T 1C builds all Maven modules in parallel using one thread per CPU core.
-    # The separate dependency:go-offline pre-fetch step has been removed: it forced
-    # an extra JVM startup, used -U (force-update) which conflicted with -nsu on the
-    # real build, and provided no speed benefit when the Maven cache is warm.
-    # All dependency resolution now happens in this single invocation.
     - name: Build
       run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} clean package
 
@@ -106,12 +101,6 @@ jobs:
         ./scripts/run-diff-cover.sh "origin/${{ github.base_ref }}" ./scripts/diff-cover.md ./scripts/diff-cover.html
       continue-on-error: true
 
-    # compression-level: 0 stores the .jar as-is inside the artifact container
-    # without a re-compression pass. GitHub's artifact storage always uses a zip
-    # envelope, but at level 0 the envelope is a plain store (no deflate), so
-    # the downloaded file is the raw .jar with no extra wrapper zip to unpack.
-    # if-no-files-found: error turns a missing JAR into a hard failure rather
-    # than a silent empty artifact.
     - name: Upload Artifact
       id: upload-shop-jar
       uses: actions/upload-artifact@v7.0.1
@@ -176,8 +165,41 @@ jobs:
         pass-emoji: ':green_circle:'
         fail-emoji: ':small_orange_diamond:'
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v3.0.1
+    # Only runs on tag pushes (v*).
+    # 1. Generates a commit-log changelog between the previous tag and this one.
+    # 2. Passes it to softprops via body_path for a rich release description.
+    # 3. generate_release_notes: true appends GitHub's auto-generated PR list
+    #    (categorised by .github/release.yml) below the commit log.
+    - name: Generate changelog
       if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        CURRENT_TAG="${GITHUB_REF_NAME}"
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n 1)
+
+        {
+          echo "## What's Changed"
+          echo ""
+          if [ -n "$PREVIOUS_TAG" ]; then
+            echo "### Commits since ${PREVIOUS_TAG}"
+            git log "${PREVIOUS_TAG}..HEAD" \
+              --pretty=format:'- [`%h`](https://github.com/${{ github.repository }}/commit/%H) %s (%an)' \
+              --no-merges
+          else
+            echo "### All Commits"
+            git log HEAD \
+              --pretty=format:'- [`%h`](https://github.com/${{ github.repository }}/commit/%H) %s (%an)' \
+              --no-merges
+          fi
+          echo ""
+          echo ""
+          echo "**Full diff:** https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}"
+        } > changelog.md
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v3.0.3
       with:
         files: '**/target/Shop-*.jar'
+        body_path: changelog.md
+        generate_release_notes: true
+        make_latest: true
