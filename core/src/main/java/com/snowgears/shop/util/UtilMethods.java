@@ -207,7 +207,7 @@ public class UtilMethods {
 
     /**
      * Strips non-numeric characters from a price/number string and returns it clean.
-     * E.g. "$1,234.56" → "1234.56"
+     * E.g. "$1,234.56" -> "1234.56"
      */
     public static String cleanNumberText(String text) {
         if (text == null) return "0";
@@ -239,7 +239,7 @@ public class UtilMethods {
 
     /**
      * Returns the multiplier value for an item amount string.
-     * E.g. "x4" → 4, "4" → 4, null/invalid → 1.
+     * E.g. "x4" -> 4, "4" -> 4, null/invalid -> 1.
      */
     public static int getMultiplyValue(String text) {
         if (text == null) return 1;
@@ -590,9 +590,9 @@ public class UtilMethods {
         if(item.getItemMeta() != null && item.getItemMeta() instanceof ArmorMeta){
             ArmorMeta armorMeta = (ArmorMeta) item.getItemMeta();
             if (armorMeta.getTrim() != null) {
-                // Use getKey().getKey() instead of deprecated translationKey()
-                String material = armorMeta.getTrim().getMaterial().getKey().getKey().replace("_", " ");
-                String pattern = armorMeta.getTrim().getPattern().getKey().getKey().replace("_", " ");
+                // Use Adventure key().value() instead of deprecated Bukkit getKey().getKey()
+                String material = armorMeta.getTrim().getMaterial().key().value().replace("_", " ");
+                String pattern = armorMeta.getTrim().getPattern().key().value().replace("_", " ");
                 builder.append(Component.text(" [" + capitalize(pattern)));
                 builder.append(Component.text(" (" + capitalize(material) + ")]"));
             }
@@ -616,7 +616,8 @@ public class UtilMethods {
                 try {
                     org.bukkit.inventory.meta.MusicInstrumentMeta instrumentMeta = (org.bukkit.inventory.meta.MusicInstrumentMeta) item.getItemMeta();
                     if (instrumentMeta.getInstrument() != null) {
-                        String instrumentName = capitalize(instrumentMeta.getInstrument().getKey().getKey().replace("_", " "));
+                        // Use Adventure key().value() instead of deprecated Bukkit getKey().getKey()
+                        String instrumentName = capitalize(instrumentMeta.getInstrument().key().value().replace("_", " "));
                         builder.append(Component.text(" [" + instrumentName + "]"));
                     }
                 } catch (Exception e) {}
