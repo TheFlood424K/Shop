@@ -27,6 +27,7 @@ import org.bukkit.persistence.PersistentDataType;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 import static com.snowgears.shop.util.UtilMethods.isMCVersion17Plus;
 
@@ -54,6 +55,22 @@ public abstract class AbstractShop {
 
     protected int stock;
     protected Material cachedContainerType;
+
+    /**
+     * Matches a JSON-style font key inside a text component SNBT string, e.g.
+     *   "font":"phoenixcrates:default"
+     * including any leading comma+whitespace so the surrounding JSON remains valid.
+     */
+    private static final Pattern SNBT_FONT_JSON_PATTERN =
+            Pattern.compile(",?\\s*\"font\":\"[^\"]+\"");
+
+    /**
+     * Matches an SNBT compound-tag font key, e.g.
+     *   font:'phoenixcrates:default'
+     * including any leading comma+whitespace.
+     */
+    private static final Pattern SNBT_FONT_COMPOUND_PATTERN =
+            Pattern.compile(",?\\s*font='[^']+'");
 
     public AbstractShop(Location signLoc, UUID player, double pri, int amt, Boolean admin, BlockFace facing) {
         this.signLocation = signLoc;
@@ -381,23 +398,52 @@ public abstract class AbstractShop {
         // If the item stack passed is null, go ahead and just skip it.
         if (is == null) return;
 
-        // Remove "0 Damage" from item meta (old config bug)
-        ItemStack cleaned = this.removeZeroDamageMeta(is.clone());
+        // Strip custom font tags BEFORE removeZeroDamageMeta().
+        //
+        // removeZeroDamageMeta() serialises the item to an SNBT component string via
+        // getAsComponentString() and then reconstructs it with createItemStack(snbt).
+        // That round-trip bakes any Adventure-level font tag (e.g. the
+        // "font":"phoenixcrates:default" that PhoenixCrates injects) into the raw SNBT
+        // as an opaque text literal.  Once baked into SNBT, the Adventure Component API
+        // sees no font in the Style object, so a subsequent stripFontFromItem() call
+        // becomes a no-op and the font stays in the stored reference item forever.
+        //
+        // By stripping at the Adventure level FIRST (before the SNBT round-trip), we
+        // ensure the font is gone before anything gets baked.
+        ItemStack fontStripped = InventoryUtils.stripFontFromItem(is.clone());
 
-        // Strip custom font tags from the stored reference item so that crate plugin
-        // items are stored font-neutrally.
-        this.item = InventoryUtils.stripFontFromItem(cleaned);
+        // Remove "0 Damage" from item meta (old config bug), now on a font-clean clone.
+        this.item = this.removeZeroDamageMeta(fontStripped);
         this.calculateStock();
         this.updateSign(true);
     }
 
     public void setSecondaryItemStack(ItemStack is) {
-        ItemStack cleaned = this.removeZeroDamageMeta(is.clone());
-        this.secondaryItem = InventoryUtils.stripFontFromItem(cleaned);
+        // Same ordering rationale as setItemStack(): strip font before SNBT round-trip.
+        ItemStack fontStripped = InventoryUtils.stripFontFromItem(is.clone());
+        this.secondaryItem = this.removeZeroDamageMeta(fontStripped);
         this.calculateStock();
         this.updateSign(true);
     }
 
+    /**
+     * Removes the spurious "minecraft:damage=0" component that old versions of the
+     * plugin accidentally serialised into item configs.  Operates by round-tripping
+     * the item through the SNBT component string representation.
+     *
+     * <p>Belt-and-suspenders font defence: before handing the component string to
+     * {@code createItemStack()}, we strip any raw SNBT font keys with a regex.  This
+     * covers items that somehow reach this method with a font already baked at the
+     * SNBT level (e.g. loaded from a config that was saved before the Adventure-level
+     * stripping in {@code setItemStack()} was introduced, or items reconstructed via
+     * {@code createItemStack()} elsewhere).  The regex targets two SNBT forms:
+     * <ul>
+     *   <li>{@code "font":"namespace:path"} — JSON-style inside a text component</li>
+     *   <li>{@code font='namespace:path'}   — SNBT compound-tag style</li>
+     * </ul>
+     * Leading comma/whitespace is consumed along with the key so the surrounding SNBT
+     * remains syntactically valid.</p>
+     */
     public ItemStack removeZeroDamageMeta(ItemStack item) {
         try {
             if (item.getItemMeta() instanceof Damageable && ((Damageable) item.getItemMeta()).getDamage() == 0) {
@@ -406,6 +452,12 @@ public abstract class AbstractShop {
                 components = components.replace(",minecraft:damage=0", "");
                 components = components.replace("minecraft:damage=0,", "");
                 components = components.replace("minecraft:damage=0", "");
+
+                // Belt-and-suspenders: strip any raw SNBT font keys that may have been
+                // baked in by a previous createItemStack() round-trip (e.g. PhoenixCrates
+                // custom-font items stored before the Adventure-level strip was added).
+                components = SNBT_FONT_JSON_PATTERN.matcher(components).replaceAll("");
+                components = SNBT_FONT_COMPOUND_PATTERN.matcher(components).replaceAll("");
 
                 String itemTypeKey = item.getType().getKey().toString();
                 String itemAsString = itemTypeKey + components;
