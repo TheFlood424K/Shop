@@ -17,6 +17,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v7.0.1
+      with:
+        # Full history is required for the diff-cover git range comparison.
+        fetch-depth: 0
 
     - name: Set up JDK
       uses: actions/setup-java@v6.0.1
@@ -31,23 +34,20 @@ jobs:
       run: |
         printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
 
-    - name: Cache SpigotBuildTools output
-      uses: actions/cache@v5.1.0
+    # Single combined cache for both the SpigotBuildTools working directory
+    # and the installed Spigot/Bukkit Maven artifacts. Previously two separate
+    # cache steps shared the identical key and paths, meaning one was always
+    # redundant. Merging them halves cache upload/download overhead.
+    - name: Cache Spigot build outputs and Maven artifacts
+      uses: actions/cache@v6.1.0
       with:
-        path: ./SpigotBuildTools
+        path: |
+          ./SpigotBuildTools
+          ~/.m2/repository/org/spigotmc
+          ~/.m2/repository/org/bukkit
         key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
         restore-keys: |
           ${{ runner.os }}-spigot-
-
-    - name: Cache Spigot Maven artifacts
-      uses: actions/cache@v5.1.0
-      with:
-        path: |
-          ~/.m2/repository/org/spigotmc
-          ~/.m2/repository/org/bukkit
-        key: ${{ runner.os }}-spigot-maven-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
-        restore-keys: |
-          ${{ runner.os }}-spigot-maven-
 
     - name: Compute version with commit hash
       run: |
@@ -79,16 +79,18 @@ jobs:
         chmod +x ./scripts/install-blockprot-api.sh
         ./scripts/install-blockprot-api.sh
 
-    - name: Pre-fetch Maven dependencies (go-offline)
-      run: mvn -B -U -ntp -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
-      continue-on-error: true
-
+    # -ntp  suppresses artifact download progress lines (the main source of log noise).
+    # -T 1C builds all Maven modules in parallel using one thread per CPU core.
+    # The separate dependency:go-offline pre-fetch step has been removed: it forced
+    # an extra JVM startup, used -U (force-update) which conflicted with -nsu on the
+    # real build, and provided no speed benefit when the Maven cache is warm.
+    # All dependency resolution now happens in this single invocation.
     - name: Build
-      run: mvn -B -nsu -Drevision=${{ env.VERSION }} clean package
+      run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} clean package
 
     - name: Publish Test Results
       if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
-      uses: dorny/test-reporter@v3.0.0
+      uses: dorny/test-reporter@v2.1.0
       continue-on-error: true
       with:
         name: JUnit Tests
@@ -114,7 +116,7 @@ jobs:
     - name: Upload diff-cover HTML artifact
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       id: upload-diff-cover-report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7.0.1
       with:
         name: diff-cover-report.html
         path: scripts/diff-cover.html
@@ -147,13 +149,13 @@ jobs:
 
     - name: Build Summary
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      uses: marocchino/sticky-pull-request-comment@v3.0.5
+      uses: marocchino/sticky-pull-request-comment@v2.9.4
       with:
         path: build-summary.md
 
     - name: Comment PR with JaCoCo Coverage Report
       if: always() && hashFiles('**/target/site/jacoco/jacoco.xml') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-      uses: madrapps/jacoco-report@v1.8.0
+      uses: madrapps/jacoco-report@v1.7.1
       continue-on-error: true
       with:
         paths: |
@@ -167,7 +169,7 @@ jobs:
         fail-emoji: ':small_orange_diamond:'
 
     - name: Create Release
-      uses: softprops/action-gh-release@v3.0.0
+      uses: softprops/action-gh-release@v3.0.1
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: '**/target/Shop-*.jar'
