@@ -590,9 +590,10 @@ public class UtilMethods {
         if(item.getItemMeta() != null && item.getItemMeta() instanceof ArmorMeta){
             ArmorMeta armorMeta = (ArmorMeta) item.getItemMeta();
             if (armorMeta.getTrim() != null) {
-                // Use Adventure key().value() instead of deprecated Bukkit getKey().getKey()
-                String material = armorMeta.getTrim().getMaterial().key().value().replace("_", " ");
-                String pattern = armorMeta.getTrim().getPattern().key().value().replace("_", " ");
+                // Use Bukkit Keyed#getKey() -> NamespacedKey#getKey() to get the path string.
+                // This avoids the deprecated Adventure net.kyori.adventure.key.Keyed#key() method.
+                String material = armorMeta.getTrim().getMaterial().getKey().getKey().replace("_", " ");
+                String pattern = armorMeta.getTrim().getPattern().getKey().getKey().replace("_", " ");
                 builder.append(Component.text(" [" + capitalize(pattern)));
                 builder.append(Component.text(" (" + capitalize(material) + ")]"));
             }
@@ -616,8 +617,9 @@ public class UtilMethods {
                 try {
                     org.bukkit.inventory.meta.MusicInstrumentMeta instrumentMeta = (org.bukkit.inventory.meta.MusicInstrumentMeta) item.getItemMeta();
                     if (instrumentMeta.getInstrument() != null) {
-                        // Use Adventure key().value() instead of deprecated Bukkit getKey().getKey()
-                        String instrumentName = capitalize(instrumentMeta.getInstrument().key().value().replace("_", " "));
+                        // Use Bukkit Keyed#getKey() -> NamespacedKey#getKey() to get the path string.
+                        // This avoids the deprecated Adventure net.kyori.adventure.key.Keyed#key() method.
+                        String instrumentName = capitalize(instrumentMeta.getInstrument().getKey().getKey().replace("_", " "));
                         builder.append(Component.text(" [" + instrumentName + "]"));
                     }
                 } catch (Exception e) {}
