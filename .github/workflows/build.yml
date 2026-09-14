@@ -90,7 +90,7 @@ jobs:
 
     - name: Publish Test Results
       if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
-      uses: dorny/test-reporter@v2.1.0
+      uses: dorny/test-reporter@v3.0.0
       continue-on-error: true
       with:
         name: JUnit Tests
@@ -149,13 +149,13 @@ jobs:
 
     - name: Build Summary
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      uses: marocchino/sticky-pull-request-comment@v2.9.4
+      uses: marocchino/sticky-pull-request-comment@v3.0.5
       with:
         path: build-summary.md
 
     - name: Comment PR with JaCoCo Coverage Report
       if: always() && hashFiles('**/target/site/jacoco/jacoco.xml') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-      uses: madrapps/jacoco-report@v1.7.1
+      uses: madrapps/jacoco-report@v1.8.0
       continue-on-error: true
       with:
         paths: |
