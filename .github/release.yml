@@ -1,0 +1,26 @@
+# Controls how GitHub groups PRs in the auto-generated release notes
+# (appended below the commit-log changelog by generate_release_notes: true).
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: "🚀 Features"
+      labels:
+        - enhancement
+        - feature
+    - title: "🐛 Bug Fixes"
+      labels:
+        - bug
+        - fix
+    - title: "⚙️ CI / Chore"
+      labels:
+        - ci
+        - chore
+        - documentation
+    - title: "📦 Dependencies"
+      labels:
+        - dependencies
+        - dependabot
+    - title: "🔧 Other Changes"
+      labels: ["*"]
