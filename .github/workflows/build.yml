@@ -14,44 +14,25 @@ jobs:
       contents: read
       pull-requests: write
       checks: write
-    
+
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Fetch all history for all branches and tags
-      
+
     - name: Set up JDK
       uses: actions/setup-java@v5
       with:
         java-version: '25'
         distribution: 'temurin'
-        # Built-in Maven cache — restores/saves ~/.m2/repository keyed on pom.xml files.
-        # This alone handles normal dependency caching between runs.
         cache: 'maven'
-
-    # Explicit cache for the local Maven repository so the key can be tuned
-    # independently and the cache is always saved even when the build fails.
-    - name: Cache Maven local repository
-      uses: actions/cache@v4
-      with:
-        path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-maven-
-        save-always: true
 
     - name: Cache SpigotBuildTools output
       uses: actions/cache@v4
       with:
-        path: |
-          ./SpigotBuildTools
+        path: ./SpigotBuildTools
         key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
         restore-keys: |
           ${{ runner.os }}-spigot-
 
-    # Cache the Spigot/CraftBukkit jars that BuildTools installs into the
-    # local Maven repo so they survive across runs even when the spigot
-    # cache above misses (e.g. after a Dockerfile change).
     - name: Cache Spigot Maven artifacts
       uses: actions/cache@v4
       with:
@@ -61,29 +42,21 @@ jobs:
         key: ${{ runner.os }}-spigot-maven-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
         restore-keys: |
           ${{ runner.os }}-spigot-maven-
-        save-always: true
-        
+
     - name: Compute version with commit hash
       run: |
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          COMMIT_HASH=${{ github.event.pull_request.head.sha }}
+          COMMIT_HASH="${{ github.event.pull_request.head.sha }}"
         else
-          COMMIT_HASH=${{ github.sha }}
+          COMMIT_HASH="${{ github.sha }}"
         fi
-        COMMIT_HASH=${COMMIT_HASH:0:7}
+        COMMIT_HASH="${COMMIT_HASH:0:7}"
 
         CURRENT_VERSION=$(grep -m 1 "<revision>" pom.xml | sed 's/.*<revision>\(.*\)<\/revision>.*/\1/')
         NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
 
-        echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
-        echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> $GITHUB_ENV
-        
-    - name: Generate Maven toolchains.xml (JDK 25)
-      run: |
-        mkdir -p ~/.m2
-        printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
-        echo "Generated toolchains.xml:"
-        cat ~/.m2/toolchains.xml
+        echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
+        echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
 
     - name: Build Maven Repository
       run: |
@@ -99,19 +72,16 @@ jobs:
       run: |
         chmod +x ./scripts/install-blockprot-api.sh
         ./scripts/install-blockprot-api.sh
-    
+
     - name: Pre-fetch Maven dependencies (go-offline)
-      run: |
-        mvn -B -U -ntp -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
-      # This is an optimization step only. It is known to be overly strict for some optional/provided integrations
-      # (e.g., external plugin APIs with unpublished transitive deps), which can cause spurious CI failures.
+      run: mvn -B -U -ntp -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
       continue-on-error: true
 
     - name: Build
       run: mvn -B -nsu -Drevision=${{ env.VERSION }} clean package
 
     - name: Publish Test Results
-      if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
       uses: dorny/test-reporter@v2
       continue-on-error: true
       with:
@@ -121,16 +91,6 @@ jobs:
         fail-on-error: false
         fail-on-empty: false
 
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v4
-    #   continue-on-error: true
-    #   with:
-    #     files: '**/target/site/jacoco/jacoco.xml'
-    #     flags: java
-    #     fail_ci_if_error: false
-    #     verbose: true
-    #     # no need for token, it's not required for our use case
-      
     - name: Generate diff-cover report
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       run: |
@@ -144,7 +104,7 @@ jobs:
       with:
         name: ${{ env.JAR_FILENAME }}
         path: '**/target/Shop-*.jar'
-        
+
     - name: Upload diff-cover HTML artifact
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       id: upload-diff-cover-report
@@ -186,7 +146,7 @@ jobs:
         path: build-summary.md
 
     - name: Comment PR with JaCoCo Coverage Report
-      if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      if: always() && hashFiles('**/target/site/jacoco/jacoco.xml') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       uses: madrapps/jacoco-report@v1.7.0
       continue-on-error: true
       with:
@@ -199,7 +159,7 @@ jobs:
         update-comment: true
         pass-emoji: ':green_circle:'
         fail-emoji: ':small_orange_diamond:'
-      
+
     - name: Create Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
