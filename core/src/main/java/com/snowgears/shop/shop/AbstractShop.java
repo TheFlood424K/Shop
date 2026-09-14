@@ -410,7 +410,7 @@ public abstract class AbstractShop {
         //
         // By stripping at the Adventure level FIRST (before the SNBT round-trip), we
         // ensure the font is gone before anything gets baked.
-        ItemStack fontStripped = InventoryUtils.stripFontFromItem(is.clone());
+        ItemStack fontStripped = ItemStackUtils.stripFontFromItem(is.clone());
 
         // Remove "0 Damage" from item meta (old config bug), now on a font-clean clone.
         this.item = this.removeZeroDamageMeta(fontStripped);
@@ -420,7 +420,7 @@ public abstract class AbstractShop {
 
     public void setSecondaryItemStack(ItemStack is) {
         // Same ordering rationale as setItemStack(): strip font before SNBT round-trip.
-        ItemStack fontStripped = InventoryUtils.stripFontFromItem(is.clone());
+        ItemStack fontStripped = ItemStackUtils.stripFontFromItem(is.clone());
         this.secondaryItem = this.removeZeroDamageMeta(fontStripped);
         this.calculateStock();
         this.updateSign(true);
