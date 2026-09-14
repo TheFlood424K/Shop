@@ -410,7 +410,13 @@ public abstract class AbstractShop {
         //
         // By stripping at the Adventure level FIRST (before the SNBT round-trip), we
         // ensure the font is gone before anything gets baked.
-        ItemStack fontStripped = ItemStackUtils.stripFontFromItem(is.clone());
+        //
+        // InventoryUtils.stripFontFromItem is used here (rather than
+        // ItemStackUtils.stripFontFromItem) because it is the full recursive version:
+        // it strips the font from displayName(), itemName() (Paper 1.20.5+), AND every
+        // lore line — covering all three component fields that PhoenixCrates (and similar
+        // crate plugins) can populate with a custom resource-pack font.
+        ItemStack fontStripped = InventoryUtils.stripFontFromItem(is.clone());
 
         // Remove "0 Damage" from item meta (old config bug), now on a font-clean clone.
         this.item = this.removeZeroDamageMeta(fontStripped);
@@ -420,7 +426,8 @@ public abstract class AbstractShop {
 
     public void setSecondaryItemStack(ItemStack is) {
         // Same ordering rationale as setItemStack(): strip font before SNBT round-trip.
-        ItemStack fontStripped = ItemStackUtils.stripFontFromItem(is.clone());
+        // InventoryUtils.stripFontFromItem strips displayName, itemName, and all lore lines.
+        ItemStack fontStripped = InventoryUtils.stripFontFromItem(is.clone());
         this.secondaryItem = this.removeZeroDamageMeta(fontStripped);
         this.calculateStock();
         this.updateSign(true);
