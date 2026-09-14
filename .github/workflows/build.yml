@@ -106,12 +106,20 @@ jobs:
         ./scripts/run-diff-cover.sh "origin/${{ github.base_ref }}" ./scripts/diff-cover.md ./scripts/diff-cover.html
       continue-on-error: true
 
+    # compression-level: 0 stores the .jar as-is inside the artifact container
+    # without a re-compression pass. GitHub's artifact storage always uses a zip
+    # envelope, but at level 0 the envelope is a plain store (no deflate), so
+    # the downloaded file is the raw .jar with no extra wrapper zip to unpack.
+    # if-no-files-found: error turns a missing JAR into a hard failure rather
+    # than a silent empty artifact.
     - name: Upload Artifact
       id: upload-shop-jar
       uses: actions/upload-artifact@v7.0.1
       with:
         name: ${{ env.JAR_FILENAME }}
         path: '**/target/Shop-*.jar'
+        compression-level: 0
+        if-no-files-found: error
 
     - name: Upload diff-cover HTML artifact
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
