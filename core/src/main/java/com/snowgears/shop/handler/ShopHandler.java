@@ -1185,7 +1185,7 @@ public class ShopHandler {
                         }
                         ShopType shopType;
                         try {
-                            shopType = ShopType.valueOf(typeString);
+                            shopType = ShopType.valueOf(typeString.toUpperCase());
                         } catch (IllegalArgumentException e) {
                             plugin.getLogger().warning("Skipping shop with invalid type: " + typeString);
                             continue;
