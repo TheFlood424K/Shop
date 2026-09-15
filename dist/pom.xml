@@ -38,11 +38,10 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <artifactSet>
-                                <includes>
-                                    <include>com.snowgears.shop:shop-*</include>
-                                </includes>
-                            </artifactSet>
+                            <!-- No <artifactSet><includes> restriction: bundle all compile-scoped
+                                 deps (FoliaLib, HikariCP, MariaDB, H2) plus our own modules.
+                                 Provided-scoped deps (PaperMC, Vault, WorldGuard, etc.) are
+                                 already excluded by Maven's shade plugin by default. -->
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
@@ -51,6 +50,14 @@
                                     </excludes>
                                 </filter>
                             </filters>
+                            <relocations>
+                                <!-- Relocate FoliaLib to our namespace to avoid classpath
+                                     conflicts with other plugins that also bundle FoliaLib. -->
+                                <relocation>
+                                    <pattern>com.tcoded.folialib</pattern>
+                                    <shadedPattern>com.snowgears.shop.libs.folialib</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>
