@@ -1230,6 +1230,12 @@ public class ShopHandler {
                         if (stock >= 0) shop.setStock(stock);
                         if (fakeSign) shop.setFakeSign(true);
                         if (displayType != null) shop.getDisplay().setType(displayType, true);
+                        // Restore the primary item from disk — without this call the shop's item field
+                        // remains null, isInitialized() returns false, and all purchases/displays are
+                        // silently skipped after every server restart.
+                        if (item != null) {
+                            shop.setItemStack(item);
+                        }
                         if (shopType == ShopType.BARTER && barterItem != null) {
                             ((com.snowgears.shop.shop.BarterShop) shop).setSecondaryItemStack(barterItem);
                         }
