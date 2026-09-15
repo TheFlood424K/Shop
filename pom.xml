@@ -25,14 +25,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.15.0</version>
                 <configuration>
-                    <!-- Compile to Java 21 bytecode (class file major version 65).
-                         maven-shade-plugin 3.6.0 bundles ASM 9.6 which understands
-                         up to Java 22 (major 66) but not Java 25 (major 69).
-                         The JDK 25 toolchain is still used to compile, so all
-                         Paper/Adventure APIs remain accessible; only the output
-                         class file version is lowered. Java 21 is the current LTS
-                         and the minimum version Paper itself requires at runtime. -->
-                    <release>21</release>
+                    <release>25</release>
                     <compilerArgs>
                         <arg>-parameters</arg>
                     </compilerArgs>
@@ -43,7 +36,7 @@
 
     <properties>
         <revision>1.13.3</revision>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
