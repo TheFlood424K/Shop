@@ -482,6 +482,9 @@ public class Shop extends JavaPlugin {
         teleportCooldown = config.getDouble("teleportCooldown");
         returnCreationCost = config.getBoolean("returnCreationCost");
         allowPartialSales = config.getBoolean("allowPartialSales");
+        // FIX: taxPercent was declared and exposed via getTaxPercent() but never loaded from config,
+        // causing it to silently return 0.0 regardless of the value set in config.yml.
+        taxPercent = config.getDouble("taxPercent", 0.0);
 
         try {
             itemListType = ItemListType.valueOf(config.getString("itemList"));
@@ -489,10 +492,9 @@ public class Shop extends JavaPlugin {
             itemListType = ItemListType.NONE;
         }
 
+        // FIX: removed the redundant for-loop that re-added every world from config a second time,
+        // causing every entry in worldBlacklist to appear twice in worldBlackList.
         worldBlackList = config.getStringList("worldBlacklist");
-        for(String world : config.getStringList("worldBlacklist")){
-            worldBlackList.add(world);
-        }
 
         clickTypeActionMap = new HashMap<>();
         clickTypeActionMap.put(ShopClickType.valueOf(config.getString("actionMappings.transactWithShop")), ShopAction.TRANSACT);
@@ -859,6 +861,14 @@ public class Shop extends JavaPlugin {
 
     public void reload(){
         this.getLogger().info("Reloading Shop " + this.getDescription().getVersion());
+
+        // FIX: cancel all outstanding FoliaLib tasks (including the BlueMap polling timer) before
+        // unregistering listeners. Without this, the BlueMap timer started by the previous
+        // onEnable() could fire between the HandlerList.unregisterAll() calls and onDisable(),
+        // attempting to register a stale listener on the wrong plugin instance.
+        if (foliaLib != null) {
+            foliaLib.getScheduler().cancelAllTasks();
+        }
 
         HandlerList.unregisterAll(displayListener);
         HandlerList.unregisterAll(shopListener);
