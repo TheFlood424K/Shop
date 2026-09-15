@@ -4,6 +4,7 @@ import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.DisplayType;
 import com.snowgears.shop.event.PlayerCreateShopEvent;
 import com.snowgears.shop.event.PlayerInitializeShopEvent;
+import com.snowgears.shop.hook.GriefPreventionTrustListener;
 import com.snowgears.shop.hook.TownyHook;
 import com.snowgears.shop.hook.WorldGuardHook;
 import com.snowgears.shop.shop.AbstractShop;
@@ -77,7 +78,6 @@ public class ShopCreationUtil {
             }
         }
 
-
         //do a check for the WorldGuard region (optional hook)
         boolean canCreateShopInRegion = true;
         try {
@@ -96,6 +96,21 @@ public class ShopCreationUtil {
             }
         } catch (NoClassDefFoundError e) {
             //tried to hook towny but it was not registered
+            e.printStackTrace();
+        }
+
+        // Check GriefPrevention build rights at the chest location before any block
+        // mutations occur.  Without this check GP fires its own "can't build here"
+        // message mid-creation when the plugin calls signBlock.setType() to convert a
+        // standing sign into a wall sign inside a protected claim.
+        try {
+            if (plugin.isGriefPreventionTrustIntegrationEnabled()) {
+                if (!GriefPreventionTrustListener.canPlayerBuildAt(player, chest.getLocation())) {
+                    canCreateShopInRegion = false;
+                }
+            }
+        } catch (NoClassDefFoundError e) {
+            // GriefPrevention was not registered — ignore.
             e.printStackTrace();
         }
 
@@ -170,11 +185,8 @@ public class ShopCreationUtil {
                 if (!signBlock.getType().toString().contains("_SIGN")) {
                     return null;
                 }
-                // Bug 1 fix: Material.valueOf() throws an uncaught IllegalArgumentException if the
-                // constructed wall-sign material name does not exist in the registry (e.g. for sign
-                // types whose wall variant has a different name, or future MC versions that rename
-                // materials).  Use Material.matchMaterial() instead, which returns null on no match,
-                // so we can log a clear warning and abort gracefully rather than crashing silently.
+                // Bug 1 fix: use matchMaterial() instead of valueOf() to avoid an uncaught
+                // IllegalArgumentException when the constructed wall-sign name isn't registered.
                 String wallSignString = signBlock.getType().toString().replaceAll("_SIGN", "_WALL_SIGN");
                 Material wallSignMaterial = Material.matchMaterial(wallSignString);
                 if (wallSignMaterial == null) {

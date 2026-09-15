@@ -7,6 +7,7 @@ import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -80,6 +81,52 @@ public class GriefPreventionTrustListener implements Listener {
             return buildDenial == null || containerDenial == null;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    /**
+     * Static helper used by {@link com.snowgears.shop.util.ShopCreationUtil} to
+     * pre-check whether a player has permission to build at a given location
+     * <em>before</em> any block mutations (sign type conversion) occur during shop
+     * creation.  This prevents GriefPrevention from firing its own "can't build
+     * here" denial message mid-creation.
+     *
+     * <p>Returns {@code true} (allow) when:
+     * <ul>
+     *   <li>GriefPrevention is not loaded or its instance is null</li>
+     *   <li>the location is not inside any claim</li>
+     *   <li>the player is the claim owner</li>
+     *   <li>the player has build or container trust in the claim</li>
+     * </ul>
+     * Returns {@code false} only when GP is active, the location is in a claim,
+     * and the player has neither build nor container trust.</p>
+     *
+     * @param player   the player attempting to create a shop
+     * @param location the location to check (sign block or chest block)
+     * @return {@code true} if the player may build at that location
+     */
+    public static boolean canPlayerBuildAt(Player player, Location location) {
+        try {
+            GriefPrevention gp = GriefPrevention.instance;
+            if (gp == null) return true; // GP not running — allow
+
+            Claim claim = gp.dataStore.getClaimAt(location, false, null);
+            if (claim == null) return true; // not in a claim — allow
+
+            // Claim owner always has full rights.
+            if (claim.getOwnerID() != null && claim.getOwnerID().equals(player.getUniqueId())) {
+                return true;
+            }
+
+            // allowBuild / allowContainers return null when the player IS trusted.
+            String buildDenial     = claim.allowBuild(player, Material.AIR);
+            String containerDenial = claim.allowContainers(player);
+
+            // Either null means the player has that level of trust — allow.
+            return buildDenial == null || containerDenial == null;
+        } catch (Exception e) {
+            // Fail open: if anything goes wrong, don't block shop creation.
+            return true;
         }
     }
 
