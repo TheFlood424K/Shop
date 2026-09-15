@@ -29,7 +29,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.4</version>
+                <!-- 3.6.2 bundles ASM 9.9.1 which natively supports Java 25
+                     class file major version 69. No ASM override needed. -->
+                <version>3.6.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -38,19 +40,41 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+
+                            <!-- Skip all provided-scope / server-side artifacts.
+                                 shade must never open these jars. -->
                             <artifactSet>
-                                <includes>
-                                    <include>com.snowgears.shop:shop-*</include>
-                                </includes>
+                                <excludes>
+                                    <exclude>io.papermc.paper:*</exclude>
+                                    <exclude>org.spigotmc:*</exclude>
+                                    <exclude>net.milkbowl.vault:*</exclude>
+                                    <exclude>com.github.MilkBowl:*</exclude>
+                                    <exclude>com.sk89q.worldguard:*</exclude>
+                                    <exclude>com.sk89q.worldedit:*</exclude>
+                                    <exclude>us.dynmap:*</exclude>
+                                    <exclude>com.github.spnda:*</exclude>
+                                    <exclude>net.kyori:*</exclude>
+                                </excludes>
                             </artifactSet>
+
+                            <!-- Strip any net/kyori classes that may still sneak in
+                                 transitively through compile-scoped jars. -->
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
-                                        <exclude>META-INF/</exclude>
+                                        <exclude>net/kyori/**</exclude>
+                                        <exclude>META-INF/versions/*/net/kyori/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
+
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.tcoded.folialib</pattern>
+                                    <shadedPattern>com.snowgears.shop.libs.folialib</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>
