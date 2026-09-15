@@ -29,9 +29,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <!-- 3.6.0+ is required for Java 21+ class file major versions (65+).
-                     3.2.4 throws "Unsupported class file major version 69" on Java 25. -->
-                <version>3.6.0</version>
+                <!-- 4.0.0 fully supports Java 25 (class file major version 69).
+                     3.6.0 still chokes on transitive adventure/Kyori classes from Paper. -->
+                <version>4.0.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -40,18 +40,20 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <!-- No <artifactSet><includes> restriction: bundle all compile-scoped
-                                 deps (FoliaLib, HikariCP, MariaDB, H2) plus our own modules.
-                                 Provided-scoped deps (PaperMC, Vault, WorldGuard, etc.) are
-                                 already excluded by Maven's shade plugin by default. -->
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
+                            <!-- Explicitly exclude provided-scope / server-side artifacts so
+                                 shade never tries to read their Java-25 class files. -->
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>io.papermc.paper:*</exclude>
+                                    <exclude>org.spigotmc:*</exclude>
+                                    <exclude>net.milkbowl.vault:*</exclude>
+                                    <exclude>com.github.MilkBowl:*</exclude>
+                                    <exclude>com.sk89q.worldguard:*</exclude>
+                                    <exclude>com.sk89q.worldedit:*</exclude>
+                                    <exclude>us.dynmap:*</exclude>
+                                    <exclude>com.github.spnda:*</exclude>
+                                </excludes>
+                            </artifactSet>
                             <relocations>
                                 <!-- Relocate FoliaLib to our namespace to avoid classpath
                                      conflicts with other plugins that also bundle FoliaLib. -->
