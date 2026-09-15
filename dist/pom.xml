@@ -29,7 +29,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.4</version>
+                <!-- 3.6.0+ is required for Java 21+ class file major versions (65+).
+                     3.2.4 throws "Unsupported class file major version 69" on Java 25. -->
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
