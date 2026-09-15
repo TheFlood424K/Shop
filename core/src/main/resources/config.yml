@@ -295,9 +295,13 @@ worldGuard:
    createShopFlagChecks:
       # If any of these flags are ALLOW, ALWAYS allow shop creation (bypasses all other checks)
       hardAllowFlags: []
-      # If any of these flags are DENY, always block shop creation
-      denyFlags: ["BUILD", "CHEST_ACCESS"]
-      # If any of these flags are ALLOW (after checking denies), allow shop creation
+      # If any of these flags are DENY, always block shop creation.
+      # NOTE: Do NOT add "BUILD" here. WorldGuard regions deny BUILD for non-members by default,
+      # which would prevent ALL players from creating shops in any protected region — including
+      # the region owner. Use allowFlags or requireAllowShopFlag for fine-grained control instead.
+      denyFlags: []
+      # If any of these flags are ALLOW (after checking denies), allow shop creation.
+      # BUILD and PASSTHROUGH being ALLOW typically means the player has build rights in the region.
       allowFlags: ["PASSTHROUGH", "BUILD"]
       # Default action if no flag rules are triggered: ALLOW or DENY
       # ALLOW means shop creation is permitted in areas with no relevant WorldGuard flags set.
