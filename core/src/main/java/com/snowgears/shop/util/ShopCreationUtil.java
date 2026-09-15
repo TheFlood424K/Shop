@@ -78,36 +78,38 @@ public class ShopCreationUtil {
             }
         }
 
-        //do a check for the WorldGuard region (optional hook)
+        // All region-protection checks below use &= so that any single deny is permanent.
+        // Previously each check overwrote canCreateShopInRegion, meaning a later check that
+        // returned true (e.g. GriefPrevention failing-open because GP isn't installed) would
+        // silently erase a deny that an earlier check (e.g. WorldGuard) had already set.
         boolean canCreateShopInRegion = true;
+
+        // WorldGuard region check (optional hook)
         try {
             if(plugin.worldGuardExists()) {
-                canCreateShopInRegion = WorldGuardHook.canCreateShop(player, chest.getLocation());
+                canCreateShopInRegion &= WorldGuardHook.canCreateShop(player, chest.getLocation());
             }
         } catch (NoClassDefFoundError e) {
             //tried to hook world guard but it was not registered
             e.printStackTrace();
         }
 
-        //do a check for the Towny region (optional hook)
+        // Towny region check (optional hook)
         try {
             if(plugin.hookTowny()) {
-                canCreateShopInRegion = TownyHook.canCreateShop(player, chest.getLocation());
+                canCreateShopInRegion &= TownyHook.canCreateShop(player, chest.getLocation());
             }
         } catch (NoClassDefFoundError e) {
             //tried to hook towny but it was not registered
             e.printStackTrace();
         }
 
-        // Check GriefPrevention build rights at the chest location before any block
-        // mutations occur.  Without this check GP fires its own "can't build here"
-        // message mid-creation when the plugin calls signBlock.setType() to convert a
-        // standing sign into a wall sign inside a protected claim.
+        // GriefPrevention build-rights check at the chest location.
+        // Runs before any block mutations (sign type conversion) so GP never fires its own
+        // "can't build here" denial message mid-creation.
         try {
             if (plugin.isGriefPreventionTrustIntegrationEnabled()) {
-                if (!GriefPreventionTrustListener.canPlayerBuildAt(player, chest.getLocation())) {
-                    canCreateShopInRegion = false;
-                }
+                canCreateShopInRegion &= GriefPreventionTrustListener.canPlayerBuildAt(player, chest.getLocation());
             }
         } catch (NoClassDefFoundError e) {
             // GriefPrevention was not registered — ignore.
