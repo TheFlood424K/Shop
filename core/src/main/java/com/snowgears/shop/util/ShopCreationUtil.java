@@ -170,8 +170,18 @@ public class ShopCreationUtil {
                 if (!signBlock.getType().toString().contains("_SIGN")) {
                     return null;
                 }
+                // Bug 1 fix: Material.valueOf() throws an uncaught IllegalArgumentException if the
+                // constructed wall-sign material name does not exist in the registry (e.g. for sign
+                // types whose wall variant has a different name, or future MC versions that rename
+                // materials).  Use Material.matchMaterial() instead, which returns null on no match,
+                // so we can log a clear warning and abort gracefully rather than crashing silently.
                 String wallSignString = signBlock.getType().toString().replaceAll("_SIGN", "_WALL_SIGN");
-                signBlock.setType(Material.valueOf(wallSignString));
+                Material wallSignMaterial = Material.matchMaterial(wallSignString);
+                if (wallSignMaterial == null) {
+                    plugin.getLogger().warning("Shop creation failed: could not resolve wall sign material '" + wallSignString + "' for sign type '" + signBlock.getType() + "'. Aborting.");
+                    return null;
+                }
+                signBlock.setType(wallSignMaterial);
 
                 Directional wallSignData = (Directional) signBlock.getBlockData();
                 wallSignData.setFacing(signDirection);
