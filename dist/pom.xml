@@ -29,9 +29,24 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <!-- 4.0.0 fully supports Java 25 (class file major version 69).
-                     3.6.0 still chokes on transitive adventure/Kyori classes from Paper. -->
-                <version>4.0.0</version>
+                <!-- 3.6.0 is the latest released version. Java 25 support requires
+                     overriding the bundled ASM with 9.7.1 which supports class
+                     file major version 69 (Java 25). -->
+                <version>3.6.0</version>
+                <dependencies>
+                    <!-- Override the ASM version bundled in shade 3.6.0 with one
+                         that understands Java 25 class files (major version 69). -->
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm</artifactId>
+                        <version>9.7.1</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-commons</artifactId>
+                        <version>9.7.1</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -41,7 +56,7 @@
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <!-- Explicitly exclude provided-scope / server-side artifacts so
-                                 shade never tries to read their Java-25 class files. -->
+                                 shade never tries to open their class files at all. -->
                             <artifactSet>
                                 <excludes>
                                     <exclude>io.papermc.paper:*</exclude>
