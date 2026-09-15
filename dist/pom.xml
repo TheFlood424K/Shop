@@ -29,24 +29,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <!-- 3.6.0 is the latest released version. Java 25 support requires
-                     overriding the bundled ASM with 9.7.1 which supports class
-                     file major version 69 (Java 25). -->
                 <version>3.6.0</version>
-                <dependencies>
-                    <!-- Override the ASM version bundled in shade 3.6.0 with one
-                         that understands Java 25 class files (major version 69). -->
-                    <dependency>
-                        <groupId>org.ow2.asm</groupId>
-                        <artifactId>asm</artifactId>
-                        <version>9.7.1</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.ow2.asm</groupId>
-                        <artifactId>asm-commons</artifactId>
-                        <version>9.7.1</version>
-                    </dependency>
-                </dependencies>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -55,8 +38,9 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <!-- Explicitly exclude provided-scope / server-side artifacts so
-                                 shade never tries to open their class files at all. -->
+
+                            <!-- Completely skip provided-scope server artifacts —
+                                 shade must never even open these jars. -->
                             <artifactSet>
                                 <excludes>
                                     <exclude>io.papermc.paper:*</exclude>
@@ -67,8 +51,29 @@
                                     <exclude>com.sk89q.worldedit:*</exclude>
                                     <exclude>us.dynmap:*</exclude>
                                     <exclude>com.github.spnda:*</exclude>
+                                    <!-- Exclude all Kyori/Adventure artifacts explicitly.
+                                         Even though they are declared 'provided' in core,
+                                         shade 3.6.0 still inspects transitive provided
+                                         classes. Adventure 5.2.0 is compiled with Java 25
+                                         (major version 69) which ASM in shade 3.6.0
+                                         cannot parse. The server ships Adventure anyway. -->
+                                    <exclude>net.kyori:*</exclude>
                                 </excludes>
                             </artifactSet>
+
+                            <!-- Belt-and-suspenders: even if any net/kyori class sneaks
+                                 in through a transitive path, strip it out of every jar
+                                 we do include (e.g., shop-core, FoliaLib, HikariCP). -->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>net/kyori/**</exclude>
+                                        <exclude>META-INF/versions/*/net/kyori/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+
                             <relocations>
                                 <!-- Relocate FoliaLib to our namespace to avoid classpath
                                      conflicts with other plugins that also bundle FoliaLib. -->
