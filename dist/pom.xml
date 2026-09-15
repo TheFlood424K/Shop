@@ -29,10 +29,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <!-- 4.0.0 bundles ASM 9.7+ internally, which supports Java 25
-                     class file major version 69. The 3.x ASM override approach
-                     does not work because ASM is itself shaded inside shade. -->
-                <version>4.0.0</version>
+                <!-- 3.6.2 bundles ASM 9.9.1 which natively supports Java 25
+                     class file major version 69. No ASM override needed. -->
+                <version>3.6.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
