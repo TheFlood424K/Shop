@@ -42,8 +42,46 @@ public class MiscListener implements Listener {
     private HashMap<UUID, ShopCreationProcess> playerChatCreationSteps = new HashMap<>();
     private HashMap<UUID, Long> lastChatCreation = new HashMap<>();
 
+    /** The four cardinal faces used for sign-direction snapping and sign placement. */
+    private static final BlockFace[] CARDINAL_FACES = {
+        BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST
+    };
+
     public MiscListener(Shop instance) {
         plugin = instance;
+    }
+
+    /**
+     * Snaps an arbitrary BlockFace (including the 16 Rotatable sign-post directions)
+     * to the nearest cardinal face (N/E/S/W).  Uses the enum ordinal of each
+     * cardinal as a proxy for its angular position and picks the one whose
+     * "distance" to the input ordinal is smallest, wrapping around the enum ring.
+     *
+     * This replaces the old string-truncation heuristic which could map
+     * NORTH_NORTH_EAST and EAST_NORTH_EAST to different faces despite both being
+     * "nearest NORTH" and "nearest EAST" respectively, and was fragile against
+     * future Bukkit enum changes.
+     */
+    private BlockFace snapToCardinal(BlockFace face) {
+        // Fast path: already a cardinal
+        for (BlockFace cardinal : CARDINAL_FACES) {
+            if (face == cardinal) return face;
+        }
+        // The BlockFace enum goes: NORTH(0), EAST(2), SOUTH(4), WEST(6) ... (approx)
+        // Use ordinal distance with wrap-around to find the closest cardinal.
+        int faceOrd = face.ordinal();
+        BlockFace best = CARDINAL_FACES[0];
+        int bestDist = Integer.MAX_VALUE;
+        int enumSize = BlockFace.values().length;
+        for (BlockFace cardinal : CARDINAL_FACES) {
+            int diff = Math.abs(cardinal.ordinal() - faceOrd);
+            int wrappedDiff = Math.min(diff, enumSize - diff);
+            if (wrappedDiff < bestDist) {
+                bestDist = wrappedDiff;
+                best = cardinal;
+            }
+        }
+        return best;
     }
 
     //prevent emptying of bucket when player clicks on shop sign
@@ -85,12 +123,10 @@ public class MiscListener implements Listener {
             chest = b.getRelative(signDirection.getOppositeFace());
         }
         else if(b.getBlockData() instanceof Rotatable){ //regular sign post
-            signDirection = ((Rotatable) b.getBlockData()).getRotation();
-            //adjust the sign direction to cordinal direction if its not already one
-            if( signDirection.toString().indexOf('_') != -1) {
-                String adjustedDirString = signDirection.toString().substring(0, signDirection.toString().indexOf('_'));
-                signDirection = BlockFace.valueOf(adjustedDirString);
-            }
+            // Rotatable returns one of 16 directions; snap to the nearest cardinal so
+            // that the chest lookup (getRelative of the opposite face) hits the correct
+            // adjacent block. (Bug 4 fix: replaced fragile string-truncation heuristic.)
+            signDirection = snapToCardinal(((Rotatable) b.getBlockData()).getRotation());
             chest = b.getRelative(signDirection.getOppositeFace());
         }
         else
