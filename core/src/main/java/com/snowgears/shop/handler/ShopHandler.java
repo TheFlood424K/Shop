@@ -1229,25 +1229,26 @@ public class ShopHandler {
                         else { addUnloadedShopToChunkList(shop); }
                         if (stock >= 0) shop.setStock(stock);
                         if (fakeSign) shop.setFakeSign(true);
-                        // Register the shop in the map before calling setType(…, true) so that
-                        // AbstractDisplay.getShop() (a map lookup) resolves non-null. Calling
-                        // setType before addShop caused:
-                        //   Cannot invoke "AbstractShop.getChestLocation()" because
-                        //   "AbstractDisplay.getShop()" is null
-                        addShop(shop);
-                        if (displayType != null) shop.getDisplay().setType(displayType, true);
-                        // Restore the primary item from disk — without this call the shop's item field
-                        // remains null, isInitialized() returns false, and all purchases/displays are
-                        // silently skipped after every server restart.
-                        if (item != null) {
-                            shop.setItemStack(item);
-                        }
-                        if (shopType == ShopType.BARTER && barterItem != null) {
+
+                        // 1. Restore all item data first — the shop must never be publicly
+                        //    visible in the map with a null item stack. Any concurrent
+                        //    chunk-load (processUnloadedShopsInChunk → shop.load()) that
+                        //    fires after addShop() would see isInitialized() == false and
+                        //    silently skip displays and transactions.
+                        if (item != null) shop.setItemStack(item);
+                        if (shopType == ShopType.BARTER && barterItem != null)
                             ((com.snowgears.shop.shop.BarterShop) shop).setSecondaryItemStack(barterItem);
-                        }
-                        if (shopType == ShopType.COMBO && priceSell >= 0) {
+                        if (shopType == ShopType.COMBO && priceSell >= 0)
                             ((ComboShop) shop).setPriceSell(priceSell);
-                        }
+
+                        // 2. Register in map — shop is now fully initialised before anything
+                        //    can look it up.
+                        addShop(shop);
+
+                        // 3. Set display type — setType() calls AbstractDisplay.getShop()
+                        //    (a map lookup) which now resolves non-null, AND getItemStack()
+                        //    is also non-null so display logic has a complete shop.
+                        if (displayType != null) shop.getDisplay().setType(displayType, true);
 
                         shopsLoaded++;
 
