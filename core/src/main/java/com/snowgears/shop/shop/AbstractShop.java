@@ -625,6 +625,17 @@ public abstract class AbstractShop {
             // Update the GUI Icon since the sign needs an update.
             refreshGuiIcon();
 
+            // If the block at the sign location is AIR, the sign has not been placed yet
+            // (e.g. this updateSign() was triggered synchronously during SignChangeEvent
+            // processing, before the server has committed the sign block to the world).
+            // Silently reschedule rather than deleting the shop — the sign is genuinely
+            // on its way and will be there on the next tick.
+            Material signMaterial = signLocation.getBlock().getType();
+            if (signMaterial == Material.AIR) {
+                signLinesRequireRefresh = true;
+                return;
+            }
+
             Sign signBlock;
             try {
                 signBlock = (Sign) signLocation.getBlock().getState(); // this will load the sign

@@ -174,18 +174,32 @@ public abstract class AbstractDisplay {
     //DISPLAY TAGS
 
     public void showDisplayTags(Player player){
-        if(displayTagsVisible(player) || !getShop().isInitialized() || Shop.getPlugin().getDisplayTagOption() == DisplayTagOption.NONE || getShop().getFacing() == null) {
+        AbstractShop shop = getShop();
+        // Guard: shop deleted, not yet initialized, chest location not resolved, or
+        // display tags disabled / facing unknown — nothing to show.
+        // NOTE: this null-check on chestLocation MUST come before any call to
+        // shop.getChestLocation() lower in this method; previously the check was
+        // only !shop.isInitialized(), which did not protect against a shop that is
+        // initialized but has a null chestLocation (e.g. after being deleted while
+        // a display task was still scheduled).
+        if (shop == null || shop.getChestLocation() == null
+                || !shop.isInitialized()
+                || Shop.getPlugin().getDisplayTagOption() == DisplayTagOption.NONE
+                || shop.getFacing() == null) {
+            return;
+        }
+        if (displayTagsVisible(player)) {
             return;
         }
 
         try {
-            List<String> displayTags = ShopMessage.getDisplayTags(getShop(), getShop().getType());
+            List<String> displayTags = ShopMessage.getDisplayTags(shop, shop.getType());
 
-            Location lowerTagLocation = getShop().getChestLocation().clone().add(0,1,0);
+            Location lowerTagLocation = shop.getChestLocation().clone().add(0,1,0);
             lowerTagLocation = lowerTagLocation.add(0.5, 0.5, 0.5);
 
             //push the tag slightly closer to the front of the shop so it doesnt collide with the display and hide the text
-            lowerTagLocation = UtilMethods.pushLocationInDirection(lowerTagLocation, this.getShop().getFacing(), 0.2);
+            lowerTagLocation = UtilMethods.pushLocationInDirection(lowerTagLocation, shop.getFacing(), 0.2);
 
             Block displayBlock = lowerTagLocation.getBlock();
             if(UtilMethods.isMCVersion14Plus() && this.isChunkLoaded()) {
@@ -194,10 +208,10 @@ public abstract class AbstractDisplay {
                 }
                 // If there is a block above our display, offset the tag location
                 // so that it doesn't become hidden inside the block. (most noticible with chests)
-                if (getShop().getChestLocation().clone().add(0,2,0).getBlock().getType() != Material.AIR) {
+                if (shop.getChestLocation().clone().add(0,2,0).getBlock().getType() != Material.AIR) {
                     // Adds 0.35 on top of the 0.2 added above (total of 0.55)
                     // 0.3 to get to edge of block, 0.05 to give a lil more wiggle room when the player isnt looking directly at the display
-                    lowerTagLocation = UtilMethods.pushLocationInDirection(lowerTagLocation, this.getShop().getFacing(), 0.35);
+                    lowerTagLocation = UtilMethods.pushLocationInDirection(lowerTagLocation, shop.getFacing(), 0.35);
                 }
             }
 
