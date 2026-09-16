@@ -306,6 +306,17 @@ public class ShopCreationUtil {
             return false;
         }
 
+        // Null-guard: chestLocation is set by load() inside createShop().  If load()
+        // failed or has not yet committed the chest location (e.g. the sign block had
+        // not yet propagated to the world on the creation tick), getChestLocation()
+        // returns null and the subsequent getBlock() call throws an NPE that silently
+        // swallows the initialization request, leaving the shop permanently un-initialized.
+        if (shop.getChestLocation() == null) {
+            plugin.getLogger().warning("initializeShop: chest location is null for shop " + shop + " — aborting initialization.");
+            shop.sendEffects(false, player);
+            return false;
+        }
+
         if(plugin.getDisplayType() != DisplayType.NONE) {
             //make sure there is room above the shop for the display
             Block aboveShop = shop.getChestLocation().getBlock().getRelative(BlockFace.UP);
