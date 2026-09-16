@@ -14,6 +14,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
 import org.bukkit.Sound;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.data.type.WallSign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -55,6 +56,19 @@ public abstract class AbstractShop {
 
     protected int stock;
     protected Material cachedContainerType;
+
+    /**
+     * Sentinel value returned by calculateStock() when the inventory or item is
+     * unavailable (chunk unloaded, shop not yet initialized, etc.).  Callers must
+     * treat this as "stock unknown" and must NOT propagate it to sign lines or
+     * partial-sales math (Bug 4 fix).
+     */
+    public static final int STOCK_UNAVAILABLE = -1;
+
+    /** The four cardinal faces — reused by load() for sign-post snapping (Bug 3 fix). */
+    private static final BlockFace[] CARDINAL_FACES = {
+        BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST
+    };
 
     /**
      * Matches a JSON-style font key inside a text component SNBT string, e.g.
@@ -119,6 +133,30 @@ public abstract class AbstractShop {
         return UtilMethods.isChunkLoaded(this.getSignLocation());
     }
 
+    /**
+     * Snaps an arbitrary BlockFace (including the 16 Rotatable sign-post directions)
+     * to the nearest cardinal face (N/E/S/W).  Used by load() to resolve sign-post
+     * shops that were created with a Rotatable sign and saved to disk (Bug 3 fix).
+     */
+    private static BlockFace snapToCardinal(BlockFace face) {
+        for (BlockFace cardinal : CARDINAL_FACES) {
+            if (face == cardinal) return face;
+        }
+        int faceOrd = face.ordinal();
+        BlockFace best = CARDINAL_FACES[0];
+        int bestDist = Integer.MAX_VALUE;
+        int enumSize = BlockFace.values().length;
+        for (BlockFace cardinal : CARDINAL_FACES) {
+            int diff = Math.abs(cardinal.ordinal() - faceOrd);
+            int wrappedDiff = Math.min(diff, enumSize - diff);
+            if (wrappedDiff < bestDist) {
+                bestDist = wrappedDiff;
+                best = cardinal;
+            }
+        }
+        return best;
+    }
+
     //this calls BlockData which loads the chunk the shop is in by doing so
     public boolean load() {
         try {
@@ -128,12 +166,21 @@ public abstract class AbstractShop {
                 this.delete();
                 return false;
             }
-            if (!(signBlock.getBlockData() instanceof WallSign)) {
-                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign (detected: " + signBlock.getType() + "), deleting shop: " + this);
+
+            // Bug 3 fix: load() previously required WallSign and deleted sign-post shops on
+            // reload. Sign-post shops (Rotatable block data) are valid — they are created via
+            // the onShopCreation sign-placement path. Accept both WallSign and Rotatable here,
+            // snapping the Rotatable rotation to the nearest cardinal face exactly as creation does.
+            if (signBlock.getBlockData() instanceof WallSign) {
+                facing = ((WallSign) signBlock.getBlockData()).getFacing();
+            } else if (signBlock.getBlockData() instanceof Rotatable) {
+                facing = snapToCardinal(((Rotatable) signBlock.getBlockData()).getRotation());
+            } else {
+                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign or sign post (detected: " + signBlock.getType() + "), deleting shop: " + this);
                 this.delete();
                 return false;
             }
-            facing = ((WallSign) signBlock.getBlockData()).getFacing();
+
             Block chestBlock = signBlock.getRelative(facing.getOppositeFace());
             chestLocation = chestBlock.getLocation();
 
@@ -178,8 +225,10 @@ public abstract class AbstractShop {
             return stock;
         }
         if(this.getInventory() == null || this.getItemStack() == null) {
-            stock = -1;
-            return stock;
+            // Bug 4 fix: return the sentinel instead of storing -1 in the stock field.
+            // Storing -1 lets the value propagate to sign lines and partial-sales math.
+            // Callers (updateStock) check for STOCK_UNAVAILABLE and skip side-effects.
+            return STOCK_UNAVAILABLE;
         }
         int itemsInShop = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
         stock = itemsInShop / this.getAmount();
@@ -196,8 +245,16 @@ public abstract class AbstractShop {
     public void updateStock() {
         int oldStock = stock;
 
+        // Bug 4 fix: if inventory/item is unavailable, skip all side-effects.
+        // Propagating STOCK_UNAVAILABLE (-1) to sign lines or needsSave would
+        // corrupt the displayed stock count and trigger spurious saves.
+        int newStock = this.calculateStock();
+        if (newStock == STOCK_UNAVAILABLE) {
+            return;
+        }
+
         // Update the stock
-        this.calculateStock();
+        stock = newStock;
 
         // Update sign if needed
         boolean hasStockChange = stock != oldStock;
@@ -533,13 +590,19 @@ public abstract class AbstractShop {
     }
 
     public int getItemDurabilityPercent(){
-        ItemStack item = this.getItemStack().clone();
-        return UtilMethods.getDurabilityPercent(item);
+        // Bug 5 fix: guard against null when the shop is not yet initialized.
+        // getItemStack() returns null when item == null; calling .clone() on null
+        // throws NPE during GUI rendering or sign updates on a fresh shop.
+        ItemStack itemStack = this.getItemStack();
+        if (itemStack == null) return 100;
+        return UtilMethods.getDurabilityPercent(itemStack.clone());
     }
 
     public int getSecondaryItemDurabilityPercent(){
-        ItemStack item = this.getSecondaryItemStack().clone();
-        return UtilMethods.getDurabilityPercent(item);
+        // Bug 5 fix: same null-guard as getItemDurabilityPercent().
+        ItemStack secondaryItemStack = this.getSecondaryItemStack();
+        if (secondaryItemStack == null) return 100;
+        return UtilMethods.getDurabilityPercent(secondaryItemStack.clone());
     }
 
     public boolean isPerformingTransaction(){
@@ -617,16 +680,32 @@ public abstract class AbstractShop {
                 }
             }
 
-            Block b = this.getSignLocation().getBlock();
-            if (b.getBlockData() instanceof WallSign) {
-                Sign signBlock = (Sign) b.getState();
-                String[] deletedLines = ShopMessage.getSignLines("deleted", this);
-                signBlock.setLine(0, deletedLines[0]);
-                signBlock.setLine(1, deletedLines[1]);
-                signBlock.setLine(2, deletedLines[2]);
-                signBlock.setLine(3, deletedLines[3]);
-                signBlock.update(true);
-            }
+            // Bug 2 fix: the sign-text update inside delete() was executing directly on the
+            // calling thread with no region/thread guard.  Every other sign mutation in this
+            // class dispatches via getFoliaLib().getScheduler().runAtLocationLater() to ensure
+            // the write runs on the correct region thread (Folia) or the main thread (Spigot).
+            // A bare getBlock() + Sign cast + update(true) called from an async task or a
+            // foreign region thread throws an illegal cross-region access on Folia and is
+            // silently swallowed by the catch-all, leaving a stale "deleted" message on the
+            // sign.  Wrap the sign write the same way as updateSign().
+            final Location signLocCapture = this.getSignLocation();
+            final AbstractShop shopRef = this;
+            Shop.getPlugin().getFoliaLib().getScheduler().runAtLocationLater(signLocCapture, task -> {
+                Block b = signLocCapture.getBlock();
+                if (b.getBlockData() instanceof WallSign || b.getBlockData() instanceof Rotatable) {
+                    try {
+                        Sign signBlock = (Sign) b.getState();
+                        String[] deletedLines = ShopMessage.getSignLines("deleted", shopRef);
+                        signBlock.setLine(0, deletedLines[0]);
+                        signBlock.setLine(1, deletedLines[1]);
+                        signBlock.setLine(2, deletedLines[2]);
+                        signBlock.setLine(3, deletedLines[3]);
+                        signBlock.update(true);
+                    } catch (ClassCastException e) {
+                        // Sign was already removed (e.g. broken by the player) — nothing to update.
+                    }
+                }
+            }, 1);
 
             if (display != null) {
                 display.remove(null);

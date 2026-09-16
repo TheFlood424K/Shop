@@ -140,6 +140,8 @@ public class MiscListener implements Listener {
             if (event.getLine(0).toLowerCase().contains(ShopMessage.getCreationWord("SHOP").toLowerCase())) {
 
                 if(!plugin.getShopCreationUtil().shopCanBeCreated(player, chest)){
+                    // cancelShopCreationProcess() already sends the "createCancel" message
+                    // internally, so we must NOT send it manually here (Bug 1 fix).
                     cancelShopCreationProcess(player);
                     event.setCancelled(true);
                     return;
@@ -149,15 +151,16 @@ public class MiscListener implements Listener {
                     String line2 = UtilMethods.cleanNumberText(event.getLine(1));
                     amount = Integer.parseInt(line2);
                     if (amount < 1) {
+                        // Bug 1 fix: send only the specific parse error; "createCancel" is sent
+                        // once by cancelShopCreationProcess() below — do NOT send it manually.
                         ShopMessage.sendMessage("interactionIssue", "line2", player, null);
-                        ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
                         cancelShopCreationProcess(player);
                         event.setCancelled(true);
                         return;
                     }
                 } catch (NumberFormatException e) {
+                    // Bug 1 fix: same as above — let cancelShopCreationProcess() send "createCancel".
                     ShopMessage.sendMessage("interactionIssue", "line2", player, null);
-                    ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
                     cancelShopCreationProcess(player);
                     event.setCancelled(true);
                     return;
