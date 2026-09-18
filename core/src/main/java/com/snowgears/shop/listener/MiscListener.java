@@ -198,16 +198,19 @@ public class MiscListener implements Listener {
                     //the shop has still not been initialized with an item from a player
                     if (!shop.isInitialized()) {
                         shop.delete();
+                        // Bug 2 fix: removed the `instanceof WallSign` guard — timeout cleanup
+                        // (sign-line rewrite + cancelShopCreationProcess) must fire for ALL sign
+                        // types including freestanding sign-post shops, not only wall signs.
+                        String[] lines = ShopMessage.getSignLines("timeout", shop);
                         if (b.getBlockData() instanceof WallSign) {
-                            String[] lines = ShopMessage.getSignLines("timeout", shop);
                             Sign sign = (Sign) b.getState();
                             sign.setLine(0, lines[0]);
                             sign.setLine(1, lines[1]);
                             sign.setLine(2, lines[2]);
                             sign.setLine(3, lines[3]);
                             sign.update(true);
-                            cancelShopCreationProcess(player);
                         }
+                        cancelShopCreationProcess(player);
                     }
                 }, 30 * 20); // 30 seconds * 20 ticks
             }
@@ -229,15 +232,17 @@ public class MiscListener implements Listener {
             playerChatCreationSteps.remove(player.getUniqueId());
             // Send message that the creation was cancelled
             ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
-        }
 
-        // Remove player from creative selection if they are in it!
-        // The Bukkit API can only change player game modes in a sync task, not an async task
-        plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
-            public void run() {
-                plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
-            }
-        }, 1);
+            // Bug 5 fix: guard the sync task inside the process != null block to avoid
+            // scheduling a spurious task on every call when no process is active.
+            // Remove player from creative selection if they are in it!
+            // The Bukkit API can only change player game modes in a sync task, not an async task
+            plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
+                public void run() {
+                    plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
+                }
+            }, 1);
+        }
     }
 
     public boolean isChestInShopCreationProcess(Location location) {
@@ -479,17 +484,18 @@ public class MiscListener implements Listener {
                         amount = Integer.parseInt(textAmt);
                         if (amount < 1) {
                             ShopMessage.sendMessage("interactionIssue", "line2", player, null);
-                            ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
+                            // Bug 1 fix: use cancelShopCreationProcess() so that the process is
+                            // properly cleaned up and the player is not left chat-locked.
+                            // cancelShopCreationProcess() sends "createCancel" internally.
                             event.setCancelled(true);
+                            cancelShopCreationProcess(player);
                             return;
                         }
                     } catch (NumberFormatException e) {
                         ShopMessage.sendMessage("interactionIssue", "line2", player, null);
-                        ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
-                        // cleanup() touches player entity tracking — must run on main thread
+                        // Bug 1 fix: same as above.
                         process.cleanupAsync();
-                        //instead of cancelling the chat event, just let them know what they typed wasnt a number and break them out of the creation process so they aren't chat locked
-                        playerChatCreationSteps.remove(player.getUniqueId());
+                        cancelShopCreationProcess(player);
                         return;
                     }
                     process.setItemAmount(amount);
