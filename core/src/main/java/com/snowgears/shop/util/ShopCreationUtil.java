@@ -284,8 +284,11 @@ public class ShopCreationUtil {
             }
         }
 
-        // Always perform this check, even if admin!
-        if (InventoryUtils.itemstacksAreSimilar(itemStack, barterItemStack)) {
+        // Bug 6 fix: barterItemStack is null on the first barter initialization step.
+        // Passing null to itemstacksAreSimilar() causes an NPE that silently swallows
+        // the entire initialization, leaving the shop permanently un-initialized.
+        // Guard the call so we only compare items when both are non-null.
+        if (barterItemStack != null && InventoryUtils.itemstacksAreSimilar(itemStack, barterItemStack)) {
             ShopMessage.sendMessage("interactionIssue", "sameItem", player, null);
             return false;
         }
@@ -438,8 +441,11 @@ public class ShopCreationUtil {
                 return -1;
             }
         }
-        //only allow price to be zero if the type is selling
-        if (price < 0 || (price == 0 && shopType == ShopType.BARTER)) {
+        // Bug 3 fix: reject price == 0 for all transactional shop types (BUY, SELL, COMBO),
+        // not just BARTER. A zero price on a BUY/SELL/COMBO shop silently creates a free-item
+        // shop with no config opt-in. GAMBLE shops intentionally have no "price" in this sense
+        // (their prize value is determined elsewhere), so they are excluded from the check.
+        if (price < 0 || (price == 0 && shopType != ShopType.GAMBLE)) {
             ShopMessage.sendMessage("interactionIssue", "line3", player, null);
             return -1;
         }
