@@ -102,8 +102,12 @@ public class ShopListener implements Listener {
         Player player = event.getPlayer();
         //player clicked the sign of a shop
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.LEFT_CLICK_BLOCK) {
-            if (event.getClickedBlock().getBlockData() instanceof WallSign) {
-                AbstractShop shop = plugin.getShopHandler().getShop(event.getClickedBlock().getLocation());
+            // Bug 7 fix: accept both wall signs and standing (sign-post) signs.
+            // Previously only `instanceof WallSign` was checked, silently ignoring
+            // sign-post shops whose block data is Rotatable, not WallSign.
+            Block clicked = event.getClickedBlock();
+            if (Tag.WALL_SIGNS.isTagged(clicked.getType()) || Tag.STANDING_SIGNS.isTagged(clicked.getType())) {
+                AbstractShop shop = plugin.getShopHandler().getShop(clicked.getLocation());
                 if (shop == null || !shop.isInitialized()) return;
                 boolean actionPerformed;
                 if(player.isSneaking()) {
@@ -144,8 +148,15 @@ public class ShopListener implements Listener {
                     event.setCancelled(true);
                     return;
                 }
-                if((!plugin.getShopHandler().isChest(shop.getChestLocation().getBlock())) || !(shop.getSignLocation().getBlock().getBlockData() instanceof WallSign)){
-                    plugin.getLogger().warning("Deleting Shop because chest does not exist, or sign is not exist! " + shop);
+                // Bug 8 fix: accept both wall signs and standing (sign-post) signs when
+                // validating that the shop's sign still exists. Previously only WallSign
+                // block data was accepted, causing sign-post shops to be deleted on every
+                // chest right-click immediately after surviving a reload (Bug 4 fix).
+                Block signBlock = shop.getSignLocation().getBlock();
+                boolean signValid = Tag.WALL_SIGNS.isTagged(signBlock.getType())
+                        || Tag.STANDING_SIGNS.isTagged(signBlock.getType());
+                if (!plugin.getShopHandler().isChest(shop.getChestLocation().getBlock()) || !signValid) {
+                    plugin.getLogger().warning("Deleting Shop because chest does not exist, or sign does not exist! " + shop);
                     shop.delete();
                     return;
                 }
