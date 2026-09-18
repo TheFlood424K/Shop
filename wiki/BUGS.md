@@ -1,6 +1,8 @@
 # Bug Memory Cache — Shops Not Loading
 
 > **Status as of `63f0365` (2026-09-18):** All eight root-cause bugs below have been patched.
+> Bugs 9–12 were identified during a follow-up code audit on the `fix/sign-post-shop-interaction`
+> branch and are **not yet fixed**.
 > This document serves as an institutional memory record so future contributors
 > understand *why* the loading path looks the way it does.
 
@@ -184,6 +186,148 @@ Also corrected the misleading log message from `"sign is not exist"` →
 
 ---
 
+## Bug 9 — `onExplosion` Still Only Protects Wall Signs (Sign-Post Shops Destroyed by Explosions)
+
+**Status:** ⚠️ **Not yet fixed**  
+**File:** `ShopListener.java` / `onExplosion()`  
+**Severity:** Medium
+
+**Root cause:** The explosion protection block-list filter checks
+`Tag.WALL_SIGNS.isTagged(block.getType())` to identify sign blocks that belong
+to shops, but does **not** check `Tag.STANDING_SIGNS`. This means sign-post shop
+signs are not removed from the explosion block list and will be destroyed by
+creeper/TNT/other entity explosions, corrupting or deleting the shop.
+
+```java
+// Current code (ShopListener.java ~onExplosion)
+if (Tag.WALL_SIGNS.isTagged(block.getType())) {
+    shop = plugin.getShopHandler().getShop(block.getLocation());
+} else if (plugin.getShopHandler().isChest(block)) {
+    shop = plugin.getShopHandler().getShopByChest(block);
+}
+```
+
+**Proposed fix:** Mirror the same Tag-based union used in Bugs 7 & 8:
+
+```java
+if (Tag.WALL_SIGNS.isTagged(block.getType()) || Tag.STANDING_SIGNS.isTagged(block.getType())) {
+    shop = plugin.getShopHandler().getShop(block.getLocation());
+} else if (plugin.getShopHandler().isChest(block)) {
+    shop = plugin.getShopHandler().getShopByChest(block);
+}
+```
+
+---
+
+## Bug 10 — `getShopTouchingBlock` Only Finds WallSign-Attached Shops
+
+**Status:** ⚠️ **Not yet fixed**  
+**File:** `ShopHandler.java` / `getShopTouchingBlock()`  
+**Severity:** Medium
+
+**Root cause:** `getShopTouchingBlock()` (used during hopper placement and
+similar adjacency checks) scans adjacent blocks for a `WallSign` to confirm the
+shop's presence:
+
+```java
+if(shopChest.getRelative(newFace).getBlockData() instanceof WallSign){
+    AbstractShop shop = getShop(shopChest.getRelative(newFace).getLocation());
+    ...
+}
+```
+
+Sign-post shops have `Rotatable` block data, so this method always returns
+`null` for sign-post shops even when one exists directly adjacent to the block.
+Any code path that calls `getShopTouchingBlock()` — including `onShopExpansion`
+(hopper prevention) — silently ignores sign-post shops.
+
+**Proposed fix:** Replace the `instanceof WallSign` check with a Tag lookup:
+
+```java
+Material signType = shopChest.getRelative(newFace).getType();
+if(Tag.WALL_SIGNS.isTagged(signType) || Tag.STANDING_SIGNS.isTagged(signType)){
+    AbstractShop shop = getShop(shopChest.getRelative(newFace).getLocation());
+    ...
+}
+```
+
+---
+
+## Bug 11 — `processBatchDisplayUpdates` Uses `distance()` Instead of `distanceSquared()` (Redundant Sqrt)
+
+**Status:** ⚠️ **Not yet fixed** (performance issue, not a crash)  
+**File:** `ShopHandler.java` / `processBatchDisplayUpdates()`  
+**Severity:** Low
+
+**Root cause:** `getShopLocationsNearLocationWithinDistance()` correctly avoids
+`Math.sqrt` by accepting and comparing `maxDistanceSquared`. However, inside
+`processBatchDisplayUpdates()` the distance is re-computed with the more
+expensive `location.distance()` call (which calls `Math.sqrt` internally) to
+decide which shops go into `displaysToShow` vs `displaysToRemove`:
+
+```java
+double distance = playerLocation.distance(shop.getSignLocation()); // calls sqrt
+if (distance < plugin.getMaxShopDisplayDistance()) {
+```
+
+And again in the sorting lambda:
+```java
+double distance = playerLocation.distance(locationToShow); // calls sqrt again
+sortedLocations.add(new SimpleEntry<>(locationToShow, distance));
+```
+
+On servers with many shops nearby, this calls `Math.sqrt` once per shop per
+player movement tick, which is wasteful given the surrounding code already
+computes squared distances.
+
+**Proposed fix:** Use `distanceSquared()` throughout and compare against
+`maxDisplayDistance²`:
+
+```java
+double maxDistSq = plugin.getMaxShopDisplayDistance() * plugin.getMaxShopDisplayDistance();
+double distSq = playerLocation.distanceSquared(shop.getSignLocation());
+if (distSq < maxDistSq) {
+    displaysToShow.add(shopLocation);
+} else {
+    displaysToRemove.add(shopLocation);
+}
+```
+
+For the sort, store `distSq` in the entry and sort by that — the relative order
+is identical to sorting by distance since `sqrt` is monotonic.
+
+---
+
+## Bug 12 — Duplicate `onPlayerJoin` / `onLogin` Listener Methods Cache Name Twice
+
+**Status:** ⚠️ **Not yet fixed** (minor correctness / performance issue)  
+**File:** `ShopListener.java`  
+**Severity:** Low
+
+**Root cause:** `ShopListener` registers **two** `@EventHandler` methods for
+`PlayerJoinEvent` under different method names (`onPlayerJoin` and `onLogin`).
+Bukkit fires both for every join event. `onPlayerJoin` only caches the player
+name; `onLogin` does shop-cleanup, XP sync, and offline-transaction setup. The
+name cache call in `onPlayerJoin` therefore runs redundantly alongside `onLogin`
+without any functional benefit, and the double-listener registration is a
+maintenance hazard (future logic added to one will appear not to apply if a
+developer only looks at the other).
+
+```java
+// Both of these fire on every PlayerJoinEvent:
+@EventHandler
+public void onPlayerJoin(PlayerJoinEvent event) { ... PlayerNameCache.cacheName(...) }
+
+@EventHandler
+public void onLogin(PlayerJoinEvent event) { ... // all the real login logic }
+```
+
+**Proposed fix:** Move the `PlayerNameCache.cacheName()` call into the existing
+`onLogin` handler and delete `onPlayerJoin` entirely, so there is exactly one
+`PlayerJoinEvent` handler.
+
+---
+
 ## Outstanding Concerns / Future Work
 
 | # | Concern | Severity | Notes |
@@ -191,7 +335,10 @@ Also corrected the misleading log message from `"sign is not exist"` →
 | 1 | Shops saved before Bug 2's fix may have **corrupted/incomplete data on disk** | Medium | A `/shop reload` or manual deletion+recreation of affected shops may be needed |
 | 2 | `processUnloadedShopsInChunk` still has no mutex around the shop map during the load window | Low | Unlikely to race after Bug 2's fix but worth a future review |
 | 3 | Silent swallowing of `initializeShop()` returning `false` has no admin log message | Low | Adding a `WARN` log here would make future failures visible without needing debug mode |
-| 4 | `onExplosion` still only checks `Tag.WALL_SIGNS` when protecting sign blocks from explosions | Low | Sign-post shop signs may be destroyed by explosions; should also check `Tag.STANDING_SIGNS` |
+| 4 | Bug 9: `onExplosion` still only checks `Tag.WALL_SIGNS` — sign-post shop signs may be destroyed | Medium | See Bug 9 above |
+| 5 | Bug 10: `getShopTouchingBlock` uses `instanceof WallSign` — misses sign-post shops in hopper/adjacency checks | Medium | See Bug 10 above |
+| 6 | Bug 11: `processBatchDisplayUpdates` calls `distance()` (sqrt) instead of `distanceSquared()` | Low | See Bug 11 above |
+| 7 | Bug 12: Duplicate `PlayerJoinEvent` handlers in `ShopListener` | Low | See Bug 12 above |
 
 ---
 
@@ -203,6 +350,7 @@ Also corrected the misleading log message from `"sign is not exist"` →
 4. Confirm no sign shows stock as `-1` (Bug 5).
 5. Click a sign-post shop sign — the action should fire (Bug 7).
 6. Right-click the chest of a sign-post shop — the shop should not be deleted (Bug 8).
+7. Trigger an explosion near a sign-post shop sign — the sign should survive (Bug 9, **not yet fixed**).
 
 ---
 
