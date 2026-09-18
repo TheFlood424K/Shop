@@ -1,6 +1,6 @@
 # Bug Memory Cache — Shops Not Loading
 
-> **Status as of `f7a301f` (2026-09-16):** All six root-cause bugs below have been patched.
+> **Status as of `63f0365` (2026-09-18):** All eight root-cause bugs below have been patched.
 > This document serves as an institutional memory record so future contributors
 > understand *why* the loading path looks the way it does.
 
@@ -9,9 +9,11 @@
 ## Background
 
 Repeated reports of "shops aren't loading" on server startup/reload traced back to
-six independent but interacting bugs in the shop loading pipeline. None of them
-threw a user-visible error by default — they either silently skipped initialization
-or produced misleading `-1` stock values on signs.
+six independent but interacting bugs in the shop loading pipeline, plus two
+follow-on bugs in `ShopListener` that prevented sign-post shops from being
+interacted with at all. None of them threw a user-visible error by default —
+they either silently skipped initialization, deleted valid shops, or produced
+misleading `-1` stock values on signs.
 
 ---
 
@@ -122,6 +124,66 @@ player from creating shops regardless of permissions or region membership.
 
 ---
 
+## Bug 7 — `onShopSignClick` Ignored Sign-Post Shops Entirely
+
+**File:** `ShopListener.java` / `onShopSignClick()`  
+**Commit:** [`63f0365`][c8]
+
+**Root cause:** The click handler gated all sign interaction with
+`event.getClickedBlock().getBlockData() instanceof WallSign`. Sign-post shops
+use `Rotatable` block data (a standing sign), not `WallSign`, so right-clicking
+or left-clicking a sign-post shop sign fell through the check completely and
+did nothing. No exception — the event was simply not routed.
+
+**Fix:** Replace the `instanceof WallSign` check with a Tag-based check that
+accepts both wall and standing signs:
+
+```java
+// Before
+if (event.getClickedBlock().getBlockData() instanceof WallSign) {
+
+// After
+Block clicked = event.getClickedBlock();
+if (Tag.WALL_SIGNS.isTagged(clicked.getType()) || Tag.STANDING_SIGNS.isTagged(clicked.getType())) {
+```
+
+---
+
+## Bug 8 — `onShopChestClick` Deleted Sign-Post Shops on Every Chest Click
+
+**File:** `ShopListener.java` / `onShopChestClick()`  
+**Commit:** [`63f0365`][c8]
+
+**Root cause:** The chest-click validity guard checked whether the shop's attached
+sign was still present using `instanceof WallSign`:
+
+```java
+if ((!plugin.getShopHandler().isChest(shop.getChestLocation().getBlock()))
+        || !(shop.getSignLocation().getBlock().getBlockData() instanceof WallSign)) {
+    shop.delete();
+}
+```
+
+Sign-post shops that survived a reload (thanks to Bug 4's fix) had `Rotatable`
+sign data, not `WallSign`. This caused them to be **permanently deleted on the
+very first chest right-click** after every reload.
+
+**Fix:** Apply the same Tag-based check used for Bug 7:
+
+```java
+Block signBlock = shop.getSignLocation().getBlock();
+boolean signValid = Tag.WALL_SIGNS.isTagged(signBlock.getType())
+        || Tag.STANDING_SIGNS.isTagged(signBlock.getType());
+if (!plugin.getShopHandler().isChest(shop.getChestLocation().getBlock()) || !signValid) {
+    shop.delete();
+}
+```
+
+Also corrected the misleading log message from `"sign is not exist"` →
+`"sign does not exist"`.
+
+---
+
 ## Outstanding Concerns / Future Work
 
 | # | Concern | Severity | Notes |
@@ -129,6 +191,7 @@ player from creating shops regardless of permissions or region membership.
 | 1 | Shops saved before Bug 2's fix may have **corrupted/incomplete data on disk** | Medium | A `/shop reload` or manual deletion+recreation of affected shops may be needed |
 | 2 | `processUnloadedShopsInChunk` still has no mutex around the shop map during the load window | Low | Unlikely to race after Bug 2's fix but worth a future review |
 | 3 | Silent swallowing of `initializeShop()` returning `false` has no admin log message | Low | Adding a `WARN` log here would make future failures visible without needing debug mode |
+| 4 | `onExplosion` still only checks `Tag.WALL_SIGNS` when protecting sign blocks from explosions | Low | Sign-post shop signs may be destroyed by explosions; should also check `Tag.STANDING_SIGNS` |
 
 ---
 
@@ -138,6 +201,8 @@ player from creating shops regardless of permissions or region membership.
 2. Run `/shop list` — all shops should appear.
 3. Check sign-post shops specifically survived the reload (Bug 4).
 4. Confirm no sign shows stock as `-1` (Bug 5).
+5. Click a sign-post shop sign — the action should fire (Bug 7).
+6. Right-click the chest of a sign-post shop — the shop should not be deleted (Bug 8).
 
 ---
 
@@ -148,3 +213,4 @@ player from creating shops regardless of permissions or region membership.
 [c5]: https://github.com/TheFlood424K/Shop/commit/f7a301f3e3d18f0ff430deee55dab39f70b2f00e
 [c6]: https://github.com/TheFlood424K/Shop/commit/3c37313e91766b626e842c3e5834f730f2886b2a
 [c7]: https://github.com/TheFlood424K/Shop/commit/c4bf62322dc4065abed4103c632cce220a5a46ac
+[c8]: https://github.com/TheFlood424K/Shop/commit/63f0365f5737b029a22c901aec9f14510bf8e9ab
