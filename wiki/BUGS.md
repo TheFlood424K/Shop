@@ -3,6 +3,8 @@
 > **Status as of `63f0365` (2026-09-18):** All eight root-cause bugs below have been patched.
 > Bugs 9–12 were identified during a follow-up code audit on the `fix/sign-post-shop-interaction`
 > branch and are **not yet fixed**.
+> Bugs 13–17 were identified during a follow-up command-system audit (2026-09-18) and are
+> **not yet fixed**.
 > This document serves as an institutional memory record so future contributors
 > understand *why* the loading path looks the way it does.
 
@@ -328,6 +330,173 @@ public void onLogin(PlayerJoinEvent event) { ... // all the real login logic }
 
 ---
 
+## Bug 13 — `CommandHandler.register()` Creates Duplicate Handlers on Every Reload
+
+**Status:** ⚠️ **Not yet fixed**  
+**File:** `CommandHandler.java` / `register()`, `Shop.java` / `reload()`  
+**Severity:** High
+
+**Root cause:** `CommandHandler` registers itself with Bukkit's `CommandMap` via
+reflection inside its constructor. Because `Shop.java` constructs a **new**
+`CommandHandler` during every `plugin.reload()` call, each reload appends
+another entry to `CommandMap` without removing the previous one. Bukkit's
+`CommandMap` has no built-in deduplication — the first registered handler wins
+for dispatch. After one or more reloads, `/shop` is dispatched to a **stale**
+handler instance from a previous load cycle, causing commands to behave
+inconsistently or silently fail entirely (e.g. the old handler holds references
+to an old `ShopHandler`/`GuiHandler` that no longer matches the live plugin state).
+
+```java
+// CommandHandler constructor — called on every reload:
+try {
+    register(); // unconditionally appends to CommandMap
+} catch (Exception e) {
+    e.printStackTrace();
+}
+```
+
+**Proposed fix:** Keep a single `CommandHandler` instance as a field on `Shop`.
+On reload, update internal state rather than constructing a new handler. If
+re-registration is truly necessary, first call `commandMap.getKnownCommands().remove(name)`
+to deregister the old entry before registering the replacement:
+
+```java
+// Before re-registering, remove the existing entry:
+Map<String, Command> knownCommands = commandMap.getKnownCommands();
+knownCommands.remove(this.getName());
+knownCommands.remove(plugin.getName().toLowerCase() + ":" + this.getName());
+commandMap.register(this.getName(), this);
+```
+
+---
+
+## Bug 14 — `CommandHandler` Constructed with `null` Permission
+
+**Status:** ⚠️ **Not yet fixed**  
+**File:** `Shop.java` (CommandHandler construction), `CommandHandler.java` constructor  
+**Severity:** High
+
+**Root cause:** `CommandHandler` is constructed with `null` passed as the
+`permission` argument, which is forwarded directly to `this.setPermission(null)`.
+On most Bukkit/Paper builds this does not throw, but it leaves the command with
+**no declared root permission node**. Permission plugins and Paper's
+`ops-permission-level` system check the declared permission before dispatching
+to `execute()`. With `null`, any server that uses `default-permission: op` at
+the command level (e.g. via `commands.yml` overrides or a strict permission
+plugin) will silently block the command for non-ops — even when the plugin's own
+`usePerms()` is `false`. This manifests as `/shop` doing nothing with no error.
+
+**Proposed fix:** Pass a defined, open-to-all permission string (e.g. `"shop.use"`)
+and register it with default `true` in `plugin.yml`, or pass an empty string
+`""` to explicitly declare no required permission:
+
+```java
+// Shop.java — pass a real permission, not null:
+commandHandler = new CommandHandler(this, "shop.use", commandAlias, ...);
+```
+
+---
+
+## Bug 15 — `/shop currency` Silently Does Nothing for Non-Op Players
+
+**Status:** ⚠️ **Not yet fixed**  
+**File:** `CommandHandler.java` / `execute()` — `currency` branch  
+**Severity:** Medium
+
+**Root cause:** The help text shown on `/shop` (no args) lists `/shop currency`
+as a command available to **all players**. However, the `execute()` branch for
+`currency` wraps the response in an operator/OP guard:
+
+```java
+else if (args[0].equalsIgnoreCase("currency")) {
+    if (sender instanceof Player) {
+        Player player = (Player) sender;
+        if ((plugin.usePerms() && player.hasPermission("shop.operator")) || player.isOp()) {
+            sendCommandMessage("currency_output", player);
+            sendCommandMessage("currency_output_tip", player);
+            return true;
+        }
+        // No else — non-op, non-operator players receive NO output and NO error
+    }
+}
+```
+
+A regular player running `/shop currency` gets absolute silence. From their
+perspective the command is broken.
+
+**Proposed fix:** Move the `currency_output` / `currency_output_tip` messages
+outside the permission guard so all players receive currency info, and reserve
+the `_tip` message (which presumably describes how to *change* currency) for
+operators only:
+
+```java
+else if (args[0].equalsIgnoreCase("currency")) {
+    if (sender instanceof Player) {
+        Player player = (Player) sender;
+        sendCommandMessage("currency_output", player); // all players
+        if ((plugin.usePerms() && player.hasPermission("shop.operator")) || player.isOp()) {
+            sendCommandMessage("currency_output_tip", player); // operators only
+        }
+    } else {
+        sender.sendMessage("The server is using " + plugin.getCurrencyName() + " as currency.");
+    }
+}
+```
+
+---
+
+## Bug 16 — `/shop notify` Subcommand Missing from Help Text
+
+**Status:** ⚠️ **Not yet fixed** (documentation/UX issue)  
+**File:** `CommandHandler.java` / `execute()` — zero-args help block  
+**Severity:** Medium
+
+**Root cause:** `/shop notify user|owner|stock` is fully implemented in both
+`execute()` and `tabComplete()`, but it is **never listed** in the help output
+shown when a player runs `/shop` with no arguments. Players have no way to
+discover the command from in-game help, and if they encounter it via tab-complete
+they may assume it is broken because there is no corresponding documentation.
+
+**Proposed fix:** Add `sendCommandMessage("notify", player)` (and a corresponding
+`notify` message key in the messages config) to the zero-args help block, so it
+appears alongside `list`, `currency`, etc.:
+
+```java
+// Inside the args.length == 0 block, after sendCommandMessage("currency", player):
+sendCommandMessage("notify", player);
+```
+
+---
+
+## Bug 17 — Null `commandAlias` from Config Causes Silent Full Command Failure
+
+**Status:** ⚠️ **Not yet fixed**  
+**File:** `Shop.java` — `commandAlias` config loading  
+**Severity:** Medium
+
+**Root cause:** `commandAlias` is read from `config.yml` and passed directly as
+the command name to the `CommandHandler` constructor and `BukkitCommand` super.
+If the config key is missing or returns `null` (e.g. after a bad migration or
+manual edit), `BukkitCommand` receives `null` as its name. The subsequent
+`commandMap.register(null, this)` call inside `register()` throws a
+`NullPointerException` that is caught and printed, but **command registration
+never completes** — leaving all `/shop` commands non-functional with only a
+stack trace in the console (which an admin may not notice among other startup
+output).
+
+**Proposed fix:** Add a null/blank guard when loading `commandAlias`, falling
+back to `"shop"`:
+
+```java
+String commandAlias = plugin.getConfig().getString("commandAlias");
+if (commandAlias == null || commandAlias.isBlank()) {
+    commandAlias = "shop";
+    plugin.getLogger().warning("commandAlias not set in config.yml — defaulting to 'shop'");
+}
+```
+
+---
+
 ## Outstanding Concerns / Future Work
 
 | # | Concern | Severity | Notes |
@@ -339,6 +508,11 @@ public void onLogin(PlayerJoinEvent event) { ... // all the real login logic }
 | 5 | Bug 10: `getShopTouchingBlock` uses `instanceof WallSign` — misses sign-post shops in hopper/adjacency checks | Medium | See Bug 10 above |
 | 6 | Bug 11: `processBatchDisplayUpdates` calls `distance()` (sqrt) instead of `distanceSquared()` | Low | See Bug 11 above |
 | 7 | Bug 12: Duplicate `PlayerJoinEvent` handlers in `ShopListener` | Low | See Bug 12 above |
+| 8 | Bug 13: `CommandHandler.register()` appends duplicate handlers on every reload | High | Stale handler dispatched after first reload; see Bug 13 above |
+| 9 | Bug 14: `CommandHandler` constructed with `null` permission | High | Commands may be silently blocked by permission plugins; see Bug 14 above |
+| 10 | Bug 15: `/shop currency` silent no-op for non-op players | Medium | See Bug 15 above |
+| 11 | Bug 16: `/shop notify` not listed in help text | Medium | See Bug 16 above |
+| 12 | Bug 17: Null `commandAlias` causes complete command registration failure | Medium | See Bug 17 above |
 
 ---
 
@@ -351,6 +525,9 @@ public void onLogin(PlayerJoinEvent event) { ... // all the real login logic }
 5. Click a sign-post shop sign — the action should fire (Bug 7).
 6. Right-click the chest of a sign-post shop — the shop should not be deleted (Bug 8).
 7. Trigger an explosion near a sign-post shop sign — the sign should survive (Bug 9, **not yet fixed**).
+8. Run `/shop reload` twice, then run `/shop list` — verify it responds correctly (Bug 13).
+9. As a non-op player without `shop.operator`, run `/shop currency` — verify a response is received (Bug 15).
+10. As any player, run `/shop` with no args — verify `notify` appears in the help list (Bug 16).
 
 ---
 
