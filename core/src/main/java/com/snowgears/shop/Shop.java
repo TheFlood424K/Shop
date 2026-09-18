@@ -80,6 +80,11 @@ public class Shop extends JavaPlugin {
 
     private NMSBullshitHandler nmsBullshitHandler;
 
+    // FIX (Bug 13): hold a single CommandHandler instance so reload() can
+    // unregister the old entry before registering the replacement, preventing
+    // duplicate stale handlers from accumulating in Bukkit's CommandMap.
+    private CommandHandler commandHandler;
+
     private boolean usePerms;
     private boolean checkUpdates;
     private boolean enableGUI;
@@ -366,7 +371,17 @@ public class Shop extends JavaPlugin {
         hookTowny = config.getBoolean("hookTowny");
         bluemapEnabled = config.getBoolean("bluemap-marker.enabled");
         dynmapEnabled = config.getBoolean("dynmap-marker.enabled");
+
+        // FIX (Bug 17): guard commandAlias against a null or blank value in config.yml.
+        // A missing key would previously propagate null into BukkitCommand's name field,
+        // causing CommandMap.register(null, this) to throw an NPE and leave all /shop
+        // commands non-functional with only a stack trace as the hint.
         commandAlias = config.getString("commandAlias");
+        if (commandAlias == null || commandAlias.isBlank()) {
+            commandAlias = "shop";
+            this.getLogger().warning("'commandAlias' is missing or blank in config.yml — defaulting to 'shop'");
+        }
+
         checkItemDurability = config.getBoolean("checkItemDurability");
         ignoreItemRepairCost = config.getBoolean("ignoreItemRepairCost");
         allowCreativeSelection = config.getBoolean("allowCreativeSelection");
@@ -531,8 +546,18 @@ public class Shop extends JavaPlugin {
                     + "(s) as the currency on the server.");
         }
 
-        // Load CommandHandler by initializing it once
-        new CommandHandler(this, null, commandAlias, "Base command for the Shop plugin", "/shop", new ArrayList(Arrays.asList(commandAlias)));
+        // FIX (Bug 13 + Bug 14): store the CommandHandler on the instance field so reload()
+        // can call reregister() instead of constructing a new handler that would accumulate
+        // as a stale duplicate in Bukkit's CommandMap.
+        // FIX (Bug 14): pass "shop.use" instead of null so permission plugins don't silently
+        // block the command for all players.
+        if (commandHandler == null) {
+            commandHandler = new CommandHandler(this, "shop.use", commandAlias,
+                    "Base command for the Shop plugin", "/" + commandAlias,
+                    new ArrayList<>(Arrays.asList(commandAlias)));
+        } else {
+            commandHandler.reregister(commandAlias);
+        }
 
         guiHandler = new ShopGuiHandler(plugin);
         shopHandler = new ShopHandler(plugin);
