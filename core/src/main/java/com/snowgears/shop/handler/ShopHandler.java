@@ -17,7 +17,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
 import org.bukkit.block.DoubleChest;
-import org.bukkit.block.data.type.WallSign;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -186,12 +185,17 @@ public class ShopHandler {
     }
 
     public AbstractShop getShopTouchingBlock(Block block){
+        // Bug 10 fix: replace `instanceof WallSign` with a Tag-based union check so that
+        // sign-post shops (which have Rotatable block data, not WallSign) are also found
+        // during hopper placement and other adjacency checks. Previously this method always
+        // returned null for sign-post shops, silently ignoring them in onShopExpansion.
         BlockFace[] faces = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
         for(BlockFace face : faces){
             if(this.isChest(block.getRelative(face))){
                 Block shopChest = block.getRelative(face);
                 for(BlockFace newFace : faces){
-                    if(shopChest.getRelative(newFace).getBlockData() instanceof WallSign){
+                    Material signType = shopChest.getRelative(newFace).getType();
+                    if(Tag.WALL_SIGNS.isTagged(signType) || Tag.STANDING_SIGNS.isTagged(signType)){
                         AbstractShop shop = getShop(shopChest.getRelative(newFace).getLocation());
                         if(shop != null)
                             return shop;
@@ -628,6 +632,12 @@ public class ShopHandler {
             " [" + playerLocation.getBlockX() + "," + playerLocation.getBlockY() + "," + playerLocation.getBlockZ() + "]" +
             " with " + shopLocations.size() + " nearby shops");
         
+        // Bug 11 fix: use distanceSquared() throughout to avoid redundant Math.sqrt calls.
+        // distance() invokes sqrt internally; for a threshold comparison and sort by proximity
+        // the squared value is fully equivalent (sqrt is monotonic).
+        double maxDist = plugin.getMaxShopDisplayDistance();
+        double maxDistSq = maxDist * maxDist;
+
         // First, collect all displays that need to be shown and those that need to be removed
         HashSet<Location> displaysToShow = new HashSet<>();
         HashSet<Location> displaysToRemove = new HashSet<>();
@@ -637,9 +647,9 @@ public class ShopHandler {
             AbstractShop shop = getShop(shopLocation);
             if (shop == null) continue;
             
-            double distance = playerLocation.distance(shop.getSignLocation());
+            double distSq = playerLocation.distanceSquared(shop.getSignLocation());
             
-            if (distance < plugin.getMaxShopDisplayDistance()) {
+            if (distSq < maxDistSq) {
                 // Within display distance, should be shown
                 displaysToShow.add(shopLocation);
             } else {
@@ -671,16 +681,18 @@ public class ShopHandler {
         // This helps prevent the visual "refresh" effect
         plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
             // Now process additions in priority order (closest first)
+            // Store squared distance — ordering by distSq is identical to ordering by dist
+            // since sqrt is monotonically increasing.
             List<Map.Entry<Location, Double>> sortedLocations = new ArrayList<>();
             
             for (Location locationToShow : displaysToShow) {
                 if (!hasActiveDisplay(player, locationToShow)) {
-                    double distance = playerLocation.distance(locationToShow);
-                    sortedLocations.add(new SimpleEntry<>(locationToShow, distance));
+                    double distSq = playerLocation.distanceSquared(locationToShow);
+                    sortedLocations.add(new SimpleEntry<>(locationToShow, distSq));
                 }
             }
             
-            // Sort by distance (closest first)
+            // Sort by squared distance (closest first)
             sortedLocations.sort(Comparator.comparing(Map.Entry::getValue));
             
             // Process in distance order with small delays between batches to reduce visual clutter

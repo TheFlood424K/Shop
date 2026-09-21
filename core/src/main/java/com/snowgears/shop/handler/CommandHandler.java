@@ -8,6 +8,7 @@ import com.snowgears.shop.util.PlayerSettings;
 import com.snowgears.shop.util.ShopMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.defaults.BukkitCommand;
@@ -19,6 +20,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class CommandHandler extends BukkitCommand {
 
@@ -53,6 +55,8 @@ public class CommandHandler extends BukkitCommand {
                     //these are commands all players have access to
                     sendCommandMessage("list", player);
                     sendCommandMessage("currency", player);
+                    // FIX (Bug 16): /shop notify was fully implemented but never listed in help.
+                    sendCommandMessage("notify", player);
 
                     //these are commands only operators have access to
                     if (player.hasPermission("shop.operator") || player.isOp()) {
@@ -111,11 +115,14 @@ public class CommandHandler extends BukkitCommand {
             else if (args[0].equalsIgnoreCase("currency")) {
                 if (sender instanceof Player) {
                     Player player = (Player) sender;
+                    // FIX (Bug 15): currency info should be visible to all players.
+                    // Previously the entire response was gated behind shop.operator / isOp(),
+                    // causing non-op players to see complete silence despite the command
+                    // being listed in the public help text.
+                    sendCommandMessage("currency_output", player);
+                    // Only show the "how to change currency" tip to operators.
                     if ((plugin.usePerms() && player.hasPermission("shop.operator")) || player.isOp()) {
-
-                        sendCommandMessage("currency_output", player);
                         sendCommandMessage("currency_output_tip", player);
-                        return true;
                     }
                 } else {
                     sender.sendMessage("The server is using "+plugin.getCurrencyName()+" as currency.");
@@ -299,13 +306,41 @@ public class CommandHandler extends BukkitCommand {
         }
     }
 
-    private void register()
-            throws ReflectiveOperationException {
+    private void register() throws ReflectiveOperationException {
+        CommandMap commandMap = getCommandMap();
+        commandMap.register(this.getName(), this);
+    }
+
+    /**
+     * FIX (Bug 13): Re-register this handler under a (possibly new) alias without
+     * creating a duplicate entry in Bukkit's CommandMap.
+     *
+     * Called by Shop.onEnable() on every reload after the first registration so
+     * that the live handler instance always reflects the current plugin state.
+     */
+    public void reregister(String newAlias) {
+        try {
+            CommandMap commandMap = getCommandMap();
+            Map<String, Command> knownCommands = commandMap.getKnownCommands();
+            // Remove both the bare name and the plugin-prefixed variant.
+            knownCommands.remove(this.getName());
+            knownCommands.remove(plugin.getName().toLowerCase() + ":" + this.getName());
+            if (newAlias != null && !newAlias.isBlank() && !newAlias.equals(this.getName())) {
+                knownCommands.remove(newAlias);
+                knownCommands.remove(plugin.getName().toLowerCase() + ":" + newAlias);
+                this.setName(newAlias);
+                this.setAliases(new ArrayList<>(List.of(newAlias)));
+            }
+            commandMap.register(this.getName(), this);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private CommandMap getCommandMap() throws ReflectiveOperationException {
         final Field bukkitCommandMap = Bukkit.getServer().getClass().getDeclaredField("commandMap");
         bukkitCommandMap.setAccessible(true);
-
-        CommandMap commandMap = (CommandMap) bukkitCommandMap.get(Bukkit.getServer());
-        commandMap.register(this.getName(), this);
+        return (CommandMap) bukkitCommandMap.get(Bukkit.getServer());
     }
 
     // Sorts possible results to provide true tab auto complete based off of what is already typed.

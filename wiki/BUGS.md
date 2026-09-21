@@ -1,6 +1,9 @@
 # Bug Memory Cache — Shops Not Loading
 
-> **Status as of `63f0365` (2026-09-18):** All eight root-cause bugs below have been patched.
+> **Status as of `345be5c` (2026-09-18):** All seventeen root-cause bugs below have been patched.
+> Bugs 1–8 were fixed on the `fix/sign-post-shop-interaction` branch.
+> Bugs 9–12 were fixed in commit [`345be5c`][c12fix] on `docs/bug-audit-9-12`.
+> Bugs 13–17 were fixed in commit [`bed25e6`][c2] / earlier work on this branch.
 > This document serves as an institutional memory record so future contributors
 > understand *why* the loading path looks the way it does.
 
@@ -184,6 +187,279 @@ Also corrected the misleading log message from `"sign is not exist"` →
 
 ---
 
+## Bug 9 — `onExplosion` Only Protected Wall Signs (Sign-Post Shops Destroyed by Explosions)
+
+**Status:** ✅ **Fixed in [`345be5c`][c12fix]**  
+**File:** `ShopListener.java` / `onExplosion()`  
+**Severity:** Medium
+
+**Root cause:** The explosion protection block-list filter checked
+`Tag.WALL_SIGNS.isTagged(block.getType())` to identify sign blocks that belonged
+to shops, but did **not** check `Tag.STANDING_SIGNS`. Sign-post shop signs were
+not removed from the explosion block list and would be destroyed by
+creeper/TNT/other entity explosions, corrupting or deleting the shop.
+
+```java
+// Old code (ShopListener.java ~onExplosion)
+if (Tag.WALL_SIGNS.isTagged(block.getType())) {
+    shop = plugin.getShopHandler().getShop(block.getLocation());
+} else if (plugin.getShopHandler().isChest(block)) {
+    shop = plugin.getShopHandler().getShopByChest(block);
+}
+```
+
+**Fix:** Mirror the same Tag-based union used in Bugs 7 & 8:
+
+```java
+if (Tag.WALL_SIGNS.isTagged(block.getType()) || Tag.STANDING_SIGNS.isTagged(block.getType())) {
+    shop = plugin.getShopHandler().getShop(block.getLocation());
+} else if (plugin.getShopHandler().isChest(block)) {
+    shop = plugin.getShopHandler().getShopByChest(block);
+}
+```
+
+---
+
+## Bug 10 — `getShopTouchingBlock` Only Found WallSign-Attached Shops
+
+**Status:** ✅ **Fixed in [`345be5c`][c12fix]**  
+**File:** `ShopHandler.java` / `getShopTouchingBlock()`  
+**Severity:** Medium
+
+**Root cause:** `getShopTouchingBlock()` (used during hopper placement and
+similar adjacency checks) scanned adjacent blocks for a `WallSign` to confirm the
+shop's presence:
+
+```java
+if(shopChest.getRelative(newFace).getBlockData() instanceof WallSign){
+    AbstractShop shop = getShop(shopChest.getRelative(newFace).getLocation());
+    ...
+}
+```
+
+Sign-post shops have `Rotatable` block data, so this method always returned
+`null` for sign-post shops even when one existed directly adjacent to the block.
+Any code path that called `getShopTouchingBlock()` — including `onShopExpansion`
+(hopper prevention) — silently ignored sign-post shops.
+
+**Fix:** Replace the `instanceof WallSign` check with a Tag lookup:
+
+```java
+Material signType = shopChest.getRelative(newFace).getType();
+if(Tag.WALL_SIGNS.isTagged(signType) || Tag.STANDING_SIGNS.isTagged(signType)){
+    AbstractShop shop = getShop(shopChest.getRelative(newFace).getLocation());
+    ...
+}
+```
+
+---
+
+## Bug 11 — `processBatchDisplayUpdates` Used `distance()` Instead of `distanceSquared()` (Redundant Sqrt)
+
+**Status:** ✅ **Fixed in [`345be5c`][c12fix]** (performance issue, not a crash)  
+**File:** `ShopHandler.java` / `processBatchDisplayUpdates()`  
+**Severity:** Low
+
+**Root cause:** `getShopLocationsNearLocationWithinDistance()` correctly avoided
+`Math.sqrt` by accepting and comparing `maxDistanceSquared`. However, inside
+`processBatchDisplayUpdates()` the distance was re-computed with the more
+expensive `location.distance()` call (which calls `Math.sqrt` internally) to
+decide which shops go into `displaysToShow` vs `displaysToRemove`:
+
+```java
+double distance = playerLocation.distance(shop.getSignLocation()); // calls sqrt
+if (distance < plugin.getMaxShopDisplayDistance()) {
+```
+
+And again in the sorting lambda:
+```java
+double distance = playerLocation.distance(locationToShow); // calls sqrt again
+sortedLocations.add(new SimpleEntry<>(locationToShow, distance));
+```
+
+On servers with many shops nearby, this called `Math.sqrt` once per shop per
+player movement tick, which was wasteful given the surrounding code already
+computed squared distances.
+
+**Fix:** Use `distanceSquared()` throughout and compare against
+`maxDisplayDistance²`:
+
+```java
+double maxDistSq = plugin.getMaxShopDisplayDistance() * plugin.getMaxShopDisplayDistance();
+double distSq = playerLocation.distanceSquared(shop.getSignLocation());
+if (distSq < maxDistSq) {
+    displaysToShow.add(shopLocation);
+} else {
+    displaysToRemove.add(shopLocation);
+}
+```
+
+For the sort, `distSq` is stored in the entry and sorted by that — the relative
+order is identical to sorting by distance since `sqrt` is monotonic.
+
+---
+
+## Bug 12 — Duplicate `onPlayerJoin` / `onLogin` Listener Methods Cached Name Twice
+
+**Status:** ✅ **Fixed in [`345be5c`][c12fix]** (minor correctness / performance issue)  
+**File:** `ShopListener.java`  
+**Severity:** Low
+
+**Root cause:** `ShopListener` registered **two** `@EventHandler` methods for
+`PlayerJoinEvent` under different method names (`onPlayerJoin` and `onLogin`).
+Bukkit fired both for every join event. `onPlayerJoin` only cached the player
+name; `onLogin` did shop-cleanup, XP sync, and offline-transaction setup. The
+name cache call in `onPlayerJoin` therefore ran redundantly alongside `onLogin`
+without any functional benefit, and the double-listener registration was a
+maintenance hazard (future logic added to one would appear not to apply if a
+developer only looked at the other).
+
+```java
+// Both of these fired on every PlayerJoinEvent:
+@EventHandler
+public void onPlayerJoin(PlayerJoinEvent event) { ... PlayerNameCache.cacheName(...) }
+
+@EventHandler
+public void onLogin(PlayerJoinEvent event) { ... // all the real login logic }
+```
+
+**Fix:** The `PlayerNameCache.cacheName()` call was moved into the existing
+`onLogin` handler and `onPlayerJoin` was deleted entirely, leaving exactly one
+`PlayerJoinEvent` handler.
+
+---
+
+## Bug 13 — `CommandHandler.register()` Created Duplicate Handlers on Every Reload
+
+**Status:** ✅ **Fixed**  
+**File:** `CommandHandler.java` / `register()`, `Shop.java` / `reload()`  
+**Severity:** High
+
+**Root cause:** `CommandHandler` registered itself with Bukkit's `CommandMap` via
+reflection inside its constructor. Because `Shop.java` constructed a **new**
+`CommandHandler` during every `plugin.reload()` call, each reload appended
+another entry to `CommandMap` without removing the previous one. Bukkit's
+`CommandMap` has no built-in deduplication — the first registered handler wins
+for dispatch. After one or more reloads, `/shop` was dispatched to a **stale**
+handler instance from a previous load cycle, causing commands to behave
+inconsistently or silently fail entirely (e.g. the old handler held references
+to an old `ShopHandler`/`GuiHandler` that no longer matched the live plugin state).
+
+```java
+// CommandHandler constructor — called on every reload:
+try {
+    register(); // unconditionally appended to CommandMap
+} catch (Exception e) {
+    e.printStackTrace();
+}
+```
+
+**Fix:** A single `CommandHandler` instance is kept as a field on `Shop`.
+On reload, `commandHandler.reregister(commandAlias)` is called instead of
+constructing a new handler — which first removes the old `CommandMap` entry
+before re-registering the updated one.
+
+---
+
+## Bug 14 — `CommandHandler` Constructed with `null` Permission
+
+**Status:** ✅ **Fixed**  
+**File:** `Shop.java` (CommandHandler construction), `CommandHandler.java` constructor  
+**Severity:** High
+
+**Root cause:** `CommandHandler` was constructed with `null` passed as the
+`permission` argument, which was forwarded directly to `this.setPermission(null)`.
+On most Bukkit/Paper builds this does not throw, but it leaves the command with
+**no declared root permission node**. Permission plugins and Paper's
+`ops-permission-level` system check the declared permission before dispatching
+to `execute()`. With `null`, any server that uses `default-permission: op` at
+the command level (e.g. via `commands.yml` overrides or a strict permission
+plugin) would silently block the command for non-ops — even when the plugin's own
+`usePerms()` was `false`. This manifested as `/shop` doing nothing with no error.
+
+**Fix:** `"shop.use"` is now passed as the permission string instead of `null`.
+
+```java
+// Shop.java — pass a real permission, not null:
+commandHandler = new CommandHandler(this, "shop.use", commandAlias, ...);
+```
+
+---
+
+## Bug 15 — `/shop currency` Silently Did Nothing for Non-Op Players
+
+**Status:** ✅ **Fixed**  
+**File:** `CommandHandler.java` / `execute()` — `currency` branch  
+**Severity:** Medium
+
+**Root cause:** The help text shown on `/shop` (no args) listed `/shop currency`
+as a command available to **all players**. However, the `execute()` branch for
+`currency` wrapped the response in an operator/OP guard:
+
+```java
+else if (args[0].equalsIgnoreCase("currency")) {
+    if (sender instanceof Player) {
+        Player player = (Player) sender;
+        if ((plugin.usePerms() && player.hasPermission("shop.operator")) || player.isOp()) {
+            sendCommandMessage("currency_output", player);
+            sendCommandMessage("currency_output_tip", player);
+            return true;
+        }
+        // No else — non-op, non-operator players received NO output and NO error
+    }
+}
+```
+
+A regular player running `/shop currency` got absolute silence.
+
+**Fix:** `currency_output` is now sent to all players; `currency_output_tip`
+(which describes how to *change* currency) is reserved for operators.
+
+---
+
+## Bug 16 — `/shop notify` Subcommand Missing from Help Text
+
+**Status:** ✅ **Fixed** (documentation/UX issue)  
+**File:** `CommandHandler.java` / `execute()` — zero-args help block  
+**Severity:** Medium
+
+**Root cause:** `/shop notify user|owner|stock` was fully implemented in both
+`execute()` and `tabComplete()`, but was **never listed** in the help output
+shown when a player ran `/shop` with no arguments. Players had no way to
+discover the command from in-game help.
+
+**Fix:** `sendCommandMessage("notify", player)` was added to the zero-args help
+block so the command appears alongside `list`, `currency`, etc.
+
+---
+
+## Bug 17 — Null `commandAlias` from Config Caused Silent Full Command Failure
+
+**Status:** ✅ **Fixed**  
+**File:** `Shop.java` — `commandAlias` config loading  
+**Severity:** Medium
+
+**Root cause:** `commandAlias` was read from `config.yml` and passed directly as
+the command name to the `CommandHandler` constructor and `BukkitCommand` super.
+If the config key was missing or returned `null`, `BukkitCommand` received `null`
+as its name. The subsequent `commandMap.register(null, this)` call inside
+`register()` threw a `NullPointerException` that was caught and printed, but
+**command registration never completed** — leaving all `/shop` commands
+non-functional with only a stack trace in the console.
+
+**Fix:** A null/blank guard was added when loading `commandAlias`, falling
+back to `"shop"`:
+
+```java
+commandAlias = config.getString("commandAlias");
+if (commandAlias == null || commandAlias.isBlank()) {
+    commandAlias = "shop";
+    plugin.getLogger().warning("'commandAlias' is missing or blank in config.yml — defaulting to 'shop'");
+}
+```
+
+---
+
 ## Outstanding Concerns / Future Work
 
 || # | Concern | Severity | Notes |
@@ -203,6 +479,12 @@ Also corrected the misleading log message from `"sign is not exist"` →
 4. Confirm no sign shows stock as `-1` (Bug 5).
 5. Click a sign-post shop sign — the action should fire (Bug 7).
 6. Right-click the chest of a sign-post shop — the shop should not be deleted (Bug 8).
+7. Trigger an explosion near a sign-post shop sign — the sign should survive (Bug 9 ✅ fixed).
+8. Place a hopper adjacent to a sign-post shop chest — hopper placement should be blocked for non-owners (Bug 10 ✅ fixed).
+9. Move near many shops — no unnecessary `Math.sqrt` calls (Bug 11 ✅ fixed).
+10. Run `/shop reload` twice, then run `/shop list` — verify it responds correctly (Bug 13 ✅ fixed).
+11. As a non-op player without `shop.operator`, run `/shop currency` — verify a response is received (Bug 15 ✅ fixed).
+12. As any player, run `/shop` with no args — verify `notify` appears in the help list (Bug 16 ✅ fixed).
 
 ---
 
@@ -214,3 +496,4 @@ Also corrected the misleading log message from `"sign is not exist"` →
 [c6]: https://github.com/TheFlood424K/Shop/commit/3c37313e91766b626e842c3e5834f730f2886b2a
 [c7]: https://github.com/TheFlood424K/Shop/commit/c4bf62322dc4065abed4103c632cce220a5a46ac
 [c8]: https://github.com/TheFlood424K/Shop/commit/63f0365f5737b029a22c901aec9f14510bf8e9ab
+[c12fix]: https://github.com/TheFlood424K/Shop/commit/345be5c23727814b9433d748ca6dbdbaaa554b65
