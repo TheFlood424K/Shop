@@ -238,21 +238,21 @@ public class ShopListener implements Listener {
 
     @EventHandler
     public void onExplosion(EntityExplodeEvent event) {
-        //save all potential shop blocks (for sake of time during explosion)
-        Iterator<Block> blockIterator = event.blockList().iterator();
-        AbstractShop shop = null;
-        while (blockIterator.hasNext()) {
-            Block block = blockIterator.next();
-            if (Tag.WALL_SIGNS.isTagged(block.getType())) {
-                shop = plugin.getShopHandler().getShop(block.getLocation());
-            } else if (plugin.getShopHandler().isChest(block)) {
-                shop = plugin.getShopHandler().getShopByChest(block);
-            }
-            if (shop != null) {
-                blockIterator.remove();
+            //save all potential shop blocks (for sake of time during explosion)
+            Iterator<Block> blockIterator = event.blockList().iterator();
+            AbstractShop shop = null;
+            while (blockIterator.hasNext()) {
+                Block block = blockIterator.next();
+                if (Tag.WALL_SIGNS.isTagged(block.getType()) || Tag.STANDING_SIGNS.isTagged(block.getType())) {
+                    shop = plugin.getShopHandler().getShop(block.getLocation());
+                } else if (plugin.getShopHandler().isChest(block)) {
+                    shop = plugin.getShopHandler().getShopByChest(block);
+                }
+                if (shop != null) {
+                    blockIterator.remove();
+                }
             }
         }
-    }
 
     @EventHandler
     public void onShopExpansion(BlockPlaceEvent event) {

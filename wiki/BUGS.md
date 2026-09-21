@@ -186,12 +186,12 @@ Also corrected the misleading log message from `"sign is not exist"` →
 
 ## Outstanding Concerns / Future Work
 
-| # | Concern | Severity | Notes |
-|---|---------|----------|-------|
-| 1 | Shops saved before Bug 2's fix may have **corrupted/incomplete data on disk** | Medium | A `/shop reload` or manual deletion+recreation of affected shops may be needed |
-| 2 | `processUnloadedShopsInChunk` still has no mutex around the shop map during the load window | Low | Unlikely to race after Bug 2's fix but worth a future review |
-| 3 | Silent swallowing of `initializeShop()` returning `false` has no admin log message | Low | Adding a `WARN` log here would make future failures visible without needing debug mode |
-| 4 | `onExplosion` still only checks `Tag.WALL_SIGNS` when protecting sign blocks from explosions | Low | Sign-post shop signs may be destroyed by explosions; should also check `Tag.STANDING_SIGNS` |
+|| # | Concern | Severity | Notes |
+||---|---------|----------|-------|
+|| 1 | Shops saved before Bug 2's fix may have **corrupted/incomplete data on disk** | Medium | A `/shop reload` or manual deletion+recreation of affected shops may be needed |
+|| 2 | `processUnloadedShopsInChunk` still has no mutex around the shop map during the load window | Low | Unlikely to race after Bug 2's fix but worth a future review |
+|| 3 | Silent swallowing of `initializeShop()` returning `false` has no admin log message | Low | Adding a `WARN` log here would make future failures visible without needing debug mode |
+|| 4 | `onExplosion` still only checks `Tag.WALL_SIGNS` when protecting sign blocks from explosions | Low | Fixed: now checks both `Tag.WALL_SIGNS` and `Tag.STANDING_SIGNS` |
 
 ---
 
