@@ -306,14 +306,17 @@ public abstract class AbstractShop {
         return signLocation;
     }
 
-    public WallSign getSign(){
-        if (!this.isChunkLoaded()) { return null; }
-        BlockData signBlockData = this.getSignLocation().getBlock().getBlockData();
-        if(signBlockData instanceof WallSign){
-            return (WallSign)signBlockData;
+    /** @return the direction the sign is facing (the direction the text faces), or null if not loaded or not a sign */
+        public BlockFace getSignFacing(){
+            if (!this.isChunkLoaded()) { return null; }
+            BlockData signBlockData = this.getSignLocation().getBlock().getBlockData();
+            if(signBlockData instanceof WallSign){
+                return ((WallSign) signBlockData).getFacing();
+            } else if(signBlockData instanceof Rotatable){
+                return ((Rotatable) signBlockData).getRotation();
+            }
+            return null;
         }
-        return null;
-    }
 
     public Location getChestLocation() {
         return chestLocation;

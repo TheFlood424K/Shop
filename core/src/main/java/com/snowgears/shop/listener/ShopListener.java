@@ -247,7 +247,6 @@ public class ShopListener implements Listener {
                 blockIterator.remove();
             }
         }
-    }
 
     @EventHandler
     public void onShopExpansion(BlockPlaceEvent event) {

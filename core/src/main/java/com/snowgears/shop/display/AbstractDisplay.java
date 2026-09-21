@@ -403,7 +403,7 @@ public abstract class AbstractDisplay {
                 for(Entity e : this.getShop().getChestLocation().getWorld().getNearbyEntities(this.getItemDropLocation(false), 1, 1, 1)){
                     if(e.getType() == EntityType.ITEM_FRAME){
                         ItemFrame i = (ItemFrame)e;
-                        if(i.getAttachedFace() == getShop().getSign().getFacing().getOppositeFace()) {
+                        if(i.getAttachedFace() == getShop().getSignFacing().getOppositeFace()) {
                             skip = true;
                             break;
                         }
