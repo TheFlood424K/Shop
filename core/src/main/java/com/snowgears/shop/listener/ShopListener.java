@@ -229,22 +229,20 @@ public class ShopListener implements Listener {
     }
 
     @EventHandler
-    public void onExplosion(EntityExplodeEvent event) {
-        // Bug 9 fix: protect sign-post shop signs from explosions.
-        // Previously only Tag.WALL_SIGNS was checked; standing (sign-post) shop
-        // signs have Rotatable block data and were not removed from the explosion
-        // block list, causing them to be destroyed by creeper/TNT explosions.
-        Iterator<Block> blockIterator = event.blockList().iterator();
-        AbstractShop shop = null;
-        while (blockIterator.hasNext()) {
-            Block block = blockIterator.next();
-            if (Tag.WALL_SIGNS.isTagged(block.getType()) || Tag.STANDING_SIGNS.isTagged(block.getType())) {
-                shop = plugin.getShopHandler().getShop(block.getLocation());
-            } else if (plugin.getShopHandler().isChest(block)) {
-                shop = plugin.getShopHandler().getShopByChest(block);
-            }
-            if (shop != null) {
-                blockIterator.remove();
+        public void onExplosion(EntityExplodeEvent event) {
+            //save all potential shop blocks (for sake of time during explosion)
+            Iterator<Block> blockIterator = event.blockList().iterator();
+            AbstractShop shop = null;
+            while (blockIterator.hasNext()) {
+                Block block = blockIterator.next();
+                if (Tag.WALL_SIGNS.isTagged(block.getType()) || Tag.STANDING_SIGNS.isTagged(block.getType())) {
+                    shop = plugin.getShopHandler().getShop(block.getLocation());
+                } else if (plugin.getShopHandler().isChest(block)) {
+                    shop = plugin.getShopHandler().getShopByChest(block);
+                }
+                if (shop != null) {
+                    blockIterator.remove();
+                }
             }
         }
 
