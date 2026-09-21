@@ -43,14 +43,6 @@ public class ShopListener implements Listener {
         plugin = instance;
     }
 
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event){
-        plugin.getFoliaLib().getScheduler().runLater(() -> {
-            // Cache player name for performance optimization
-            PlayerNameCache.cacheName(event.getPlayer().getUniqueId(), event.getPlayer().getName());
-        }, 5);
-    }
-
     public int getBuildLimit(Player player){
         // If permissions are disabled, there is "no limit"
         if (!plugin.usePerms()) {
@@ -270,6 +262,15 @@ public class ShopListener implements Listener {
 
     @EventHandler
     public void onLogin(PlayerJoinEvent event){
+        // Bug 12 fix: the former `onPlayerJoin` handler existed solely to call
+        // PlayerNameCache.cacheName(). Having two @EventHandler methods for
+        // PlayerJoinEvent caused Bukkit to fire both on every join, running the
+        // name-cache call twice. The redundant handler has been removed and the
+        // single call is now consolidated here.
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
+            PlayerNameCache.cacheName(event.getPlayer().getUniqueId(), event.getPlayer().getName());
+        }, 5);
+
         //delete all shops from players that have not played in X amount of hours (if configured)
         if(plugin.getHoursOfflineToRemoveShops() != 0){
             for(OfflinePlayer offlinePlayer : plugin.getShopHandler().getShopOwners()){
