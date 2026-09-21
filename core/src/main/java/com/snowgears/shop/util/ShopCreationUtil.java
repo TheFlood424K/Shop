@@ -306,8 +306,10 @@ public class ShopCreationUtil {
         }
 
         if (item.getType() == Material.AIR) {
-            return false;
-        }
+                    ShopMessage.sendMessage("interactionIssue", "invalidItem", player, shop);
+                    shop.sendEffects(false, player);
+                    return false;
+                }
 
         // Null-guard: chestLocation is set by load() inside createShop().  If load()
         // failed or has not yet committed the chest location (e.g. the sign block had
@@ -349,13 +351,15 @@ public class ShopCreationUtil {
         }
 
         try {
-            //stop the edge case of shulker boxes being able to be used in shulker chests
-            if (Tag.SHULKER_BOXES.isTagged(item.getType())) {
-                if (shop.getChestLocation().getBlock().getState() instanceof ShulkerBox) {
-                    return false;
-                }
-            }
-        } catch (NoSuchFieldError e) {}
+                    //stop the edge case of shulker boxes being able to be used in shulker chests
+                    if (Tag.SHULKER_BOXES.isTagged(item.getType())) {
+                        if (shop.getChestLocation().getBlock().getState() instanceof ShulkerBox) {
+                            ShopMessage.sendMessage("interactionIssue", "shulkerBoxConflict", player, shop);
+                            shop.sendEffects(false, player);
+                            return false;
+                        }
+                    }
+                } catch (NoSuchFieldError e) {}
 
         if(!itemsCanBeInitialized(player, item, barterItem)){
             shop.sendEffects(false, player);
@@ -396,7 +400,9 @@ public class ShopCreationUtil {
                 shop.setSecondaryItemStack(barterItem);
                 return true;
         }
-        return false;
+                // If we reach here, the shop is already fully initialized
+                plugin.getLogger().debug("initializeShop: shop already initialized for " + shop);
+                return false;
     }
 
     public ShopType getShopType(String input){

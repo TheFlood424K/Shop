@@ -460,6 +460,16 @@ if (commandAlias == null || commandAlias.isBlank()) {
 
 ---
 
+## RESOLVED CONCERNS (Compressed Format)
+
+||| # | Concern | Status | Resolution Summary |
+|||---|---------|--------|---------------------|
+||| 3 | Silent swallowing of `initializeShop()` returning `false` has no admin log message | **Resolved** | Added user feedback for invalid item (AIR) and shulker box conflict cases; added debug log for already-initialized case. Existing WARN log for null chestLocation covers main NPE case. |
+||| 4 | `onExplosion` still only checks `Tag.WALL_SIGNS` when protecting sign blocks from explosions | **Resolved** | Now checks both `Tag.WALL_SIGNS` and `Tag.STANDING_SIGNS` (fixed in commit 345be5c). |
+||| 18 | InitializeShop returns false for AIR item without user feedback | **Resolved** | Added invalidItem interaction message and effects feedback when trying to initialize with air item. |
+||| 19 | InitializeShop returns false for shulker box in shulker chest without user feedback | **Resolved** | Added shulkerBoxConflict interaction message and effects feedback when trying to use shulker box in shulker chest. |
+||| 20 | InitializeShop returns false for already-initialized shop without debug logging | **Resolved** | Added debug log message when initializeShop returns false because shop is already fully initialized. |
+---
 ## Outstanding Concerns / Future Work
 
 || # | Concern | Severity | Notes |
