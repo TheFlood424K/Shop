@@ -237,7 +237,7 @@ public class ShopListener implements Listener {
     }
 
     @EventHandler
-    public void onExplosion(EntityExplodeEvent event) {
+        public void onExplosion(EntityExplodeEvent event) {
             //save all potential shop blocks (for sake of time during explosion)
             Iterator<Block> blockIterator = event.blockList().iterator();
             AbstractShop shop = null;
