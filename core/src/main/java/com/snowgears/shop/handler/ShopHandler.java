@@ -251,18 +251,16 @@ public class ShopHandler {
             }
         }
         String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-        if(chunkShops.containsKey(chunkKey)){
-            List<Location> chunkShopLocations = getShopLocations(chunkKey);
-            if(chunkShopLocations.contains(shop.getSignLocation())) {
-                chunkShopLocations.remove(shop.getSignLocation());
-                if (chunkShopLocations.isEmpty()) {
-                    chunkShops.remove(chunkKey);
-                } else {
-                    chunkShops.put(chunkKey, chunkShopLocations);
+                List<Location> chunkShopLocations = getShopLocations(chunkKey);
+                if(chunkShopLocations.contains(shop.getSignLocation())) {
+                    chunkShopLocations.remove(shop.getSignLocation());
+                    if (chunkShopLocations.isEmpty()) {
+                        chunkShops.remove(chunkKey);
+                    } else {
+                        chunkShops.put(chunkKey, chunkShopLocations);
+                    }
+                    changed = true;
                 }
-                changed = true;
-            }
-        }
 
 
         if (changed) {
@@ -278,11 +276,22 @@ public class ShopHandler {
     }
 
     public void processUnloadedShopsInChunk(Chunk chunk){
-        String key = UtilMethods.getChunkKey(chunk);
-        if(unloadedShopsByChunk.containsKey(key)){
+            String key = UtilMethods.getChunkKey(chunk);
+            List<Location> shopLocations = unloadedShopsByChunk.computeIfAbsent(key, k -> new ArrayList<>());
+            // If the list is empty, there's nothing to process
+            if (shopLocations.isEmpty()) {
+                unloadedShopsByChunk.remove(key);
+                return;
+            }
+        
+            // We need to process the shops and then remove the entry atomically
+            // First, get a copy of the list to process
+            List<Location> shopsToProcess = new ArrayList<>(shopLocations);
+            // Then remove the entry from the map
+            unloadedShopsByChunk.remove(key);
+        
             List<UUID> playerUUIDs = new ArrayList<>();
-            List<Location> shopLocations = getUnloadedShopsByChunk(key);
-            for(Location shopLocation : shopLocations) {
+            for(Location shopLocation : shopsToProcess) {
                 AbstractShop shop = getShop(shopLocation);
                 if(shop != null){
                     // Run at the shop's location to ensure it works in the correct region in Folia
@@ -296,18 +305,15 @@ public class ShopHandler {
                     });
                 }
             }
-            unloadedShopsByChunk.remove(key);
         }
-    }
 
     public void addUnloadedShopToChunkList(AbstractShop shop){
-        String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-        List<Location> shopLocations = getUnloadedShopsByChunk(chunkKey);
-        if(!shopLocations.contains(shop.getSignLocation())) {
-            shopLocations.add(shop.getSignLocation());
-            unloadedShopsByChunk.put(chunkKey, shopLocations);
+            String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
+            List<Location> shopLocations = unloadedShopsByChunk.computeIfAbsent(chunkKey, k -> new CopyOnWriteArrayList<>());
+            if (!shopLocations.contains(shop.getSignLocation())) {
+                shopLocations.add(shop.getSignLocation());
+            }
         }
-    }
 
     public List<AbstractShop> getAllShops(){
         return allShops.values().stream().collect(
@@ -376,15 +382,8 @@ public class ShopHandler {
     }
 
     private List<Location> getShopLocations(String chunkKey){
-        List<Location> shopLocations;
-        if(chunkShops.containsKey(chunkKey)) {
-            shopLocations = chunkShops.get(chunkKey);
+            return chunkShops.computeIfAbsent(chunkKey, k -> new ArrayList<>());
         }
-        else {
-            shopLocations = new ArrayList<>();
-        }
-        return shopLocations;
-    }
 
     /**
      * Gets shop locations near a specific location within a default radius of 1 chunk
