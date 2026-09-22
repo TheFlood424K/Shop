@@ -82,7 +82,7 @@ jobs:
     # -ntp  suppresses artifact download progress lines (the main source of log noise).
     # -T 1C builds all Maven modules in parallel using one thread per CPU core.
     - name: Build
-      run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} clean package
+      run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} clean verify
 
     - name: Publish Test Results
       if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
