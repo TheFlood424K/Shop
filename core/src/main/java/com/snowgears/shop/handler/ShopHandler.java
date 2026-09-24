@@ -209,69 +209,64 @@ public class ShopHandler {
 
     public void addShop(AbstractShop shop) {
 
-        //this is to remove a bug that caused one shop to be saved to multiple files at one point
-        AbstractShop s = getShop(shop.getSignLocation());
-        if(s != null) {
-            return;
-        }
-        allShops.put(shop.getSignLocation(), shop);
+            //this is to remove a bug that caused one shop to be saved to multiple files at one point
+            AbstractShop s = getShop(shop.getSignLocation());
+            if(s != null) {
+                return;
+            }
+            allShops.put(shop.getSignLocation(), shop);
 
-        List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
-        if(!playerShopLocations.contains(shop.getSignLocation())) {
-            playerShopLocations.add(shop.getSignLocation());
-            playerShops.put(shop.getOwnerUUID(), playerShopLocations);
-        }
+            List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
+            if(!playerShopLocations.contains(shop.getSignLocation())) {
+                playerShopLocations.add(shop.getSignLocation());
+            }
 
-        String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-        List<Location> chunkShopLocations = getShopLocations(chunkKey);
-        if(!chunkShopLocations.contains(shop.getSignLocation())) {
-            chunkShopLocations.add(shop.getSignLocation());
-            chunkShops.put(chunkKey, chunkShopLocations);
-        }
+            String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
+            List<Location> chunkShopLocations = getShopLocations(chunkKey);
+            if(!chunkShopLocations.contains(shop.getSignLocation())) {
+                chunkShopLocations.add(shop.getSignLocation());
+            }
 
-        plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
-    }
+            plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
+        }
 
     //This method should only be used by AbstractShop object to delete
     public void removeShop(AbstractShop shop, boolean forceSave) {
-        boolean changed = false;
-        if (allShops.containsKey(shop.getSignLocation())) {
-            allShops.remove(shop.getSignLocation());
-            changed = true;
-        }
-        if(playerShops.containsKey(shop.getOwnerUUID())){
-            List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
-            if(playerShopLocations.contains(shop.getSignLocation())) {
-                playerShopLocations.remove(shop.getSignLocation());
-                if (playerShopLocations.isEmpty()) {
-                    playerShops.remove(shop.getOwnerUUID());
+            boolean changed = false;
+            if (allShops.containsKey(shop.getSignLocation())) {
+                allShops.remove(shop.getSignLocation());
+                changed = true;
+            }
+            if(playerShops.containsKey(shop.getOwnerUUID())) {
+                List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
+                if(playerShopLocations.contains(shop.getSignLocation())) {
+                    playerShopLocations.remove(shop.getSignLocation());
+                    if (playerShopLocations.isEmpty()) {
+                        playerShops.remove(shop.getOwnerUUID());
+                    }
+                }
+            }
+            String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
+            List<Location> chunkShopLocations = getShopLocations(chunkKey);
+            if(chunkShopLocations.contains(shop.getSignLocation())) {
+                chunkShopLocations.remove(shop.getSignLocation());
+                if (chunkShopLocations.isEmpty()) {
+                    chunkShops.remove(chunkKey);
                 } else {
-                    playerShops.put(shop.getOwnerUUID(), playerShopLocations);
+                    chunkShops.put(chunkKey, chunkShopLocations);
                 }
                 changed = true;
             }
-        }
-        String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-                List<Location> chunkShopLocations = getShopLocations(chunkKey);
-                if(chunkShopLocations.contains(shop.getSignLocation())) {
-                    chunkShopLocations.remove(shop.getSignLocation());
-                    if (chunkShopLocations.isEmpty()) {
-                        chunkShops.remove(chunkKey);
-                    } else {
-                        chunkShops.put(chunkKey, chunkShopLocations);
-                    }
-                    changed = true;
+
+            if (changed) {
+                Shop.getPlugin().getLogger().debug("Removed Shop internally from ShopHandler: " + shop);
+                // Immediate force save if there were any changes since we deleted a shop
+                // Note that we don't pass forceSave down, it is only a flag on if we should trigger the save attempt immediately
+                // we only hold off on doing this if we are bulk deleting shops for users to prevent repeated saves.
+                // The forceSave flag should rarely be `false`, and you should be careful when setting it to false.
+                if (forceSave) {
+                    this.saveShops(shop.getOwnerUUID(), true);
                 }
-
-
-        if (changed) {
-            Shop.getPlugin().getLogger().debug("Removed Shop internally from ShopHandler: " + shop);
-            // Immediate force save if there were any changes since we deleted a shop 
-            // Note that we don't pass forceSave down, it is only a flag on if we should trigger the save attempt immediately
-            // we only hold off on doing this if we are bulk deleting shops for users to prevent repeated saves.
-            // The forceSave flag should rarely be `false`, and you should be careful when setting it to false.
-            if (forceSave) {
-                this.saveShops(shop.getOwnerUUID(), true);
             }
         }
     }
