@@ -373,14 +373,8 @@ public class ShopHandler {
     }
 
     private List<Location> getShopLocations(UUID player){
-        List<Location> shopLocations;
-        if(playerShops.containsKey(player)) {
-            shopLocations = playerShops.get(player);
+            return playerShops.computeIfAbsent(player, k -> new ArrayList<>());
         }
-        else
-            shopLocations = new ArrayList<>();
-        return shopLocations;
-    }
 
     private List<Location> getShopLocations(String chunkKey){
             return chunkShops.computeIfAbsent(chunkKey, k -> new ArrayList<>());
