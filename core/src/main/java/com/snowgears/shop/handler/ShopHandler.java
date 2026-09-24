@@ -249,14 +249,12 @@ public class ShopHandler {
             String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
             List<Location> chunkShopLocations = getShopLocations(chunkKey);
             if(chunkShopLocations.contains(shop.getSignLocation())) {
-                chunkShopLocations.remove(shop.getSignLocation());
-                if (chunkShopLocations.isEmpty()) {
-                    chunkShops.remove(chunkKey);
-                } else {
-                    chunkShops.put(chunkKey, chunkShopLocations);
-                }
-                changed = true;
-            }
+                        chunkShopLocations.remove(shop.getSignLocation());
+                        if (chunkShopLocations.isEmpty()) {
+                            chunkShops.remove(chunkKey);
+                        }
+                        changed = true;
+                    }
 
             if (changed) {
                 Shop.getPlugin().getLogger().debug("Removed Shop internally from ShopHandler: " + shop);
