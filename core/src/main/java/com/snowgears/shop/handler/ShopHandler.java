@@ -366,12 +366,12 @@ public class ShopHandler {
     }
 
     private List<Location> getShopLocations(UUID player){
-            return playerShops.computeIfAbsent(player, k -> new ArrayList<>());
-        }
+                return playerShops.computeIfAbsent(player, k -> new CopyOnWriteArrayList<>());
+            }
 
-    private List<Location> getShopLocations(String chunkKey){
-            return chunkShops.computeIfAbsent(chunkKey, k -> new ArrayList<>());
-        }
+        private List<Location> getShopLocations(String chunkKey){
+                return chunkShops.computeIfAbsent(chunkKey, k -> new CopyOnWriteArrayList<>());
+            }
 
     /**
      * Gets shop locations near a specific location within a default radius of 1 chunk
