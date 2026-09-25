@@ -267,7 +267,6 @@ public class ShopHandler {
                 }
             }
         }
-    }
 
     public void processUnloadedShopsInChunk(Chunk chunk){
             String key = UtilMethods.getChunkKey(chunk);
