@@ -115,7 +115,7 @@ class TransactionPartyTest {
     @Test
     void testHasRoomForItem_Success() {
         // Arrange
-        when(mockInventory.contains(atLeast(testItem, 1))).thenReturn(true);
+        when(mockInventory.contains(Mockito.atLeast(testItem, 1))).thenReturn(true);
 
         // Act
         boolean result = transactionParty.hasRoomForItem(testItem);
@@ -127,7 +127,7 @@ class TransactionPartyTest {
     @Test
     void testHasRoomForItem_Failure() {
         // Arrange
-        when(mockInventory.contains(atLeast(testItem, 1))).thenReturn(false);
+        when(mockInventory.contains(Mockito.atLeast(testItem, 1))).thenReturn(false);
 
         // Act
         boolean result = transactionParty.hasRoomForItem(testItem);
@@ -140,7 +140,7 @@ class TransactionPartyTest {
     void testHasRoomForItem_AdminAlwaysTrue() {
         // Arrange
         TransactionParty adminParty = new TransactionParty(false, true, mockPlayer, mockInventory);
-        when(mockInventory.contains(atLeast(testItem, 1))).thenReturn(false); // Would normally be false
+        when(mockInventory.contains(Mockito.atLeast(testItem, 1))).thenReturn(false); // Would normally be false
 
         // Act
         boolean result = adminParty.hasRoomForItem(testItem);

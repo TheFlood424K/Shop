@@ -98,6 +98,42 @@ jobs:
         fail-on-error: false
         fail-on-empty: false
 
+    - name: Create workflow summary
+      if: always()
+      run: |
+        STATUS="${{ job.status }}"
+        JAR_URL="${{ steps.upload-shop-jar.outputs.artifact-url }}"
+        DIFF_URL="${{ steps.upload-diff-cover-report.outputs.artifact-url }}"
+        TEST_RESULTS_AVAILABLE="false"
+        if [ -d "**/target/surefire-reports" ] && [ "$(ls -A **/target/surefire-reports/ 2>/dev/null)" ]; then
+          TEST_RESULTS_AVAILABLE="true"
+        fi
+        {
+          if [ "$STATUS" = "success" ]; then
+            echo "# Build Completed Successfully! 🎉"
+          else
+            echo "# Build Failed ❌"
+          fi
+          echo ""
+          echo "**Version:** $VERSION"
+          echo ""
+          if [ "$TEST_RESULTS_AVAILABLE" = "true" ]; then
+            echo "**Test Results:** Tests were executed and results are available"
+          else
+            echo "**Test Results:** No test results found"
+          fi
+          if [ -n "$DIFF_URL" ]; then
+            echo "**Diff Cover:** [View report]($DIFF_URL)"
+          fi
+          echo ""
+          if [ -n "$JAR_URL" ]; then
+            echo "### Download Build"
+            echo "⬇️ [$JAR_FILENAME]($JAR_URL)"
+            echo ""
+          fi
+        } > build-summary.md
+        cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
+
     - name: Generate diff-cover report
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       run: |
@@ -121,32 +157,6 @@ jobs:
       with:
         name: diff-cover-report.html
         path: scripts/diff-cover.html
-
-    - name: Create workflow summary
-      if: always()
-      run: |
-        STATUS="${{ job.status }}"
-        JAR_URL="${{ steps.upload-shop-jar.outputs.artifact-url }}"
-        DIFF_URL="${{ steps.upload-diff-cover-report.outputs.artifact-url }}"
-        {
-          if [ "$STATUS" = "success" ]; then
-            echo "# Build Completed Successfully! 🎉"
-          else
-            echo "# Build Failed ❌"
-          fi
-          echo ""
-          echo "**Version:** $VERSION"
-          if [ -n "$DIFF_URL" ]; then
-            echo "**Diff Cover:** [View report]($DIFF_URL)"
-          fi
-          echo ""
-          if [ -n "$JAR_URL" ]; then
-            echo "### Download Build"
-            echo "⬇️ [$JAR_FILENAME]($JAR_URL)"
-            echo ""
-          fi
-        } > build-summary.md
-        cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
 
     - name: Build Summary
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
