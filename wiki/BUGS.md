@@ -1,7 +1,7 @@
 # Bug Memory Cache — Living Document of Shop Plugin Issues
 
 > **Last Updated:** `2026-09-26`  
-> **Status:** All 23 documented issues have been resolved  
+> **Status:** All 24 documented issues have been resolved  
 > **Purpose:** This file serves as a living cache of bugs and fixes for the Shop plugin, helping contributors understand past issues and prevent regressions.
 
 ## 📋 Quick Reference Table
@@ -31,6 +31,7 @@
 | 21 | Potential NPEs in GUI Config Loading | ✅ FIXED | Current | Medium |
 | 22 | Stock Not Updating After Transactions | ✅ FIXED | Current | Medium |
 | 23 | Stock Not Updating After Transactions in Tx Handler | ✅ FIXED | Current | Medium |
+| 24 | Inefficient Player Name Sorting in ListPlayersWindow | ✅ FIXED | `optimized-sorting-pr` | Low |
 
 ---
 
@@ -156,7 +157,7 @@ These bugs were resolved in earlier development cycles and represent foundationa
 
 ---
 
-## 🐞 Living Cache: Recently Fixed Issues (18-23)
+## 🐞 Living Cache: Recently Fixed Issues (18-24)
 
 This section serves as a living cache of recently identified and fixed bugs. These represent the most current issues discovered during systematic code reviews and are actively maintained as we continue to improve the plugin.
 
@@ -196,6 +197,12 @@ This section serves as a living cache of recently identified and fixed bugs. The
 **Root cause:** After executing a transaction (buy/sell), the shop's stock field was not updated, causing the displayed stock on signs and the needsSave flag to become stale. This occurred because `updateStock()` was not called after the transaction modified the chest inventory.  
 **Fix:** Call `shop.updateStock()` after logging the transaction in the `sendExchangeMessagesAndLog` method.
 
+### Issue 24 — Inefficient Player Name Sorting in ListPlayersWindow [FIXED]
+**File:** `ListPlayersWindow.java` / `initInvContents()`  
+**Severity:** Low  
+**Root cause:** The player list window was retrieving ALL player heads and sorting the entire collection every time the window was opened. On large servers with thousands of players, this caused significant performance degradation due to unnecessary object creation and sorting operations.  
+**Fix:** Optimized by retrieving only shop owner UUIDs, sorting those by player name (more efficient than sorting ItemStacks), and converting to ItemStacks only for the subset needed for display.
+
 ---
 
 ## 📝 How to Use This Living Cache
@@ -209,14 +216,13 @@ This section serves as a living cache of recently identified and fixed bugs. The
    - Move older items to historical section as needed to keep recent section focused
 
 ---
-*This document is maintained as a living resource. Last updated: 2026-09-26*
 
 ## 🔍 Latest Full Codebase Scan (2026-09-26)
 
 As part of issue IGNORE-ANY-EXISTING-CONTEXT, a full scan of the codebase was performed to identify any bugs, broken features, or optimization opportunities.
 
 **Findings:**
-- ✅ All previously documented issues (1-23) remain fixed
+- ✅ All previously documented issues (1-24) remain fixed
 - ✅ No new critical bugs were discovered
 - ⚠️ Several TODO comments and minor improvement opportunities exist (mostly in event handling and GUI code), but these do not represent functional bugs
 - ⚡ Previously identified optimization opportunities (such as Bug 11 - redundant sqrt calculations) have been addressed
