@@ -4,6 +4,10 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+/**
+ * Represents a party in a transaction (either the player or the shop).
+ * Handles inventory operations and fund management for transactions.
+ */
 public class TransactionParty {
     // Party - The player that is a party in the transaction, could be the shop owner, or the player clicking the sign
     private OfflinePlayer party;
@@ -165,18 +169,18 @@ public class TransactionParty {
         if (!this.hasRoomForItem(item)) { return false; }
 
         // We have the space, so add the item to our inventory!
-        // @TODO: Maybe check how many items were unable to be added to the inv to make sure we actually deposited the item
-        InventoryUtils.addItem(inventory, item);
-        return true;
+        // Check how many items were unable to be added to make sure we actually deposited the item
+        int leftover = InventoryUtils.addItem(inventory, item);
+        return leftover == 0;
     }
 
     public boolean deductItem(ItemStack item) {
         // If we are an admin, then we don't remove the item
         if (this.isAdmin) { return true; }
 
-        // @TODO: Maybe check how many items were unable to be removed from the inv to verify tx occured successfully
-        InventoryUtils.removeItem(inventory, item);
-        return true;
+        // Check how many items were unable to be removed from the inventory to verify transaction occurred successfully
+        int leftover = InventoryUtils.removeItem(inventory, item);
+        return leftover == 0;
     }
 
     @Override
