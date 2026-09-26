@@ -119,9 +119,14 @@ public class InventoryUtils {
 
     public static Inventory getVirtualInventory(Inventory inventory) {
         // Check a cloned inventory instead of manipulating the original inventory
-        Inventory clonedInv = Bukkit.createInventory(null, inventory.getStorageContents().length);
-        clonedInv.setContents(inventory.getStorageContents());
-
+        Inventory clonedInv = Bukkit.createInventory(null, inventory.getSize());
+        // Copy each item stack to avoid sharing references
+        for (int i = 0; i < inventory.getSize(); i++) {
+            ItemStack item = inventory.getItem(i);
+            if (item != null) {
+                clonedInv.setItem(i, item.clone());
+            }
+        }
         return clonedInv;
     }
 

@@ -199,6 +199,7 @@ public class TransactionHandler {
         int amount = transaction.getAmount();
 
         plugin.getLogHandler().logTransaction(player, shop, transactionType, price, amount);
+        shop.updateStock();
     }
 
     private boolean notifyOwner(final AbstractShop shop){

@@ -251,6 +251,9 @@ public class ShopGuiHandler {
 
         for(GuiTitle titleEnum : GuiTitle.values()) {
             String titleString = config.getString("titles."+titleEnum.toString().toLowerCase());
+            if (titleString == null) {
+                titleString = titleEnum.toString(); // fallback to enum name
+            }
             guiWindowTitles.put(titleEnum, ChatColor.translateAlternateColorCodes('&', titleString));
         }
 

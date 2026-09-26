@@ -65,14 +65,18 @@ public class ShopListener implements Listener {
                     if(tempNum > baseBuildLimit) {
                         baseBuildLimit = tempNum;
                     }
-                } catch (NumberFormatException e) {}
+                } catch (NumberFormatException e) {
+                    plugin.getLogger().warning("Invalid build limit permission format: " + perm);
+                }
             }
             // If it's an extra build limit permission, parse the number
             else if (perm.startsWith("shop.buildlimitextra.")){
                 try {
                     int extraNum = Integer.parseInt(perm.substring(perm.lastIndexOf(".") + 1));
                     extraBuildLimit += extraNum;
-                } catch (NumberFormatException e) {}
+                } catch (NumberFormatException e) {
+                    plugin.getLogger().warning("Invalid build limit permission format: " + perm);
+                }
             }
         }
         // If no build limit was found, return 10000 (no limit)
@@ -229,29 +233,37 @@ public class ShopListener implements Listener {
     }
 
     @EventHandler
-        public void onExplosion(EntityExplodeEvent event) {
-            //save all potential shop blocks (for sake of time during explosion)
-            Iterator<Block> blockIterator = event.blockList().iterator();
-            AbstractShop shop = null;
-            while (blockIterator.hasNext()) {
-                Block block = blockIterator.next();
-                if (Tag.WALL_SIGNS.isTagged(block.getType()) || Tag.STANDING_SIGNS.isTagged(block.getType())) {
-                    shop = plugin.getShopHandler().getShop(block.getLocation());
-                } else if (plugin.getShopHandler().isChest(block)) {
-                    shop = plugin.getShopHandler().getShopByChest(block);
-                }
-                if (shop != null) {
-                    blockIterator.remove();
-                }
+    public void onExplosion(EntityExplodeEvent event) {
+        //save all potential shop blocks (for sake of time during explosion)
+        Iterator<Block> blockIterator = event.blockList().iterator();
+        AbstractShop shop = null;
+        while (blockIterator.hasNext()) {
+            Block block = blockIterator.next();
+            if (Tag.WALL_SIGNS.isTagged(block.getType()) || Tag.STANDING_SIGNS.isTagged(block.getType())) {
+                shop = plugin.getShopHandler().getShop(block.getLocation());
+            } else if (plugin.getShopHandler().isChest(block)) {
+                shop = plugin.getShopHandler().getShopByChest(block);
+            }
+            if (shop != null) {
+                blockIterator.remove();
             }
         }
+    }
 
     @EventHandler
     public void onShopExpansion(BlockPlaceEvent event) {
         Block b = event.getBlockPlaced();
         Player player = event.getPlayer();
         if(b.getType() == Material.HOPPER){
-            AbstractShop shop = plugin.getShopHandler().getShopByChest(b.getRelative(BlockFace.UP));
+            // Check all directions where a hopper can access a chest
+            AbstractShop shop = null;
+            BlockFace[] faces = {BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
+            for (BlockFace face : faces) {
+                shop = plugin.getShopHandler().getShopByChest(b.getRelative(face));
+                if (shop != null) {
+                    break; // Found a shop, no need to check other directions
+                }
+            }
             if(shop != null){
                 if(!player.isOp() && !shop.getOwnerUUID().equals(player.getUniqueId())){
                     event.setCancelled(true);

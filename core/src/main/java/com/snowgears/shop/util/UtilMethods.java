@@ -50,6 +50,9 @@ public class UtilMethods {
         try {
             String version = Bukkit.getBukkitVersion();
             String[] parts = version.split("\\.");
+            if (parts.length < 2) {
+                return true;
+            }
             int major = Integer.parseInt(parts[0]);
             int minor = Integer.parseInt(parts[1].split("-")[0]);
             return (major > 1) || (major == 1 && minor >= 17);
@@ -66,6 +69,9 @@ public class UtilMethods {
         try {
             String version = Bukkit.getBukkitVersion();
             String[] parts = version.split("\\.");
+            if (parts.length < 2) {
+                return true;
+            }
             int major = Integer.parseInt(parts[0]);
             int minor = Integer.parseInt(parts[1].split("-")[0]);
             return (major > 1) || (major == 1 && minor >= 14);

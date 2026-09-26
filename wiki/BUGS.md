@@ -272,6 +272,7 @@ if (distance < plugin.getMaxShopDisplayDistance()) {
 ```
 
 And again in the sorting lambda:
+
 ```java
 double distance = playerLocation.distance(locationToShow); // calls sqrt again
 sortedLocations.add(new SimpleEntry<>(locationToShow, distance));
@@ -460,50 +461,60 @@ if (commandAlias == null || commandAlias.isBlank()) {
 
 ---
 
-## RESOLVED CONCERNS (Compressed Format)
+## Recently Fixed Issues
 
-||| # | Concern | Status | Resolution Summary |
-|||---|---------|--------|---------------------|
-||| 3 | Silent swallowing of `initializeShop()` returning `false` has no admin log message | **Resolved** | Added user feedback for invalid item (AIR) and shulker box conflict cases; added debug log for already-initialized case. Existing WARN log for null chestLocation covers main NPE case. |
-||| 4 | `onExplosion` still only checks `Tag.WALL_SIGNS` when protecting sign blocks from explosions | **Resolved** | Now checks both `Tag.WALL_SIGNS` and `Tag.STANDING_SIGNS` (fixed in commit 345be5c). |
-||| 18 | InitializeShop returns false for AIR item without user feedback | **Resolved** | Added invalidItem interaction message and effects feedback when trying to initialize with air item. |
-||| 19 | InitializeShop returns false for shulker box in shulker chest without user feedback | **Resolved** | Added shulkerBoxConflict interaction message and effects feedback when trying to use shulker box in shulker chest. |
-||| 20 | InitializeShop returns false for already-initialized shop without debug logging | **Resolved** | Added debug log message when initializeShop returns false because shop is already fully initialized. |
----
-## Outstanding Concerns / Future Work
+The following issues were identified during a code review and have been fixed.
 
-|| # | Concern | Severity | Notes |
-||---|---------|----------|-------|
-|| 1 | Shops saved before Bug 2's fix may have **corrupted/incomplete data on disk** | Medium | A `/shop reload` or manual deletion+recreation of affected shops may be needed |
-|| 2 | `processUnloadedShopsInChunk` still has no mutex around the shop map during the load window | Low | Unlikely to race after Bug 2's fix but worth a future review |
-|| 3 | Silent swallowing of `initializeShop()` returning `false` has no admin log message | Low | Adding a `WARN` log here would make future failures visible without needing debug mode |
-|| 4 | `onExplosion` still only checks `Tag.WALL_SIGNS` when protecting sign blocks from explosions | Low | Fixed: now checks both `Tag.WALL_SIGNS` and `Tag.STANDING_SIGNS` |
+### Issue 18 — Hopper Protection Only Checks Above Chests [FIXED]
 
----
+**File:** `ShopListener.java` / `onShopExpansion()`
+**Severity:** Medium
 
-## How to Verify Shops Are Loading Correctly
+**Root cause:** The hopper protection logic only checks for hoppers placed directly above chests (`b.getRelative(BlockFace.UP)`), but hoppers can also be placed on the sides of chests to access their contents. This allows players to bypass hopper protection by placing hoppers on the sides of shop chests.
 
-1. Start the server and watch for any `Cannot invoke ... getShop() is null` lines — none should appear after `f7a301f`.
-2. Run `/shop list` — all shops should appear.
-3. Check sign-post shops specifically survived the reload (Bug 4).
-4. Confirm no sign shows stock as `-1` (Bug 5).
-5. Click a sign-post shop sign — the action should fire (Bug 7).
-6. Right-click the chest of a sign-post shop — the shop should not be deleted (Bug 8).
-7. Trigger an explosion near a sign-post shop sign — the sign should survive (Bug 9 ✅ fixed).
-8. Place a hopper adjacent to a sign-post shop chest — hopper placement should be blocked for non-owners (Bug 10 ✅ fixed).
-9. Move near many shops — no unnecessary `Math.sqrt` calls (Bug 11 ✅ fixed).
-10. Run `/shop reload` twice, then run `/shop list` — verify it responds correctly (Bug 13 ✅ fixed).
-11. As a non-op player without `shop.operator`, run `/shop currency` — verify a response is received (Bug 15 ✅ fixed).
-12. As any player, run `/shop` with no args — verify `notify` appears in the help list (Bug 16 ✅ fixed).
+**Fix:** Check all six adjacent faces for hoppers, not just the upper face.
 
----
+### Issue 19 — Version Parsing Vulnerability [FIXED]
 
-[c1]: https://github.com/TheFlood424K/Shop/commit/64cac1e4f701d1563554f9dbefff90966bc6dcc0
-[c2]: https://github.com/TheFlood424K/Shop/commit/bed25e6228220e2a4e214d743a68044d4c62a53d
-[c3]: https://github.com/TheFlood424K/Shop/commit/1ad7b3c3849650923150a4ede2b45e7eb6e77d90
-[c4]: https://github.com/TheFlood424K/Shop/commit/3098b6d88d13b1dc2a21cf029f3583336c930a17
-[c5]: https://github.com/TheFlood424K/Shop/commit/f7a301f3e3d18f0ff430deee55dab39f70b2f00e
-[c6]: https://github.com/TheFlood424K/Shop/commit/3c37313e91766b626e842c3e5834f730f2886b2a
-[c7]: https://github.com/TheFlood424K/Shop/commit/c4bf62322dc4065abed4103c632cce220a5a46ac
-[c8]: https://github.com/TheFlood424K/Shop/commit/63f0365f5737b029a22c901aec9f14510bf8e9ab
-[c12fix]: https://github.com/TheFlood424K/Shop/commit/345be5c23727814b9433d748ca6dbdbaaa554b65
+**File:** `UtilMethods.java` / `isMCVersion17Plus()`, `isMCVersion14Plus()`
+**Severity:** Low
+
+**Root cause:** The version parsing methods assume the volume string has at least two parts (major.minor), but if the volume string format is unexpected and contains fewer than two parts, an `ArrayIndexOutOfBoundsException` will be thrown when accessing `parts[1]`.
+
+**Fix:** Add bounds checking before accessing `parts[1]`.
+
+### Issue 20 — Shared Inventory Array Reference [FIXED]
+
+**File:** `InventoryUtils.java` / `getVirtualInventory()`
+**Severity:** High
+
+**Root cause:** The method creates a shared array reference between the original and cloned inventories by calling `clonedInv.setContents(inventory.getStorageContents())`. Since `getStorageContents()` returns the actual backing array, modifications to items in one inventory will affect the other.
+
+**Fix:** Create a copy of the contents array or clone each ItemStack before setting the contents.
+
+### Issue 21 — Potential NullPointerExceptions in GUI Configuration Loading [FIXED]
+
+**File:** `ShopGuiHandler.java` / `loadIconsAndTitles()`
+**Severity:** Medium
+
+**Root cause:** The method does not properly handle missing configuration keys, which can lead to NullPointerExceptions when trying to process null values.
+
+**Fix:** Add null checks before processing configuration values.
+
+### Issue 22 — Stock Not Updating After Transactions [FIXED]
+
+**File:** `AbstractShop.java` / `executeClickAction()`
+**Severity:** Medium
+
+**Root cause:** The stock field was not updated after player transactions (buying/selling), causing the displayed stock on signs and the needsSave flag to become stale. This occurred because `updateStock()` was only called during shop loading and when the item was set, not after transactions.
+
+**Fix:** Call `this.updateStock()` after transaction calls in the `executeClickAction` method for both TRANSACT and TRANSACT_FULLSTACK actions.
+
+### Issue 23 — Stock Not Updating After Transactions in Transaction Handler [FIXED]
+
+**File:** `TransactionHandler.java` / `sendExchangeMessagesAndLog()`
+**Severity:** Medium
+
+**Root cause:** After executing a transaction (buy/sell), the shop's stock field was not updated, causing the displayed stock on signs and the needsSave flag to become stale. This occurred because `updateStock()` was not called after the transaction modified the chest inventory.
+
+**Fix:** Call `shop.updateStock()` after logging the transaction in the `sendExchangeMessagesAndLog` method.
