@@ -49,7 +49,8 @@ public class TransactionHandler {
         // Bug fix: chestLocation is only set inside AbstractShop.load(), which runs deferred on
         // chunk load. If a player somehow interacts with the shop before load() completes,
         // chestLocation will be null and the .getBlock() call below would throw a NPE.
-        if(shop.getChestLocation() == null || !(plugin.getShopHandler().isChest(shop.getChestLocation().getBlock()))){
+        Location chestLoc = shop.getChestLocation();
+        if (chestLoc == null || !(plugin.getShopHandler().isChest(chestLoc.getBlock()))) {
             plugin.getLogger().warning("Deleting Shop because chest location is null or chest does not exist! " + shop);
             shop.delete();
             return;
