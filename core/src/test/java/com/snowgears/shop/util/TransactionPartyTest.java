@@ -1,10 +1,26 @@
 package com.snowgears.shop.util;
 
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.UUID;
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.EntityEffect;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntitySpawnMethod;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.Vector;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
+import org.bukkit.ChatMode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -17,9 +33,11 @@ import static org.mockito.Mockito.*;
  */
 class TestOfflinePlayer implements OfflinePlayer {
     private final String name;
+    private final UUID uniqueId;
 
     TestOfflinePlayer(String name) {
         this.name = name;
+        this.uniqueId = UUID.randomUUID();
     }
 
     @Override
@@ -27,109 +45,415 @@ class TestOfflinePlayer implements OfflinePlayer {
         return name;
     }
 
-    // Implement other required methods with simple defaults
     @Override
-    public boolean isOnline() { return false; }
-    @Override
-    public String getPlayer() { return name; }
-    @Override
-    public long getLastPlayed() { return 0L; }
-    @Override
-    public long getFirstPlayed() { return 0L; }
+    public boolean isOnline() {
+        return false;
+    }
 
-    // For methods we don't need in tests, return default values
-    @Override public boolean equals(Object obj) { return obj instanceof TestOfflinePlayer && ((TestOfflinePlayer) obj).name.equals(name); }
-    @Override public int hashCode() { return name.hashCode(); }
-    @Override public String toString() { return "OfflinePlayer{name='" + name + "'}"; }
+    @Override
+    public String getPlayer() {
+        return name;
+    }
 
-    // Stub implementations for other methods (returning defaults/nulls)
-    @Override public boolean isOp() { return false; }
-    @Override public void setOp(boolean value) { }
-    @Override public boolean isBanned() { return false; }
-    @Override public void setBanned(boolean value) { }
-    @Override public boolean isWhitelisted() { return false; }
-    @Override public void setWhitelisted(boolean value) { }
-    @Override public int getViewRadius() { return 0; }
-    @Override public void setViewRadius(int radius) { }
-    @Override public int getSimulationDistance() { return 0; }
-    @Override public void setSimulationDistance(int distance) { }
-    @Override public boolean canSee(Player player) { return false; }
-    @Override public boolean canSee(Entity entity) { return false; }
-    @Override public boolean canSee(Location location) { return false; }
-    @Override public Spigot spigot() { return null; }
-    @Override public GameMode getGameMode() { return null; }
-    @Override public void setGameMode(GameMode mode) { }
-    @Override public int getHealth() { return 0; }
-    @Override public double getMaxHealth() { return 0.0; }
-    @Override public void setHealth(double value) { }
-    @Override public int getFoodLevel() { return 0; }
-    @Override public void setFoodLevel(int value) { }
-    @Override public float getExhaustion() { return 0.0f; }
-    @Override public void setExhaustion(float value) { }
-    @Override public float getSaturation() { return 0.0f; }
-    @Override public void setSaturation(float value) { }
-    @Override public float getThreshold() { return 0.0f; }
-    @Override public void setThreshold(float value) { }
-    @Override public boolean isGliding() { return false; }
-    @Override public void setGliding(boolean value) { }
-    @Override public Location getLocation() { return null; }
-    @Override public void teleport(Location location) { }
-    @Override public boolean teleport(Entity entity, Player.TeleportCause cause) { return false; }
-    @Override public boolean teleport(Entity entity) { return false; }
-    @Override public boolean teleport(Location location, Player.TeleportCause cause) { return false; }
-    @Override public boolean setVelocity(Vector velocity) { return false; }
-    @Override public Vector getVelocity() { return null; }
-    @Override public EntitySpawnMethod getSpawnMethod() { return null; }
-    @Override public void setSpawnMethod(EntitySpawnMethod method) { }
-    @Override public boolean isInsideVehicle() { return false; }
-    @Override public Entity getVehicle() { return null; }
-    @Override public void setVehicle(Entity vehicle) { }
-    @Override public double getPitch() { return 0.0; }
-    @Override public void setPitch(float pitch) { }
-    @Override public double getYaw() { return 0.0; }
-    @Override public void setYaw(float yaw) { }
-    @Override public double getEyeHeight() { return 0.0; }
-    @Override public boolean isDead() { return false; }
-    @Override public void setDead(boolean value) { }
-    @Override public void addPotionEffect(PotionEffect effect) { }
-    @Override public void removePotionEffect(Type type) { }
-    @Override public Collection<PotionEffect> getActivePotionEffects() { return Collections.emptyList(); }
-    @Override public boolean hasPotionEffect(Type type) { return false; }
-    @Override public int getFireTicks() { return 0; }
-    @Override public void setFireTicks(int ticks) { }
-    @Override public int getAirTicks() { return 0; }
-    @Override public void setAirTicks(int ticks) { }
-    @Override public int getMaximumAirTicks() { return 0; }
-    @Override public int getRemainingAir() { return 0; }
-    @Override public void setRemainingAir(int ticks) { }
-    @Override public int getNoDamageTicks() { return 0; }
-    @Override public void setNoDamageTicks(int ticks) { }
-    @Override public int getMaximumNoDamageTicks() { return 0; }
-    @Override public int getFireResistance() { return 0; }
-    @Override public void setFireResistance(int resistance) { }
-    @Override public boolean isInvulnerable() { return false; }
-    @Override public void setInvulnerable(boolean value) { }
-    @Override public int getSaturationLevel() { return 0; }
-    @Override public void fall(float distance, float damageMultiplier) { }
-    @Override public double getLightLevel() { return 0.0; }
-    @Override public Block getLocationBlock() { return null; }
-    @Override public boolean isSleepingIgnored() { return false; }
-    @Override public void setSleepingIgnored(boolean ignored) { }
-    @Override public long getSleepTimer() { return 0L; }
-    @Override public void wakeUp() { }
-    @Override public PlayerChatMode getChatMode() { return null; }
-    @Override public void setChatMode(PlayerChatMode mode) { }
-    @Override public boolean canInteract(Block block) { return false; }
-    @Override public boolean canInteract(Entity entity) { return false; }
-    @Override public boolean canSee(BlockState blockState) { return false; }
-    @Override public Player getPlayer() { return null; }
-    @Override public String getUniqueId() { return "00000000-0000-0000-0000-000000000000"; }
-    @OfflinePlayer@Override public boolean hasPlayedBefore() { return false; }
-    @OfflinePlayer@Override public long getFirstPlayed() { return 0L; }
-    @OfflinePlayer@Override public long getLastPlayed() { return 0L; }
-    @OfflinePlayer@Override public boolean isBanned() { return false; }
-    @OfflinePlayer@Override public boolean isWhitelisted() { return false; }
-    @OfflinePlayer@Override public OfflinePlayer[] getOfflinePlayers() { return new OfflinePlayer[0]; }
+    @Override
+    public long getLastPlayed() {
+        return 0L;
+    }
+
+    @Override
+    public long getFirstPlayed() {
+        return 0L;
+    }
+
+    @Override
+    public boolean isOp() {
+        return false;
+    }
+
+    @Override
+    public void setOp(boolean value) {
+    }
+
+    @Override
+    public boolean isBanned() {
+        return false;
+    }
+
+    @Override
+    public void setBanned(boolean value) {
+    }
+
+    @Override
+    public boolean isWhitelisted() {
+        return false;
+    }
+
+    @Override
+    public void setWhitelisted(boolean value) {
+    }
+
+    @Override
+    public int getViewRadius() {
+        return 0;
+    }
+
+    @Override
+    public void setViewRadius(int radius) {
+    }
+
+    @Override
+    public int getSimulationDistance() {
+        return 0;
+    }
+
+    @Override
+    public void setSimulationDistance(int distance) {
+    }
+
+    @Override
+    public boolean canSee(Player player) {
+        return false;
+    }
+
+    @Override
+    public boolean canSee(Entity entity) {
+        return false;
+    }
+
+    @Override
+    public boolean canSee(Location location) {
+        return false;
+    }
+
+    @Override
+    public org.bukkit.Spigot spigot() {
+        return null;
+    }
+
+    @Override
+    public GameMode getGameMode() {
+        return null;
+    }
+
+    @Override
+    public void setGameMode(GameMode mode) {
+    }
+
+    @Override
+    public int getHealth() {
+        return 0;
+    }
+
+    @Override
+    public double getMaxHealth() {
+        return 0.0;
+    }
+
+    @Override
+    public void setHealth(double value) {
+    }
+
+    @Override
+    public int getFoodLevel() {
+        return 0;
+    }
+
+    @Override
+    public void setFoodLevel(int value) {
+    }
+
+    @Override
+    public float getExhaustion() {
+        return 0.0f;
+    }
+
+    @Override
+    public void setExhaustion(float value) {
+    }
+
+    @Override
+    public float getSaturation() {
+        return 0.0f;
+    }
+
+    @Override
+    public void setSaturation(float value) {
+    }
+
+    @Override
+    public float getThreshold() {
+        return 0.0f;
+    }
+
+    @Override
+    public void setThreshold(float value) {
+    }
+
+    @Override
+    public boolean isGliding() {
+        return false;
+    }
+
+    @Override
+    public void setGliding(boolean value) {
+    }
+
+    @Override
+    public Location getLocation() {
+        return null;
+    }
+
+    @Override
+    public void teleport(Location location) {
+    }
+
+    @Override
+    public boolean teleport(Entity entity, Player.TeleportCause cause) {
+        return false;
+    }
+
+    @Override
+    public boolean teleport(Entity entity) {
+        return false;
+    }
+
+    @Override
+    public boolean teleport(Location location, Player.TeleportCause cause) {
+        return false;
+    }
+
+    @Override
+    public boolean setVelocity(Vector velocity) {
+        return false;
+    }
+
+    @Override
+    public Vector getVelocity() {
+        return null;
+    }
+
+    @Override
+    public EntitySpawnMethod getSpawnMethod() {
+        return null;
+    }
+
+    @Override
+    public void setSpawnMethod(EntitySpawnMethod method) {
+    }
+
+    @Override
+    public boolean isInsideVehicle() {
+        return false;
+    }
+
+    @Override
+    public Entity getVehicle() {
+        return null;
+    }
+
+    @Override
+    public void setVehicle(Entity vehicle) {
+    }
+
+    @Override
+    public double getPitch() {
+        return 0.0;
+    }
+
+    @Override
+    public void setPitch(float pitch) {
+    }
+
+    @Override
+    public double getYaw() {
+        return 0.0;
+    }
+
+    @Override
+    public void setYaw(float yaw) {
+    }
+
+    @Override
+    public double getEyeHeight() {
+        return 0.0;
+    }
+
+    @Override
+    public boolean isDead() {
+        return false;
+    }
+
+    @Override
+    public void setDead(boolean value) {
+    }
+
+    @Override
+    public void addPotionEffect(PotionEffect effect) {
+    }
+
+    @Override
+    public void removePotionEffect(PotionEffectType type) {
+    }
+
+    @Override
+    public Collection<PotionEffect> getActivePotionEffects() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public boolean hasPotionEffect(PotionEffectType type) {
+        return false;
+    }
+
+    @Override
+    public int getFireTicks() {
+        return 0;
+    }
+
+    @Override
+    public void setFireTicks(int ticks) {
+    }
+
+    @Override
+    public int getAirTicks() {
+        return 0;
+    }
+
+    @Override
+    public void setAirTicks(int ticks) {
+    }
+
+    @Override
+    public int getMaximumAirTicks() {
+        return 0;
+    }
+
+    @Override
+    public int getRemainingAir() {
+        return 0;
+    }
+
+    @Override
+    public void setRemainingAir(int ticks) {
+    }
+
+    @Override
+    public int getNoDamageTicks() {
+        return 0;
+    }
+
+    @Override
+    public void setNoDamageTicks(int ticks) {
+    }
+
+    @Override
+    public int getMaximumNoDamageTicks() {
+        return 0;
+    }
+
+    @Override
+    public int getFireResistance() {
+        return 0;
+    }
+
+    @Override
+    public void setFireResistance(int resistance) {
+    }
+
+    @Override
+    public boolean isInvulnerable() {
+        return false;
+    }
+
+    @Override
+    public void setInvulnerable(boolean value) {
+    }
+
+    @Override
+    public int getSaturationLevel() {
+        return 0;
+    }
+
+    @Override
+    public void fall(float distance, float damageMultiplier) {
+    }
+
+    @Override
+    public double getLightLevel() {
+        return 0.0;
+    }
+
+    @Override
+    public Block getLocationBlock() {
+        return null;
+    }
+
+    @Override
+    public boolean isSleepingIgnored() {
+        return false;
+    }
+
+    @Override
+    public void setSleepingIgnored(boolean ignored) {
+    }
+
+    @Override
+    public long getSleepTimer() {
+        return 0L;
+    }
+
+    @Override
+    public void wakeUp() {
+    }
+
+    @Override
+    public ChatMode getChatMode() {
+        return null;
+    }
+
+    @Override
+    public void setChatMode(ChatMode mode) {
+    }
+
+    @Override
+    public boolean canInteract(Block block) {
+        return false;
+    }
+
+    @Override
+    public boolean canInteract(Entity entity) {
+        return false;
+    }
+
+    @Override
+    public boolean canSee(BlockState blockState) {
+        return false;
+    }
+
+    @Override
+    public Player getPlayer() {
+        return null;
+    }
+
+    @Override
+    public UUID getUniqueId() {
+        return uniqueId;
+    }
+
+    @Override
+    public boolean hasPlayedBefore() {
+        return false;
+    }
+
+    @Override
+    public org.bukkit.persistence.PersistentDataContainer getPersistentDataContainer() {
+        return Bukkit.createPersistentDataContainer();
+    }
+
+    @Override
+    public OfflinePlayer[] getOfflinePlayers() {
+        return new OfflinePlayer[0];
+    }
 }
 
 /**
