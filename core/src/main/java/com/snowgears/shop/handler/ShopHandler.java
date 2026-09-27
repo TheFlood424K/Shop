@@ -545,47 +545,46 @@ public class ShopHandler {
 
     public void processShopDisplaysNearPlayer(Player player){
         // If the player is already being processed, don't start another process
-        if (playersProcessingShopDisplays.contains(player.getUniqueId())) {
-            return;
+        // Use putIfAbsent pattern to atomically check-and-set
+        if (!playersProcessingShopDisplays.add(player.getUniqueId())) {
+            return; // Already processing
         }
-        
+
         // Get current player location
         Location currentLocation = player.getLocation();
-        
+
         // Check if player has moved enough to warrant processing
         Location lastLocation = lastProcessedLocations.get(player.getUniqueId());
         double movementThreshold = plugin.getDisplayMovementThreshold();
-        
+
         // Skip processing if player hasn't moved enough and this isn't the first check
-        if (lastLocation != null && 
-            lastLocation.getWorld().equals(currentLocation.getWorld()) && 
+        if (lastLocation != null &&
+            lastLocation.getWorld().equals(currentLocation.getWorld()) &&
             lastLocation.distanceSquared(currentLocation) < (movementThreshold * movementThreshold)) {
+            playersProcessingShopDisplays.remove(player.getUniqueId());
             return;
         }
-        
-        // Mark player as being processed to prevent concurrent processing
-        playersProcessingShopDisplays.add(player.getUniqueId());
-        
+
+        // Update the last processed location immediately to prevent multiple processings
+        lastProcessedLocations.put(player.getUniqueId(), currentLocation.clone());
+
         // Schedule display processing task at the player's entity
         plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
             try {
                 // Use a local variable for current location to avoid race conditions
                 Location playerLocation = player.getLocation();
-                
-                // Update the last processed location immediately to prevent multiple processings
-                lastProcessedLocations.put(player.getUniqueId(), playerLocation.clone());
-                
+
                 // Get all shop locations within the maximum display distance in one batch
                 HashSet<Location> nearbyShopLocations = getShopLocationsNearLocationWithinDistance(
-                    playerLocation, 
-                    plugin.getShopSearchRadius(), 
+                    playerLocation,
+                    plugin.getShopSearchRadius(),
                     plugin.getMaxShopDisplayDistance() * plugin.getMaxShopDisplayDistance()
                 );
-                
+
                 // Create a batch operation for all displays to minimize interference
                 // This helps prevent the "bouncing" effect when displays are created one by one
                 processBatchDisplayUpdates(player, playerLocation, nearbyShopLocations);
-                
+
             } catch (Exception e) {
                 plugin.getLogger().warning("Error processing shop displays for player " + player.getName());
                 e.printStackTrace();
