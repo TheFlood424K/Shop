@@ -55,6 +55,7 @@ public class Shop extends JavaPlugin {
     private LWCHookListener lwcHookListener;
     private DynmapHookListener dynmapHookListener;
     private BluemapHookListener bluemapHookListener;
+    private WrappedTask bluemapBootTimer;
     private boolean bluemapEnabled;
     private boolean dynmapEnabled;
     private BentoBoxHookListener bentoBoxHookListener;
@@ -609,7 +610,7 @@ public class Shop extends JavaPlugin {
         if(getServer().getPluginManager().getPlugin("BlueMap") != null && bluemapEnabled){
             plugin.getLogger().notice("BlueMap is installed, starting BlueMap integration");
             // Wait for 2 minutes for BlueMap to become available/boot up, then initialize listener.
-            foliaLib.getScheduler().runTimer(task -> {
+            bluemapBootTimer = foliaLib.getScheduler().runTimer(task -> {
                 BlueMapAPI.getInstance().ifPresent(api -> {
                     plugin.getLogger().debug("BlueMap is ready, creating BlueMap listener");
                     bluemapHookListener = new BluemapHookListener(plugin);
@@ -618,6 +619,7 @@ public class Shop extends JavaPlugin {
                     bluemapHookListener.reloadMarkers(shopHandler);
                     // Mark the task as complete and cancel the timer
                     foliaLib.getScheduler().cancelTask(task);
+                    bluemapBootTimer = null;
                 });
             }, 20, 20); // Check every second (20 ticks) until BlueMap is booted
         }
