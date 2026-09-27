@@ -57,7 +57,7 @@ class TestOfflinePlayer implements OfflinePlayer {
     @Override public boolean canSee(Entity entity) { return false; }
     @Override public boolean canSee(Location location) { return false; }
     @Override public Spigot spigot() { return null; }
-    @@Override public GameMode getGameMode() { return null; }
+    @Override public GameMode getGameMode() { return null; }
     @Override public void setGameMode(GameMode mode) { }
     @Override public int getHealth() { return 0; }
     @Override public double getMaxHealth() { return 0.0; }
@@ -77,7 +77,7 @@ class TestOfflinePlayer implements OfflinePlayer {
     @Override public boolean teleport(Entity entity, Player.TeleportCause cause) { return false; }
     @Override public boolean teleport(Entity entity) { return false; }
     @Override public boolean teleport(Location location, Player.TeleportCause cause) { return false; }
-    @@Override public boolean setVelocity(Vector velocity) { return false; }
+    @Override public boolean setVelocity(Vector velocity) { return false; }
     @Override public Vector getVelocity() { return null; }
     @Override public EntitySpawnMethod getSpawnMethod() { return null; }
     @Override public void setSpawnMethod(EntitySpawnMethod method) { }
