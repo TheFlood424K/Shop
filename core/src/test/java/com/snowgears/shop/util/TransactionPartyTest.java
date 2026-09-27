@@ -2,16 +2,17 @@ package com.snowgears.shop.util;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.EntityEffect;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntitySpawnMethod;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Player.TeleportCause;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -21,6 +22,8 @@ import org.bukkit.util.Vector;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.ChatMode;
+import org.bukkit.Spigot;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -51,8 +54,8 @@ class TestOfflinePlayer implements OfflinePlayer {
     }
 
     @Override
-    public String getPlayer() {
-        return name;
+    public Player getPlayer() {
+        return null;
     }
 
     @Override
@@ -63,6 +66,11 @@ class TestOfflinePlayer implements OfflinePlayer {
     @Override
     public long getFirstPlayed() {
         return 0L;
+    }
+
+    @Override
+    public Location getLastDeathLocation() {
+        return null;
     }
 
     @Override
@@ -126,7 +134,7 @@ class TestOfflinePlayer implements OfflinePlayer {
     }
 
     @Override
-    public org.bukkit.Spigot spigot() {
+    public Spigot spigot() {
         return null;
     }
 
@@ -208,7 +216,7 @@ class TestOfflinePlayer implements OfflinePlayer {
     }
 
     @Override
-    public boolean teleport(Entity entity, Player.TeleportCause cause) {
+    public boolean teleport(Entity entity, TeleportCause cause) {
         return false;
     }
 
@@ -218,7 +226,7 @@ class TestOfflinePlayer implements OfflinePlayer {
     }
 
     @Override
-    public boolean teleport(Location location, Player.TeleportCause cause) {
+    public boolean teleport(Location location, TeleportCause cause) {
         return false;
     }
 
@@ -431,23 +439,59 @@ class TestOfflinePlayer implements OfflinePlayer {
     }
 
     @Override
-    public Player getPlayer() {
-        return null;
+    public String getUniqueId() {
+        return uniqueId;
     }
 
     @Override
-    public UUID getUniqueId() {
-        return uniqueId;
+    public PersistentDataContainer getPersistentDataContainer() {
+        return new PersistentDataContainer() {
+            // Minimal implementation for testing - all methods return default values
+            @Override
+            public <T> PersistentDataContainer set(PersistentDataType<T, ?> key, T value) {
+                return this;
+            }
+
+            @Override
+            public <T> T get(PersistentDataType<T, ?> key, T defaultValue) {
+                return defaultValue;
+            }
+
+            @Override
+            public <T> T get(PersistentDataType<T, ?> key) {
+                return null;
+            }
+
+            @Override
+            public boolean has(PersistentDataType<?, ?> key) {
+                return false;
+            }
+
+            @Override
+            public boolean remove(PersistentDataType<?, ?> key) {
+                return false;
+            }
+
+            @Override
+            public PersistentDataAdapterContext getAdapterContext() {
+                return null;
+            }
+
+            @Override
+            public boolean isEmpty() {
+                return true;
+            }
+
+            @Override
+            public java.util.Set<PersistantDataType<?, ?>> keys() {
+                return Collections.emptySet();
+            }
+        };
     }
 
     @Override
     public boolean hasPlayedBefore() {
         return false;
-    }
-
-    @Override
-    public org.bukkit.persistence.PersistentDataContainer getPersistentDataContainer() {
-        return Bukkit.createPersistentDataContainer();
     }
 
     @Override
