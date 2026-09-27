@@ -104,10 +104,6 @@ jobs:
         STATUS="${{ job.status }}"
         JAR_URL="${{ steps.upload-shop-jar.outputs.artifact-url }}"
         DIFF_URL="${{ steps.upload-diff-cover-report.outputs.artifact-url }}"
-        TEST_RESULTS_AVAILABLE="false"
-        if [ -d "**/target/surefire-reports" ] && [ "$(ls -A **/target/surefire-reports/ 2>/dev/null)" ]; then
-          TEST_RESULTS_AVAILABLE="true"
-        fi
         {
           if [ "$STATUS" = "success" ]; then
             echo "# Build Completed Successfully! 🎉"
@@ -117,7 +113,7 @@ jobs:
           echo ""
           echo "**Version:** $VERSION"
           echo ""
-          if [ "$TEST_RESULTS_AVAILABLE" = "true" ]; then
+          if [ -f "**/target/surefire-reports/TEST-*.xml" ]; then
             echo "**Test Results:** Tests were executed and results are available"
           else
             echo "**Test Results:** No test results found"
