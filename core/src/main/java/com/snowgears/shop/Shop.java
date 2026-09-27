@@ -24,7 +24,9 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 import com.tcoded.folialib.FoliaLib;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
 
 import java.io.File;
 import java.io.IOException;
@@ -610,18 +612,22 @@ public class Shop extends JavaPlugin {
         if(getServer().getPluginManager().getPlugin("BlueMap") != null && bluemapEnabled){
             plugin.getLogger().notice("BlueMap is installed, starting BlueMap integration");
             // Wait for 2 minutes for BlueMap to become available/boot up, then initialize listener.
-            bluemapBootTimer = foliaLib.getScheduler().runTimer(task -> {
-                BlueMapAPI.getInstance().ifPresent(api -> {
-                    plugin.getLogger().debug("BlueMap is ready, creating BlueMap listener");
-                    bluemapHookListener = new BluemapHookListener(plugin);
-                    getServer().getPluginManager().registerEvents(bluemapHookListener, plugin);
-                    // Make sure we load the markers in case there are shops that BlueMap doesn't know about
-                    bluemapHookListener.reloadMarkers(shopHandler);
-                    // Mark the task as complete and cancel the timer
-                    foliaLib.getScheduler().cancelTask(task);
-                    bluemapBootTimer = null;
-                });
-            }, 20, 20); // Check every second (20 ticks) until BlueMap is booted
+            BukkitRunnable bluemapBootRunnable = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    BlueMapAPI.getInstance().ifPresent(api -> {
+                        plugin.getLogger().debug("BlueMap is ready, creating BlueMap listener");
+                        bluemapHookListener = new BluemapHookListener(plugin);
+                        getServer().getPluginManager().registerEvents(bluemapHookListener, plugin);
+                        // Make sure we load the markers in case there are shops that BlueMap doesn't know about
+                        bluemapHookListener.reloadMarkers(shopHandler);
+                        // Mark the task as complete and cancel the timer
+                        this.cancel();
+                        bluemapBootTimer = null;
+                    });
+                }
+            };
+            bluemapBootTimer = foliaLib.getScheduler().runTimer(bluemapBootRunnable, 20, 20); // Check every second (20 ticks) until BlueMap is booted
         }
 
         if(getServer().getPluginManager().getPlugin("BentoBox") != null){
