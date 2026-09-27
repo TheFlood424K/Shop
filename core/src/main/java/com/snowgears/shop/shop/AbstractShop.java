@@ -619,9 +619,10 @@ public abstract class AbstractShop {
         if (!signLinesRequireRefresh && !forceUpdate) { return; }
         // Do not trigger the sign update if the chunk has not been loaded yet
         if (!this.isChunkLoaded()) { if (forceUpdate) { signLinesRequireRefresh = true; } return; }
-        // Immediately set to false to prevent multiple calls to updateSign overlapping
+        // Atomically check-and-clear the refresh flag to prevent multiple concurrent updates
+        if (!signLinesRequireRefresh && !forceUpdate) { return; }
         signLinesRequireRefresh = false;
-        signLines = ShopMessage.getSignLines(this, this.type);
+        String[] newSignLines = ShopMessage.getSignLines(this, this.type);
 
         // Use the sign's location to ensure the update runs in the correct region in Folia
         Shop.getPlugin().getFoliaLib().getScheduler().runAtLocationLater(signLocation, task -> {
@@ -649,26 +650,25 @@ public abstract class AbstractShop {
             }
 
             String[] oldLines = signBlock.getLines();
-            String[] newLines = signLines.clone();
             boolean hasSignUpdate = false;
-            boolean linesMatch = newLines[0].equals(oldLines[0]) && newLines[1].equals(oldLines[1]) && newLines[2].equals(oldLines[2]) && newLines[3].equals(oldLines[3]);
+            boolean linesMatch = newSignLines[0].equals(oldLines[0]) && newSignLines[1].equals(oldLines[1]) && newSignLines[2].equals(oldLines[2]) && newSignLines[3].equals(oldLines[3]);
 
             if (!isInitialized()) {
                 hasSignUpdate = true;
-                signBlock.setLine(0, ChatColor.RED + ChatColor.stripColor(newLines[0]));
-                signBlock.setLine(1, ChatColor.RED + ChatColor.stripColor(newLines[1]));
-                signBlock.setLine(2, ChatColor.RED + ChatColor.stripColor(newLines[2]));
-                signBlock.setLine(3, ChatColor.RED + ChatColor.stripColor(newLines[3]));
+                signBlock.setLine(0, ChatColor.RED + ChatColor.stripColor(newSignLines[0]));
+                signBlock.setLine(1, ChatColor.RED + ChatColor.stripColor(newSignLines[1]));
+                signBlock.setLine(2, ChatColor.RED + ChatColor.stripColor(newSignLines[2]));
+                signBlock.setLine(3, ChatColor.RED + ChatColor.stripColor(newSignLines[3]));
             } else if (!linesMatch) {
                 hasSignUpdate = true;
-                signBlock.setLine(0, newLines[0]);
-                signBlock.setLine(1, newLines[1]);
-                signBlock.setLine(2, newLines[2]);
-                signBlock.setLine(3, newLines[3]);
+                signBlock.setLine(0, newSignLines[0]);
+                signBlock.setLine(1, newSignLines[1]);
+                signBlock.setLine(2, newSignLines[2]);
+                signBlock.setLine(3, newSignLines[3]);
             }
             if(isMCVersion17Plus()) {
                 boolean shouldGlow = Shop.getPlugin().getGlowingSignText();
-                if (shouldGlow != signBlock.isGlowingText()) { 
+                if (shouldGlow != signBlock.isGlowingText()) {
                     hasSignUpdate = true;
                     signBlock.setGlowingText(shouldGlow);
                 }
