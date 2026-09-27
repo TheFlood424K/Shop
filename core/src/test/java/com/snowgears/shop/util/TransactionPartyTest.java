@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.Set;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.GameMode;
@@ -23,7 +24,12 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.ChatMode;
 import org.bukkit.Spigot;
+import org.bukkit.Statistic;
+import org.bukkit.entity.EntityType;
 import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.persistence.PersistentDataAdapterContext;
+import org.bukkit.NamespacedKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -439,8 +445,18 @@ class TestOfflinePlayer implements OfflinePlayer {
     }
 
     @Override
+    public void setStatistic(Statistic statistic, EntityType entityType, int amount) {
+        // Stub implementation - do nothing
+    }
+
+    @Override
+    public int getStatistic(Statistic statistic, EntityType entityType) {
+        return 0;
+    }
+
+    @Override
     public String getUniqueId() {
-        return uniqueId;
+        return uniqueId.toString();
     }
 
     @Override
@@ -448,18 +464,18 @@ class TestOfflinePlayer implements OfflinePlayer {
         return new PersistentDataContainer() {
             // Minimal implementation for testing - all methods return default values
             @Override
-            public <T> PersistentDataContainer set(PersistentDataType<T, ?> key, T value) {
+            public <T, Z> PersistentDataContainer set(PersistentDataType<T, Z> key, T value) {
                 return this;
             }
 
             @Override
-            public <T> T get(PersistentDataType<T, ?> key, T defaultValue) {
-                return defaultValue;
+            public <T, Z> T get(PersistentDataType<T, Z> key) {
+                return null;
             }
 
             @Override
-            public <T> T get(PersistentDataType<T, ?> key) {
-                return null;
+            public <T, Z> T getOrDefault(PersistentDataType<T, Z> key, T defaultValue) {
+                return defaultValue;
             }
 
             @Override
@@ -483,7 +499,7 @@ class TestOfflinePlayer implements OfflinePlayer {
             }
 
             @Override
-            public java.util.Set<PersistantDataType<?, ?>> keys() {
+            public Set<NamespacedKey> keys() {
                 return Collections.emptySet();
             }
         };
