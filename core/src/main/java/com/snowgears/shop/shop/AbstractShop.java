@@ -721,8 +721,11 @@ public abstract class AbstractShop {
                 }
             }, 1);
 
+            // Remove display entities on the correct region thread (Folia) to avoid cross-thread access
             if (display != null) {
-                display.remove(null);
+                Shop.getPlugin().getFoliaLib().getScheduler().runAtLocationLater(signLocCapture, task -> {
+                    display.remove(null);
+                }, 2);
             }
             Shop.getPlugin().getLogger().debug("Deleted Shop " + this);
         } catch (Error | Exception e) {
