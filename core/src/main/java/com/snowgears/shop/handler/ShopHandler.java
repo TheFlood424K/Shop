@@ -56,7 +56,8 @@ public class ShopHandler {
     //all loading of shops happens async at onEnable()
     //shops that still need to calculate their facing direction based on sign are considered "unloaded"
     //we will be loading these shops at time of chunkload and resaving them so they are saved with the 'facing' variable
-    private ConcurrentHashMap<String, List<Location>> unloadedShopsByChunk = new ConcurrentHashMap<>();
+    // Using Set<Location> with ConcurrentHashMap.newKeySet() for thread-safe unique entries
+    private ConcurrentHashMap<String, Set<Location>> unloadedShopsByChunk = new ConcurrentHashMap<>();
     private UUID adminUUID;
     private BlockFace[] directions = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
 
@@ -270,31 +271,25 @@ public class ShopHandler {
 
     public void processUnloadedShopsInChunk(Chunk chunk){
             String key = UtilMethods.getChunkKey(chunk);
-            List<Location> shopLocations = unloadedShopsByChunk.computeIfAbsent(key, k -> new ArrayList<>());
-            // If the list is empty, there's nothing to process
+            Set<Location> shopLocations = unloadedShopsByChunk.computeIfAbsent(key, k -> ConcurrentHashMap.newKeySet());
+            // If the set is empty, there's nothing to process
             if (shopLocations.isEmpty()) {
                 unloadedShopsByChunk.remove(key);
                 return;
             }
-        
+
             // We need to process the shops and then remove the entry atomically
-            // First, get a copy of the list to process
+            // First, get a copy of the set to process
             List<Location> shopsToProcess = new ArrayList<>(shopLocations);
             // Then remove the entry from the map
             unloadedShopsByChunk.remove(key);
-        
-            List<UUID> playerUUIDs = new ArrayList<>();
+
             for(Location shopLocation : shopsToProcess) {
                 AbstractShop shop = getShop(shopLocation);
                 if(shop != null){
                     // Run at the shop's location to ensure it works in the correct region in Folia
                     plugin.getFoliaLib().getScheduler().runAtLocation(shopLocation, task -> {
-                        boolean loadSuccess = shop.load();
-                        if(loadSuccess) {
-                            if (!playerUUIDs.contains(shop.getOwnerUUID())) {
-                                playerUUIDs.add(shop.getOwnerUUID());
-                            }
-                        }
+                        shop.load();
                     });
                 }
             }
@@ -302,10 +297,8 @@ public class ShopHandler {
 
     public void addUnloadedShopToChunkList(AbstractShop shop){
             String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-            List<Location> shopLocations = unloadedShopsByChunk.computeIfAbsent(chunkKey, k -> new CopyOnWriteArrayList<>());
-            if (!shopLocations.contains(shop.getSignLocation())) {
-                shopLocations.add(shop.getSignLocation());
-            }
+            // ConcurrentHashMap.newKeySet() provides thread-safe Set with atomic add
+            unloadedShopsByChunk.computeIfAbsent(chunkKey, k -> ConcurrentHashMap.newKeySet()).add(shop.getSignLocation());
         }
 
     public List<AbstractShop> getAllShops(){
@@ -812,16 +805,6 @@ public class ShopHandler {
         }, 2);
     }
 
-    private List<Location> getUnloadedShopsByChunk(String chunkKey){
-        List<Location> unloadedShopsInChunk;
-        if(unloadedShopsByChunk.containsKey(chunkKey)) {
-            unloadedShopsInChunk = unloadedShopsByChunk.get(chunkKey);
-        }
-        else
-            unloadedShopsInChunk = new ArrayList<>();
-        return unloadedShopsInChunk;
-    }
-
     public int getNumberOfShops() {
         return allShops.size();
     }
@@ -920,7 +903,7 @@ public class ShopHandler {
         if (this.immediateShutdown) return -5;
 
         // Check if any of the players shops want to be saved
-        String playerName = player == this.getAdminUUID() ? "admin" : plugin.getServer().getOfflinePlayer(player).getName();
+        String playerName = player.equals(this.getAdminUUID()) ? "admin" : plugin.getServer().getOfflinePlayer(player).getName();
         int numWantingToUpdate = numShopsNeedSave(player);
         if (!force && numWantingToUpdate == 0 && getNumberOfShops(player) > 0) {
             plugin.getLogger().trace("save shops for player (" + playerName + ") was called, but no shops for player need updating! " + player.toString());
@@ -928,7 +911,7 @@ public class ShopHandler {
         }
 
         // There are shops that need to be saved, so go ahead and save the file!
-        plugin.getLogger().debug("attempting to save shops for player " + playerName + " (" + player.toString() + ") isAdmin: " + (player == Shop.getPlugin().getShopHandler().getAdminUUID()));
+        plugin.getLogger().debug("attempting to save shops for player " + playerName + " (" + player.toString() + ") isAdmin: " + (player.equals(Shop.getPlugin().getShopHandler().getAdminUUID())));
         File currentFile = null;
         try {
 
