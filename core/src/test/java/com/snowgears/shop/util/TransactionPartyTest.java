@@ -34,7 +34,7 @@ class TransactionPartyTest {
     @Test
     void testDepositItem_Success() {
         // Arrange
-        when(mockInventory.addItem(any(ItemStack.class))).thenReturn(0); // 0 leftover means all items added
+        when(mockInventory.addItem(any(ItemStack.class))).thenReturn(new HashMap<>()); // Empty map means all items added
 
         // Act
         boolean result = transactionParty.depositItem(testItem);
@@ -47,7 +47,10 @@ class TransactionPartyTest {
     @Test
     void testDepositItem_Failure_NoRoom() {
         // Arrange
-        when(mockInventory.addItem(any(ItemStack.class))).thenReturn(1); // 1 leftover means not all items added
+        // Return a map with the test item indicating it couldn't be added
+        HashMap<Integer, ItemStack> leftover = new HashMap<>();
+        leftover.put(0, testItem);
+        when(mockInventory.addItem(any(ItemStack.class))).thenReturn(leftover);
 
         // Act
         boolean result = transactionParty.depositItem(testItem);
@@ -61,7 +64,10 @@ class TransactionPartyTest {
     void testDepositItem_AdminAlwaysSucceeds() {
         // Arrange
         TransactionParty adminParty = new TransactionParty(false, true, mockPlayer, mockInventory);
-        when(mockInventory.addItem(any(ItemStack.class))).thenReturn(100); // Would normally fail
+        // Return a map indicating failure (though admin should short-circuit)
+        HashMap<Integer, ItemStack> leftover = new HashMap<>();
+        leftover.put(0, testItem);
+        when(mockInventory.addItem(any(ItemStack.class))).thenReturn(leftover);
 
         // Act
         boolean result = adminParty.depositItem(testItem);
@@ -75,7 +81,7 @@ class TransactionPartyTest {
     @Test
     void testDeductItem_Success() {
         // Arrange
-        when(mockInventory.removeItem(any(ItemStack.class))).thenReturn(0); // 0 leftover means all items removed
+        when(mockInventory.removeItem(any(ItemStack.class))).thenReturn(new HashMap<>()); // Empty map means all items removed
 
         // Act
         boolean result = transactionParty.deductItem(testItem);
@@ -88,7 +94,10 @@ class TransactionPartyTest {
     @Test
     void testDeductItem_Failure_InsufficientQuantity() {
         // Arrange
-        when(mockInventory.removeItem(any(ItemStack.class))).thenReturn(1); // 1 leftover means not all items removed
+        // Return a map with the test item indicating it couldn't be removed
+        HashMap<Integer, ItemStack> leftover = new HashMap<>();
+        leftover.put(0, testItem);
+        when(mockInventory.removeItem(any(ItemStack.class))).thenReturn(leftover);
 
         // Act
         boolean result = transactionParty.deductItem(testItem);
@@ -102,7 +111,10 @@ class TransactionPartyTest {
     void testDeductItem_AdminAlwaysSucceeds() {
         // Arrange
         TransactionParty adminParty = new TransactionParty(false, true, mockPlayer, mockInventory);
-        when(mockInventory.removeItem(any(ItemStack.class))).thenReturn(100); // Would normally fail
+        // Return a map indicating failure (though admin should short-circuit)
+        HashMap<Integer, ItemStack> leftover = new HashMap<>();
+        leftover.put(0, testItem);
+        when(mockInventory.removeItem(any(ItemStack.class))).thenReturn(leftover);
 
         // Act
         boolean result = adminParty.deductItem(testItem);
