@@ -1010,6 +1010,8 @@ public class ShopHandler {
                 // Atomic moves are very safe, so we use them if possible
                 Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
                 plugin.getLogger().helpful("Saved " + shopNumber + " Shops for Player " + playerName + " to file: " + currentFile);
+                // Clear immediate shutdown flag on successful save (filesystem recovered)
+                this.immediateShutdown = false;
                 return shopNumber;
             } catch (Error | Exception ex) {
                 plugin.getLogger().debug("Error during atomic move", ex);
@@ -1033,6 +1035,8 @@ public class ShopHandler {
                     }
 
                     plugin.getLogger().helpful("Saved " + shopNumber + " Shops for Player " + playerName + " to file: " + currentFile);
+                    // Clear immediate shutdown flag on successful save (filesystem recovered)
+                    this.immediateShutdown = false;
                     return shopNumber;
                 } catch (Error | Exception moveEx) {
                     // Attempt to restore from backup on failure
@@ -1044,6 +1048,8 @@ public class ShopHandler {
                             plugin.getLogger().warning("Restoring backup player shop file for " + playerName + " from (" + backupPath + ") to (" + targetPath + ")");
                             Files.move(backupPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
                             plugin.getLogger().info("Successfully restored backup player shop file for " + playerName + " from (" + backupPath + ") to (" + targetPath + ")!");
+                            // Clear immediate shutdown flag on successful backup restoration
+                            this.immediateShutdown = false;
                         }
                     } catch (Error | Exception restoreEx) {
                         plugin.getLogger().severe("Failed to restore backup player shop file for " + playerName + " from (" + backupPath + ") to (" + targetPath + ")! Exception: " + restoreEx.getMessage());
@@ -1051,6 +1057,8 @@ public class ShopHandler {
                     // Double check that the file was restored successfully and/or the current state of the files
                     if (Files.exists(targetPath)) {
                         plugin.getLogger().warning("Original file was left untouched. Player shop updates were not saved!");
+                        // Original file exists - filesystem is working, clear shutdown flag
+                        this.immediateShutdown = false;
                         return -2;
                     }
                     else if (Files.exists(backupPath)) {
