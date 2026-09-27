@@ -1,0 +1,4 @@
+- [ ] Fix getShopLocations(UUID player) method to be thread-safe using computeIfAbsent
+- [ ] Verify the fix compiles correctly
+- [ ] Test that the fix resolves the shop creation/usage issue
+- [ ] Commit and push the changes to GitHub

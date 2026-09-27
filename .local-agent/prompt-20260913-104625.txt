@@ -1,0 +1,2069 @@
+Repository branch:
+main
+
+Current Git status:
+?? .local-agent/
+?? tools/
+
+Recent commits:
+881dbf4 Merge branch 'main' of https://github.com/TheFlood424K/Shop
+308da02 fix: replace .toPlainText() with PlainTextComponentSerializer on Component in Shop.java
+1fd53a7 fix: replace .toPlainText() with PlainTextComponentSerializer on Component in Shop.java
+2ccf1d0 fix: migrate ShopMessage from BungeeCord chat API to Adventure (Paper 1.21+)
+16e5bd8 fix: remove deprecated translationKey() calls and fix invalid TextComponent cast in ItemNameUtil
+
+Task:
+The Maven compilation log reports that callers expect these ShopMessage methods, but the current ShopMessage implementation does not provide them:
+
+- getUnformattedMessageList(String, String)
+- getMessageFromOrders(ShopType, String, double, int)
+- formatMessage(String, AbstractShop, null, boolean)
+- formatMessage(String, AbstractShop)
+- getSignLines(String, AbstractShop)
+- getSignLines(AbstractShop, ShopType)
+- getSignLines(BarterShop, ShopType)
+- getSignLines(BuyShop, ShopType)
+- getSignLines(ComboShop, ShopType)
+- getSignLines(GambleShop, ShopType)
+- getSignLines(SellShop, ShopType)
+- getDisplayTags(AbstractShop, ShopType)
+
+Inspect the supplied files and restore only the missing ShopMessage API that can be implemented as compatibility wrappers around existing behavior. Do not invent configuration/message keys, and do not change business behavior beyond restoring the expected API.
+
+Modify ShopMessage.java only unless a tiny caller-side adjustment is absolutely required by an existing method signature. Do not change dependencies, POM files, CI, generated files, lock files, or unrelated source files. If the supplied context does not safely establish the required behavior, return no patch.
+
+Existing uncommitted diff:
+
+
+Files supplied to the model:
+core/src/main/java/com/snowgears/shop/display/AbstractDisplay.java
+core/src/main/java/com/snowgears/shop/handler/ShopGuiHandler.java
+core/src/main/java/com/snowgears/shop/handler/TransactionHandler.java
+core/src/main/java/com/snowgears/shop/listener/MiscListener.java
+core/src/main/java/com/snowgears/shop/listener/ShopListener.java
+core/src/main/java/com/snowgears/shop/shop/AbstractShop.java
+core/src/main/java/com/snowgears/shop/shop/ComboShop.java
+core/src/main/java/com/snowgears/shop/util/ShopMessage.java
+
+Workspace context:
+===== FILE: core/src/main/java/com/snowgears/shop/display/AbstractDisplay.java =====
+package com.snowgears.shop.display;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.shop.AbstractShop;
+import com.snowgears.shop.shop.ShopType;
+import com.snowgears.shop.util.ArmorStandData;
+import com.snowgears.shop.util.DisplayUtil;
+import com.snowgears.shop.util.ShopMessage;
+import com.snowgears.shop.util.UtilMethods;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Vector;
+
+import java.util.*;
+
+
+public abstract class AbstractDisplay {
+
+    protected Location shopSignLocation;
+    protected DisplayType type;
+    protected ArrayList<Entity> displayEntities;
+    protected ArrayList<Entity> displayTagEntities;
+    protected HashSet<UUID> playersSeeingDisplay;
+    protected HashSet<UUID> playersSeeingTags;
+
+    public AbstractDisplay(Location shopSignLocation) {
+        this.shopSignLocation = shopSignLocation;
+        this.displayEntities = new ArrayList<>();
+        this.displayTagEntities = new ArrayList<>();
+        this.playersSeeingDisplay = new HashSet<>();
+        this.playersSeeingTags = new HashSet<>();
+    }
+
+    public boolean isEnabled() { return true; }
+
+    public boolean isChunkLoaded(){
+        return UtilMethods.isChunkLoaded(this.shopSignLocation);
+    }
+
+    //spawns a floating item packet for a specific player
+    //if player is null, all online players will get the packet
+    protected abstract void spawnItemPacket(Player player, ItemStack is, Location location);
+
+    //spawns an armor stand packet for a specific player
+    //if player is null, all online players will get the packet
+    protected abstract void spawnArmorStandPacket(Player player, ArmorStandData armorStandData, String text);
+
+    //spawns an item frame packet for a specific player
+    //if player is null, all online players will get the packet
+    protected abstract void spawnItemFramePacket(Player player, ItemStack is, Location location, BlockFace facing, boolean isGlowing);
+
+    public abstract void removeDisplayEntities(Player player, boolean onlyDisplayTags);
+
+    public void spawn(Player player) {
+        if(player != null){
+            //don't spawn the display if the player is in a different world
+            if(!player.getWorld().getUID().equals(this.shopSignLocation.getWorld().getUID()))
+                return;
+        }
+        remove(player);
+
+        AbstractShop shop = this.getShop();
+
+        if (shop == null || shop.getItemStack() == null || shop.getChestLocation() == null)
+            return;
+
+        //define the initial display item
+        ItemStack item = shop.getItemStack().clone();
+        item.setAmount(1);
+
+        DisplayType displayType = this.getType();
+        if(displayType == null)
+            displayType = Shop.getPlugin().getDisplayType();
+
+        //two display entities on the chest
+        if (shop.getSecondaryItemStack() != null) {
+            //define the barter display item
+            ItemStack barterItem = shop.getSecondaryItemStack().clone();
+            barterItem.setAmount(1);
+
+            switch (displayType){
+                case NONE:
+                    //do nothing
+                    break;
+                case ITEM:
+                    //drop first item on left
+                    spawnItemPacket(player, item, this.getItemDropLocation(false));
+
+                    //drop second item on right
+                    spawnItemPacket(player, barterItem, this.getItemDropLocation(true));
+                    break;
+                case LARGE_ITEM:
+                    //put first large display down
+                    Location leftLoc = shop.getChestLocation().clone().add(0,1,0);
+                    leftLoc.add(getLargeItemBarterOffset(false));
+                    ArmorStandData armorStandData = DisplayUtil.getArmorStandData(item, leftLoc, shop.getFacing(), false);
+                    spawnArmorStandPacket(player, armorStandData, null);
+
+                    //put second large display down
+                    Location rightLoc = shop.getChestLocation().clone().add(0,1,0);
+                    rightLoc.add(getLargeItemBarterOffset(true));
+                    ArmorStandData armorStandData2 = DisplayUtil.getArmorStandData(barterItem, rightLoc, shop.getFacing(), false);
+                    spawnArmorStandPacket(player, armorStandData2, null);
+                    break;
+                case GLASS_CASE:
+                    //put the extra large glass casing down
+                    Location caseLoc = shop.getChestLocation().clone().add(0,1,0);
+                    ArmorStandData caseStandData = DisplayUtil.getArmorStandData(new ItemStack(Material.GLASS), caseLoc, shop.getFacing(), true);
+                    spawnArmorStandPacket(player, caseStandData, null);
+
+                    //Drop initial display item
+                    spawnItemPacket(player, item, this.getItemDropLocation(false));
+
+                    //Drop the barter display item
+                    spawnItemPacket(player, barterItem, this.getItemDropLocation(true));
+                    break;
+            }
+        }
+        //one display entity on the chest
+        else {
+            switch (displayType){
+                case NONE:
+                    //do nothing
+                    break;
+                case ITEM:
+                    spawnItemPacket(player, item, this.getItemDropLocation(false));
+                    break;
+                case LARGE_ITEM:
+                    ArmorStandData armorStandData = DisplayUtil.getArmorStandData(item, shop.getChestLocation().clone().add(0,1,0), shop.getFacing(), false);
+                    spawnArmorStandPacket(player, armorStandData, null);
+                    break;
+                case GLASS_CASE:
+                    //put the extra large glass casing down
+                    Location caseLoc = shop.getChestLocation().clone().add(0,1,0);
+                    ArmorStandData caseStandData = DisplayUtil.getArmorStandData(new ItemStack(Material.GLASS), caseLoc, shop.getFacing(), true);
+                    spawnArmorStandPacket(player, caseStandData, null);
+
+                    //drop the display item in the glass case
+                    spawnItemPacket(player, item, this.getItemDropLocation(false));
+                    break;
+                case ITEM_FRAME:
+                    Location frameLocation;
+                    //only calculate the item frame location if the shop is in a loaded chunk (because Block is used)
+                    if(this.isChunkLoaded()) {
+                        Block aboveShop = shop.getChestLocation().getBlock().getRelative(BlockFace.UP);
+                        frameLocation = aboveShop.getLocation();
+                        //if display is blocked, put item frame on front
+                        if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
+                            frameLocation = aboveShop.getRelative(shop.getFacing()).getLocation();
+                        }
+                    }
+                    else{
+                        frameLocation = shop.getChestLocation().clone().add(0,1,0);
+                    }
+
+                    if(UtilMethods.isMCVersion17Plus() && Shop.getPlugin().getGlowingItemFrame()){
+                        spawnItemFramePacket(player, shop.getItemStack(), frameLocation, shop.getFacing(), true);
+                    }
+                    else {
+                        spawnItemFramePacket(player, shop.getItemStack(), frameLocation, shop.getFacing(), false);
+                    }
+                    break;
+            }
+        }
+    }
+
+    //DISPLAY TAGS
+
+    public void showDisplayTags(Player player){
+        if(displayTagsVisible(player) || !getShop().isInitialized() || Shop.getPlugin().getDisplayTagOption() == DisplayTagOption.NONE || getShop().getFacing() == null) {
+            return;
+        }
+
+        try {
+            ArrayList<String> displayTags = ShopMessage.getDisplayTags(getShop(), getShop().getType());
+
+            Location lowerTagLocation = getShop().getChestLocation().clone().add(0,1,0);
+            lowerTagLocation = lowerTagLocation.add(0.5, 0.5, 0.5);
+
+            //push the tag slightly closer to the front of the shop so it doesnt collide with the display and hide the text
+            lowerTagLocation = UtilMethods.pushLocationInDirection(lowerTagLocation, this.getShop().getFacing(), 0.2);
+
+            Block displayBlock = lowerTagLocation.getBlock();
+            if(UtilMethods.isMCVersion14Plus() && this.isChunkLoaded()) {
+                if (displayBlock.getType() == Material.BARREL || displayBlock.getRelative(BlockFace.DOWN).getType() == Material.BARREL) {
+                    lowerTagLocation = lowerTagLocation.add(0, .25, 0);
+                }
+                // If there is a block above our display, offset the tag location
+                // so that it doesn't become hidden inside the block. (most noticible with chests)
+                if (getShop().getChestLocation().clone().add(0,2,0).getBlock().getType() != Material.AIR) {
+                    // Adds 0.35 on top of the 0.2 added above (total of 0.55)
+                    // 0.3 to get to edge of block, 0.05 to give a lil more wiggle room when the player isnt looking directly at the display
+                    lowerTagLocation = UtilMethods.pushLocationInDirection(lowerTagLocation, this.getShop().getFacing(), 0.35);
+                }
+            }
+
+            // Create a list to store tag data
+            List<Map.Entry<String, Location>> tagData = new ArrayList<>();
+
+            double verticalAddition = 0;
+            //iterate through list backwards to build from bottom -> up
+            for (int i = displayTags.size() - 1; i >= 0; i--) {
+                Location asTagLocation = lowerTagLocation.clone();
+
+                String tagLine = displayTags.get(i);
+                if (tagLine.contains("[lshift]")) {
+                    asTagLocation = asTagLocation.add(getShiftOffset(true, false));
+                    tagLine = tagLine.replace("[lshift]", "");
+                }
+                if (tagLine.contains("[rshift]")) {
+                    asTagLocation = asTagLocation.add(getShiftOffset(false, true));
+                    tagLine = tagLine.replace("[rshift]", "");
+                }
+
+                asTagLocation = asTagLocation.add(0, verticalAddition, 0);
+                
+                // Store the tag data instead of creating it immediately
+                tagData.add(new AbstractMap.SimpleEntry<>(tagLine, asTagLocation));
+                
+                verticalAddition += 0.3;
+            }
+            
+            // Now create the tags in reverse order (top to bottom)
+            for (int i = tagData.size() - 1; i >= 0; i--) {
+                Map.Entry<String, Location> entry = tagData.get(i);
+                String tagLine = entry.getKey();
+                Location asTagLocation = entry.getValue();
+                
+                Shop.getPlugin().getLogger().spam("[Display] Adding tag line: " + tagLine, true);
+                createTagEntity(player, tagLine, asTagLocation);
+            }
+
+            showTagsToPlayer(player);
+
+            Shop.getPlugin().getShopHandler().addActiveShopDisplayTag(player, this.shopSignLocation);
+
+            //this handles getting rid of the display tags after a configured amount of time after the player looks away from the shop sign
+            removeDisplayTagsDelayedTask(player);
+
+        } catch (NullPointerException e){
+            e.printStackTrace();
+        }
+    }
+
+    public void updateDisplayTags(){
+        // Update 
+
+[TRUNCATED]
+===== END FILE: core/src/main/java/com/snowgears/shop/display/AbstractDisplay.java =====
+===== FILE: core/src/main/java/com/snowgears/shop/handler/ShopGuiHandler.java =====
+package com.snowgears.shop.handler;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.gui.*;
+import com.snowgears.shop.shop.AbstractShop;
+import com.snowgears.shop.util.ConfigUpdater;
+import com.snowgears.shop.util.PlayerSettings;
+import com.snowgears.shop.util.ShopMessage;
+import com.snowgears.shop.util.UtilMethods;
+import net.md_5.bungee.api.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class ShopGuiHandler {
+
+    public enum GuiIcon {
+        MENUBAR_BACK, HOME_SEARCH, MENUBAR_LAST_PAGE, MENUBAR_NEXT_PAGE,
+        MENUBAR_SORT_PRICE_LOW, MENUBAR_SORT_PRICE_HIGH, MENUBAR_SORT_NAME_LOW, MENUBAR_SORT_NAME_HIGH,
+        MENUBAR_FILTER_TYPE_ALL, MENUBAR_FILTER_TYPE_SELL, MENUBAR_FILTER_TYPE_BUY, MENUBAR_FILTER_TYPE_BARTER, MENUBAR_FILTER_TYPE_GAMBLE,
+        MENUBAR_FILTER_STOCK_ALL, MENUBAR_FILTER_STOCK_IN, MENUBAR_FILTER_STOCK_OUT,
+        HOME_LIST_ALL_SHOPS, HOME_LIST_PLAYERS, HOME_SETTINGS, HOME_COMMANDS,
+        LIST_SHOP, LIST_PLAYER, LIST_PLAYER_ADMIN,
+        SETTINGS_NOTIFY_OWNER_ON, SETTINGS_NOTIFY_OWNER_OFF, SETTINGS_NOTIFY_USER_ON, SETTINGS_NOTIFY_USER_OFF, SETTINGS_NOTIFY_STOCK_ON, SETTINGS_NOTIFY_STOCK_OFF,
+        COMMANDS_CURRENCY, COMMANDS_SET_CURRENCY, COMMANDS_SET_GAMBLE, COMMANDS_REFRESH_DISPLAYS, COMMANDS_RELOAD, COMMANDS_ITEMLIST_ALLOW_ADD, COMMANDS_ITEMLIST_ALLOW_REMOVE, COMMANDS_ITEMLIST_DENY_ADD, COMMANDS_ITEMLIST_DENY_REMOVE,
+        ALL_SHOP_ICON, ALL_PLAYER_ICON, ALL_ADMIN_ICON
+    }
+
+    public enum GuiTitle {
+        HOME, LIST_PLAYERS, LIST_SHOPS, SETTINGS, COMMANDS, LIST_SEARCH_RESULTS
+
+    }
+
+    public Shop plugin;
+    private HashMap<UUID, ShopGuiWindow> playerGuiWindows = new HashMap<>();
+    private HashMap<UUID, PlayerSettings> playerSettings = new HashMap<>();
+
+    private HashMap<GuiIcon, ItemStack> guiIcons = new HashMap<>();
+    private HashMap<GuiTitle, String> guiWindowTitles = new HashMap<>();
+
+    private HashMap<UUID, ItemStack> playerHeads = new HashMap<>();
+
+    public ShopGuiHandler(Shop instance){
+        plugin = instance;
+    }
+
+    public ShopGuiWindow getWindow(Player player){
+        if(playerGuiWindows.get(player.getUniqueId()) != null){
+            return playerGuiWindows.get(player.getUniqueId());
+        }
+        HomeWindow window = new HomeWindow(player.getUniqueId());
+        playerGuiWindows.put(player.getUniqueId(), window);
+        return window;
+    }
+
+    public void setWindow(Player player, ShopGuiWindow window){
+        playerGuiWindows.put(player.getUniqueId(), window);
+
+        window.open();
+    }
+
+    public void closeWindow(Player player){
+        if(playerGuiWindows.get(player.getUniqueId()) != null){
+            playerGuiWindows.remove(player.getUniqueId());
+        }
+        player.closeInventory();
+    }
+
+    public void reloadPlayerHeadIcon(AbstractShop shop){
+        if(shop == null || shop.getOwnerUUID() == null)
+            return;
+
+        UUID playerUUID = shop.getOwnerUUID();
+        OfflinePlayer offlinePlayer = shop.getOwner();
+        ItemStack playerHead = playerHeads.get(playerUUID);
+        ItemMeta itemMeta;
+        ItemStack placeHolderIcon;
+        if(playerHead == null) {
+            //playerUUID is the fake admin UUID
+            if(playerUUID.equals(plugin.getShopHandler().getAdminUUID())) {
+                playerHead = Shop.getPlugin().getGuiHandler().getIcon(GuiIcon.ALL_ADMIN_ICON, playerUUID, null).clone();
+                itemMeta = playerHead.getItemMeta();
+            }
+            else{
+                playerHead = new ItemStack(Material.PLAYER_HEAD);
+                itemMeta = playerHead.getItemMeta();
+
+                if (offlinePlayer != null && offlinePlayer.getName() != null)
+                    ((SkullMeta)itemMeta).setOwningPlayer(offlinePlayer);
+            }
+
+        }
+        else{
+            itemMeta =  playerHead.getItemMeta();
+        }
+
+        if(playerUUID.equals(plugin.getShopHandler().getAdminUUID())) {
+            //get the placeholder icon with all of the unformatted fields
+            placeHolderIcon = Shop.getPlugin().getGuiHandler().getIcon(GuiIcon.ALL_ADMIN_ICON, playerUUID, null);
+        }
+        else {
+            //get the placeholder icon with all of the unformatted fields
+            placeHolderIcon = Shop.getPlugin().getGuiHandler().getIcon(GuiIcon.ALL_PLAYER_ICON, playerUUID, null);
+        }
+
+        String name = ShopMessage.formatMessage(placeHolderIcon.getItemMeta().getDisplayName(), shop);
+        if (name == null || name.isEmpty()) {
+            String shortId = playerUUID.toString();
+            shortId = shortId.substring(0,3) + "..." + shortId.substring(shortId.length()-3);
+            name = "Unknown Player (" + shortId + ")";
+        }
+        List<String> lore = new ArrayList<>();
+        for(String loreLine : placeHolderIcon.getItemMeta().getLore()){
+            lore.add(ShopMessage.formatMessage(loreLine, shop));
+        }
+
+        itemMeta.setDisplayName(name);
+        itemMeta.setLore(lore);
+
+        PersistentDataContainer container = itemMeta.getPersistentDataContainer();
+        container.set(Shop.getPlugin().getPlayerUUIDNameSpacedKey(), PersistentDataType.STRING, playerUUID.toString());
+
+        playerHead.setItemMeta(itemMeta);
+
+        playerHeads.put(playerUUID, playerHead);
+    }
+
+    public ItemStack getPlayerHeadIcon(UUID playerUUID){
+        if(playerHeads.containsKey(playerUUID))
+            return playerHeads.get(playerUUID);
+        return new ItemStack(Material.AIR);
+    }
+
+    public ArrayList<ItemStack> getShopOwnerHeads(){
+        return playerHeads.values().stream().collect(
+                Collectors.toCollection(ArrayList::new)
+        );
+    }
+
+    public GuiIcon getIconFromOption(Player player, PlayerSettings.Option option){
+        return getIconFromOption(player.getUniqueId(), option);
+    }
+
+    public GuiIcon getIconFromOption(UUID playerUUID, PlayerSettings.Option option){
+        if(playerSettings.get(playerUUID) != null){
+            PlayerSettings settings = playerSettings.get(playerUUID);
+            return settings.getGuiIcon(option);
+        }
+
+        PlayerSettings settings = PlayerSettings.loadFromFile(playerUUID);
+        if(settings == null)
+            settings = new PlayerSettings(playerUUID);
+
+        playerSettings.put(playerUUID, settings);
+        return settings.getGuiIcon(option);
+    }
+
+    public void setIconForOption(Player player, PlayerSettings.Option option, GuiIcon guiIcon){
+        PlayerSettings settings;
+
+        if(playerSettings.get(player.getUniqueId()) != null){
+            settings = playerSettings.get(player.getUniqueId());
+        }
+        else {
+            settings = PlayerSettings.loadFromFile(player);
+            if (settings == null)
+                settings = new PlayerSettings(player);
+        }
+
+        settings.setOption(option, guiIcon);
+        playerSettings.put(player.getUniqueId(), settings);
+    }
+
+    public void toggleNotificationSetting(Player player, PlayerSettings.Option option){
+        PlayerSettings settings;
+
+        if(playerSettings.get(player.getUniqueId()) != null){
+            settings = playerSettings.get(player.getUniqueId());
+        }
+        else {
+            settings = PlayerSettings.loadFromFile(player);
+            if (settings == null)
+                settings = new PlayerSettings(player);
+        }
+
+        settings.toggleNotification(option);
+        playerSettings.put(player.getUniqueId(), settings);
+    }
+
+    public ItemStack getIcon(GuiIcon iconEnum, UUID playerUUID, AbstractShop shop){
+        if(iconEnum == GuiIcon.LIST_SHOP){
+            return shop.getGuiIcon();
+        }
+        else if(iconEnum == GuiIcon.LIST_PLAYER || iconEnum == GuiIcon.LIST_PLAYER_ADMIN){
+            return getPlayerHeadIcon(playerUUID);
+        }
+
+        if(guiIcons.containsKey(iconEnum))
+            return guiIcons.get(iconEnum);
+        return null;
+    }
+
+    public String getTitle(GuiTitle title){
+        return guiWindowTitles.get(title);
+    }
+
+    public String getTitle(ShopGuiWindow window){
+        if(window instanceof HomeWindow){
+            return guiWindowTitles.get(GuiTitle.HOME);
+        }
+        else if(window instanceof ListPlayersWindow){
+            return guiWindowTitles.get(GuiTitle.LIST_PLAYERS);
+        }
+        else if(window instanceof PlayerSettingsWindow){
+            return guiWindowTitles.get(GuiTitle.SETTINGS);
+        }
+        else if(window instanceof CommandsWindow){
+            return guiWindowTitles.get(GuiTitle.COMMANDS);
+        }
+        return "Window";
+    }
+
+    public void loadIconsAndTitles(){
+        File configFile = new File(plugin.getDataFolder(), "guiConfig.yml");
+        if (!configFile.exists()) {
+            configFile.getParentFile().mkdirs();
+            UtilMethods.copy(plugin.getResource("guiConfig.yml"), configFile);
+        }
+
+        try {
+            ConfigUpdater.update(plugin, "guiConfig.yml", configFile, new ArrayList<>());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+
+        //load all titles first
+        Set<String> titles = config.getConfigurationSection("titles").getKeys(false);
+
+        for(GuiTitle titleEnum : GuiTitle.values()) {
+            String titleString = config.getString("titles."+titleEnum.toString().toLowerCase());
+            guiWindowTitles.put(titleEnum, ChatColor.translateAlternateColorCodes('&', titleString));
+        }
+
+        Set<String> icons = config.getConfigurationSection("icons").getKeys(false);
+
+        //load all icons next
+        for(GuiIcon iconEnum : GuiIcon.values()) {
+            // If creative selection is disabled then disable the search icon
+            if (!plugin.allowCreativeSelection() && iconEnum == GuiIcon.HOME_SEARCH) { continue; }
+
+            boolean translateColors = true;
+            if(iconEnum == GuiIcon.ALL_SHOP_ICON || iconEnum == GuiIcon.ALL_PLAYER_ICON)
+                translateColors = false;
+
+            String iconString = iconEnum.toString().toLowerCase();
+            String parentKey = iconString.substring(0, iconString.indexOf('_'));
+            String childKey = iconString.substring(iconString.indexOf('_')+1);
+
+            String type = config.getString("icons."+parentKey+"."+childKey+".type");
+            String name = config.getString("icons."+parentKey+"."+childKey+".name");
+
+            if(name != null && translateColors)
+                name = ChatColor.translateAlternateColorCodes('&', name);
+
+            List<String> loreLines = config.getStringList("icons."+parentKey+"."+childKey+".lore");
+            List<String> lore = new ArrayList<>();
+            if(loreLines != null) {
+                for (String line : loreLines) {
+                    if(translateColors)
+                        lore.add(ChatColor.translateAlternateColorCodes('&', line));
+                    else
+                        lore.add(line);
+                }
+            }
+
+            ItemStack icon = null;
+            if(type != null) {
+                icon = new ItemStack(Material.valueOf(type.toUpperCase()));
+            }
+            else if(childKey.equals("set_gamble")){
+                icon = plugin.getGambleDisplayItem().clone();
+            }
+           
+
+[TRUNCATED]
+===== END FILE: core/src/main/java/com/snowgears/shop/handler/ShopGuiHandler.java =====
+===== FILE: core/src/main/java/com/snowgears/shop/handler/TransactionHandler.java =====
+package com.snowgears.shop.handler;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.hook.WorldGuardHook;
+import com.snowgears.shop.shop.AbstractShop;
+import com.snowgears.shop.shop.ShopType;
+import com.snowgears.shop.util.*;
+import org.bukkit.*;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.UUID;
+
+
+public class TransactionHandler {
+
+    private Shop plugin;
+    private HashMap<Location, UUID> shopMessageCooldown = new HashMap<>(); //shop location, shop owner
+
+    public TransactionHandler(Shop instance) {
+        plugin = instance;
+    }
+
+    public void executeTransactionFromEvent(PlayerInteractEvent event, AbstractShop shop, boolean fullStackOrder){
+        Player player = event.getPlayer();
+
+        if(shop.isPerformingTransaction()) {
+            ShopMessage.sendMessage("interactionIssue", "useShopAlreadyInUse", player, shop);
+            event.setCancelled(true);
+            return;
+        }
+
+        boolean canUseShopInRegion = true;
+        try {
+            canUseShopInRegion = WorldGuardHook.canUseShop(player, shop.getSignLocation());
+        } catch(NoClassDefFoundError e) {}
+
+        //check that player can use the shop if it is in a WorldGuard region
+        if(!canUseShopInRegion){
+            ShopMessage.sendMessage("interactionIssue", "regionRestriction", player, shop);
+            event.setCancelled(true);
+            return;
+        }
+
+        // Bug fix: chestLocation is only set inside AbstractShop.load(), which runs deferred on
+        // chunk load. If a player somehow interacts with the shop before load() completes,
+        // chestLocation will be null and the .getBlock() call below would throw a NPE.
+        if(shop.getChestLocation() == null || !(plugin.getShopHandler().isChest(shop.getChestLocation().getBlock()))){
+            plugin.getLogger().warning("Deleting Shop because chest location is null or chest does not exist! " + shop);
+            shop.delete();
+            return;
+        }
+
+        //do not allow gamble shops to have full stack orders
+        if(shop.getType() == ShopType.GAMBLE)
+            fullStackOrder = false;
+
+        //player did not click their own shop
+        if (!shop.getOwnerName().equals(player.getName()) || Shop.getPlugin().getDebug_allowUseOwnShop()) {
+
+            if (plugin.usePerms() && !(player.hasPermission("shop.use."+shop.getType().toString().toLowerCase()) || player.hasPermission("shop.use"))) {
+                if (!player.hasPermission("shop.operator")) {
+                    ShopMessage.sendMessage("permission", "use", player, shop);
+                    return;
+                }
+            }
+            //for COMBO shops, shops can execute either a BUY or a SELL depending on the side of sign that was clicked
+            if(shop.getType() == ShopType.COMBO){
+                int clickedSide = UtilMethods.calculateSideFromClickedSign(player, event.getClickedBlock());
+                //clicked left side of sign
+                if(clickedSide >= 0){
+                    if(plugin.inverseComboShops())
+                        executeTransactionSequence(player, shop, ShopType.SELL, fullStackOrder);
+                    else
+                        executeTransactionSequence(player, shop, ShopType.BUY, fullStackOrder);
+                }
+                //clicked right side of sign
+                else{
+                    if(plugin.inverseComboShops())
+                        executeTransactionSequence(player, shop, ShopType.BUY, fullStackOrder);
+                    else
+                        executeTransactionSequence(player, shop, ShopType.SELL, fullStackOrder);
+                }
+            }
+            else {
+                executeTransactionSequence(player, shop, shop.getType(), fullStackOrder);
+            }
+        } else {
+            ShopMessage.sendMessage("interactionIssue", "useOwnShop", player, shop);
+            shop.sendEffects(false, player);
+        }
+        event.setCancelled(true);
+    }
+
+    private void executeTransactionSequence(Player player, AbstractShop shop, ShopType actionType, boolean fullStackOrder){
+        Transaction transaction = new Transaction(player, shop, actionType);
+
+        // Set the desired purchase amount if we are a full stack order
+        if (fullStackOrder) {
+            // Use either 64 (Minecraft's standard "full stack") or the shop's amount, whichever is larger
+            // This ensures players get 64 items when buying from shops with smaller default amounts
+            // But still get the full amount from shops configured to sell larger quantities
+            transaction.negotiatePurchase(Math.max(shop.getAmount(), 64));
+        } else {
+            transaction.negotiatePurchase();
+        }
+
+        // Verify the transaction is possible
+        TransactionError issue = transaction.verify();
+        // If it is possible, go ahead and execute it, extra check just in case there is an issue (shouldn't ever happen, but who knows)
+        if (issue == TransactionError.NONE) { issue = transaction.execute(); }
+
+        // If there was an issue with the transaction, send the error message and bail out early
+        if (issue != TransactionError.NONE) {
+            //there was an issue when checking transaction, send reason to player
+            this.sendErrorMessage(player, shop, actionType, transaction);
+            return;
+        }
+
+        //the transaction has finished and the exchange event has not been cancelled
+        sendExchangeMessagesAndLog(shop, player, actionType, transaction);
+        shop.sendEffects(true, player);
+    }
+
+    private void sendErrorMessage(Player player, AbstractShop shop, ShopType actionType, Transaction transaction) {
+        String message = null;
+        switch (transaction.getError()) {
+            case INSUFFICIENT_FUNDS_SHOP:
+                if (!shop.isAdmin()) {
+                    Player owner = shop.getOwner().getPlayer();
+                    //the shop owner is online
+                    if (owner != null && notifyOwner(shop)) {
+                        ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(player, PlayerSettings.Option.NOTIFICATION_STOCK);
+
+                        if (guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) {
+                            ShopMessage.sendMessage(actionType.toString(), "ownerNoStock", owner, shop);
+                        }
+                    }
+                }
+                message = ShopMessage.getUnformattedMessage(actionType.toString(), "shopNoStock");
+                break;
+            case INSUFFICIENT_FUNDS_PLAYER:
+                message = ShopMessage.getUnformattedMessage(actionType.toString(), "playerNoStock");
+                break;
+            case INVENTORY_FULL_SHOP:
+                if (!shop.isAdmin()) {
+                    Player owner = shop.getOwner().getPlayer();
+                    //the shop owner is online
+                    if (owner != null && notifyOwner(shop)) {
+                        ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(player, PlayerSettings.Option.NOTIFICATION_STOCK);
+
+                        if (guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) {
+                            ShopMessage.sendMessage(actionType.toString(), "ownerNoSpace", owner, shop);
+                        }
+                    }
+                }
+                message = ShopMessage.getUnformattedMessage(actionType.toString(), "shopNoSpace");
+                break;
+            case INVENTORY_FULL_PLAYER:
+                message = ShopMessage.getUnformattedMessage(actionType.toString(), "playerNoSpace");
+                break;
+        }
+
+        // Since there was an error during the transaction, send the message, then exit the transaction early.
+        if (message != null && !message.isEmpty())
+            ShopMessage.sendMessage(message, player, shop);
+        shop.sendEffects(false, player);
+    }
+
+    private void sendExchangeMessagesAndLog(AbstractShop shop, Player player, ShopType transactionType, Transaction transaction) {
+
+        double price = transaction.getPrice();
+        String message = ShopMessage.getMessageFromOrders(transactionType, "user", price, transaction.getAmount());
+
+        ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(player, PlayerSettings.Option.NOTIFICATION_SALE_USER);
+        if(guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) {
+            if(message != null && !message.isEmpty()) {
+                ShopMessage.sendMessage(message, player, shop);
+            }
+        }
+
+        Player owner = Bukkit.getPlayer(shop.getOwnerUUID());
+        if ((owner != null) && (!shop.isAdmin())) {
+            message = ShopMessage.getMessageFromOrders(transactionType, "owner", price, transaction.getAmount());
+
+            guiIcon = plugin.getGuiHandler().getIconFromOption(owner, PlayerSettings.Option.NOTIFICATION_SALE_OWNER);
+            if(guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) {
+                if(message != null && !message.isEmpty())
+                    ShopMessage.sendMessage(message, owner, player, shop);
+            }
+        }
+
+        int amount = transaction.getAmount();
+
+        plugin.getLogHandler().logTransaction(player, shop, transactionType, price, amount);
+    }
+
+    private boolean notifyOwner(final AbstractShop shop){
+        if(shop.isAdmin())
+            return false;
+        if(shopMessageCooldown.containsKey(shop.getSignLocation()))
+            return false;
+        else{
+            // Capture the sign location so the cooldown entry can always be removed even if
+            // the shop object is deleted before the 2-minute window elapses (Bug fix: the
+            // old code fell into the TODO path and left a dangling entry in the cooldown map
+            // when the shop was deleted mid-cooldown, permanently breaking owner notifications
+            // for any new shop created at the same location within that window).
+            final Location signLoc = shop.getSignLocation();
+            shopMessageCooldown.put(signLoc, shop.getOwnerUUID());
+
+            plugin.getFoliaLib().getScheduler().runLater(new BukkitRunnable() {
+                @Override
+                public void run() {
+                    shopMessageCooldown.remove(signLoc);
+                }
+            }, 2400); //make cooldown 2 minutes
+        }
+        return true;
+    }
+
+    /**
+     * Clears the notify-owner cooldown for a given sign location.
+     * Should be called from ShopHandler.removeShop() so that a shop deleted
+     * during the 2-minute window doesn't block notifications on a replacement
+     * shop at the same location.
+     */
+    public void clearNotifyOwnerCooldown(Location signLocation) {
+        shopMessageCooldown.remove(signLocation);
+    }
+}
+
+===== END FILE: core/src/main/java/com/snowgears/shop/handler/TransactionHandler.java =====
+===== FILE: core/src/main/java/com/snowgears/shop/listener/MiscListener.java =====
+package com.snowgears.shop.listener;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.display.AbstractDisplay;
+import com.snowgears.shop.event.PlayerDestroyShopEvent;
+import com.snowgears.shop.event.PlayerResizeShopEvent;
+import com.snowgears.shop.hook.WorldGuardHook;
+import com.snowgears.shop.shop.AbstractShop;
+import com.snowgears.shop.shop.ShopType;
+import com.snowgears.shop.util.*;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.DoubleChest;
+import org.bukkit.block.Sign;
+import org.bukkit.block.data.Rotatable;
+import org.bukkit.block.data.type.WallSign;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.SignChangeEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.*;
+
+
+public class MiscListener implements Listener {
+
+    public Shop plugin;
+    private HashMap<UUID, ShopCreationProcess> playerChatCreationSteps = new HashMap<>();
+    private HashMap<UUID, Long> lastChatCreation = new HashMap<>();
+
+    public MiscListener(Shop instance) {
+        plugin = instance;
+    }
+
+    //prevent emptying of bucket when player clicks on shop sign
+    //also prevent when emptying on display item itself
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBucketEmpty(PlayerBucketEmptyEvent event) {
+        if (event.isCancelled()) {
+            return;
+        }
+
+        Block b = event.getBlockClicked();
+
+        if (b.getBlockData() instanceof WallSign) {
+            AbstractShop shop = plugin.getShopHandler().getShop(b.getLocation());
+            if (shop != null)
+                event.setCancelled(true);
+        }
+        Block blockToFill = event.getBlockClicked().getRelative(event.getBlockFace());
+        AbstractShop shop = plugin.getShopHandler().getShopByChest(blockToFill.getRelative(BlockFace.DOWN));
+        if (shop != null)
+            event.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onShopCreation(SignChangeEvent event) {
+        final Block b = event.getBlock();
+        final Player player = event.getPlayer();
+
+        if(!plugin.getAllowCreationMethodSign())
+            return;
+
+        if(!(b.getState() instanceof Sign))
+            return;
+
+        BlockFace signDirection = null;
+        Block chest = null;
+        if(b.getBlockData() instanceof WallSign) {
+            signDirection = ((WallSign) b.getBlockData()).getFacing();
+            chest = b.getRelative(signDirection.getOppositeFace());
+        }
+        else if(b.getBlockData() instanceof Rotatable){ //regular sign post
+            signDirection = ((Rotatable) b.getBlockData()).getRotation();
+            //adjust the sign direction to cordinal direction if its not already one
+            if( signDirection.toString().indexOf('_') != -1) {
+                String adjustedDirString = signDirection.toString().substring(0, signDirection.toString().indexOf('_'));
+                signDirection = BlockFace.valueOf(adjustedDirString);
+            }
+            chest = b.getRelative(signDirection.getOppositeFace());
+        }
+        else
+            return;
+
+        int amount = 0 ;
+        ShopType type = null;
+        boolean isAdmin = false;
+        if (plugin.getShopHandler().isChest(chest)) {
+            final Sign signBlock = (Sign) b.getState();
+            if (event.getLine(0).toLowerCase().contains(ShopMessage.getCreationWord("SHOP").toLowerCase())) {
+
+                if(!plugin.getShopCreationUtil().shopCanBeCreated(player, chest)){
+                    cancelShopCreationProcess(player);
+                    event.setCancelled(true);
+                    return;
+                }
+
+                try {
+                    String line2 = UtilMethods.cleanNumberText(event.getLine(1));
+                    amount = Integer.parseInt(line2);
+                    if (amount < 1) {
+                        ShopMessage.sendMessage("interactionIssue", "line2", player, null);
+                        ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
+                        cancelShopCreationProcess(player);
+                        event.setCancelled(true);
+                        return;
+                    }
+                } catch (NumberFormatException e) {
+                    ShopMessage.sendMessage("interactionIssue", "line2", player, null);
+                    ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
+                    cancelShopCreationProcess(player);
+                    event.setCancelled(true);
+                    return;
+                }
+
+                type = plugin.getShopCreationUtil().getShopType(event.getLine(3));
+                isAdmin = plugin.getShopCreationUtil().getShopIsAdmin(event.getLine(3));
+
+                if(type == null)
+                    type = ShopType.SELL;
+
+                PricePair pricePair = plugin.getShopCreationUtil().getShopPricePair(player, event.getLine(2), type);
+                if(pricePair == null){
+                    event.setCancelled(true);
+                    return;
+                }
+
+                AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, signBlock.getBlock(), pricePair, amount, isAdmin, type, signDirection, false);
+                if(shop == null) {
+                    event.setCancelled(true);
+                    return;
+                }
+
+                ShopCreationProcess process = new ShopCreationProcess(player, chest, signDirection);
+                process.setStep(ShopCreationProcess.ChatCreationStep.SIGN_ITEM);
+                playerChatCreationSteps.put(player.getUniqueId(), process);
+
+                process.displayFloatingText(type.toString(), "initialize");
+                if (plugin.allowCreativeSelection() && (type == ShopType.BUY || type == ShopType.COMBO)) {
+                    ShopMessage.sendMessage(type.toString(), "initializeAlt", player, shop);
+                }
+
+                //give player a limited amount of time to finish creating the shop until it is deleted
+                plugin.getFoliaLib().getScheduler().runLater(() -> {
+                    //the shop has still not been initialized with an item from a player
+                    if (!shop.isInitialized()) {
+                        shop.delete();
+                        if (b.getBlockData() instanceof WallSign) {
+                            String[] lines = ShopMessage.getSignLines("timeout", shop);
+                            Sign sign = (Sign) b.getState();
+                            sign.setLine(0, lines[0]);
+                            sign.setLine(1, lines[1]);
+                            sign.setLine(2, lines[2]);
+                            sign.setLine(3, lines[3]);
+                            sign.update(true);
+                            cancelShopCreationProcess(player);
+                        }
+                    }
+                }, 30 * 20); // 30 seconds * 20 ticks
+            }
+        }
+    }
+
+    public ShopCreationProcess getShopCreationProcess(Player player){
+        return playerChatCreationSteps.get(player.getUniqueId());
+    }
+
+    public void removeShopCreationProcess(Player player){
+        playerChatCreationSteps.remove(player.getUniqueId());
+    }
+
+    public void cancelShopCreationProcess(Player player){
+        ShopCreationProcess process = this.getShopCreationProcess(player);
+        if (process != null) {
+            process.display.removeDisplayEntities(player, true);
+            playerChatCreationSteps.remove(player.getUniqueId());
+            // Send message that the creation was cancelled
+            ShopMessage.sendMessage("interactionIssue", "createCancel", player, null);
+        }
+
+        // Remove player from creative selection if they are in it!
+        // The Bukkit API can only change player game modes in a sync task, not an async task
+        plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
+            public void run() {
+                plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
+            }
+        }, 1);
+    }
+
+    public boolean isChestInShopCreationProcess(Location location) {
+        return getShopCreationProcessByChest(location) != null;
+    }
+
+    public ShopCreationProcess getShopCreationProcessByChest(Location location) {
+        for (ShopCreationProcess process : playerChatCreationSteps.values()) {
+            if (process.getClickedChest().getLocation().equals(location)) {
+                return process;
+            }
+        }
+        return null;
+    }
+
+    // Fired anytime a player interacts with a block, air, or entity.
+    // This is used to handle shop creation and initialization.
+    // Generally, events shouldn't be cancelled here, as this is the first event in a chain,
+    // and we should allow other event handlers down the chain to handle more specific situations.
+    //
+    // ignoreCancelled = false is intentional: crate-key plugins (e.g. PhoenixCrates) cancel
+    // PlayerInteractEvent at HIGHEST priority before our NORMAL-priority handler would normally
+    // see it.  By running at HIGH priority with ignoreCancelled = false we ensure that a player
+    // hitting an un-initialized shop sign with a crate key (or any item whose interact event was
+    // cancelled by another plugin) still triggers shop initialization correctly.  We never modify
+    // the world in the sign-hit branch, so processing a cancelled event there is safe.
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
+    public void onBlockInteract(PlayerInteractEvent event) {
+        try {
+            if (event.getHand() == EquipmentSlot.OFF_HAND) {
+                return; // off hand version, ignore.
+            }
+        } catch (NoSuchMethodError error) {}
+
+        final Player player = event.getPlayer();
+
+        // Always read the item from the player's main hand directly.
+        // event.getItem() returns a legacy Bukkit ItemStack copy that can strip
+        // custom data components (custom fonts in item_name/lore, custom model data,
+        // custom NBT components) introduced in Paper 1.20.5+. Using getItemInMainHand()
+        // ensures the full Paper-native ItemStack with all custom components is used.
+        final ItemStack itemInHand = player.getInventory().getItemInMainHand();
+        // Treat an empty hand the same way as a null/AIR item from the event.
+        final boolean handIsEmpty = itemInHand.getType() == Material.AIR;
+
+        if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            final Block clicked = event.getClickedBlock();
+
+            if (clicked.getBlockData() instanceof WallSign) {
+
+                if(!plugin.getAllowCreationMethodSign())
+                    return;
+
+                // We only want to handle shops that exist but are not initialized.
+                // This branch intentionally does NOT check event.isCancelled() — crate-key
+                // plugins cancel the interact event for their keys, which would otherwise
+                // silently swallow the sign-hit and prevent shop
+
+[TRUNCATED]
+===== END FILE: core/src/main/java/com/snowgears/shop/listener/MiscListener.java =====
+===== FILE: core/src/main/java/com/snowgears/shop/listener/ShopListener.java =====
+package com.snowgears.shop.listener;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.display.DisplayTagOption;
+import com.snowgears.shop.event.PlayerOpenShopEvent;
+import com.snowgears.shop.event.PlayerOpenShopEvent.OpenMode;
+import com.snowgears.shop.event.PlayerOpenShopEvent.OpenTarget;
+import com.snowgears.shop.hook.WorldGuardHook;
+import com.snowgears.shop.shop.AbstractShop;
+import com.snowgears.shop.shop.ShopType;
+import com.snowgears.shop.util.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.Tag;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.WallSign;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.player.*;
+import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.permissions.PermissionAttachmentInfo;
+import org.bukkit.scheduler.BukkitRunnable;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
+
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
+
+public class ShopListener implements Listener {
+
+    private Shop plugin;
+    private HashMap<UUID, OfflineTransactions> transactionsWhileOffline = new HashMap<>();
+    private HashMap<UUID, Long> playerLastShopTeleport = new HashMap<>();
+
+    public ShopListener(Shop instance) {
+        plugin = instance;
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event){
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
+            // Cache player name for performance optimization
+            PlayerNameCache.cacheName(event.getPlayer().getUniqueId(), event.getPlayer().getName());
+        }, 5);
+    }
+
+    public int getBuildLimit(Player player){
+        // If permissions are disabled, there is "no limit"
+        if (!plugin.usePerms()) {
+            return 10000;
+        }
+
+        int baseBuildLimit = -1;
+        int extraBuildLimit = 0;
+        Set<PermissionAttachmentInfo> permissions = player.getEffectivePermissions();
+
+        // calculate base buildlimit permission first (highest number)
+        for(PermissionAttachmentInfo permInfo : permissions){
+            String perm = permInfo.getPermission();
+            // Skip if not a shop permission
+            if (!perm.startsWith("shop.")) { continue; }
+
+            // If it's a base build limit permission, parse the number
+            if (perm.startsWith("shop.buildlimit.")){
+                try {
+                    int tempNum = Integer.parseInt(perm.substring(perm.lastIndexOf(".") + 1));
+                    if(tempNum > baseBuildLimit) {
+                        baseBuildLimit = tempNum;
+                    }
+                } catch (NumberFormatException e) {}
+            }
+
+            // If it's an extra build limit permission, parse the number
+            else if (perm.startsWith("shop.buildlimitextra.")){
+                try {
+                    int extraNum = Integer.parseInt(perm.substring(perm.lastIndexOf(".") + 1));
+                    extraBuildLimit += extraNum;
+                } catch (NumberFormatException e) {}
+            }
+        }
+
+        // If no build limit was found, return 10000 (no limit)
+        if (baseBuildLimit == -1) {
+            return 10000;
+        }
+
+        // Add build limits together
+        int playerBuildLimit = baseBuildLimit + extraBuildLimit;
+        
+        return playerBuildLimit;
+    }
+
+    @EventHandler (ignoreCancelled = true, priority = EventPriority.LOW)
+    public void onShopSignClick(PlayerInteractEvent event) {
+        try {
+            if (event.getHand() == EquipmentSlot.OFF_HAND) {
+                return; // off hand version, ignore.
+            }
+        } catch (NoSuchMethodError error) {}
+        Player player = event.getPlayer();
+
+        //player clicked the sign of a shop
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            if (event.getClickedBlock().getBlockData() instanceof WallSign) {
+                AbstractShop shop = plugin.getShopHandler().getShop(event.getClickedBlock().getLocation());
+                if (shop == null || !shop.isInitialized())
+                    return;
+
+                boolean actionPerformed;
+                if(player.isSneaking()) {
+                    if(event.getAction() == Action.RIGHT_CLICK_BLOCK)
+                        actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_RIGHT_CLICK_SIGN);
+                    else
+                        actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_LEFT_CLICK_SIGN);
+                }
+                else{
+                    if(event.getAction() == Action.RIGHT_CLICK_BLOCK)
+                        actionPerformed = shop.executeClickAction(event, ShopClickType.RIGHT_CLICK_SIGN);
+                    else
+                        actionPerformed = shop.executeClickAction(event, ShopClickType.LEFT_CLICK_SIGN);
+                }
+                if (actionPerformed)
+                    event.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onShopChestClick(PlayerInteractEvent event) {
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            if (plugin.getShopHandler().isChest(event.getClickedBlock())) {
+                try {
+                    if (event.getHand() == EquipmentSlot.OFF_HAND) {
+                        return; // off hand version, ignore.
+                    }
+                } catch (NoSuchMethodError error) {}
+
+                Player player = event.getPlayer();
+                AbstractShop shop = plugin.getShopHandler().getShopByChest(event.getClickedBlock());
+                if (shop == null)
+                    return;
+
+                boolean canUseShopInRegion = true;
+                try {
+                    canUseShopInRegion = WorldGuardHook.canUseShop(player, shop.getSignLocation());
+                } catch(NoClassDefFoundError e) {}
+
+                //check that player can use the shop if it is in a WorldGuard region
+                if(!canUseShopInRegion){
+                    ShopMessage.sendMessage("interactionIssue", "regionRestriction", player, null);
+                    event.setCancelled(true);
+                    return;
+                }
+
+                if((!plugin.getShopHandler().isChest(shop.getChestLocation().getBlock())) || !(shop.getSignLocation().getBlock().getBlockData() instanceof WallSign)){
+                    plugin.getLogger().warning("Deleting Shop because chest does not exist, or sign is not exist! " + shop);
+                    shop.delete();
+                    return;
+                }
+                
+                //player is sneaking and clicks a chest of a shop
+                if(player.isSneaking()){
+                    //don't execute the action and cancel event if player is holding a sign (may be trying to place directly onto chest)
+                    if(!Tag.SIGNS.isTagged(player.getInventory().getItemInMainHand().getType())) {
+
+                        boolean actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_RIGHT_CLICK_CHEST);
+
+                        if(plugin.getDisplayTagOption() == DisplayTagOption.RIGHT_CLICK_CHEST){
+                            shop.getDisplay().showDisplayTags(player);
+                        }
+
+                        if (actionPerformed) {
+                            event.setCancelled(true);
+                            // Stop processing since we cancelled the event, if no action was performed, continue with logic below
+                            return;
+                        }
+                    }
+                }
+                //non-owner is trying to open shop
+                if (!shop.getOwnerUUID().equals(player.getUniqueId())) {
+                    // Fire a pre-open event to allow integrations (e.g., protection plugins) to let trusted players open the container
+                    PlayerOpenShopEvent preOpenEvent = new PlayerOpenShopEvent(player, shop, OpenTarget.CHEST, OpenMode.SHOP_ACTION);
+                    Bukkit.getPluginManager().callEvent(preOpenEvent);
+
+                    if (preOpenEvent.isCancelled()) {
+                        // Hard-deny access if any listener cancels access
+                        event.setCancelled(true);
+                        return;
+                    }
+
+                    if (preOpenEvent.getMode() == OpenMode.OPEN_CONTAINER) {
+                        // Allow container to open normally for trusted players.
+                        ShopMessage.sendMessage("interaction", "openTrusted", player, shop);
+                        return;
+                    }
+
+                    if ((plugin.usePerms() && player.hasPermission("shop.operator")) || (!plugin.usePerms() && player.isOp())) {
+                        if (shop.isAdmin()) {
+                            if (shop.getType() == ShopType.GAMBLE) {
+                                //allow gamble shops to be opened by operators
+                                return;
+                            }
+                            event.setCancelled(true);
+
+                            shop.executeClickAction(event, ShopClickType.RIGHT_CLICK_CHEST);
+                            //we are cancelling this event regardless so no need to check if the action was performed
+
+                        } else {
+                            ShopMessage.sendMessage(shop.getType().toString(), "opOpen", player, shop);
+                        }
+                    } else {
+                        // Cancel event to prevent other players from opening the chest
+                        event.setCancelled(true);
+
+                        boolean actionPerformed = shop.executeClickAction(event, ShopClickType.RIGHT_CLICK_CHEST);
+                        if (!actionPerformed) {
+                            // only send a message if the action was not performed, always deny opening the chest
+                            ShopMessage.sendMessage("permission", "openOther", player, shop);
+                        }
+
+                        if(plugin.getDisplayTagOption() == DisplayTagOption.RIGHT_CLICK_CHEST){
+                            shop.getDisplay().showDisplayTags(player);
+                        }
+                    }
+                }
+            }
+        }
+        else if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            if (plugin.getShopHandler().isChest(event.getClickedBlock())) {
+                try {
+                    if (event.getHand() == EquipmentSlot.OFF_HAND) {
+                        return; // off hand version, ignore.
+                    }
+                } catch (NoSuchMethodError error) {
+                }
+
+                Player player = event.getPlayer();
+                AbstractShop shop = plugin.getShopHandler().getShopByChest(event.getClickedBlock());
+                if (shop == null)
+                    return;
+
+                boolean actionPerformed;
+                if (player.isSneaking()) {
+                    actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_LEFT_CLICK_CHEST);
+                } else {
+                    actionPerformed = shop.executeClickAction(event, ShopClickType.LEFT_CLICK_CHEST);
+                }
+                if (actionPerformed)
+                    event.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onExplosion(EntityExplodeEvent event) {
+        /
+
+[TRUNCATED]
+===== END FILE: core/src/main/java/com/snowgears/shop/listener/ShopListener.java =====
+===== FILE: core/src/main/java/com/snowgears/shop/shop/AbstractShop.java =====
+package com.snowgears.shop.shop;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.display.AbstractDisplay;
+import com.snowgears.shop.handler.ShopGuiHandler;
+import com.snowgears.shop.util.*;
+import net.md_5.bungee.api.ChatColor;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.Sign;
+import org.bukkit.Sound;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.WallSign;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+
+import java.util.*;
+
+import static com.snowgears.shop.util.UtilMethods.isMCVersion17Plus;
+
+public abstract class AbstractShop {
+
+    protected UUID id = UUID.randomUUID();
+    protected boolean needsSave = false;
+    protected boolean isLoaded = false;
+    protected Location signLocation;
+    protected Location chestLocation;
+    protected BlockFace facing;
+    protected UUID owner;
+    protected ItemStack item;
+    protected ItemStack secondaryItem;
+    protected AbstractDisplay display;
+    protected double price;
+    protected int amount;
+    protected boolean isAdmin;
+    protected ShopType type;
+    protected String[] signLines;
+    protected boolean signLinesRequireRefresh;
+    protected boolean isPerformingTransaction;
+    protected ItemStack guiIcon;
+    protected boolean fakeSign;
+
+    protected int stock;
+    protected Material cachedContainerType;
+
+    public AbstractShop(Location signLoc, UUID player, double pri, int amt, Boolean admin, BlockFace facing) {
+        this.signLocation = signLoc;
+        this.owner = player;
+        this.price = pri;
+        this.amount = amt;
+        this.isAdmin = admin;
+        this.item = null;
+        this.facing = facing;
+
+        this.signLinesRequireRefresh = true; // Reload signs on load in case config changed!
+
+        display = Shop.getPlugin().getShopHandler().createDisplay(this.signLocation);
+        fakeSign = false;
+
+        if(isAdmin)
+            owner = Shop.getPlugin().getShopHandler().getAdminUUID();
+    }
+
+    public static AbstractShop create(Location signLoc, UUID player, double pri, double priCombo, int amt, Boolean admin, ShopType shopType, BlockFace facing) {
+
+        switch(shopType){
+            case SELL:
+                return new SellShop(signLoc, player, pri, amt, admin, facing);
+            case BUY:
+                return new BuyShop(signLoc, player, pri, amt, admin, facing);
+            case BARTER:
+                return new BarterShop(signLoc, player, pri, amt, admin, facing);
+            case GAMBLE:
+                return new GambleShop(signLoc, player, pri, amt, admin, facing);
+            case COMBO:
+                return new ComboShop(signLoc, player, pri, priCombo, amt, admin, facing);
+        }
+        return null;
+    }
+
+    public void setId(UUID newId) {
+        this.id = newId;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public boolean isChunkLoaded() {
+        return UtilMethods.isChunkLoaded(this.getSignLocation());
+    }
+
+    //this calls BlockData which loads the chunk the shop is in by doing so
+    public boolean load() {
+        try {
+            Block signBlock = signLocation.getBlock();
+            if (signBlock.getType() == Material.AIR) {
+                Shop.getPlugin().getLogger().warning("Error attempting to load shop! No sign found for Shop (detected: AIR), deleting shop: " + this);
+                this.delete();
+                return false;
+            }
+            if (!(signBlock.getBlockData() instanceof WallSign)) {
+                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign (detected: " + signBlock.getType() + "), deleting shop: " + this);
+                this.delete();
+                return false;
+            }
+            facing = ((WallSign) signBlock.getBlockData()).getFacing();
+            Block chestBlock = signBlock.getRelative(facing.getOppositeFace());
+            chestLocation = chestBlock.getLocation();
+
+            if (!Shop.getPlugin().getShopHandler().isChest(chestBlock)){
+                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Invalid block type detected when trying to load Shop Chest (detected: " + chestBlock.getType() + "), deleting shop: " + this);
+                this.delete();
+                return false;
+            }
+            // Now that we are loaded, we can update the stock
+            // Force sign lines to refresh on load. This avoids stale sign text when the cached stock
+            // matches the newly calculated stock (updateStock() only forces sign updates on change).
+            this.signLinesRequireRefresh = true;
+            this.updateStock();
+            // Prime the container type on the owning region thread so off-thread readers
+            // (e.g. the metrics task) can use the cached value without touching the block.
+            this.getContainerType();
+            Shop.getPlugin().getLogger().debug("Loaded shop successfully: " + this);
+            isLoaded = true;
+            return true;
+        } catch (Error | Exception error) {
+            //this shop has no sign on it. return false
+            Shop.getPlugin().getLogger().warning("Unknown error while attempting to load Shop sign and/or chest! Deleting shop: " + this);
+            this.delete();
+            return false;
+        }
+    }
+
+    public boolean needsSave() {
+        return needsSave;
+    }
+
+    public void setNeedsSave(boolean shouldSave) {
+        needsSave = shouldSave;
+    }
+
+    //abstract methods that must be implemented in each shop subclass
+
+    protected int calculateStock() {
+        if(this.isAdmin) {
+            // There is always stock in the admin shop!
+            stock = Integer.MAX_VALUE;
+            return stock;
+        }
+        if(this.getInventory() == null || this.getItemStack() == null) {
+            // Bug fix: when the chunk is unloaded, getInventory() returns null because
+            // isChunkLoaded() is false. Returning the stale cached stock in that case
+            // is misleading — callers (e.g. TransactionHandler) may use that value to
+            // approve a transaction against a chest that isn't actually accessible.
+            // Return -1 so that the shop is treated as "stock unknown" until the chunk
+            // is loaded and calculateStock() can do a real count.
+            stock = -1;
+            return stock;
+        }
+        int itemsInShop = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
+        stock = itemsInShop / this.getAmount();
+        if(stock == 0 && Shop.getPlugin().getAllowPartialSales()){
+            // Calculate the minimum items required to show as in stock
+            int minItemAmountRequired = (int) Math.ceil(1 / this.getPricePerItem());
+
+            if(itemsInShop >= minItemAmountRequired){
+                stock = 1;
+            }
+        }
+        return stock;
+    }
+
+    public void updateStock() {
+        int oldStock = stock;
+
+        // Update the stock
+        this.calculateStock();
+
+        // Update sign if needed
+        boolean hasStockChange = stock != oldStock;
+        if(hasStockChange){
+            Shop.getPlugin().getLogger().trace("[AbstractShop.updateStock] updateSign, new stock != oldStock! newStock: " + stock + " old stock: " + oldStock + "\n" + this);
+            this.updateSign(true);
+
+            //also set marker in here if using a marker integration
+            if(Shop.getPlugin().getBluemapHookListener() != null) {
+                Shop.getPlugin().getBluemapHookListener().updateMarker(this);
+            }
+
+            needsSave = true;
+            return;
+        }
+
+        // Allow sign to update if there is a pending change (signLinesRequireRefresh)
+        this.updateSign();
+    }
+
+    public int getStock(){
+        if(isAdmin){
+            return Integer.MAX_VALUE;
+        }
+        return stock;
+    }
+
+    public void setStockOnLoad(int stock){
+        this.stock = stock;
+    }
+
+    /** Alias for setStockOnLoad used during shop loading. */
+    public void setStock(int stock) {
+        this.stock = stock;
+    }
+
+    public boolean isInitialized(){
+        return (item != null);
+    }
+
+    //getter methods
+
+    public Location getSignLocation() {
+        return signLocation;
+    }
+
+    public WallSign getSign(){
+        if (!this.isChunkLoaded()) { return null; }
+        BlockData signBlockData = this.getSignLocation().getBlock().getBlockData();
+        if(signBlockData instanceof WallSign){
+            return (WallSign)signBlockData;
+        }
+        return null;
+    }
+
+    public Location getChestLocation() {
+        return chestLocation;
+    }
+
+    public Inventory getInventory() {
+        if(chestLocation == null || signLocation == null || !this.isChunkLoaded())
+            return null;
+        Block chestBlock = chestLocation.getBlock();
+        if(chestBlock.getState() instanceof InventoryHolder){
+            return ((InventoryHolder)(chestBlock.getState())).getInventory();
+        }
+        return null;
+    }
+
+    public Material getContainerType() {
+        if(cachedContainerType != null)
+            return cachedContainerType;
+        if(chestLocation == null || !this.isChunkLoaded())
+            return null;
+        try {
+            cachedContainerType = chestLocation.getBlock().getType();
+            return cachedContainerType;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public UUID getOwnerUUID() {
+        return owner;
+    }
+
+    public String getOwnerName() {
+        if(this.isAdmin())
+            return "admin";
+        
+        if (this.getOwnerUUID() != null) {
+            // Use cache first - this avoids expensive disk I/O
+            return PlayerNameCache.getName(this.getOwnerUUID());
+        }
+        
+        return ChatColor.RED + "CLOSED";
+    }
+
+    public OfflinePlayer getOwner() {
+        return Bukkit.getOfflinePlayer(this.owner);
+    }
+
+    public ItemStack getItemStack() {
+        if (item != null) {
+            ItemStack is = item.clone();
+            is.setAmount(this.getAmount());
+            return is;
+        }
+        return null;
+    }
+
+    public ItemStack getSecondaryItemStack() {
+        if (secondaryItem != null) {
+            ItemStack is = secondaryItem.clone();
+            is.setAmount((int)this.getPrice());
+            return is;
+        }
+        return null;
+    }
+
+    public AbstractDisplay getDisplay() {
+        return display;
+    }
+
+    public double getPrice() {
+        return price;
+    }
+
+    public double getPricePerItem() {
+        // Calculate pricePerItem for partial sales, round up!
+        double pricePer = this.getPrice() / this.getAmount();
+
+        return pricePer;
+    }
+
+    public double getItemsPerPriceUnit() {
+        // Calculate items you can get for each price unit, round down!
+        double pricePer = this.getAmount() / this.getPrice();
+
+        return pricePer;
+    }
+
+    public String getPriceString() {
+        if(this.type == ShopType.BARTER && this.isInitialized()){
+            return (int)this.getPrice() + " " + Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()).toPlainText();
+        }
+        return Shop.getPlugin().getPrice
+
+[TRUNCATED]
+===== END FILE: core/src/main/java/com/snowgears/shop/shop/AbstractShop.java =====
+===== FILE: core/src/main/java/com/snowgears/shop/shop/ComboShop.java =====
+package com.snowgears.shop.shop;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.event.PlayerExchangeShopEvent;
+import com.snowgears.shop.util.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.UUID;
+
+public class ComboShop extends AbstractShop {
+
+    private double priceBuy;
+    private double priceSell;
+
+    public ComboShop(Location signLoc, UUID player, double pri, double priSell, int amt, Boolean admin, BlockFace facing) {
+        super(signLoc, player, pri, amt, admin, facing);
+
+        this.type = ShopType.COMBO;
+        this.signLines = ShopMessage.getSignLines(this, this.type);
+        this.priceBuy = pri;
+        this.priceSell = priSell;
+    }
+
+    public String getPriceSellString() {
+        return Shop.getPlugin().getPriceString(this.priceSell, false);
+    }
+
+    public String getPriceSellPerItemString() {
+        double pricePer = this.getPriceSell() / this.getAmount();
+        return Shop.getPlugin().getPriceString(pricePer, true);
+    }
+
+    public String getPriceComboString() {
+        return Shop.getPlugin().getPriceComboString(this.price, this.priceSell, false);
+    }
+
+    public double getPriceBuy(){
+        return priceBuy;
+    }
+
+    public double getPriceSell(){
+        return priceSell;
+    }
+
+    public void setPriceSell(double priceSell) {
+        this.priceSell = priceSell;
+    }
+
+    @Override
+    protected int calculateStock(){
+        if(this.isAdmin) {
+            stock = Integer.MAX_VALUE;
+            return stock;
+        }
+        else {
+            double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
+            if (this.getPrice() == 0) {
+                stock = Integer.MAX_VALUE;
+                return stock;
+            } else{
+                stock = (int) Math.floor(funds / this.getPrice());
+                // Check if we should show partial stock
+                if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
+                    if (funds >= this.getPricePerItem()) {
+                        stock = 1;
+                        return stock;
+                    }
+                }
+            }
+
+            // Check if we have stock to sell items still, even if we don't have funds to buy items anymore
+            if (stock == 0) {
+                int itemsToSell = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
+                stock = itemsToSell / this.getAmount();
+                // Check if we should show partial stock
+                if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
+                    // Calculate the minimum items required to show as in stock
+                    int minItemAmountRequired = (int) Math.ceil(1 / this.getPricePerItem());
+                    int itemsInShop = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
+
+                    if(itemsInShop >= minItemAmountRequired){
+                        stock = 1;
+                        return stock;
+                    }
+                }
+            }
+        }
+        return stock;
+    }
+}
+
+===== END FILE: core/src/main/java/com/snowgears/shop/shop/ComboShop.java =====
+===== FILE: core/src/main/java/com/snowgears/shop/util/ShopMessage.java =====
+package com.snowgears.shop.util;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.display.DisplayType;
+import com.snowgears.shop.handler.ShopGuiHandler;
+import com.snowgears.shop.shop.AbstractShop;
+import com.snowgears.shop.shop.ComboShop;
+import com.snowgears.shop.shop.ShopType;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+
+import java.io.File;
+import java.util.*;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class ShopMessage {
+
+    private final static Shop plugin = Shop.getPlugin();
+
+    private static boolean disableItemHover = false;
+
+    private static final Map<String, Function<PlaceholderContext, Component>> placeholders = new HashMap<>();
+    private static final String COLOR_CODE_REGEX = "([&\u00a7][0-9A-FK-ORXa-fk-orx])";
+    private static final String HEX_CODE_REGEX = "(#[0-9a-fA-F]{6})";
+    private static final String PLACEHOLDER_REGEX = "(\\[([^&\u00a7#\\[\\]]+)\\])";
+    private static final String TEXT_SEGMENT_REGEX = "([^&\u00a7\\[#]+)";
+    private static final String OPEN_BRACKET_REGEX = "(\\[)";
+    private static final String CLOSE_BRACKET_REGEX = "(\\])";
+    private static final String MESSAGE_PARTS_REGEX =
+            COLOR_CODE_REGEX + "|" +
+            HEX_CODE_REGEX + "|" +
+            PLACEHOLDER_REGEX + "|" +
+            OPEN_BRACKET_REGEX + "|" +
+            CLOSE_BRACKET_REGEX + "|" +
+            TEXT_SEGMENT_REGEX + "|" +
+            "(.{1})";
+
+    private static HashMap<String, String> messageMap = new HashMap<>();
+    private static HashMap<String, String[]> shopSignTextMap = new HashMap<>();
+    private static HashMap<String, List<String>> displayTextMap = new HashMap<>();
+    private static String freePriceWord;
+    private static String adminStockWord;
+    private static String serverDisplayName;
+    private static HashMap<String, String> creationWords = new HashMap<>();
+    private static YamlConfiguration chatConfig;
+    private static YamlConfiguration signConfig;
+    private static YamlConfiguration displayConfig;
+    private static int targetMaxLength;
+
+    public ShopMessage(Shop plugin) {
+        File chatConfigFile = new File(plugin.getDataFolder(), "chatConfig.yml");
+        chatConfig = YamlConfiguration.loadConfiguration(chatConfigFile);
+        File signConfigFile = new File(plugin.getDataFolder(), "signConfig.yml");
+        signConfig = YamlConfiguration.loadConfiguration(signConfigFile);
+        File displayConfigFile = new File(plugin.getDataFolder(), "displayConfig.yml");
+        displayConfig = YamlConfiguration.loadConfiguration(displayConfigFile);
+
+        loadMessagesFromConfig();
+        loadSignTextFromConfig();
+        loadDisplayTextFromConfig();
+        loadCreationWords();
+
+        freePriceWord = signConfig.getString("sign_text.zeroPrice");
+        adminStockWord = signConfig.getString("sign_text.adminStock");
+        serverDisplayName = signConfig.getString("sign_text.serverDisplayName");
+        targetMaxLength = displayConfig.getInt("targetMaxLength", 40);
+
+        loadPlaceholders();
+    }
+
+    // -----------------------------------------------------------------------
+    // Adventure helpers
+    // -----------------------------------------------------------------------
+
+    /**
+     * Converts a legacy-formatted string (§ / & colour codes) to an Adventure Component.
+     * Used by ItemNameUtil and any caller that has a raw legacy string.
+     */
+    public static Component componentFromLegacy(String legacy) {
+        if (legacy == null || legacy.isEmpty()) return Component.empty();
+        return LegacyComponentSerializer.legacySection().deserialize(
+                ChatColor.translateAlternateColorCodes('&', legacy));
+    }
+
+    /**
+     * Serialises an Adventure Component back to a legacy string (§ codes).
+     * Used as a fallback when we need a plain string (e.g. for sign lines).
+     */
+    public static String toLegacy(Component component) {
+        if (component == null) return "";
+        return LegacyComponentSerializer.legacySection().serialize(component);
+    }
+
+    /**
+     * Strips all formatting and returns plain text.
+     */
+    public static String toPlain(Component component) {
+        if (component == null) return "";
+        return PlainTextComponentSerializer.plainText().serialize(component);
+    }
+
+    // -----------------------------------------------------------------------
+    // Colour helpers (replaces BungeeCord ChatColor methods)
+    // -----------------------------------------------------------------------
+
+    /** Parses a colour code string (e.g. "&a", "§c", "#RRGGBB") into a TextColor. */
+    public static TextColor getTextColor(String code) {
+        if (code == null) return null;
+        if (code.matches(HEX_CODE_REGEX)) {
+            return TextColor.fromHexString(code);
+        }
+        if (code.matches(COLOR_CODE_REGEX)) {
+            char c = Character.toLowerCase(code.charAt(1));
+            switch (c) {
+                case '0': return NamedTextColor.BLACK;
+                case '1': return NamedTextColor.DARK_BLUE;
+                case '2': return NamedTextColor.DARK_GREEN;
+                case '3': return NamedTextColor.DARK_AQUA;
+                case '4': return NamedTextColor.DARK_RED;
+                case '5': return NamedTextColor.DARK_PURPLE;
+                case '6': return NamedTextColor.GOLD;
+                case '7': return NamedTextColor.GRAY;
+                case '8': return NamedTextColor.DARK_GRAY;
+                case '9': return NamedTextColor.BLUE;
+                case 'a': return NamedTextColor.GREEN;
+                case 'b': return NamedTextColor.AQUA;
+                case 'c': return NamedTextColor.RED;
+                case 'd': return NamedTextColor.LIGHT_PURPLE;
+                case 'e': return NamedTextColor.YELLOW;
+                case 'f': return NamedTextColor.WHITE;
+                default:  return null;
+            }
+        }
+        return null;
+    }
+
+    /** Returns true if the code string represents a formatting code (bold, italic, …). */
+    private static boolean isFormattingCode(String code) {
+        if (code == null || code.length() < 2) return false;
+        char c = Character.toLowerCase(code.charAt(1));
+        return c == 'k' || c == 'l' || c == 'm' || c == 'n' || c == 'o' || c == 'r';
+    }
+
+    private static TextDecoration getDecoration(char c) {
+        switch (Character.toLowerCase(c)) {
+            case 'k': return TextDecoration.OBFUSCATED;
+            case 'l': return TextDecoration.BOLD;
+            case 'm': return TextDecoration.STRIKETHROUGH;
+            case 'n': return TextDecoration.UNDERLINED;
+            case 'o': return TextDecoration.ITALIC;
+            default:  return null;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Placeholder registry
+    // -----------------------------------------------------------------------
+
+    public static void registerPlaceholder(String placeholder, Function<PlaceholderContext, Component> valueFunction) {
+        placeholders.put(placeholder.toLowerCase(), valueFunction);
+    }
+
+    public static Component replacePlaceholder(String placeholder, PlaceholderContext context) {
+        plugin.getLogger().spam("[ShopMessage.replacePlaceholder] Attempting to replace placeholder: " + placeholder + " " + context);
+        Function<PlaceholderContext, Component> valueFunction = placeholders.get(placeholder.toLowerCase());
+        if (valueFunction != null) {
+            try {
+                plugin.getLogger().spam("[ShopMessage.replacePlaceholder]     Running placeholder function... " + placeholder);
+                Component message = valueFunction.apply(context);
+                if (message != null) {
+                    plugin.getLogger().trace("[ShopMessage.replacePlaceholder]  *** placeholder " + placeholder + "  value: " + toPlain(message));
+                    return message;
+                }
+            } catch (Error | Exception e) {
+                Bukkit.getLogger().warning("Error replacing placeholder " + placeholder + ": " + e.getMessage());
+            }
+        }
+        plugin.getLogger().spam("[ShopMessage.replacePlaceholder] *** returning empty, unable to replace: " + placeholder);
+        return Component.empty();
+    }
+
+    // -----------------------------------------------------------------------
+    // format() — builds an Adventure Component from a legacy-style string
+    // -----------------------------------------------------------------------
+
+    public static Component format(String message, PlaceholderContext context) {
+        if (message == null) return Component.empty();
+        plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
+
+        Matcher matcher = Pattern.compile(MESSAGE_PARTS_REGEX).matcher(message);
+        List<String> parts = new ArrayList<>();
+        while (matcher.find()) {
+            parts.add(matcher.group());
+        }
+
+        TextColor latestColor = null;
+        boolean isBold = false;
+        boolean isItalic = false;
+        boolean isStrikethrough = false;
+        boolean isUnderlined = false;
+        boolean isObfuscated = false;
+
+        TextComponent.Builder builder = Component.text();
+        boolean addedText = false;
+
+        for (String part : parts) {
+            plugin.getLogger().trace("[ShopMessage.format] part: " + part);
+
+            // --- colour / formatting code ---
+            if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
+                try {
+                    char c = Character.toLowerCase(part.charAt(1));
+                    if (c == 'r') {
+                        latestColor = NamedTextColor.WHITE;
+                        isBold = isItalic = isStrikethrough = isUnderlined = isObfuscated = false;
+                        builder.append(Component.text(""));
+                    } else if (isFormattingCode(part)) {
+                        TextDecoration dec = getDecoration(c);
+                        if (dec == TextDecoration.BOLD)          isBold = true;
+                        else if (dec == TextDecoration.ITALIC)   isItalic = true;
+                        else if (dec == TextDecoration.STRIKETHROUGH) isStrikethrough = true;
+                        else if (dec == TextDecoration.UNDERLINED) isUnderlined = true;
+                        else if (dec == TextDecoration.OBFUSCATED) isObfuscated = true;
+                    } else {
+                        TextColor color = getTextColor(part);
+                        if (color != null) latestColor = color;
+                    }
+                    continue;
+                } catch (Exception e) {
+                    // fall through — treat as literal text
+                }
+            }
+
+            // --- placeholder ---
+            Component partComponent;
+            if (part.matches(PLACEHOLDER_REGEX) && placeholders.containsKey(part.toLowerCase())) {
+                plugin.getLogger().hyper("[ShopMessage.format]     matched 
+
+[TRUNCATED]
+===== END FILE: core/src/main/java/com/snowgears/shop/util/ShopMessage.java =====
