@@ -148,10 +148,17 @@ public class ShopListener implements Listener {
                 // validating that the shop's sign still exists. Previously only WallSign
                 // block data was accepted, causing sign-post shops to be deleted on every
                 // chest right-click immediately after surviving a reload (Bug 4 fix).
-                Block signBlock = shop.getSignLocation().getBlock();
+                Location signLoc = shop.getSignLocation();
+                Location chestLoc = shop.getChestLocation();
+                if (signLoc == null || chestLoc == null) {
+                    plugin.getLogger().warning("Deleting Shop because sign or chest location is null! " + shop);
+                    shop.delete();
+                    return;
+                }
+                Block signBlock = signLoc.getBlock();
                 boolean signValid = Tag.WALL_SIGNS.isTagged(signBlock.getType())
                         || Tag.STANDING_SIGNS.isTagged(signBlock.getType());
-                if (!plugin.getShopHandler().isChest(shop.getChestLocation().getBlock()) || !signValid) {
+                if (!plugin.getShopHandler().isChest(chestLoc.getBlock()) || !signValid) {
                     plugin.getLogger().warning("Deleting Shop because chest does not exist, or sign does not exist! " + shop);
                     shop.delete();
                     return;
