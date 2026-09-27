@@ -1,5 +1,6 @@
 package com.snowgears.shop.util;
 
+import java.util.HashMap;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
