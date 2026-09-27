@@ -1,6 +1,7 @@
 package com.snowgears.shop.util;
 
 import org.bukkit.OfflinePlayer;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.junit.jupiter.api.BeforeEach;
