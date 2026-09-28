@@ -16,14 +16,15 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for ShopListener core functionality.
@@ -31,51 +32,48 @@ import static org.mockito.Mockito.*;
  */
 class ShopListenerTest {
 
-    private World mockWorld;
+    private ServerMock server;
     private Shop plugin;
-    private ShopListener shopListener;
+    private World world;
     private ShopHandler shopHandler;
-    private SellShop shop;
-    private Player player;
-    private PlayerInteractEvent event;
-    private Block clickedBlock;
+    private ShopListener shopListener;
 
     @BeforeEach
     void setUp() {
-        mockWorld = mock(World.class);
+        server = MockBukkit.mock();
+        plugin = MockBukkit.loadSimple(Shop.class);
+        world = server.getWorlds().get(0);
+        shopHandler = plugin.getShopHandler();
+        shopListener = plugin.getShopListener();
+    }
 
-        plugin = mock(Shop.class);
-        shopHandler = mock(ShopHandler.class);
-        when(plugin.getShopHandler()).thenReturn(shopHandler);
-
-        shopListener = new ShopListener(plugin);
-
-        // Create a test shop
-        UUID ownerUUID = UUID.randomUUID();
-        Location signLoc = new Location(mockWorld, 100, 64, 100);
-        shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
-        shop.setItemStack(new ItemStack(Material.DIAMOND));
-
-        // Create mock player
-        player = mock(Player.class);
-        when(player.getName()).thenReturn("TestPlayer");
-        when(player.isSneaking()).thenReturn(false);
-        when(player.getInventory()).thenReturn(mock(org.bukkit.inventory.PlayerInventory.class));
-        when(player.getInventory().getItemInMainHand()).thenReturn(new ItemStack(Material.DIRT));
-
-        // Create mock event
-        event = mock(PlayerInteractEvent.class);
-        when(event.getPlayer()).thenReturn(player);
-        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
-        when(event.getHand()).thenReturn(EquipmentSlot.HAND);
-
-        clickedBlock = mock(Block.class);
-        when(event.getClickedBlock()).thenReturn(clickedBlock);
-        when(clickedBlock.getType()).thenReturn(Material.CHEST);
+    @AfterEach
+    void tearDown() {
+        if (MockBukkit.isMocked()) {
+            MockBukkit.unmock();
+        }
     }
 
     @Test
     void testOnShopChestClickHandlesNullSignLocation() {
+        // Create a test shop and register it with the handler
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLoc = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+
+        // Register the shop with the handler so getShopByChest can find it
+        shopHandler.addShop(shop);
+
+        // Create mock player
+        Player player = server.addPlayer("TestPlayer");
+
+        // Create mock event with a chest block
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        clickedBlock.setType(Material.CHEST);
+
+        PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
+
         // Set shop with null signLocation
         try {
             java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("signLocation");
@@ -84,9 +82,6 @@ class ShopListenerTest {
         } catch (Exception e) {
             fail("Reflection failed: " + e.getMessage());
         }
-
-        when(shopHandler.getShopByChest(any())).thenReturn(shop);
-        when(shopHandler.isChest(any())).thenReturn(true);
 
         // This should not throw NPE - the fix stores locations in local variables
         // with null checks before dereferencing
@@ -97,6 +92,24 @@ class ShopListenerTest {
 
     @Test
     void testOnShopChestClickHandlesNullChestLocation() {
+        // Create a test shop and register it with the handler
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLoc = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+
+        // Register the shop with the handler so getShopByChest can find it
+        shopHandler.addShop(shop);
+
+        // Create mock player
+        Player player = server.addPlayer("TestPlayer");
+
+        // Create mock event with a chest block
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        clickedBlock.setType(Material.CHEST);
+
+        PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
+
         // Set shop with null chestLocation
         try {
             java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("chestLocation");
@@ -105,9 +118,6 @@ class ShopListenerTest {
         } catch (Exception e) {
             fail("Reflection failed: " + e.getMessage());
         }
-
-        when(shopHandler.getShopByChest(any())).thenReturn(shop);
-        when(shopHandler.isChest(any())).thenReturn(true);
 
         // This should not throw NPE
         assertDoesNotThrow(() -> {

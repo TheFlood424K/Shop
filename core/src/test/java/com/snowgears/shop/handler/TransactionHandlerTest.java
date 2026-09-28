@@ -8,20 +8,22 @@ import com.snowgears.shop.util.ShopLogger;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for TransactionHandler core functionality.
@@ -29,48 +31,44 @@ import static org.mockito.Mockito.*;
  */
 class TransactionHandlerTest {
 
-    private World mockWorld;
+    private ServerMock server;
     private Shop plugin;
+    private World world;
     private TransactionHandler transactionHandler;
-    private SellShop shop;
-    private Player player;
-    private PlayerInteractEvent event;
 
     @BeforeEach
     void setUp() {
-        mockWorld = mock(World.class);
+        server = MockBukkit.mock();
+        plugin = MockBukkit.loadSimple(Shop.class);
+        world = server.getWorlds().get(0);
+        transactionHandler = plugin.getTransactionHelper();
+    }
 
-        plugin = mock(Shop.class);
-        when(plugin.getShopHandler()).thenReturn(mock(ShopHandler.class));
-        when(plugin.getTransactionHelper()).thenReturn(mock(TransactionHandler.class));
-        when(plugin.usePerms()).thenReturn(false);
-        when(plugin.getDebug_allowUseOwnShop()).thenReturn(false);
-
-        transactionHandler = new TransactionHandler(plugin);
-
-        // Create a test shop
-        UUID ownerUUID = UUID.randomUUID();
-        Location signLoc = new Location(mockWorld, 100, 64, 100);
-        shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
-        shop.setItemStack(new ItemStack(Material.DIAMOND));
-
-        // Create mock player
-        player = mock(Player.class);
-        when(player.getName()).thenReturn("TestPlayer");
-        when(player.hasPermission(anyString())).thenReturn(true);
-        when(player.getUniqueId()).thenReturn(ownerUUID);
-
-        // Create mock event
-        event = mock(PlayerInteractEvent.class);
-        when(event.getPlayer()).thenReturn(player);
-        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
-        when(event.getHand()).thenReturn(EquipmentSlot.HAND);
-        when(event.getClickedBlock()).thenReturn(mock(org.bukkit.block.Block.class));
-        when(event.isCancelled()).thenReturn(false);
+    @AfterEach
+    void tearDown() {
+        if (MockBukkit.isMocked()) {
+            MockBukkit.unmock();
+        }
     }
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestLocation() {
+        // Create a test shop
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLoc = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+
+        // Create mock player
+        Player player = server.addPlayer("TestPlayer");
+        player.setOp(true); // Give permissions
+
+        // Create mock event
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        clickedBlock.setType(Material.CHEST);
+
+        PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
+
         // Set chestLocation to null (simulating shop not fully loaded)
         try {
             java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("chestLocation");
@@ -79,8 +77,6 @@ class TransactionHandlerTest {
         } catch (Exception e) {
             fail("Reflection failed: " + e.getMessage());
         }
-
-        when(plugin.getShopHandler().isChest(any())).thenReturn(true);
 
         // This should not throw NPE - the fix stores chestLocation in local variable
         // and checks for null before calling getBlock()
@@ -91,8 +87,24 @@ class TransactionHandlerTest {
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestBlock() {
-        // Set chestLocation but make isChest return false
-        Location chestLoc = new Location(mockWorld, 100, 64, 101);
+        // Create a test shop
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLoc = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+
+        // Create mock player
+        Player player = server.addPlayer("TestPlayer");
+        player.setOp(true); // Give permissions
+
+        // Create mock event with a non-chest block
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        clickedBlock.setType(Material.STONE); // Not a chest
+
+        PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
+
+        // Set chestLocation but the block is not a chest
+        Location chestLoc = new Location(world, 100, 64, 101);
         try {
             java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("chestLocation");
             field.setAccessible(true);
@@ -101,9 +113,7 @@ class TransactionHandlerTest {
             fail("Reflection failed: " + e.getMessage());
         }
 
-        when(plugin.getShopHandler().isChest(any())).thenReturn(false);
-
-        // Should handle gracefully and delete shop
+        // Should handle gracefully (isChest returns false for stone)
         assertDoesNotThrow(() -> {
             transactionHandler.executeTransactionFromEvent(event, shop, false);
         });

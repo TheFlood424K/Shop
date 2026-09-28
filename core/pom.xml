@@ -323,6 +323,13 @@
             <version>5.2.0</version>
             <scope>test</scope>
         </dependency>
+        <!-- MockBukkit for testing Bukkit/Spigot/Paper plugins -->
+        <dependency>
+            <groupId>org.mockbukkit.mockbukkit</groupId>
+            <artifactId>mockbukkit-v26.2</artifactId>
+            <version>4.116.1</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

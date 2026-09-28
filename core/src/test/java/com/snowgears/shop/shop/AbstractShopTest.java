@@ -7,14 +7,15 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for AbstractShop core functionality.
@@ -22,32 +23,40 @@ import static org.mockito.Mockito.*;
  */
 class AbstractShopTest {
 
-    private World mockWorld;
-    private SellShop shop;
-    private Location signLocation;
-    private Location chestLocation;
-    private UUID ownerUUID;
+    private ServerMock server;
+    private Shop plugin;
+    private World world;
 
     @BeforeEach
     void setUp() {
-        mockWorld = mock(World.class);
+        server = MockBukkit.mock();
+        plugin = MockBukkit.loadSimple(Shop.class);
+        world = server.getWorlds().get(0);
+    }
 
-        ownerUUID = UUID.randomUUID();
-        signLocation = new Location(mockWorld, 100, 64, 100);
-        chestLocation = new Location(mockWorld, 100, 64, 101);
-
-        // Create a SellShop (concrete implementation)
-        shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+    @AfterEach
+    void tearDown() {
+        if (MockBukkit.isMocked()) {
+            MockBukkit.unmock();
+        }
     }
 
     @Test
     void testIsInitializedReturnsFalseWhenItemNull() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+
         // New shop without item should not be initialized
         assertFalse(shop.isInitialized());
     }
 
     @Test
     void testIsInitializedReturnsTrueWhenItemSet() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+
         // Setting item should mark as initialized
         shop.setItemStack(new ItemStack(Material.DIAMOND));
         assertTrue(shop.isInitialized());
@@ -55,11 +64,19 @@ class AbstractShopTest {
 
     @Test
     void testGetItemStackReturnsNullWhenNotSet() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+
         assertNull(shop.getItemStack());
     }
 
     @Test
     void testGetItemStackReturnsClone() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+
         ItemStack original = new ItemStack(Material.DIAMOND);
         original.setAmount(64);
         shop.setItemStack(original);
@@ -73,12 +90,20 @@ class AbstractShopTest {
 
     @Test
     void testCalculateStockReturnsUnavailableWhenUninitialized() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+
         // Uninitialized shop should return STOCK_UNAVAILABLE
         assertEquals(AbstractShop.STOCK_UNAVAILABLE, shop.calculateStock());
     }
 
     @Test
     void testCalculateStockReturnsUnavailableWhenInventoryNull() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+
         shop.setItemStack(new ItemStack(Material.DIAMOND));
         // chestLocation is null, so getInventory() returns null
         assertEquals(AbstractShop.STOCK_UNAVAILABLE, shop.calculateStock());
@@ -86,6 +111,10 @@ class AbstractShopTest {
 
     @Test
     void testUpdateStockSkipsWhenUnavailable() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+
         // updateStock() should not throw NPE when stock is unavailable
         // This tests the fix for Bug 4
         assertDoesNotThrow(() -> shop.updateStock());
@@ -93,6 +122,10 @@ class AbstractShopTest {
 
     @Test
     void testSetItemStackNullSafe() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+
         // Setting null item should not throw
         assertDoesNotThrow(() -> shop.setItemStack(null));
         assertFalse(shop.isInitialized());
@@ -100,15 +133,22 @@ class AbstractShopTest {
 
     @Test
     void testGetChestLocationNullSafe() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+
         // New shop has null chestLocation until load() is called
         assertNull(shop.getChestLocation());
     }
 
     @Test
     void testDeleteHandlesNullDisplay() {
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 100, 64, 100);
+
         // delete() should not NPE if display is somehow null
         SellShop shop2 = new SellShop(
-            new Location(mockWorld, 200, 64, 200),
+            new Location(world, 200, 64, 200),
             ownerUUID,
             10.0,
             1,

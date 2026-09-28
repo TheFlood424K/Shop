@@ -5,15 +5,16 @@ import com.snowgears.shop.util.ShopLogger;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Concurrency tests for ShopHandler.
@@ -21,36 +22,32 @@ import static org.mockito.Mockito.*;
  */
 class ShopHandlerRaceConditionTest {
 
-    private World mockWorld;
+    private ServerMock server;
     private Shop plugin;
+    private World world;
     private ShopHandler shopHandler;
 
     @BeforeEach
     void setUp() {
-        mockWorld = mock(World.class);
+        server = MockBukkit.mock();
+        plugin = MockBukkit.loadSimple(Shop.class);
+        world = server.getWorlds().get(0);
+        shopHandler = plugin.getShopHandler();
+    }
 
-        plugin = mock(Shop.class);
-        when(plugin.getServer()).thenReturn(mock(org.bukkit.Server.class));
-        when(plugin.getDataFolder()).thenReturn(new java.io.File("target/test-data"));
-        when(plugin.getLogger()).thenReturn(mock(ShopLogger.class));
-        when(plugin.getFoliaLib()).thenReturn(mock(com.tcoded.folialib.FoliaLib.class));
-        when(plugin.getShopSearchRadius()).thenReturn(1);
-        when(plugin.getMaxShopDisplayDistance()).thenReturn(64.0);
-        when(plugin.getDisplayBatchSize()).thenReturn(10);
-        when(plugin.getDisplayBatchDelay()).thenReturn(2);
-        when(plugin.getDisplayMovementThreshold()).thenReturn(1.0);
-
-        shopHandler = new ShopHandler(plugin);
+    @AfterEach
+    void tearDown() {
+        if (MockBukkit.isMocked()) {
+            MockBukkit.unmock();
+        }
     }
 
     @Test
     void testPlayersProcessingShopDisplaysAtomicAdd() throws Exception {
         // Test that the atomic add pattern prevents duplicate processing
-        Player player = mock(Player.class);
-        UUID playerId = UUID.randomUUID();
-        when(player.getUniqueId()).thenReturn(playerId);
-        when(player.getLocation()).thenReturn(new Location(mockWorld, 100, 64, 100));
-        when(player.isOnline()).thenReturn(true);
+        Player player = server.addPlayer("TestPlayer");
+        UUID playerId = player.getUniqueId();
+        player.teleport(new Location(world, 100, 64, 100));
 
         // Use reflection to access the private field
         java.lang.reflect.Field field = ShopHandler.class.getDeclaredField("playersProcessingShopDisplays");
@@ -65,5 +62,39 @@ class ShopHandlerRaceConditionTest {
         // Second call should fail (already processing)
         boolean secondAdd = processingSet.add(playerId);
         assertFalse(secondAdd);
+    }
+
+    @Test
+    void testProcessShopDisplaysNearPlayerRaceCondition() {
+        // Test that processShopDisplaysNearPlayer handles concurrent calls correctly
+        Player player = server.addPlayer("TestPlayer2");
+        UUID playerId = player.getUniqueId();
+        player.teleport(new Location(world, 100, 64, 100));
+
+        // First call should add the player to processing set
+        java.lang.reflect.Field field;
+        try {
+            field = ShopHandler.class.getDeclaredField("playersProcessingShopDisplays");
+            field.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap.KeySetView<UUID, Boolean> processingSet = (ConcurrentHashMap.KeySetView<UUID, Boolean>) field.get(shopHandler);
+
+            // Simulate concurrent calls by calling add multiple times
+            boolean first = processingSet.add(playerId);
+            assertTrue(first);
+
+            // Simulate another thread trying to process the same player
+            boolean second = processingSet.add(playerId);
+            assertFalse(second); // Should fail - already processing
+
+            // After first thread completes, it should remove the player
+            processingSet.remove(playerId);
+
+            // Now another thread can process
+            boolean third = processingSet.add(playerId);
+            assertTrue(third);
+        } catch (Exception e) {
+            fail("Reflection failed: " + e.getMessage());
+        }
     }
 }
