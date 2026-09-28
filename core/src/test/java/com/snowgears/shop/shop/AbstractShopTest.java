@@ -14,7 +14,6 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockbukkit.mockbukkit.MockBukkitInject;
 
-import java.io.File;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,17 +31,9 @@ class AbstractShopTest {
     @MockBukkitInject
     private World world;
 
-    private Shop createShopPlugin() {
-        File[] jars = new File("core/target").listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
-        if (jars == null || jars.length == 0) {
-            throw new IllegalStateException("No shop-core JAR found in core/target/");
-        }
-        return (Shop) MockBukkit.loadJar(jars[0]);
-    }
-
     @Test
     void testIsInitializedReturnsFalseWhenItemNull() {
-        createShopPlugin();
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
@@ -54,7 +45,7 @@ class AbstractShopTest {
 
     @Test
     void testIsInitializedReturnsTrueWhenItemSet() {
-        createShopPlugin();
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
@@ -67,7 +58,7 @@ class AbstractShopTest {
 
     @Test
     void testGetItemStackReturnsNullWhenNotSet() {
-        createShopPlugin();
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
@@ -78,7 +69,7 @@ class AbstractShopTest {
 
     @Test
     void testGetItemStackReturnsClone() {
-        createShopPlugin();
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
@@ -97,7 +88,7 @@ class AbstractShopTest {
 
     @Test
     void testCalculateStockReturnsUnavailableWhenUninitialized() {
-        createShopPlugin();
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
@@ -109,7 +100,7 @@ class AbstractShopTest {
 
     @Test
     void testCalculateStockReturnsUnavailableWhenInventoryNull() {
-        createShopPlugin();
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
@@ -122,7 +113,7 @@ class AbstractShopTest {
 
     @Test
     void testUpdateStockSkipsWhenUnavailable() {
-        createShopPlugin();
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
@@ -135,7 +126,7 @@ class AbstractShopTest {
 
     @Test
     void testSetItemStackNullSafe() {
-        MockBukkit.load(Shop.class);
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
@@ -148,7 +139,7 @@ class AbstractShopTest {
 
     @Test
     void testGetChestLocationNullSafe() {
-        MockBukkit.load(Shop.class);
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
@@ -160,7 +151,7 @@ class AbstractShopTest {
 
     @Test
     void testDeleteHandlesNullDisplay() {
-        MockBukkit.load(Shop.class);
+        MockBukkit.loadSimple(Shop.class);
 
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);

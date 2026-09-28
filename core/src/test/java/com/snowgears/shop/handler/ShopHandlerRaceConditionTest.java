@@ -12,7 +12,6 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockbukkit.mockbukkit.MockBukkitInject;
 
-import java.io.File;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,18 +31,7 @@ class ShopHandlerRaceConditionTest {
     private World world;
 
     private ShopHandler createShopHandler() {
-        // Try target/ first (when running from core module), then core/target/ (when running from project root)
-        File targetDir = new File("target");
-        File[] jars = targetDir.listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
-        if (jars == null || jars.length == 0) {
-            targetDir = new File("core/target");
-            jars = targetDir.listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
-        }
-        if (jars == null || jars.length == 0) {
-            throw new IllegalStateException("No shop-core JAR found in target/ or core/target/");
-        }
-        Shop plugin = (Shop) MockBukkit.loadJar(jars[0]);
-        return plugin.getShopHandler();
+        return MockBukkit.loadSimple(Shop.class).getShopHandler();
     }
 
     @Test
