@@ -15,12 +15,11 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
-import org.mockbukkit.mockbukkit.MockBukkitExtension;
-import org.mockbukkit.mockbukkit.MockBukkitInject;
 
 import java.util.UUID;
 
@@ -30,23 +29,30 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for TransactionHandler core functionality.
  * Tests the critical NPE fix for chestLocation null check.
  */
-@ExtendWith(MockBukkitExtension.class)
 class TransactionHandlerTest {
 
-    @MockBukkitInject
     private ServerMock server;
-
-    @MockBukkitInject
-    private World world;
-
     private Shop plugin;
+    private World world;
     private TransactionHandler transactionHandler;
+
+    @BeforeEach
+    void setUp() {
+        server = MockBukkit.mock();
+        plugin = MockBukkit.load(Shop.class);
+        world = server.getWorlds().get(0);
+        transactionHandler = plugin.getTransactionHelper();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (MockBukkit.isMocked()) {
+            MockBukkit.unmock();
+        }
+    }
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestLocation() {
-        plugin = MockBukkit.load(Shop.class);
-        transactionHandler = plugin.getTransactionHelper();
-
         // Create a test shop
         UUID ownerUUID = UUID.randomUUID();
         Location signLoc = new Location(world, 100, 64, 100);
@@ -81,9 +87,6 @@ class TransactionHandlerTest {
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestBlock() {
-        plugin = MockBukkit.load(Shop.class);
-        transactionHandler = plugin.getTransactionHelper();
-
         // Create a test shop
         UUID ownerUUID = UUID.randomUUID();
         Location signLoc = new Location(world, 100, 64, 100);

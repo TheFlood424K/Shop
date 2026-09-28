@@ -10,12 +10,11 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
-import org.mockbukkit.mockbukkit.MockBukkitExtension;
-import org.mockbukkit.mockbukkit.MockBukkitInject;
 
 import java.util.UUID;
 
@@ -25,23 +24,30 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for ShopHandler core functionality.
  * Tests the critical fixes for race conditions and NPEs.
  */
-@ExtendWith(MockBukkitExtension.class)
 class ShopHandlerTest {
 
-    @MockBukkitInject
     private ServerMock server;
-
-    @MockBukkitInject
+    private Shop plugin;
     private World world;
+    private ShopHandler shopHandler;
 
-    private ShopHandler createShopHandler() {
-        return MockBukkit.loadSimple(Shop.class).getShopHandler();
+    @BeforeEach
+    void setUp() {
+        server = MockBukkit.mock();
+        plugin = MockBukkit.loadSimple(Shop.class);
+        world = server.getWorlds().get(0);
+        shopHandler = plugin.getShopHandler();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (MockBukkit.isMocked()) {
+            MockBukkit.unmock();
+        }
     }
 
     @Test
     void testAddShopPreventsDuplicate() {
-        ShopHandler shopHandler = createShopHandler();
-
         // Create a shop location
         Location signLoc = new Location(world, 100, 64, 100);
 
@@ -61,16 +67,12 @@ class ShopHandlerTest {
 
     @Test
     void testGetShopReturnsNullForNonExistent() {
-        ShopHandler shopHandler = createShopHandler();
-
         Location loc = new Location(world, 0, 0, 0);
         assertNull(shopHandler.getShop(loc));
     }
 
     @Test
     void testGetShopByChestHandlesNull() {
-        ShopHandler shopHandler = createShopHandler();
-
         // Test that getShopByChest doesn't NPE when chest location is null
         AbstractShop shop = new SellShop(
             new Location(world, 100, 64, 100),

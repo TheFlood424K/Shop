@@ -5,12 +5,11 @@ import com.snowgears.shop.util.ShopLogger;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
-import org.mockbukkit.mockbukkit.MockBukkitExtension;
-import org.mockbukkit.mockbukkit.MockBukkitInject;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,23 +20,30 @@ import static org.junit.jupiter.api.Assertions.*;
  * Concurrency tests for ShopHandler.
  * Tests the race condition fixes for processShopDisplaysNearPlayer.
  */
-@ExtendWith(MockBukkitExtension.class)
 class ShopHandlerRaceConditionTest {
 
-    @MockBukkitInject
     private ServerMock server;
-
-    @MockBukkitInject
+    private Shop plugin;
     private World world;
+    private ShopHandler shopHandler;
 
-    private ShopHandler createShopHandler() {
-        return MockBukkit.loadSimple(Shop.class).getShopHandler();
+    @BeforeEach
+    void setUp() {
+        server = MockBukkit.mock();
+        plugin = MockBukkit.loadSimple(Shop.class);
+        world = server.getWorlds().get(0);
+        shopHandler = plugin.getShopHandler();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (MockBukkit.isMocked()) {
+            MockBukkit.unmock();
+        }
     }
 
     @Test
     void testPlayersProcessingShopDisplaysAtomicAdd() throws Exception {
-        ShopHandler shopHandler = createShopHandler();
-
         // Test that the atomic add pattern prevents duplicate processing
         Player player = server.addPlayer("TestPlayer");
         UUID playerId = player.getUniqueId();
@@ -60,8 +66,6 @@ class ShopHandlerRaceConditionTest {
 
     @Test
     void testProcessShopDisplaysNearPlayerRaceCondition() {
-        ShopHandler shopHandler = createShopHandler();
-
         // Test that processShopDisplaysNearPlayer handles concurrent calls correctly
         Player player = server.addPlayer("TestPlayer2");
         UUID playerId = player.getUniqueId();
