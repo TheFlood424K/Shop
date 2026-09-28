@@ -18,12 +18,13 @@ import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockbukkit.mockbukkit.MockBukkit;
-import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for TransactionHandler core functionality.
@@ -31,43 +32,52 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class TransactionHandlerTest {
 
-    private ServerMock server;
+    private AutoCloseable mocks;
+    @Mock
     private Shop plugin;
+    @Mock
     private World world;
+    @Mock
+    private Block chestBlock;
+    @Mock
+    private Block stoneBlock;
+    @Mock
+    private Player player;
+    @Mock
+    private PlayerInteractEvent event;
     private TransactionHandler transactionHandler;
 
     @BeforeEach
     void setUp() {
-        server = MockBukkit.mock();
-        plugin = MockBukkit.loadSimple(Shop.class);
-        world = server.getWorlds().get(0);
-        transactionHandler = plugin.getTransactionHelper();
+        MockitoAnnotations.openMocks(this);
+        transactionHandler = new TransactionHandler();
     }
 
     @AfterEach
-    void tearDown() {
-        if (MockBukkit.isMocked()) {
-            MockBukkit.unmock();
-        }
+    void tearDown() throws Exception {
+        // No specific cleanup needed
     }
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestLocation() {
         // Create a test shop
         UUID ownerUUID = UUID.randomUUID();
-        Location signLoc = new Location(world, 100, 64, 100);
+        Location signLoc = new Location(null, 100, 64, 100);
         SellShop shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
         shop.setItemStack(new ItemStack(Material.DIAMOND));
 
         // Create mock player
-        Player player = server.addPlayer("TestPlayer");
-        player.setOp(true); // Give permissions
+        when(player.getName()).thenReturn("TestPlayer");
+        when(player.isOp()).thenReturn(true);
 
         // Create mock event
-        Block clickedBlock = world.getBlockAt(100, 64, 101);
-        clickedBlock.setType(Material.CHEST);
-
-        PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
+        when(chestBlock.getType()).thenReturn(Material.CHEST);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
+        when(event.getClickedBlock()).thenReturn(chestBlock);
+        when(event.getHand()).thenReturn(EquipmentSlot.HAND);
+        when(event.getItem()).thenReturn(new ItemStack(Material.DIRT));
+        when(event.getBlockFace()).thenReturn(BlockFace.UP);
 
         // Set chestLocation to null (simulating shop not fully loaded)
         try {
@@ -89,22 +99,25 @@ class TransactionHandlerTest {
     void testExecuteTransactionFromEventHandlesNullChestBlock() {
         // Create a test shop
         UUID ownerUUID = UUID.randomUUID();
-        Location signLoc = new Location(world, 100, 64, 100);
+        Location signLoc = new Location(null, 100, 64, 100);
         SellShop shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
         shop.setItemStack(new ItemStack(Material.DIAMOND));
 
         // Create mock player
-        Player player = server.addPlayer("TestPlayer");
-        player.setOp(true); // Give permissions
+        when(player.getName()).thenReturn("TestPlayer");
+        when(player.isOp()).thenReturn(true);
 
         // Create mock event with a non-chest block
-        Block clickedBlock = world.getBlockAt(100, 64, 101);
-        clickedBlock.setType(Material.STONE); // Not a chest
-
-        PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
+        when(stoneBlock.getType()).thenReturn(Material.STONE);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
+        when(event.getClickedBlock()).thenReturn(stoneBlock);
+        when(event.getHand()).thenReturn(EquipmentSlot.HAND);
+        when(event.getItem()).thenReturn(new ItemStack(Material.DIRT));
+        when(event.getBlockFace()).thenReturn(BlockFace.UP);
 
         // Set chestLocation but the block is not a chest
-        Location chestLoc = new Location(world, 100, 64, 101);
+        Location chestLoc = new Location(null, 100, 64, 101);
         try {
             java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("chestLocation");
             field.setAccessible(true);

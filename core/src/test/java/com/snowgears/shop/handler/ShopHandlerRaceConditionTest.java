@@ -8,13 +8,14 @@ import org.bukkit.entity.Player;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockbukkit.mockbukkit.MockBukkit;
-import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Concurrency tests for ShopHandler.
@@ -22,32 +23,34 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ShopHandlerRaceConditionTest {
 
-    private ServerMock server;
+    private AutoCloseable mocks;
+    @Mock
     private Shop plugin;
+    @Mock
     private World world;
+    @Mock
+    private Player player;
+    @Mock
+    private Player player2;
     private ShopHandler shopHandler;
 
     @BeforeEach
     void setUp() {
-        server = MockBukkit.mock();
-        plugin = MockBukkit.loadSimple(Shop.class);
-        world = server.getWorlds().get(0);
-        shopHandler = plugin.getShopHandler();
+        MockitoAnnotations.openMocks(this);
+        shopHandler = new ShopHandler();
     }
 
     @AfterEach
-    void tearDown() {
-        if (MockBukkit.isMocked()) {
-            MockBukkit.unmock();
-        }
+    void tearDown() throws Exception {
+        // No specific cleanup needed
     }
 
     @Test
     void testPlayersProcessingShopDisplaysAtomicAdd() throws Exception {
         // Test that the atomic add pattern prevents duplicate processing
-        Player player = server.addPlayer("TestPlayer");
-        UUID playerId = player.getUniqueId();
-        player.teleport(new Location(world, 100, 64, 100));
+        UUID playerId = UUID.randomUUID();
+        when(player.getUniqueId()).thenReturn(playerId);
+        when(player2.getUniqueId()).thenReturn(UUID.randomUUID());
 
         // Use reflection to access the private field
         java.lang.reflect.Field field = ShopHandler.class.getDeclaredField("playersProcessingShopDisplays");
@@ -67,9 +70,9 @@ class ShopHandlerRaceConditionTest {
     @Test
     void testProcessShopDisplaysNearPlayerRaceCondition() {
         // Test that processShopDisplaysNearPlayer handles concurrent calls correctly
-        Player player = server.addPlayer("TestPlayer2");
-        UUID playerId = player.getUniqueId();
-        player.teleport(new Location(world, 100, 64, 100));
+        UUID playerId = UUID.randomUUID();
+        when(player.getUniqueId()).thenReturn(playerId);
+        when(player2.getUniqueId()).thenReturn(UUID.randomUUID());
 
         // First call should add the player to processing set
         java.lang.reflect.Field field;
