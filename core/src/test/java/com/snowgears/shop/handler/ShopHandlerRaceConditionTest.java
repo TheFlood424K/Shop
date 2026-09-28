@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 
-import java.io.File;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,11 +30,7 @@ class ShopHandlerRaceConditionTest {
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
-        File[] jars = new File("core/target").listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
-        if (jars == null || jars.length == 0) {
-            throw new IllegalStateException("No shop-core JAR found in core/target/");
-        }
-        plugin = (Shop) MockBukkit.loadJar(jars[0]);
+        plugin = MockBukkit.loadSimple(Shop.class);
         world = server.getWorlds().get(0);
         shopHandler = plugin.getShopHandler();
     }
