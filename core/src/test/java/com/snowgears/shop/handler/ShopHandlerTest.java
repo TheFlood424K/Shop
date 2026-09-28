@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 
+import java.io.File;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,7 +35,11 @@ class ShopHandlerTest {
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
-        plugin = MockBukkit.load(Shop.class);
+        File[] jars = new File("core/target").listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
+        if (jars == null || jars.length == 0) {
+            throw new IllegalStateException("No shop-core JAR found in core/target/");
+        }
+        plugin = (Shop) MockBukkit.loadJar(jars[0]);
         world = server.getWorlds().get(0);
         shopHandler = plugin.getShopHandler();
     }
