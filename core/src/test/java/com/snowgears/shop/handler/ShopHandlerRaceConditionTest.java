@@ -30,7 +30,7 @@ class ShopHandlerRaceConditionTest {
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
-        plugin = MockBukkit.loadSimple(Shop.class);
+        plugin = MockBukkit.load(Shop.class);
         world = server.getWorlds().get(0);
         shopHandler = plugin.getShopHandler();
     }
