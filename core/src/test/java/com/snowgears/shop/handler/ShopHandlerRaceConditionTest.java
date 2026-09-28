@@ -30,13 +30,12 @@ class ShopHandlerRaceConditionTest {
     @MockBukkitInject
     private World world;
 
-    @MockBukkitInject
     private Shop plugin;
-
     private ShopHandler shopHandler;
 
     @Test
     void testPlayersProcessingShopDisplaysAtomicAdd() throws Exception {
+        plugin = MockBukkit.load(Shop.class);
         shopHandler = plugin.getShopHandler();
 
         // Test that the atomic add pattern prevents duplicate processing
@@ -61,6 +60,7 @@ class ShopHandlerRaceConditionTest {
 
     @Test
     void testProcessShopDisplaysNearPlayerRaceCondition() {
+        plugin = MockBukkit.load(Shop.class);
         shopHandler = plugin.getShopHandler();
 
         // Test that processShopDisplaysNearPlayer handles concurrent calls correctly

@@ -40,14 +40,13 @@ class ShopListenerTest {
     @MockBukkitInject
     private World world;
 
-    @MockBukkitInject
     private Shop plugin;
-
     private ShopHandler shopHandler;
     private ShopListener shopListener;
 
     @Test
     void testOnShopChestClickHandlesNullSignLocation() {
+        plugin = MockBukkit.load(Shop.class);
         shopHandler = plugin.getShopHandler();
         shopListener = plugin.getShopListener();
 
@@ -87,6 +86,7 @@ class ShopListenerTest {
 
     @Test
     void testOnShopChestClickHandlesNullChestLocation() {
+        plugin = MockBukkit.load(Shop.class);
         shopHandler = plugin.getShopHandler();
         shopListener = plugin.getShopListener();
 

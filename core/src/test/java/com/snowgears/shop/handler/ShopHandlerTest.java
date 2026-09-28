@@ -34,13 +34,14 @@ class ShopHandlerTest {
     @MockBukkitInject
     private World world;
 
-    @MockBukkitInject
     private Shop plugin;
-
     private ShopHandler shopHandler;
 
     @Test
     void testAddShopPreventsDuplicate() {
+        plugin = MockBukkit.load(Shop.class);
+        shopHandler = plugin.getShopHandler();
+
         // Create a shop location
         Location signLoc = new Location(world, 100, 64, 100);
 
@@ -60,12 +61,18 @@ class ShopHandlerTest {
 
     @Test
     void testGetShopReturnsNullForNonExistent() {
+        plugin = MockBukkit.load(Shop.class);
+        shopHandler = plugin.getShopHandler();
+
         Location loc = new Location(world, 0, 0, 0);
         assertNull(shopHandler.getShop(loc));
     }
 
     @Test
     void testGetShopByChestHandlesNull() {
+        plugin = MockBukkit.load(Shop.class);
+        shopHandler = plugin.getShopHandler();
+
         // Test that getShopByChest doesn't NPE when chest location is null
         AbstractShop shop = new SellShop(
             new Location(world, 100, 64, 100),

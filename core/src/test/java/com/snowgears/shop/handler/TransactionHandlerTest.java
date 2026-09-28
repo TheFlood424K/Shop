@@ -39,13 +39,12 @@ class TransactionHandlerTest {
     @MockBukkitInject
     private World world;
 
-    @MockBukkitInject
     private Shop plugin;
-
     private TransactionHandler transactionHandler;
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestLocation() {
+        plugin = MockBukkit.load(Shop.class);
         transactionHandler = plugin.getTransactionHelper();
 
         // Create a test shop
@@ -82,6 +81,7 @@ class TransactionHandlerTest {
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestBlock() {
+        plugin = MockBukkit.load(Shop.class);
         transactionHandler = plugin.getTransactionHelper();
 
         // Create a test shop

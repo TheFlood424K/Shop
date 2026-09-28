@@ -31,11 +31,12 @@ class AbstractShopTest {
     @MockBukkitInject
     private World world;
 
-    @MockBukkitInject
     private Shop plugin;
 
     @Test
     void testIsInitializedReturnsFalseWhenItemNull() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
@@ -46,6 +47,8 @@ class AbstractShopTest {
 
     @Test
     void testIsInitializedReturnsTrueWhenItemSet() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
@@ -57,6 +60,8 @@ class AbstractShopTest {
 
     @Test
     void testGetItemStackReturnsNullWhenNotSet() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
@@ -66,6 +71,8 @@ class AbstractShopTest {
 
     @Test
     void testGetItemStackReturnsClone() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
@@ -83,6 +90,8 @@ class AbstractShopTest {
 
     @Test
     void testCalculateStockReturnsUnavailableWhenUninitialized() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
@@ -93,6 +102,8 @@ class AbstractShopTest {
 
     @Test
     void testCalculateStockReturnsUnavailableWhenInventoryNull() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
@@ -104,6 +115,8 @@ class AbstractShopTest {
 
     @Test
     void testUpdateStockSkipsWhenUnavailable() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
@@ -115,6 +128,8 @@ class AbstractShopTest {
 
     @Test
     void testSetItemStackNullSafe() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
@@ -126,6 +141,8 @@ class AbstractShopTest {
 
     @Test
     void testGetChestLocationNullSafe() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
@@ -136,6 +153,8 @@ class AbstractShopTest {
 
     @Test
     void testDeleteHandlesNullDisplay() {
+        plugin = MockBukkit.load(Shop.class);
+
         UUID ownerUUID = UUID.randomUUID();
         Location signLocation = new Location(world, 100, 64, 100);
 
