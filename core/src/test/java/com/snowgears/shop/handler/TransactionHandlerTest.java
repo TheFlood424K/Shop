@@ -39,13 +39,13 @@ class TransactionHandlerTest {
     @MockBukkitInject
     private World world;
 
-    private Shop plugin;
-    private TransactionHandler transactionHandler;
+    private TransactionHandler createTransactionHandler() {
+        return MockBukkit.load(Shop.class).getTransactionHelper();
+    }
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestLocation() {
-        plugin = MockBukkit.load(Shop.class);
-        transactionHandler = plugin.getTransactionHelper();
+        TransactionHandler transactionHandler = createTransactionHandler();
 
         // Create a test shop
         UUID ownerUUID = UUID.randomUUID();
@@ -58,7 +58,7 @@ class TransactionHandlerTest {
         player.setOp(true); // Give permissions
 
         // Create mock event
-        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        Block clickedBlock = server.getBlockAt(world, 100, 64, 101);
         clickedBlock.setType(Material.CHEST);
 
         PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
@@ -81,8 +81,7 @@ class TransactionHandlerTest {
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestBlock() {
-        plugin = MockBukkit.load(Shop.class);
-        transactionHandler = plugin.getTransactionHelper();
+        TransactionHandler transactionHandler = createTransactionHandler();
 
         // Create a test shop
         UUID ownerUUID = UUID.randomUUID();
@@ -95,7 +94,7 @@ class TransactionHandlerTest {
         player.setOp(true); // Give permissions
 
         // Create mock event with a non-chest block
-        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        Block clickedBlock = server.getBlockAt(world, 100, 64, 101);
         clickedBlock.setType(Material.STONE); // Not a chest
 
         PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);

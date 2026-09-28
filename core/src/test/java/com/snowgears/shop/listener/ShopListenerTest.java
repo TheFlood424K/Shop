@@ -40,15 +40,18 @@ class ShopListenerTest {
     @MockBukkitInject
     private World world;
 
-    private Shop plugin;
-    private ShopHandler shopHandler;
-    private ShopListener shopListener;
+    private ShopHandler createShopHandler() {
+        return MockBukkit.load(Shop.class).getShopHandler();
+    }
+
+    private ShopListener createShopListener() {
+        return MockBukkit.load(Shop.class).getShopListener();
+    }
 
     @Test
     void testOnShopChestClickHandlesNullSignLocation() {
-        plugin = MockBukkit.load(Shop.class);
-        shopHandler = plugin.getShopHandler();
-        shopListener = plugin.getShopListener();
+        ShopHandler shopHandler = createShopHandler();
+        ShopListener shopListener = MockBukkit.load(Shop.class).getShopListener();
 
         // Create a test shop and register it with the handler
         UUID ownerUUID = UUID.randomUUID();
@@ -63,7 +66,7 @@ class ShopListenerTest {
         Player player = server.addPlayer("TestPlayer");
 
         // Create mock event with a chest block
-        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        Block clickedBlock = server.getBlockAt(world, 100, 64, 101);
         clickedBlock.setType(Material.CHEST);
 
         PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
@@ -86,9 +89,8 @@ class ShopListenerTest {
 
     @Test
     void testOnShopChestClickHandlesNullChestLocation() {
-        plugin = MockBukkit.load(Shop.class);
-        shopHandler = plugin.getShopHandler();
-        shopListener = plugin.getShopListener();
+        ShopHandler shopHandler = createShopHandler();
+        ShopListener shopListener = MockBukkit.load(Shop.class).getShopListener();
 
         // Create a test shop and register it with the handler
         UUID ownerUUID = UUID.randomUUID();
@@ -103,7 +105,7 @@ class ShopListenerTest {
         Player player = server.addPlayer("TestPlayer");
 
         // Create mock event with a chest block
-        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        Block clickedBlock = server.getBlockAt(world, 100, 64, 101);
         clickedBlock.setType(Material.CHEST);
 
         PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
