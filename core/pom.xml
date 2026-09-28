@@ -1,14 +1,199 @@
-<dependency>
-            <groupId>net.milkbowl.vault</groupId>
-            <artifactId>VaultAPI</artifactId>
-            <version>1.7</version>
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+		 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+    <packaging>jar</packaging>
+
+    <!-- parent pom -->
+    <parent>
+        <artifactId>shop-parent</artifactId>
+        <groupId>com.snowgears.shop</groupId>
+        <version>${revision}</version>
+    </parent>
+
+    <properties>
+        <paper.version>26.2.build.112-stable</paper.version>
+        <!-- Adventure version matching paper-api 26.2 -->
+        <adventure.version>5.2.0</adventure.version>
+    </properties>
+
+    <!-- core module info -->
+    <artifactId>shop-core</artifactId>
+
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo1.maven.org/maven2/</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>central-apache</id>
+            <name>Central Apache Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>spigot-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+        <repository>
+            <id>codemc-repo</id>
+            <url>https://repo.codemc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>minecraft-libraries</id>
+            <name>Minecraft Libraries</name>
+            <url>https://libraries.minecraft.net</url>
+        </repository>
+        <repository>
+            <id>sk89q-repo</id>
+            <url>https://maven.enginehub.org/repo/</url>
+        </repository>
+        <repository>
+            <id>bluecolored</id>
+            <url>https://repo.bluecolored.de/releases</url>
+        </repository>
+        <repository>
+            <id>ender-zone-repo</id>
+            <url>https://ci.ender.zone/plugin/repository/everything/</url>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+        <repository>
+            <id>dynmap-repo</id>
+            <url>https://repo.mikeprimm.com/</url>
+        </repository>
+    </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- IntellectualSites BOM — provides versions for PlotSquared etc. -->
+            <dependency>
+                <groupId>com.intellectualsites.bom</groupId>
+                <artifactId>bom-newest</artifactId>
+                <version>1.52</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Pin Adventure to 5.2.0 (matches paper-api 26.2) — overrides
+                 whatever the IntellectualSites BOM declares for net.kyori. -->
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-api</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-key</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-minimessage</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-gson</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-legacy</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-plain</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-nbt</artifactId>
+                <version>${adventure.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- ================================================================
+             COMPILE / PROVIDED DEPENDENCIES
+             ================================================================ -->
+
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>${paper.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Adventure: explicit provided deps so javac sees all Adventure types
+             referenced by our source and paper-api's own signatures.
+             Versions are managed by dependencyManagement above (5.2.0). -->
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-key</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-minimessage</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-gson</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-legacy</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-plain</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-nbt</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil</artifactId>
+            <version>8.5.6</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.milkbowl.vault</groupId>
             <artifactId>VaultAPI</artifactId>
             <version>1.7</version>
-            <scope>test</scope>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.sk89q.worldguard</groupId>
@@ -20,25 +205,10 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.sk89q.worldguard</groupId>
-            <artifactId>worldguard-bukkit</artifactId>
-            <version>7.0.18</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion><groupId>org.bstats</groupId><artifactId>bstats-bukkit</artifactId></exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
             <groupId>com.github.LlmDl</groupId>
             <artifactId>Towny</artifactId>
             <version>0.96.7.0</version>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.LlmDl</groupId>
-            <artifactId>Towny</artifactId>
-            <version>0.96.7.0</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.griefcraft</groupId>
@@ -47,22 +217,10 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.griefcraft</groupId>
-            <artifactId>lwc</artifactId>
-            <version>2.3.2</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.popcraft</groupId>
             <artifactId>bolt-bukkit</artifactId>
             <version>1.1.33</version>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.popcraft</groupId>
-            <artifactId>bolt-bukkit</artifactId>
-            <version>1.1.33</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.github.spnda</groupId>
@@ -75,26 +233,10 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.github.spnda</groupId>
-            <artifactId>BlockProt</artifactId>
-            <version>1.2.6</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion><groupId>com.github.spnda.BlockProt</groupId><artifactId>common</artifactId></exclusion>
-                <exclusion><groupId>me.clip</groupId><artifactId>placeholderapi</artifactId></exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
             <groupId>com.github.TechFortress</groupId>
             <artifactId>griefprevention</artifactId>
             <version>16.18</version>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.TechFortress</groupId>
-            <artifactId>griefprevention</artifactId>
-            <version>16.18</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>us.dynmap</groupId>
@@ -103,22 +245,10 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>us.dynmap</groupId>
-            <artifactId>dynmap-api</artifactId>
-            <version>3.2-beta-1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>de.bluecolored.bluemap</groupId>
             <artifactId>BlueMapAPI</artifactId>
             <version>2.7.2</version>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>de.bluecolored.bluemap</groupId>
-            <artifactId>BlueMapAPI</artifactId>
-            <version>2.7.2</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>world.bentobox</groupId>
@@ -127,32 +257,33 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>world.bentobox</groupId>
-            <artifactId>bentobox</artifactId>
-            <version>1.21.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>com.github.alex9849</groupId>
             <artifactId>advanced-region-market</artifactId>
             <version>3.5.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.github.alex9849</groupId>
-            <artifactId>advanced-region-market</artifactId>
-            <version>3.5.3</version>
-            <scope>test</scope>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>7.1.0</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>2.7.5</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.1.214</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.intellectualsites.plotsquared</groupId>
             <artifactId>plotsquared-core</artifactId>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.intellectualsites.plotsquared</groupId>
-            <artifactId>plotsquared-core</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -161,8 +292,79 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <version>24.0.1</version>
+            <groupId>com.github.technicallycoded</groupId>
+            <artifactId>FoliaLib</artifactId>
+            <version>0.4.4</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.11.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.0</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.2.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>5.2.0</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- MockBukkit for testing Bukkit/Spigot/Paper plugins -->
+        <dependency>
+            <groupId>org.mockbukkit.mockbukkit</groupId>
+            <artifactId>mockbukkit-v26.2</artifactId>
+            <version>4.116.1</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.3</version>
+                <configuration>
+                    <includes>
+                        <include>**/*Test.java</include>
+                    </includes>
+                    <testFailureIgnore>false</testFailureIgnore>
+                    <argLine>-Dnet.bytebuddy.experimental -Dnet.bytebuddy.dont-enable-optional-strict-floating-point=true</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-toolchains-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <goals><goal>toolchain</goal></goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <toolchains>
+                        <jdk>
+                            <version>25</version>
+                            <vendor>any</vendor>
+                        </jdk>
+                    </toolchains>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

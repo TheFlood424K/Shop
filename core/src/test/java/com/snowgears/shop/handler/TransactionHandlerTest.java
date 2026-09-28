@@ -22,7 +22,6 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockbukkit.mockbukkit.MockBukkitInject;
 
-import java.io.File;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,18 +39,13 @@ class TransactionHandlerTest {
     @MockBukkitInject
     private World world;
 
-    private TransactionHandler createTransactionHandler() {
-        File[] jars = new File("core/target").listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
-        if (jars == null || jars.length == 0) {
-            throw new IllegalStateException("No shop-core JAR found in core/target/");
-        }
-        Shop plugin = (Shop) MockBukkit.loadJar(jars[0]);
-        return plugin.getTransactionHelper();
-    }
+    private Shop plugin;
+    private TransactionHandler transactionHandler;
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestLocation() {
-        TransactionHandler transactionHandler = createTransactionHandler();
+        plugin = MockBukkit.load(Shop.class);
+        transactionHandler = plugin.getTransactionHelper();
 
         // Create a test shop
         UUID ownerUUID = UUID.randomUUID();
@@ -87,7 +81,8 @@ class TransactionHandlerTest {
 
     @Test
     void testExecuteTransactionFromEventHandlesNullChestBlock() {
-        TransactionHandler transactionHandler = createTransactionHandler();
+        plugin = MockBukkit.load(Shop.class);
+        transactionHandler = plugin.getTransactionHelper();
 
         // Create a test shop
         UUID ownerUUID = UUID.randomUUID();

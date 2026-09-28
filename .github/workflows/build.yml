@@ -79,13 +79,16 @@ jobs:
         chmod +x ./scripts/install-blockprot-api.sh
         ./scripts/install-blockprot-api.sh
 
+    - name: Build JAR for tests
+      run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -DskipTests clean package
+
     # -ntp  suppresses artifact download progress lines (the main source of log noise).
     # -T 1C builds all Maven modules in parallel using one thread per CPU core.
     # -Dmaven.test.failure.ignore=false ensures tests failures fail the build
     # -Drat.numUnapprovedLicenses=0 fails the build on unapproved licenses (if rat plugin is configured)
     # Parallel test execution: use all available cores for test methods
     - name: Build and Test
-      run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -Dparallel=methods -DthreadCountStrategy=dynamic -DuseUnlimitedThreads=false clean verify
+      run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -Dparallel=methods -DthreadCountStrategy=dynamic -DuseUnlimitedThreads=false test
 
     - name: Publish Test Results
       if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
