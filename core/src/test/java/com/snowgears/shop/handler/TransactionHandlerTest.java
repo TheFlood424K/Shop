@@ -22,6 +22,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockbukkit.mockbukkit.MockBukkitInject;
 
+import java.io.File;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,7 +41,12 @@ class TransactionHandlerTest {
     private World world;
 
     private TransactionHandler createTransactionHandler() {
-        return MockBukkit.load(Shop.class).getTransactionHelper();
+        File[] jars = new File("core/target").listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
+        if (jars == null || jars.length == 0) {
+            throw new IllegalStateException("No shop-core JAR found in core/target/");
+        }
+        Shop plugin = (Shop) MockBukkit.loadJar(jars[0]);
+        return plugin.getTransactionHelper();
     }
 
     @Test

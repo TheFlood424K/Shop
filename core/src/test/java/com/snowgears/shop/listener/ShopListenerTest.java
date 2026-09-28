@@ -23,6 +23,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockbukkit.mockbukkit.MockBukkitInject;
 
+import java.io.File;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,17 +42,39 @@ class ShopListenerTest {
     private World world;
 
     private ShopHandler createShopHandler() {
-        return MockBukkit.load(Shop.class).getShopHandler();
+        // Try target/ first (when running from core module), then core/target/ (when running from project root)
+        File targetDir = new File("target");
+        File[] jars = targetDir.listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
+        if (jars == null || jars.length == 0) {
+            targetDir = new File("core/target");
+            jars = targetDir.listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
+        }
+        if (jars == null || jars.length == 0) {
+            throw new IllegalStateException("No shop-core JAR found in target/ or core/target/");
+        }
+        Shop plugin = (Shop) MockBukkit.loadJar(jars[0]);
+        return plugin.getShopHandler();
     }
 
     private ShopListener createShopListener() {
-        return MockBukkit.load(Shop.class).getShopListener();
+        // Try target/ first (when running from core module), then core/target/ (when running from project root)
+        File targetDir = new File("target");
+        File[] jars = targetDir.listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
+        if (jars == null || jars.length == 0) {
+            targetDir = new File("core/target");
+            jars = targetDir.listFiles((dir, name) -> name.startsWith("shop-core-") && name.endsWith(".jar"));
+        }
+        if (jars == null || jars.length == 0) {
+            throw new IllegalStateException("No shop-core JAR found in target/ or core/target/");
+        }
+        Shop plugin = (Shop) MockBukkit.loadJar(jars[0]);
+        return plugin.getShopListener();
     }
 
     @Test
     void testOnShopChestClickHandlesNullSignLocation() {
         ShopHandler shopHandler = createShopHandler();
-        ShopListener shopListener = MockBukkit.load(Shop.class).getShopListener();
+        ShopListener shopListener = createShopListener();
 
         // Create a test shop and register it with the handler
         UUID ownerUUID = UUID.randomUUID();
@@ -90,7 +113,7 @@ class ShopListenerTest {
     @Test
     void testOnShopChestClickHandlesNullChestLocation() {
         ShopHandler shopHandler = createShopHandler();
-        ShopListener shopListener = MockBukkit.load(Shop.class).getShopListener();
+        ShopListener shopListener = createShopListener();
 
         // Create a test shop and register it with the handler
         UUID ownerUUID = UUID.randomUUID();
