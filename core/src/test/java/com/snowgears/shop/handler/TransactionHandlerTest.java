@@ -58,7 +58,7 @@ class TransactionHandlerTest {
         player.setOp(true); // Give permissions
 
         // Create mock event
-        Block clickedBlock = server.getBlockAt(world, 100, 64, 101);
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
         clickedBlock.setType(Material.CHEST);
 
         PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
@@ -94,7 +94,7 @@ class TransactionHandlerTest {
         player.setOp(true); // Give permissions
 
         // Create mock event with a non-chest block
-        Block clickedBlock = server.getBlockAt(world, 100, 64, 101);
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
         clickedBlock.setType(Material.STONE); // Not a chest
 
         PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);

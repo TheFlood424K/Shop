@@ -66,7 +66,7 @@ class ShopListenerTest {
         Player player = server.addPlayer("TestPlayer");
 
         // Create mock event with a chest block
-        Block clickedBlock = server.getBlockAt(world, 100, 64, 101);
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
         clickedBlock.setType(Material.CHEST);
 
         PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
@@ -105,7 +105,7 @@ class ShopListenerTest {
         Player player = server.addPlayer("TestPlayer");
 
         // Create mock event with a chest block
-        Block clickedBlock = server.getBlockAt(world, 100, 64, 101);
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
         clickedBlock.setType(Material.CHEST);
 
         PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
