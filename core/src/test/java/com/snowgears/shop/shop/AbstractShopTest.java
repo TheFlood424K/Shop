@@ -7,11 +7,11 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockbukkit.mockbukkit.MockBukkit;
-import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.MockBukkitExtension;
+import org.mockbukkit.mockbukkit.MockBukkitInject;
 
 import java.util.UUID;
 
@@ -21,25 +21,17 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for AbstractShop core functionality.
  * Tests the critical fixes for NPEs, race conditions, and logic bugs.
  */
+@ExtendWith(MockBukkitExtension.class)
 class AbstractShopTest {
 
+    @MockBukkitInject
     private ServerMock server;
-    private Shop plugin;
+
+    @MockBukkitInject
     private World world;
 
-    @BeforeEach
-    void setUp() {
-        server = MockBukkit.mock();
-        plugin = MockBukkit.load(Shop.class);
-        world = server.getWorlds().get(0);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (MockBukkit.isMocked()) {
-            MockBukkit.unmock();
-        }
-    }
+    @MockBukkitInject
+    private Shop plugin;
 
     @Test
     void testIsInitializedReturnsFalseWhenItemNull() {

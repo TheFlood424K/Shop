@@ -5,11 +5,12 @@ import com.snowgears.shop.util.ShopLogger;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.MockBukkitExtension;
+import org.mockbukkit.mockbukkit.MockBukkitInject;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,30 +21,24 @@ import static org.junit.jupiter.api.Assertions.*;
  * Concurrency tests for ShopHandler.
  * Tests the race condition fixes for processShopDisplaysNearPlayer.
  */
+@ExtendWith(MockBukkitExtension.class)
 class ShopHandlerRaceConditionTest {
 
+    @MockBukkitInject
     private ServerMock server;
-    private Shop plugin;
+
+    @MockBukkitInject
     private World world;
+
+    @MockBukkitInject
+    private Shop plugin;
+
     private ShopHandler shopHandler;
-
-    @BeforeEach
-    void setUp() {
-        server = MockBukkit.mock();
-        plugin = MockBukkit.load(Shop.class);
-        world = server.getWorlds().get(0);
-        shopHandler = plugin.getShopHandler();
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (MockBukkit.isMocked()) {
-            MockBukkit.unmock();
-        }
-    }
 
     @Test
     void testPlayersProcessingShopDisplaysAtomicAdd() throws Exception {
+        shopHandler = plugin.getShopHandler();
+
         // Test that the atomic add pattern prevents duplicate processing
         Player player = server.addPlayer("TestPlayer");
         UUID playerId = player.getUniqueId();
@@ -66,6 +61,8 @@ class ShopHandlerRaceConditionTest {
 
     @Test
     void testProcessShopDisplaysNearPlayerRaceCondition() {
+        shopHandler = plugin.getShopHandler();
+
         // Test that processShopDisplaysNearPlayer handles concurrent calls correctly
         Player player = server.addPlayer("TestPlayer2");
         UUID playerId = player.getUniqueId();

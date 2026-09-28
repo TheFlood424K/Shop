@@ -16,11 +16,11 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockbukkit.mockbukkit.MockBukkit;
-import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.MockBukkitExtension;
+import org.mockbukkit.mockbukkit.MockBukkitInject;
 
 import java.util.UUID;
 
@@ -30,32 +30,26 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for ShopListener core functionality.
  * Tests the critical NPE fix for onShopChestClick.
  */
+@ExtendWith(MockBukkitExtension.class)
 class ShopListenerTest {
 
+    @MockBukkitInject
     private ServerMock server;
-    private Shop plugin;
+
+    @MockBukkitInject
     private World world;
+
+    @MockBukkitInject
+    private Shop plugin;
+
     private ShopHandler shopHandler;
     private ShopListener shopListener;
 
-    @BeforeEach
-    void setUp() {
-        server = MockBukkit.mock();
-        plugin = MockBukkit.load(Shop.class);
-        world = server.getWorlds().get(0);
-        shopHandler = plugin.getShopHandler();
-        shopListener = plugin.getShopListener();
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (MockBukkit.isMocked()) {
-            MockBukkit.unmock();
-        }
-    }
-
     @Test
     void testOnShopChestClickHandlesNullSignLocation() {
+        shopHandler = plugin.getShopHandler();
+        shopListener = plugin.getShopListener();
+
         // Create a test shop and register it with the handler
         UUID ownerUUID = UUID.randomUUID();
         Location signLoc = new Location(world, 100, 64, 100);
@@ -92,6 +86,9 @@ class ShopListenerTest {
 
     @Test
     void testOnShopChestClickHandlesNullChestLocation() {
+        shopHandler = plugin.getShopHandler();
+        shopListener = plugin.getShopListener();
+
         // Create a test shop and register it with the handler
         UUID ownerUUID = UUID.randomUUID();
         Location signLoc = new Location(world, 100, 64, 100);
