@@ -1,5 +1,7 @@
 package com.snowgears.shop.util;
 
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.shop.AbstractShop;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -125,6 +127,9 @@ public class TransactionParty {
             ItemStack payment = this.currencyItem.clone();
             payment.setAmount((int) paymentAmount);
             int leftover = InventoryUtils.addItem(this.inventory, payment);
+            if (leftover == 0) {
+                notifyInventoryChanged();
+            }
             return leftover == 0;
         }
 
@@ -171,6 +176,9 @@ public class TransactionParty {
         // We have the space, so add the item to our inventory!
         // Check how many items were unable to be added to make sure we actually deposited the item
         int leftover = InventoryUtils.addItem(inventory, item);
+        if (leftover == 0) {
+            notifyInventoryChanged();
+        }
         return leftover == 0;
     }
 
@@ -180,7 +188,31 @@ public class TransactionParty {
 
         // Check how many items were unable to be removed from the inventory to verify transaction occurred successfully
         int leftover = InventoryUtils.removeItem(inventory, item);
+        if (leftover == 0) {
+            notifyInventoryChanged();
+        }
         return leftover == 0;
+    }
+
+    /**
+     * Notifies the associated shop that inventory has changed, invalidating stock cache.
+     * This is called after successful item deposits/removals to keep stock in sync.
+     */
+    private void notifyInventoryChanged() {
+        // Get the shop from the handler if possible
+        // The shop's chestLocation should be set, we can find it via ShopHandler
+        try {
+            Shop plugin = Shop.getPlugin();
+            if (plugin != null && plugin.getShopHandler() != null) {
+                // Find shop by chest location
+                AbstractShop shop = plugin.getShopHandler().getShopByChest(inventory.getLocation().getBlock());
+                if (shop != null) {
+                    shop.invalidateStockCache();
+                }
+            }
+        } catch (Exception e) {
+            // Silently ignore - cache invalidation is an optimization, not critical
+        }
     }
 
     @Override

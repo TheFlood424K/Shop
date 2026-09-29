@@ -57,6 +57,11 @@ public abstract class AbstractShop {
     protected int stock;
     protected Material cachedContainerType;
 
+    // Stock calculation cache with invalidation
+    private int cachedStock = STOCK_UNAVAILABLE - 1; // Invalid initial value
+    private long stockCacheTimestamp = 0;
+    private static final long STOCK_CACHE_TTL_MS = 5000; // 5 second TTL
+
     /**
      * Sentinel value returned by calculateStock() when the inventory or item is
      * unavailable (chunk unloaded, shop not yet initialized, etc.).  Callers must
@@ -250,6 +255,7 @@ public abstract class AbstractShop {
         // corrupt the displayed stock count and trigger spurious saves.
         int newStock = this.calculateStock();
         if (newStock == STOCK_UNAVAILABLE) {
+            invalidateStockCache();
             return;
         }
 
@@ -268,6 +274,7 @@ public abstract class AbstractShop {
             }
 
             needsSave = true;
+            invalidateStockCache();
             return;
         }
 
@@ -280,6 +287,33 @@ public abstract class AbstractShop {
             return Integer.MAX_VALUE;
         }
         return stock;
+    }
+
+    /**
+     * Invalidates the stock calculation cache.
+     * Should be called when chest inventory changes or items are added/removed.
+     */
+    public void invalidateStockCache() {
+        cachedStock = STOCK_UNAVAILABLE - 1;
+        stockCacheTimestamp = 0;
+    }
+
+    /**
+     * Gets the stock, using cached value if still valid.
+     * Cache TTL is 5 seconds to avoid repeated inventory scans.
+     */
+    public int getCachedStock() {
+        if (isAdmin) {
+            return Integer.MAX_VALUE;
+        }
+        long now = System.currentTimeMillis();
+        if (cachedStock != STOCK_UNAVAILABLE - 1 && (now - stockCacheTimestamp) < STOCK_CACHE_TTL_MS) {
+            return cachedStock;
+        }
+        int calculated = calculateStock();
+        cachedStock = calculated;
+        stockCacheTimestamp = now;
+        return calculated;
     }
 
     /** Returns max stock (same as current stock field for non-admin shops). */
@@ -480,6 +514,7 @@ public abstract class AbstractShop {
 
         // Remove "0 Damage" from item meta (old config bug), now on a font-clean clone.
         this.item = this.removeZeroDamageMeta(fontStripped);
+        this.invalidateStockCache();
         this.calculateStock();
         this.updateSign(true);
     }
@@ -489,6 +524,7 @@ public abstract class AbstractShop {
         // InventoryUtils.stripFontFromItem strips displayName, itemName, and all lore lines.
         ItemStack fontStripped = InventoryUtils.stripFontFromItem(is.clone());
         this.secondaryItem = this.removeZeroDamageMeta(fontStripped);
+        this.invalidateStockCache();
         this.calculateStock();
         this.updateSign(true);
     }
