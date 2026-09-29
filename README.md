@@ -62,9 +62,9 @@ For bug reports and feature requests, please use our [GitHub Issues](https://git
 
 ## Changes from Upstream (SnowGears/Shop)
 
-This fork (`TheFlood424K/Shop`) is **326 commits ahead** of upstream `master` and includes the following major improvements:
+This fork (`TheFlood424K/Shop`) is **326 commits ahead** of upstream `master` and includes the following improvements:
 
-### 🚀 Major Feature Additions
+### 🚀 Major Feature Additions (not in upstream)
 
 | Feature | Description | Key Commits |
 |---------|-------------|-------------|
@@ -77,7 +77,9 @@ This fork (`TheFlood424K/Shop`) is **326 commits ahead** of upstream `master` an
 | **BlueMap Integration Fixes** | Boot timer cleanup tracking | `a9a7f55` |
 | **PhoenixCrates Font Stripping** | Strips custom font NBT before SNBT round-trip in setItemStack | `28ebb36`, `093e38d` |
 
-### 🐛 Critical Bug Fixes (20+ bugs resolved)
+### 🐛 Upstream Bugs Fixed in This Fork
+
+These are bugs that existed in upstream and were fixed during this fork's development:
 
 | Bug | Description | Fix Commit |
 |-----|-------------|------------|
@@ -92,6 +94,20 @@ This fork (`TheFlood424K/Shop`) is **326 commits ahead** of upstream `master` an
 | **Stock Updating Issues** | STOCK_UNAVAILABLE sentinel, partial sales, admin shop logic | `8c66b8b`, `32945cf` |
 | **BlueMap Boot Timer** | Timer not tracked for cleanup | `a9a7f55` |
 | **Display Removal Threading** | Folia region thread dispatch | `da128c6` |
+
+### 🔧 Bugs Introduced & Fixed During Fork Development
+
+These bugs were introduced during this fork's development (e.g., during refactoring, Adventure API migration, Java 25 migration) and subsequently fixed:
+
+| Bug | Description | Fix Commit |
+|-----|-------------|------------|
+| **Adventure API Migration Errors** | 12 error categories from Adventure 5.x migration (toPlainText, toLegacyText, BinaryTagHolder, etc.) | `3599de2`, `06136d7`, `0e12989` |
+| **Java 25 / ByteBuddy Compatibility** | Mockito inline mock maker, MockBukkit loading, TestOfflinePlayer stubs | `4c9ab77`, `7cf1947`, `404d68f` |
+| **Maven Shade / ASM Issues** | Java 25 class file major version 69, ASM version mismatches | `744d1ea`, `8f8a6b7`, `1359add` |
+| **MockBukkit Test Infrastructure** | loadSimple/loadJar, ServerMock imports, Groovy syntax issues | `174aa42`, `2edcb3e`, `95b2ceb` |
+| **TransactionPartyTest Compilation** | Missing imports, wrong return types, @Override annotations | `994eceb`, `61c446b`, `9c98769` |
+| **Mockito Inline Mock Maker Config** | Java 25 byte-buddy experimental mode | `404d68f`, `4c9ab77` |
+| **Adventure API Key/Value Deprecation** | getKey().value() → getKey().getKey() for TrimMaterial, TrimPattern, MusicInstrument | `3f7fee9` |
 
 ### ⚡ Performance Optimizations
 
