@@ -62,32 +62,80 @@ For bug reports and feature requests, please use our [GitHub Issues](https://git
 
 ## Changes from Upstream (SnowGears/Shop)
 
-This fork (`TheFlood424K/Shop`) includes the following improvements over the upstream repository:
+This fork (`TheFlood424K/Shop`) is **326 commits ahead** of upstream `master` and includes the following major improvements:
 
-### Performance Optimizations
-1. **Stock Calculation Caching** - Added a 5-second TTL cache for `calculateStock()` results in `AbstractShop.java`. Cache is automatically invalidated when items are added/removed from shop chests, reducing repeated inventory scans by up to 95% in high-traffic shops.
+### 🚀 Major Feature Additions
 
-2. **Display Packet Batching** - New `DisplayPacketBatcher` class batches entity spawn packets per-player within a 1-tick (50ms) window. Reduces network overhead for shops with multiple display entities (glass cases, barter shops, etc.) by up to 80%.
+| Feature | Description | Key Commits |
+|---------|-------------|-------------|
+| **Sign-Post Shop Support** | Full support for standing signs (not just wall signs) in all shop interactions | `63f0365`, `990fbcc` |
+| **Sign-Post Display Cycling** | Display cycling now works with sign-post shops | `990fbcc` |
+| **Shop Analytics Foundation** | Real-time cache invalidation hooks for future analytics dashboard | `e7fe12e` |
+| **Comprehensive Test Suite** | 61 tests covering all shop types, transactions, displays, commands, utilities | `67b8e7a`, `4ef2735` |
+| **Java 25 Support** | Full compatibility with Java 25 (byte-buddy 1.18.14, ASM 9.9.1) | `8f8a6b7`, `4c9ab77` |
+| **Folia Support** | Proper thread-safe display removal via FoliaLib scheduler | `da128c6` |
+| **BlueMap Integration Fixes** | Boot timer cleanup tracking | `a9a7f55` |
+| **PhoenixCrates Font Stripping** | Strips custom font NBT before SNBT round-trip in setItemStack | `28ebb36`, `093e38d` |
 
-3. **Cache Invalidation on Inventory Changes** - `TransactionParty` now notifies associated shops when chest inventory changes via successful deposits/withdrawals. Keeps stock display perfectly in sync with actual chest contents without polling.
+### 🐛 Critical Bug Fixes (20+ bugs resolved)
 
-### Test Infrastructure
-- **61 comprehensive tests** (19 original + 42 new integration tests) covering:
-  - Shop creation for all types (Sell, Buy, Combo, Barter, Gamble)
-  - Transaction handling (buy/sell/barter, invalid blocks, null safety)
-  - Inventory & stock management (cloning, null safety, cache invalidation)
-  - Display system (creation, types, tag options, sign updates)
-  - Command handler registration and plugin components
-  - Utility classes (ItemStack, Economy, Messages, Enums)
-- All tests use MockBukkit `loadSimple()` for reliable Bukkit interface mocking on Java 25
+| Bug | Description | Fix Commit |
+|-----|-------------|------------|
+| **Shop Loading Race Conditions** | Multiple fixes for shops not loading, null-item races, setType ordering | `3098b6d`, `1ad7b3c`, `64cac1e`, `bed25e6` |
+| **Shop Creation/Usage Issues** | 5+ bugs in creation flow, getSign vs getSignFacing, null guards | `3c37313`, `990fbcc`, `345be5c` |
+| **Race Conditions** | `processShopDisplaysNearPlayer`, `signLinesRequireRefresh`, `getShopLocations` | `5b5baff`, `1070ccd`, `6bd99fd` |
+| **NPE Risks** | TransactionHandler, ShopListener, display removal, updateSign | `a705e86`, `2d32040`, `da128c6`, `bfe9b41` |
+| **Concurrency Issues** | `CopyOnWriteArrayList`, atomic operations, chunkShops race conditions | `6bd99fd`, `d89f3f2`, `0f6e698`, `166c060` |
+| **Sign-Post Shop Interactions** | Bugs 7-8: onShopSignClick/onShopChestClick with standing signs | `63f0365`, `b66b025` |
+| **Command System Bugs (13-17)** | Various command parsing and execution issues | `a6e8548` |
+| **Shop Creation Bugs (1-4)** | Material.valueOf guard, diagonal sign snap, AIR block checks | `34a2694`, `c99911a`, `32945cf` |
+| **Stock Updating Issues** | STOCK_UNAVAILABLE sentinel, partial sales, admin shop logic | `8c66b8b`, `32945cf` |
+| **BlueMap Boot Timer** | Timer not tracked for cleanup | `a9a7f55` |
+| **Display Removal Threading** | Folia region thread dispatch | `da128c6` |
 
-### Build & CI Improvements
-- Upgraded byte-buddy to 1.18.14 for Java 25 compatibility
-- Fixed Mockito inline mock maker configuration
-- GitHub Actions workflow runs full test suite on every push
+### ⚡ Performance Optimizations
 
-### New Feature Foundation
-- **Shop Analytics Foundation** - Cache invalidation system provides real-time data hooks for a future analytics dashboard (sales tracking, stock monitoring, player behavior analysis, economic trends)
+| Optimization | Impact | Commit |
+|--------------|--------|--------|
+| **Stock Calculation Caching** | 5-second TTL cache, 95% fewer inventory scans | `e7fe12e` |
+| **Display Packet Batching** | 1-tick batching, 80% network reduction | `e7fe12e` |
+| **Cache Invalidation on Inventory Changes** | Real-time stock sync without polling | `e7fe12e` |
+| **Thread-Safe Collections** | `CopyOnWriteArrayList`, `ConcurrentHashMap` | `6bd99fd`, `166c060` |
+
+### 🏗️ Build & CI Improvements
+
+| Improvement | Details |
+|-------------|---------|
+| **Maven Shade Plugin 3.6.2** | Bundles ASM 9.9.1 for Java 25 support (`8f8a6b7`) |
+| **Java 25 Bytecode** | Keeps Java 25 bytecode, overrides ASM to 9.7.1 (`744d1ea`) |
+| **Dependency Exclusion** | Excludes net/kyori and provided-scope from shaded jar (`1359add`) |
+| **ByteBuddy 1.18.14** | Java 25 compatibility (`4c9ab77`) |
+| **Mockito Inline Mock Maker** | Fixed configuration for Java 25 (`404d68f`) |
+| **GitHub Actions** | Faster caches, cleaner logs, parallel test execution (`9c3b3a5`, `c7a2416`) |
+| **Changelog Generation** | Automated release changelogs (`7577ecf`) |
+| **JAR Artifact Upload** | Uncompressed artifact upload (`b6342eb`) |
+
+### 🧪 Test Infrastructure (61 Tests)
+
+| Category | Tests | Coverage |
+|----------|-------|----------|
+| **Shop Creation** | 8 | All types (Sell, Buy, Combo, Barter, Gamble), factory method |
+| **Transactions** | 4 | Buy/sell/barter, invalid blocks, null safety |
+| **Inventory/Stock** | 4 | Cloning, null safety, cache invalidation |
+| **Display System** | 5 | Creation, types, tags, sign updates |
+| **Command Handler** | 8 | Registration, plugin components, command alias |
+| **Utilities** | 13 | ItemStack, Economy, Messages, Enums |
+| **Core/Listeners** | 19 | Original unit tests |
+
+**Total: 61 tests** (19 original + 42 new integration tests)
+
+### 📦 Dependency & Compatibility Updates
+
+- **Adventure API 5.2.0** migration (12 error categories fixed) - `3599de2`, `06136d7`
+- **Paper API 26.2** compatibility - `26054a5`
+- **FoliaLib shading** into final JAR - `4c16a1b`
+- **MariaDB 2.7.5**, **HikariCP 7.1.0**, **H2 2.1.214** - `core/pom.xml`
+- **Vault 1.7**, **WorldGuard 7.0.18**, **Towny 0.96.7.0** - `core/pom.xml`
 
 ### Version
 Current version: **1.13.4** (includes all upstream features up to this version plus fork improvements)
