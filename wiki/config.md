@@ -1348,6 +1348,57 @@ If a player tries to create a shop on a container that is already protected by *
 - **“I clicked the chest and it opened instead of buying/selling”**: If you see the `interaction.openTrusted` message, that click was treated as a trusted open, so **Shop did not transact**. Close the container and interact with the **shop sign** to buy/sell (see [Trust Players](https://github.com/snowgears/shop/wiki/Trust-Players)).
 - **“I disabled this but the chest still opens”**: Confirm you restarted/reloaded Shop after changing `config.yml`, and double-check the player is not the **shop owner** or a **Shop operator**. (Depending on the shop type, Shop may allow operators to open other players’ shop containers via Shop’s own logic.)
 
+## griefPrevention.trustIntegration
+Controls the **GriefPrevention Trust Players** integration that allows *trusted* players to open a shop's container normally.
+
+- **What it does**: When a **non-owner** right-clicks a shop container, Shop fires a pre-open event (`PlayerOpenShopEvent`). If GriefPrevention considers the player allowed (has container or build trust, or is the claim owner) on that protected container, Shop switches into **open-container mode**:
+  - The container opens normally.
+  - **No Shop click action / transaction is executed for that chest click.**
+  - The player is sent the "trusted open" message (`interaction.openTrusted`).
+- **When it triggers**:
+  - Only when **GriefPrevention is installed** (detected at startup), and this integration toggle is enabled.
+  - Only for **shop container clicks** (the shop chest/barrel/etc. click flow).
+  - Only when the container is **inside a GriefPrevention claim** and GriefPrevention reports the player has container trust or build trust (or is the claim owner).
+
+For a full player/admin explanation (including troubleshooting), see: **[Trust Players](https://github.com/snowgears/shop/wiki/Trust-Players)**.
+
+```yaml
+griefPrevention:
+  trustIntegration:
+    enabled: true
+```
+
+### Requirements
+- **GriefPrevention installed**: If GriefPrevention is not present, this setting has no effect.
+
+### How to disable (exact YAML)
+
+```yaml
+griefPrevention:
+  trustIntegration:
+    enabled: false
+```
+
+Disabling this restores the "normal Shop behavior" for non-owners clicking shop containers (Shop will no longer use GriefPrevention trust to allow container opens).
+
+### Player-facing message (customizable)
+- **Message key**: `interaction.openTrusted` (in `chatConfig.yml`)
+- **Default text**:
+
+```yaml
+interaction:
+  openTrusted: "&7You have been trusted to open this shop by [owner]."
+```
+
+### Shop creation impact (protected containers)
+If a player tries to create a shop on a container that is already protected by **another** player (per GriefPrevention), Shop can deny creation and send:
+- **Message key**: `interaction_issue.createOtherPlayer` (in `chatConfig.yml`)
+- **Default text**: `&cYou are not allowed to create a shop on this chest.`
+
+### Troubleshooting quick notes
+- **“I clicked the chest and it opened instead of buying/selling”**: If you see the `interaction.openTrusted` message, that click was treated as a trusted open, so **Shop did not transact**. Close the container and interact with the **shop sign** to buy/sell (see [Trust Players](https://github.com/snowgears/shop/wiki/Trust-Players)).
+- **“I disabled this but the chest still opens”**: Confirm you restarted/reloaded Shop after changing `config.yml`, and double-check the player is not the **shop owner** or a **Shop operator**. (Depending on the shop type, Shop may allow operators to open other players’ shop containers via Shop’s own logic.)
+
 ## hookTowny
 Controls whether the Shop plugin integrates with Towny for town-based shop protection.
 ```yaml
@@ -1468,6 +1519,7 @@ Shop automatically detects supported plugins, but each integration can be explic
 - `plotSquared.enabled` (default `true`)
 - `bolt.trustIntegration.enabled` (default `true`)
 - `blockProt.trustIntegration.enabled` (default `true`)
+- `griefPrevention.trustIntegration.enabled` (default `true`)
 
 # Shop Performance Optimizations
 
