@@ -19,51 +19,50 @@ import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.MockBukkitExtension;
+import org.mockbukkit.mockbukkit.MockBukkitInject;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for ShopListener core functionality.
  * Tests the critical NPE fix for onShopChestClick.
  */
+@ExtendWith(MockBukkitExtension.class)
 class ShopListenerTest {
 
-    private AutoCloseable mocks;
-    @Mock
-    private Shop plugin;
-    @Mock
+    @MockBukkitInject
+    private ServerMock server;
+
+    @MockBukkitInject
     private World world;
-    @Mock
-    private Block chestBlock;
-    @Mock
-    private Player player;
-    @Mock
-    private PlayerInteractEvent event;
+
+    private Shop plugin;
     private ShopHandler shopHandler;
     private ShopListener shopListener;
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
-        shopHandler = new ShopHandler();
-        shopListener = new ShopListener();
+        plugin = MockBukkit.loadSimple(Shop.class);
+        shopHandler = plugin.getShopHandler();
+        shopListener = plugin.getShopListener();
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        // No specific cleanup needed
+    void tearDown() {
+        // Do not manually call MockBukkit.unmock() when using @ExtendWith(MockBukkitExtension.class)
+        // The extension handles the MockBukkit lifecycle automatically.
     }
 
     @Test
     void testOnShopChestClickHandlesNullSignLocation() {
         // Create a test shop and register it with the handler
         UUID ownerUUID = UUID.randomUUID();
-        Location signLoc = new Location(null, 100, 64, 100);
+        Location signLoc = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
         shop.setItemStack(new ItemStack(Material.DIAMOND));
 
@@ -71,16 +70,13 @@ class ShopListenerTest {
         shopHandler.addShop(shop);
 
         // Create mock player
-        when(player.getName()).thenReturn("TestPlayer");
+        Player player = server.addPlayer("TestPlayer");
 
         // Create mock event with a chest block
-        when(chestBlock.getType()).thenReturn(Material.CHEST);
-        when(event.getPlayer()).thenReturn(player);
-        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
-        when(event.getClickedBlock()).thenReturn(chestBlock);
-        when(event.getHand()).thenReturn(EquipmentSlot.HAND);
-        when(event.getItem()).thenReturn(new ItemStack(Material.DIRT));
-        when(event.getBlockFace()).thenReturn(BlockFace.UP);
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        clickedBlock.setType(Material.CHEST);
+
+        PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
 
         // Set shop with null signLocation
         try {
@@ -102,7 +98,7 @@ class ShopListenerTest {
     void testOnShopChestClickHandlesNullChestLocation() {
         // Create a test shop and register it with the handler
         UUID ownerUUID = UUID.randomUUID();
-        Location signLoc = new Location(null, 100, 64, 100);
+        Location signLoc = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLoc, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
         shop.setItemStack(new ItemStack(Material.DIAMOND));
 
@@ -110,16 +106,13 @@ class ShopListenerTest {
         shopHandler.addShop(shop);
 
         // Create mock player
-        when(player.getName()).thenReturn("TestPlayer");
+        Player player = server.addPlayer("TestPlayer");
 
         // Create mock event with a chest block
-        when(chestBlock.getType()).thenReturn(Material.CHEST);
-        when(event.getPlayer()).thenReturn(player);
-        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
-        when(event.getClickedBlock()).thenReturn(chestBlock);
-        when(event.getHand()).thenReturn(EquipmentSlot.HAND);
-        when(event.getItem()).thenReturn(new ItemStack(Material.DIRT));
-        when(event.getBlockFace()).thenReturn(BlockFace.UP);
+        Block clickedBlock = world.getBlockAt(100, 64, 101);
+        clickedBlock.setType(Material.CHEST);
+
+        PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.DIRT), clickedBlock, BlockFace.UP);
 
         // Set shop with null chestLocation
         try {

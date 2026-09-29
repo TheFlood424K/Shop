@@ -15,7 +15,7 @@
     </parent>
 
     <properties>
-        <paper.version>26.2.build.112-stable</paper.version>
+        <paper.version>26.2.build.111-stable</paper.version>
         <!-- Adventure version matching paper-api 26.2 -->
         <adventure.version>5.2.0</adventure.version>
     </properties>
@@ -343,7 +343,7 @@
                         <include>**/*Test.java</include>
                     </includes>
                     <testFailureIgnore>false</testFailureIgnore>
-                    <argLine>-Dnet.bytebuddy.experimental -Dnet.bytebuddy.dont-enable-optional-strict-floating-point=true</argLine>
+                    <argLine>-Dnet.bytebuddy.experimental -Dnet.bytebuddy.dont-enable-optional-strict-floating-point=true -Dmockito.inline.mockmaker=true</argLine>
                 </configuration>
             </plugin>
             <plugin>
@@ -365,6 +365,12 @@
                 </configuration>
             </plugin>
         </plugins>
+        <testResources>
+            <testResource>
+                <directory>src/test/resources</directory>
+                <filtering>true</filtering>
+            </testResource>
+        </testResources>
     </build>
 
 </project>

@@ -1,6 +1,7 @@
 package com.snowgears.shop.shop;
 
 import com.snowgears.shop.Shop;
+import com.snowgears.shop.handler.ShopHandler;
 import com.snowgears.shop.util.ShopLogger;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -27,16 +28,45 @@ class AbstractShopTest {
     private AutoCloseable mocks;
     @Mock
     private World world;
+    @Mock
+    private ItemStack mockItemStack;
+    @Mock
+    private Shop plugin;
+    @Mock
+    private ShopLogger shopLogger;
+    @Mock
+    private ShopHandler mockShopHandler;
     private SellShop shop;
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mocks = MockitoAnnotations.openMocks(this);
+
+        // Mock Material.DIAMOND behavior
+        when(mockItemStack.getType()).thenReturn(Material.DIAMOND);
+        when(mockItemStack.getAmount()).thenReturn(1);
+        when(mockItemStack.clone()).thenReturn(mockItemStack);
+
+        // Set the static plugin field in Shop to our mock plugin
+        try {
+            java.lang.reflect.Field field = Shop.class.getDeclaredField("plugin");
+            field.setAccessible(true);
+            field.set(null, plugin);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        // Mock plugin.getLogger()
+        when(plugin.getLogger()).thenReturn(shopLogger);
+
+        // Mock plugin.getShopHandler() to return a mock that doesn't NPE
+        when(plugin.getShopHandler()).thenReturn(mockShopHandler);
+        when(mockShopHandler.createDisplay(any(Location.class))).thenReturn(null);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        // No specific cleanup needed
+        mocks.close();
     }
 
     @Test
@@ -56,7 +86,7 @@ class AbstractShopTest {
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // Setting item should mark as initialized
-        shop.setItemStack(new ItemStack(Material.DIAMOND));
+        shop.setItemStack(mockItemStack);
         assertTrue(shop.isInitialized());
     }
 
@@ -75,8 +105,12 @@ class AbstractShopTest {
         Location signLocation = new Location(null, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
-        ItemStack original = new ItemStack(Material.DIAMOND);
-        original.setAmount(64);
+        // Mock a different item stack for the "original" with amount 64
+        ItemStack original = mock(ItemStack.class);
+        when(original.getType()).thenReturn(Material.DIAMOND);
+        when(original.getAmount()).thenReturn(64);
+        when(original.clone()).thenReturn(mockItemStack);
+
         shop.setItemStack(original);
 
         ItemStack returned = shop.getItemStack();
@@ -102,7 +136,7 @@ class AbstractShopTest {
         Location signLocation = new Location(null, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
-        shop.setItemStack(new ItemStack(Material.DIAMOND));
+        shop.setItemStack(mockItemStack);
         // chestLocation is null, so getInventory() returns null
         assertEquals(AbstractShop.STOCK_UNAVAILABLE, shop.calculateStock());
     }
@@ -153,6 +187,7 @@ class AbstractShopTest {
             false,
             BlockFace.NORTH
         );
+        shop2.setItemStack(mockItemStack);
         // Use reflection to set display to null
         try {
             java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("display");
