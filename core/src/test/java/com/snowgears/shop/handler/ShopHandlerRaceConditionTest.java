@@ -14,8 +14,8 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockbukkit.mockbukkit.MockBukkitInject;
 
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -58,11 +58,14 @@ class ShopHandlerRaceConditionTest {
         java.lang.reflect.Field field = ShopHandler.class.getDeclaredField("playersProcessingShopDisplays");
         field.setAccessible(true);
         @SuppressWarnings("unchecked")
-        ConcurrentHashMap.KeySetView<UUID, Boolean> processingSet = (ConcurrentHashMap.KeySetView<UUID, Boolean>) field.get(shopHandler);
+        Set<UUID> processingSet = (Set<UUID>) field.get(shopHandler);
+
+        // Clear the set first to ensure clean state
+        processingSet.clear();
 
         // First call should add the player
         boolean firstAdd = processingSet.add(playerId);
-        assertTrue(firstAdd);
+        assertTrue(firstAdd, "First add should succeed");
 
         // Second call should fail (already processing)
         boolean secondAdd = processingSet.add(playerId);
@@ -82,7 +85,10 @@ class ShopHandlerRaceConditionTest {
             field = ShopHandler.class.getDeclaredField("playersProcessingShopDisplays");
             field.setAccessible(true);
             @SuppressWarnings("unchecked")
-            ConcurrentHashMap.KeySetView<UUID, Boolean> processingSet = (ConcurrentHashMap.KeySetView<UUID, Boolean>) field.get(shopHandler);
+            Set<UUID> processingSet = (Set<UUID>) field.get(shopHandler);
+
+            // Clear the set first to ensure clean state
+            processingSet.clear();
 
             // Simulate concurrent calls by calling add multiple times
             boolean first = processingSet.add(playerId);

@@ -11,68 +11,48 @@ import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.MockBukkitExtension;
+import org.mockbukkit.mockbukkit.MockBukkitInject;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for AbstractShop core functionality.
  * Tests the critical fixes for NPEs, race conditions, and logic bugs.
  */
+@ExtendWith(MockBukkitExtension.class)
 class AbstractShopTest {
 
-    private AutoCloseable mocks;
-    @Mock
+    @MockBukkitInject
+    private ServerMock server;
+
+    @MockBukkitInject
     private World world;
-    @Mock
-    private ItemStack mockItemStack;
-    @Mock
+
     private Shop plugin;
-    @Mock
-    private ShopLogger shopLogger;
-    @Mock
-    private ShopHandler mockShopHandler;
-    private SellShop shop;
+    private ShopHandler shopHandler;
 
     @BeforeEach
     void setUp() {
-        mocks = MockitoAnnotations.openMocks(this);
-
-        // Mock Material.DIAMOND behavior
-        when(mockItemStack.getType()).thenReturn(Material.DIAMOND);
-        when(mockItemStack.getAmount()).thenReturn(1);
-        when(mockItemStack.clone()).thenReturn(mockItemStack);
-
-        // Set the static plugin field in Shop to our mock plugin
-        try {
-            java.lang.reflect.Field field = Shop.class.getDeclaredField("plugin");
-            field.setAccessible(true);
-            field.set(null, plugin);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        // Mock plugin.getLogger()
-        when(plugin.getLogger()).thenReturn(shopLogger);
-
-        // Mock plugin.getShopHandler() to return a mock that doesn't NPE
-        when(plugin.getShopHandler()).thenReturn(mockShopHandler);
-        when(mockShopHandler.createDisplay(any(Location.class))).thenReturn(null);
+        plugin = MockBukkit.loadSimple(Shop.class);
+        shopHandler = plugin.getShopHandler();
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        mocks.close();
+    void tearDown() {
+        // Do not manually call MockBukkit.unmock() when using @ExtendWith(MockBukkitExtension.class)
+        // The extension handles the MockBukkit lifecycle automatically.
     }
 
     @Test
     void testIsInitializedReturnsFalseWhenItemNull() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // New shop without item should not be initialized
@@ -82,18 +62,18 @@ class AbstractShopTest {
     @Test
     void testIsInitializedReturnsTrueWhenItemSet() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // Setting item should mark as initialized
-        shop.setItemStack(mockItemStack);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
         assertTrue(shop.isInitialized());
     }
 
     @Test
     void testGetItemStackReturnsNullWhenNotSet() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         assertNull(shop.getItemStack());
@@ -102,15 +82,11 @@ class AbstractShopTest {
     @Test
     void testGetItemStackReturnsClone() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
-        // Mock a different item stack for the "original" with amount 64
-        ItemStack original = mock(ItemStack.class);
-        when(original.getType()).thenReturn(Material.DIAMOND);
-        when(original.getAmount()).thenReturn(64);
-        when(original.clone()).thenReturn(mockItemStack);
-
+        ItemStack original = new ItemStack(Material.DIAMOND);
+        original.setAmount(64);
         shop.setItemStack(original);
 
         ItemStack returned = shop.getItemStack();
@@ -123,7 +99,7 @@ class AbstractShopTest {
     @Test
     void testCalculateStockReturnsUnavailableWhenUninitialized() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // Uninitialized shop should return STOCK_UNAVAILABLE
@@ -133,10 +109,10 @@ class AbstractShopTest {
     @Test
     void testCalculateStockReturnsUnavailableWhenInventoryNull() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
-        shop.setItemStack(mockItemStack);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
         // chestLocation is null, so getInventory() returns null
         assertEquals(AbstractShop.STOCK_UNAVAILABLE, shop.calculateStock());
     }
@@ -144,7 +120,7 @@ class AbstractShopTest {
     @Test
     void testUpdateStockSkipsWhenUnavailable() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // updateStock() should not throw NPE when stock is unavailable
@@ -155,7 +131,7 @@ class AbstractShopTest {
     @Test
     void testSetItemStackNullSafe() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // Setting null item should not throw
@@ -166,7 +142,7 @@ class AbstractShopTest {
     @Test
     void testGetChestLocationNullSafe() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // New shop has null chestLocation until load() is called
@@ -176,18 +152,18 @@ class AbstractShopTest {
     @Test
     void testDeleteHandlesNullDisplay() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(null, 100, 64, 100);
+        Location signLocation = new Location(world, 100, 64, 100);
 
         // delete() should not NPE if display is somehow null
         SellShop shop2 = new SellShop(
-            new Location(null, 200, 64, 200),
+            new Location(world, 200, 64, 200),
             ownerUUID,
             10.0,
             1,
             false,
             BlockFace.NORTH
         );
-        shop2.setItemStack(mockItemStack);
+        shop2.setItemStack(new ItemStack(Material.DIAMOND));
         // Use reflection to set display to null
         try {
             java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("display");
