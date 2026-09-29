@@ -62,6 +62,10 @@ public abstract class AbstractShop {
     private long stockCacheTimestamp = 0;
     private static final long STOCK_CACHE_TTL_MS = 5000; // 5 second TTL
 
+    // Incremental stock tracking (Optimization #1)
+    private int stockCounter = 0;
+    private boolean stockDirty = true;
+
     /**
      * Sentinel value returned by calculateStock() when the inventory or item is
      * unavailable (chunk unloaded, shop not yet initialized, etc.).  Callers must
@@ -296,24 +300,56 @@ public abstract class AbstractShop {
     public void invalidateStockCache() {
         cachedStock = STOCK_UNAVAILABLE - 1;
         stockCacheTimestamp = 0;
+        stockCounter = 0;
+        stockDirty = true;
     }
 
     /**
      * Gets the stock, using cached value if still valid.
      * Cache TTL is 5 seconds to avoid repeated inventory scans.
+     * Uses incremental counter when valid, falls back to full calculation.
      */
     public int getCachedStock() {
         if (isAdmin) {
             return Integer.MAX_VALUE;
         }
         long now = System.currentTimeMillis();
+        // Use incremental counter if valid and not dirty
+        if (!stockDirty && stockCounter != 0 && (now - stockCacheTimestamp) < STOCK_CACHE_TTL_MS) {
+            return stockCounter;
+        }
+        // Use cached full calculation if valid
         if (cachedStock != STOCK_UNAVAILABLE - 1 && (now - stockCacheTimestamp) < STOCK_CACHE_TTL_MS) {
             return cachedStock;
         }
+        // Fallback: full calculation
         int calculated = calculateStock();
         cachedStock = calculated;
+        stockCounter = calculated;
         stockCacheTimestamp = now;
+        stockDirty = false;
         return calculated;
+    }
+
+    /**
+     * Adjusts the incremental stock counter by delta.
+     * Called by Transaction.execute() for buy/sell transactions.
+     * @param delta positive for restock, negative for sale
+     */
+    public void adjustStock(int delta) {
+        if (isAdmin) return;
+        stockCounter = Math.max(0, stockCounter + delta);
+        stock = stockCounter; // Keep stock field in sync
+        stockDirty = false;
+        stockCacheTimestamp = System.currentTimeMillis();
+    }
+
+    /**
+     * Marks the stock counter as dirty, forcing recalculation on next getCachedStock().
+     * Called by InventoryChangeListener when external inventory modifications detected.
+     */
+    public void markStockDirty() {
+        stockDirty = true;
     }
 
     /** Returns max stock (same as current stock field for non-admin shops). */

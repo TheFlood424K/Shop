@@ -37,6 +37,28 @@ This feature exists to reduce friction in shared bases: you can be trusted to op
 - **How to become trusted**:
   - Use BlockProt’s own protection/trust/friends system. (Shop does not provide BlockProt commands.)
 
+### GriefPrevention
+
+- **Requirements**:
+  - GriefPrevention must be installed and detected by Shop at startup.
+  - `griefPrevention.trustIntegration.enabled` must be `true` in `config.yml` (default is `true`).
+- **What Shop checks**:
+  - The shop container must be inside a GriefPrevention claim.
+  - The player must have **container trust** or **build trust** in that claim (or be the claim owner).
+- **How to become trusted**:
+  - Use GriefPrevention’s own `/trust` or `/accesstrust` / `/containertrust` commands, or be added as a friend/member of the claim.
+  - The claim owner automatically has full access.
+
+### GriefPrevention Config (config.yml)
+
+```yaml
+griefPrevention:
+  trustIntegration:
+    enabled: true
+```
+
+After changing `config.yml`, reload Shop (or restart the server) so the integration enable/disable is applied.
+
 ## How to use (as a player)
 
 ### Buying/selling normally
@@ -63,6 +85,10 @@ bolt:
     enabled: true
 
 blockProt:
+  trustIntegration:
+    enabled: true
+
+griefPrevention:
   trustIntegration:
     enabled: true
 ```

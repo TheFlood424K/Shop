@@ -33,7 +33,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.nio.file.Files;
@@ -47,8 +47,8 @@ public class ShopHandler {
     private Class<?> displayClass;
 
     private ConcurrentHashMap<Location, AbstractShop> allShops = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<UUID, List<Location>> playerShops = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<String, List<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
+    private ConcurrentHashMap<UUID, ConcurrentLinkedQueue<Location>> playerShops = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, ConcurrentLinkedQueue<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
     private ConcurrentHashMap<UUID, HashSet<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
     private Set<UUID> playersProcessingShopDisplays = ConcurrentHashMap.newKeySet();
     private ConcurrentHashMap<UUID, Location> playersActiveShopDisplayTag = new ConcurrentHashMap<>();
@@ -217,16 +217,11 @@ public class ShopHandler {
             }
             allShops.put(shop.getSignLocation(), shop);
 
-            List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
-            if(!playerShopLocations.contains(shop.getSignLocation())) {
-                playerShopLocations.add(shop.getSignLocation());
-            }
+            // Directly use ConcurrentLinkedQueue for O(1) add
+            playerShops.computeIfAbsent(shop.getOwnerUUID(), k -> new ConcurrentLinkedQueue<>()).add(shop.getSignLocation());
 
             String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-            List<Location> chunkShopLocations = getShopLocations(chunkKey);
-            if(!chunkShopLocations.contains(shop.getSignLocation())) {
-                chunkShopLocations.add(shop.getSignLocation());
-            }
+            chunkShops.computeIfAbsent(chunkKey, k -> new ConcurrentLinkedQueue<>()).add(shop.getSignLocation());
 
             plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
         }
@@ -239,23 +234,21 @@ public class ShopHandler {
                 changed = true;
             }
             if(playerShops.containsKey(shop.getOwnerUUID())) {
-                List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
-                if(playerShopLocations.contains(shop.getSignLocation())) {
-                    playerShopLocations.remove(shop.getSignLocation());
+                ConcurrentLinkedQueue<Location> playerShopLocations = playerShops.get(shop.getOwnerUUID());
+                if(playerShopLocations != null && playerShopLocations.remove(shop.getSignLocation())) {
                     if (playerShopLocations.isEmpty()) {
                         playerShops.remove(shop.getOwnerUUID());
                     }
                 }
             }
             String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-            List<Location> chunkShopLocations = getShopLocations(chunkKey);
-            if(chunkShopLocations.contains(shop.getSignLocation())) {
-                        chunkShopLocations.remove(shop.getSignLocation());
-                        if (chunkShopLocations.isEmpty()) {
-                            chunkShops.remove(chunkKey);
-                        }
-                        changed = true;
-                    }
+            ConcurrentLinkedQueue<Location> chunkShopLocations = chunkShops.get(chunkKey);
+            if(chunkShopLocations != null && chunkShopLocations.remove(shop.getSignLocation())) {
+                if (chunkShopLocations.isEmpty()) {
+                    chunkShops.remove(chunkKey);
+                }
+                changed = true;
+            }
 
             if (changed) {
                 Shop.getPlugin().getLogger().debug("Removed Shop internally from ShopHandler: " + shop);
@@ -358,11 +351,11 @@ public class ShopHandler {
     }
 
     private List<Location> getShopLocations(UUID player){
-                return playerShops.computeIfAbsent(player, k -> new CopyOnWriteArrayList<>());
+                return new ArrayList<>(playerShops.computeIfAbsent(player, k -> new ConcurrentLinkedQueue<>()));
             }
 
         private List<Location> getShopLocations(String chunkKey){
-                return chunkShops.computeIfAbsent(chunkKey, k -> new CopyOnWriteArrayList<>());
+                return new ArrayList<>(chunkShops.computeIfAbsent(chunkKey, k -> new ConcurrentLinkedQueue<>()));
             }
 
     /**
