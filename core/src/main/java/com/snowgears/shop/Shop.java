@@ -33,6 +33,17 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * Main plugin class for the Shop plugin.
+ * <p>
+ * This plugin allows players to create shops to buy, sell, barter, or gamble items
+ * using signs and containers. It supports multiple currencies (Vault, items, experience),
+ * integrates with various protection plugins, and provides a GUI for shop management.
+ * </p>
+ *
+ * @author SnowGears
+ * @version 1.13.4
+ */
 public class Shop extends JavaPlugin {
 
     private static Shop plugin;
@@ -177,8 +188,11 @@ public class Shop extends JavaPlugin {
         config = YamlConfiguration.loadConfiguration(configFile);
         // Load logger
         logger = new ShopLogger(this, config.getBoolean("enableLogColor"));
+        // Set static plugin instance
+        plugin = this;
+
         this.getLogger().setLogLevel(config.getString("logLevel"));
-        
+
         // Check if WorldGuard exists
         // Note: If WorldGuard exists we will check to verify a user can build in the region
         boolean worldGuardDetected = getServer().getPluginManager().getPlugin("WorldGuard") != null;

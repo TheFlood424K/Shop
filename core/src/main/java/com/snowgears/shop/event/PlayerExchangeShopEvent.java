@@ -6,19 +6,28 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
+import org.bukkit.inventory.ItemStack;
 
 public class PlayerExchangeShopEvent extends Event implements Cancellable {
 
     private static final HandlerList handlers = new HandlerList();
-    private Player player;
-    private AbstractShop shop;
+    private final Player player;
+    private final AbstractShop shop;
     private boolean cancelled;
+    private final double playerCurrency;
+    private final String playerCurrencyName;
+    private final String shopCurrency;
+    private final ItemStack playerItem;
+    private final ItemStack shopItem;
 
-    //TODO add player currency, shop currency, player items, shop items?
-
-    public PlayerExchangeShopEvent(Player p, AbstractShop s) {
+    public PlayerExchangeShopEvent(Player p, AbstractShop s, double playerCurrency, String playerCurrencyName, String shopCurrency, ItemStack playerItem, ItemStack shopItem) {
         player = p;
         shop = s;
+        this.playerCurrency = playerCurrency;
+        this.playerCurrencyName = playerCurrencyName;
+        this.shopCurrency = shopCurrency;
+        this.playerItem = playerItem;
+        this.shopItem = shopItem;
     }
 
     public static HandlerList getHandlerList() {
@@ -33,8 +42,28 @@ public class PlayerExchangeShopEvent extends Event implements Cancellable {
         return shop;
     }
 
-    public ShopType getType(){
+    public ShopType getType() {
         return shop.getType();
+    }
+
+    public double getPlayerCurrency() {
+        return playerCurrency;
+    }
+
+    public String getPlayerCurrencyName() {
+        return playerCurrencyName;
+    }
+
+    public String getShopCurrency() {
+        return shopCurrency;
+    }
+
+    public ItemStack getPlayerItem() {
+        return playerItem;
+    }
+
+    public ItemStack getShopItem() {
+        return shopItem;
     }
 
     public HandlerList getHandlers() {

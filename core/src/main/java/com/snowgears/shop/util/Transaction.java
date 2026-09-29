@@ -7,6 +7,7 @@ import com.snowgears.shop.shop.ComboShop;
 import com.snowgears.shop.shop.GambleShop;
 import com.snowgears.shop.shop.ShopType;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -208,7 +209,14 @@ public class Transaction {
         }
 
         // Check if any other plugins want to cancel the transaction
-        PlayerExchangeShopEvent e = new PlayerExchangeShopEvent(player, shop);
+        double playerCurrency = this.buyer.isPlayer() ? this.buyer.getAvailableFunds() : this.price;
+        String playerCurrencyName = Shop.getPlugin().getCurrencyType().name();
+        String shopCurrency = Shop.getPlugin().getCurrencyType().name();
+        ItemStack playerItem = this.buyer.isPlayer() ? new ItemStack(Material.AIR) : this.itemBeingSold;
+        ItemStack shopItem = this.itemBeingSold.clone();
+        shopItem.setAmount(this.amountBeingSold);
+
+        PlayerExchangeShopEvent e = new PlayerExchangeShopEvent(player, shop, playerCurrency, playerCurrencyName, shopCurrency, playerItem, shopItem);
         Bukkit.getPluginManager().callEvent(e);
         if (e.isCancelled()) {
             return this.setError(TransactionError.CANCELLED);
