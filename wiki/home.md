@@ -1,89 +1,89 @@
-![520ef725efdc8caad836d0370a17d58ce8ee99b2](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)
+![Shop Plugin](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)
 
 <p align="center">Allows players to quickly create shops to buy, sell, barter, or gamble items seamlessly!</p>
 
 <p align="center">By focusing on ease of use, players of any skill level can create in-game shops in a way that feels like a native feature.</p>
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/1fe15aee-b29f-47ef-b13d-79e493aef08c" alt="Buy Shop" width="400"/>
-      <br>Buy Shop
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/ef525ef0-5452-43dd-93f9-2ee2368127d8" alt="Sell Shop" width="400"/>
-      <br>Sell Shop
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/dfa4cad8-1da7-4523-9912-77650efc3b8e" alt="Combo Shop" width="400"/>
-      <br>Combo Shop
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/8617a81c-2902-4417-aeac-ad69024c755d" alt="Barter Shop" width="400"/>
-      <br>Barter Shop
-    </td>
-  </tr>
-</table>
+[![Server Metrics](https://bstats.org/signatures/bukkit/shop-the-intuitive-shop-plugin.svg)](https://bstats.org/plugin/bukkit/shop-the-intuitive-shop-plugin/25211)
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/4a949cd7-e63f-4c4a-bb5c-b85c8e3f6551" alt="Gamble Shop" width="50%"/>
-  <br/>Gamble/Random Item Shops!
-  <br/>
-</div>
+[![Shop Plugin](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)](https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/)
+
+---
 
 ## Features
-Change * currency to a custom item, virtual currency (Vault), or experience points seamlessly.
-* [Create shops in multiple ways. Either fill out a sign or hit a chest with an item and fill out info in chat (both configurable)](https://github.com/snowgears/shop/wiki/Creating-Shops)
-* Fully customizable.
-* No commands required.
-* No permissions required. (But are supported)
-* Easily handles items with custom display names, descriptions, and enchantments. (and custom player heads)
-* All shop displays use client side packets so there is no lag on the server or chances of duping the items
-* Full logging support for MySQL and MariaDB
-* Create admin shops that don't need to be stocked
-* All sign text is translatable and customizable. (along with text colors)
-* All chat messages are translatable and customizable. (along with text colors)
-* Control what types of shops individual players are able to create and use.
-* Control the amount of shops individual players are able to create and use
-* Blacklist certain worlds from having shops created in them.
-* Ability to set an optional price players must pay to create and/or destroy shops
-* Integrates with WorldGuard, Towny, AdvancedRegionMarket, and more!
-* Integrates with DynMap to [show shops on the map](https://proxy.spigotmc.org/03ee898c967e8983196a73b85a3a267226dc3e04?url=https%3A%2F%2Fi.imgur.com%2FbkzTlOz.png)
-* Integrates with BlueMap to [show shops on the map](https://user-images.githubusercontent.com/4141199/194400062-2dbdbad4-a2c5-4097-b1fd-9ab0b3d1a801.png)
-* Works with chests, barrels, and even shulker boxes!
-* Plug and Play.
+
+- **Versatile Shop Types:** Create shops to sell, buy, barter, or gamble items
+- **Multiple Currency Options:** Change currency to a custom item, virtual currency (Vault), or experience points
+- **Multiple Shop Creation Methods:** Fill out a sign or hit a chest with an item
+- **No Commands Required:** Create shops without needing complex commands
+- **Item Support:** Easily handles items with custom display names, descriptions, and enchantments
+- **Admin Shops:** Create shops that don't need to be stocked
+- **Display Options:** Change between different types of displays (item floating, glass case, large item, item frame)
+- **Holographic Displays:** Optional and fully configurable displays above shops
+- **Find Shops:** Easily find shops selling specific items and teleport to them (optional)
+- **Integration Support:** Works with WorldGuard, Towny, AdvancedRegionMarket, DynMap, BlueMap, and more
+- **Container Support:** Works with chests, double chests, barrels, even shulker boxes!
+- **Plug and Play:** Drop in and go, minimal configuration needed
+
+## Shop Types
+
+| Type | Description |
+|------|-------------|
+| **Sell Shops** | Sell items to other players |
+| **Buy Shops** | Buy items from other players |
+| **Barter Shops** | Trade items with other players |
+| **Combo Shops** | Combined buy and sell functionality in one shop |
+| **Gamble Shops** | Let players gamble for random items |
+
+## Shop Displays
+
+| Display Type | Preview |
+|--------------|---------|
+| **Item Display** | ![Item Display](https://github.com/user-attachments/assets/3095bd19-cfd1-47f8-8e5c-36be324c1a28) |
+| **Glass Case** | ![Glass Case](https://github.com/user-attachments/assets/c6bec141-efb4-4550-b7b3-6f93ec170290) |
+| **Large Item** | ![Large Item](https://github.com/user-attachments/assets/1af00832-3128-44c1-8e7c-f01d44a23f47) |
+| **Item Frame** | ![Item Frame](https://github.com/user-attachments/assets/58c3d422-75ba-4c52-b4c3-edcb74f8285f) |
+| **No Display** | ![No Display](https://github.com/user-attachments/assets/a4a7ca82-ce55-4dce-83b5-7dcce401b329) |
+
+## Quick Start
+
+1. **Place a sign** on a container (chest, barrel, shulker box, etc.)
+2. **Format the sign** according to the shop type you want to create
+3. **Right-click the sign** with the item you want to trade
+4. **The shop is created!**
+
+Players can then interact with the shop by right-clicking the sign.
 
 ## Documentation
 
-- **Player instructions**: [Player-Instructions](https://github.com/snowgears/shop/wiki/Player-Instructions)
-- **Trust Players (v1.11)**: [Trust-Players](https://github.com/snowgears/shop/wiki/Trust-Players)
-- **Configuration (config.yml)**: [Configuration-(config.yml)](https://github.com/snowgears/shop/wiki/Configuration-(config.yml))
-- **Permissions**: [Permissions](https://github.com/snowgears/shop/wiki/Permissions)
-- **Language configs (messages/signs)**: [Language-Configs](https://github.com/snowgears/shop/wiki/Language-Configs)
+- **Player Instructions**: [Player-Instructions](Player-Instructions)
+- **Trust Players (v1.11+)**: [Trust-Players](Trust-Players)
+- **Configuration (config.yml)**: [Configuration-(config.yml)](Configuration-(config.yml))
+- **Permissions**: [Permissions](Permissions)
+- **Language Configs (messages/signs)**: [Language-Configs](Language-Configs)
 
-## Display Types
-<table>
-  <tr>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/3095bd19-cfd1-47f8-8e5c-36be324c1a28" alt="Item Display" width="400"/>
-      <br>Item Display
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/c6bec141-efb4-4550-b7b3-6f93ec170290" alt="Glass Case Display" width="400"/>
-      <br>Glass Case Display
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/1af00832-3128-44c1-8e7c-f01d44a23f47" alt="Large Item Display" width="400"/>
-      <br>Large Item Display
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/58c3d422-75ba-4c52-b4c3-edcb74f8285f" alt="Item Frame Display" width="400"/>
-      <br>Item Frame Display
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/a4a7ca82-ce55-4dce-83b5-7dcce401b329" alt="No Display" width="400"/>
-      <br>No Display
-    </td>
-  </tr>
-</table>
+## Integrations
 
+- **Protection**: WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt
+- **Map**: DynMap, BlueMap
+- **World Management**: BentoBox, AdvancedRegionMarket, PlotSquared, WorldEdit
+- **Economy**: Vault (economy), custom items, experience points
+
+## Requirements
+
+- **Paper 26.2+** (Paper 26.2.build.111-stable recommended, which is Minecraft 1.21.8)
+- Java 21+ (Java 25 supported)
+- Vault (for economy currency)
+- Optional: WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, AdvancedRegionMarket, PlotSquared, DynMap, BlueMap
+
+## Links
+
+- [SpigotMC Resource](https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/)
+- [Discord Support](https://discord.gg/GpSwEWS)
+- [GitHub Issues](https://github.com/TheFlood424K/Shop/issues)
+- [Developer Wiki](https://www.spigotmc.org/wiki/shop-developer-wiki/)
+- [CONTRIBUTING.md](../CONTRIBUTING.md)
+
+---
+
+*This fork is maintained by [TheFlood424K](https://github.com/TheFlood424K) and is based on the original [SnowGears/Shop](https://github.com/snowgears/Shop).*

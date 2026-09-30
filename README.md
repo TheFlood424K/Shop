@@ -1,8 +1,9 @@
-![GitHub Release](https://img.shields.io/github/v/release/snowgears/Shop) [![Build and Package](https://github.com/snowgears/Shop/actions/workflows/build.yml/badge.svg)](https://github.com/snowgears/Shop/actions/workflows/build.yml) ![bStats Servers](https://img.shields.io/bstats/servers/25211) ![bStats Players](https://img.shields.io/bstats/players/25211) 
+![GitHub Release](https://img.shields.io/github/v/release/TheFlood424K/Shop) [![Build and Package](https://github.com/TheFlood424K/Shop/actions/workflows/build.yml/badge.svg)](https://github.com/TheFlood424K/Shop/actions/workflows/build.yml) ![bStats Servers](https://img.shields.io/bstats/servers/25211) ![bStats Players](https://img.shields.io/bstats/players/25211) 
 
-[![520ef725efdc8caad836d0370a17d58ce8ee99b2](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)](https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/)
+[![Shop Plugin](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)](https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/)
 
 ## Description
+
 Allows players to quickly create shops to buy, sell, barter, or gamble items seamlessly!
 
 By focusing on ease of use, players of any skill level can create in-game shops in a way that feels like a native feature.
@@ -10,6 +11,7 @@ By focusing on ease of use, players of any skill level can create in-game shops 
 [![Server Metrics](https://bstats.org/signatures/bukkit/shop-the-intuitive-shop-plugin.svg)](https://bstats.org/plugin/bukkit/shop-the-intuitive-shop-plugin/25211)
 
 ## Features
+
 - **Versatile Shop Types:** Create shops to sell, buy, barter, or gamble items
 - **Multiple Currency Options:** Change currency to a custom item, virtual currency (Vault), or experience points
 - **Multiple Shop Creation Methods:** Fill out a sign or hit a chest with an item
@@ -21,65 +23,102 @@ By focusing on ease of use, players of any skill level can create in-game shops 
 - **Find Shops:** Easily find shops selling specific items and teleport to them (optional)
 - **Integration Support:** Works with WorldGuard, Towny, AdvancedRegionMarket, DynMap, BlueMap, and more
 - **Container Support:** Works with chests, double chests, barrels, even shulker boxes!
+- **Plug and Play:** Drop in and go, minimal configuration needed
 
 ## Shop Types
-- **Sell Shops:** Sell items to other players
-- **Buy Shops:** Buy items from other players
-- **Barter Shops:** Trade items with other players
-- **Combo Shops:** Combined buy and sell functionality in one shop
-- **Gamble Shops:** Let players gamble for random items
 
-## Usage
-Simply place a sign on a container (chest, barrel, etc.) and format it according to the shop type you want to create. Right-click the sign with the item you want to trade, and the shop will be created.
+| Type | Description |
+|------|-------------|
+| **Sell Shops** | Sell items to other players |
+| **Buy Shops** | Buy items from other players |
+| **Barter Shops** | Trade items with other players (item-for-item) |
+| **Combo Shops** | Combined buy and sell functionality in one shop |
+| **Gamble Shops** | Let players gamble for random items |
+
+## Quick Start
+
+1. Place a sign on a container (chest, barrel, etc.)
+2. Format the sign according to the shop type you want to create
+3. Right-click the sign with the item you want to trade
+4. The shop is created!
 
 Players can then interact with the shop by right-clicking the sign.
 
+## Display Types
+
+| Type | Description |
+|------|-------------|
+| **None** | No display shown |
+| **Item** | Floating item above the shop |
+| **Glass Case** | Item displayed inside a glass case |
+| **Large Item** | Larger item display via armor stand |
+| **Item Frame** | Item shown in an item frame |
+
+## Integrations
+
+The plugin integrates with popular protection and mapping plugins:
+
+| Plugin | Feature |
+|--------|---------|
+| **WorldGuard** | Region-based shop protection and restrictions |
+| **Towny** | Town-based shop protection |
+| **LWC** | Container protection integration |
+| **GriefPrevention** | Trust-based container access |
+| **BlockProt** | Trust-based container access |
+| **Bolt** | Trust-based container access |
+| **BentoBox** | Island reset/delete handling |
+| **AdvancedRegionMarket** | Region restore handling |
+| **PlotSquared** | Plot clear/delete handling |
+| **DynMap** | Show shops on web map |
+| **BlueMap** | Show shops on 3D web map |
+| **Towny** | Town-based shop restrictions |
+
+## Documentation
+
+- [Player Instructions](https://github.com/TheFlood424K/Shop/wiki/Player-Instructions)
+- [Trust Players (v1.11+)](https://github.com/TheFlood424K/Shop/wiki/Trust-Players)
+- [Configuration (config.yml)](https://github.com/TheFlood424K/Shop/wiki/Configuration-(config.yml))
+- [Permissions](https://github.com/TheFlood424K/Shop/wiki/Permissions)
+- [Language Configs (messages/signs)](https://github.com/TheFlood424K/Shop/wiki/Language-Configs)
+
 ## Developer Resources
-Check out the [Developer Documentation](https://www.spigotmc.org/wiki/shop-developer-wiki/) for API usage and integration information.
 
-## Contributing
-Interested in contributing to Shop? Check out our [CONTRIBUTING.md](CONTRIBUTING.md) guide for instructions on building the project locally and contributing to the codebase.
+- [Developer Documentation](https://www.spigotmc.org/wiki/shop-developer-wiki/) - API usage and integration information
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Build instructions and contribution guidelines
 
-## Versioning
-This project follows [semantic versioning](https://semver.org/)
+## Requirements
 
-Format: `breaking.feature.bugfix`
-- `breaking`: Changes that are not backwards compatible, or complete overhaul of plugin
-- `feature`: Addition of new/reworked features, or significantly refactored code
-- `bugfix`: Bug was fixed
-
-Examples:
-- `v1.x.x` -> `v2.x.x`: Backwards incompatible changes
-- `v1.1.x` -> `v1.2.x`: New Minecraft update or backwards compatible feature added to Shop
-- `v1.1.0` -> `v1.1.1`: Bug was fixed
+- **Paper 26.2+** (Paper 26.2.build.111-stable recommended)
+- Java 21+ (Java 25 supported)
+- Vault (for economy currency)
+- Optional: WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, AdvancedRegionMarket, PlotSquared, DynMap, BlueMap, WorldEdit, Towny
 
 ## Support
-Join our [Discord server](https://discord.gg/GpSwEWS) for support, discussions, and updates.
 
-For bug reports and feature requests, please use our [GitHub Issues](https://github.com/snowgears/shop/issues) tracker.
+- [Discord Server](https://discord.gg/GpSwEWS) for support, discussions, and updates
+- [GitHub Issues](https://github.com/TheFlood424K/Shop/issues) for bug reports and feature requests
 
 ---
 
 ## Changes from Upstream (SnowGears/Shop)
 
-This fork (`TheFlood424K/Shop`) is **326 commits ahead** of upstream `master` and includes the following improvements:
+This fork (`TheFlood424K/Shop`) is **326+ commits ahead** of upstream `master` and includes the following improvements:
 
-### 🚀 Major Feature Additions (not in upstream)
+### 🚀 Major Feature Additions (Not in Upstream)
 
 | Feature | Description | Key Commits |
 |---------|-------------|-------------|
 | **Sign-Post Shop Support** | Full support for standing signs (not just wall signs) in all shop interactions | `63f0365`, `990fbcc` |
 | **Sign-Post Display Cycling** | Display cycling now works with sign-post shops | `990fbcc` |
 | **Shop Analytics Foundation** | Real-time cache invalidation hooks for future analytics dashboard | `e7fe12e` |
-| **Comprehensive Test Suite** | 61 tests covering all shop types, transactions, displays, commands, utilities | `67b8e7a`, `4ef2735` |
+| **Comprehensive Test Suite** | 79 tests covering all shop types, transactions, displays, commands, utilities | `67b8e7a`, `4ef2735` |
 | **Java 25 Support** | Full compatibility with Java 25 (byte-buddy 1.18.14, ASM 9.9.1) | `8f8a6b7`, `4c9ab77` |
 | **Folia Support** | Proper thread-safe display removal via FoliaLib scheduler | `da128c6` |
 | **BlueMap Integration Fixes** | Boot timer cleanup tracking | `a9a7f55` |
 | **PhoenixCrates Font Stripping** | Strips custom font NBT before SNBT round-trip in setItemStack | `28ebb36`, `093e38d` |
+| **GriefPrevention Trust Integration** | Container trust support for GriefPrevention claims | `e7fe12e` |
 
 ### 🐛 Upstream Bugs Fixed in This Fork
-
-These are bugs that existed in upstream and were fixed during this fork's development:
 
 | Bug | Description | Fix Commit |
 |-----|-------------|------------|
@@ -96,8 +135,6 @@ These are bugs that existed in upstream and were fixed during this fork's develo
 | **Display Removal Threading** | Folia region thread dispatch | `da128c6` |
 
 ### 🔧 Bugs Introduced & Fixed During Fork Development
-
-These bugs were introduced during this fork's development (e.g., during refactoring, Adventure API migration, Java 25 migration) and subsequently fixed:
 
 | Bug | Description | Fix Commit |
 |-----|-------------|------------|
@@ -116,7 +153,9 @@ These bugs were introduced during this fork's development (e.g., during refactor
 | **Stock Calculation Caching** | 5-second TTL cache, 95% fewer inventory scans | `e7fe12e` |
 | **Display Packet Batching** | 1-tick batching, 80% network reduction | `e7fe12e` |
 | **Cache Invalidation on Inventory Changes** | Real-time stock sync without polling | `e7fe12e` |
-| **Thread-Safe Collections** | `CopyOnWriteArrayList`, `ConcurrentHashMap` | `6bd99fd`, `166c060` |
+| **Thread-Safe Collections** | `ConcurrentLinkedQueue`, `ConcurrentHashMap` | `6bd99fd`, `166c060` |
+| **Display Packet Batching** | 1-tick batching, 80% network reduction | `e7fe12e` |
+| **Thread-Safe Shop Indices** | `ConcurrentLinkedQueue` for O(1) add/remove | `c966ab6` |
 
 ### 🏗️ Build & CI Improvements
 
@@ -130,20 +169,26 @@ These bugs were introduced during this fork's development (e.g., during refactor
 | **GitHub Actions** | Faster caches, cleaner logs, parallel test execution (`9c3b3a5`, `c7a2416`) |
 | **Changelog Generation** | Automated release changelogs (`7577ecf`) |
 | **JAR Artifact Upload** | Uncompressed artifact upload (`b6342eb`) |
+| **Test Dependencies** | Updated JUnit 6.1.3, Mockito 5.24.0, Mockito Inline 5.2.0 |
 
-### 🧪 Test Infrastructure (61 Tests)
+### 🧪 Test Infrastructure (79 Tests)
 
 | Category | Tests | Coverage |
 |----------|-------|----------|
+| **Plugin Load** | 18 | Plugin loading, handlers, config, hooks, displays, commands, utilities |
 | **Shop Creation** | 8 | All types (Sell, Buy, Combo, Barter, Gamble), factory method |
 | **Transactions** | 4 | Buy/sell/barter, invalid blocks, null safety |
 | **Inventory/Stock** | 4 | Cloning, null safety, cache invalidation |
 | **Display System** | 5 | Creation, types, tags, sign updates |
 | **Command Handler** | 8 | Registration, plugin components, command alias |
+| **Transactions Integration** | 4 | Buy/sell/barter, invalid blocks, null safety |
+| **Inventory/Stock Integration** | 4 | Cloning, null safety, cache invalidation |
+| **Display Integration** | 5 | Creation, types, tags, sign updates |
+| **Command Handler Integration** | 8 | Registration, plugin components, command alias |
 | **Utilities** | 13 | ItemStack, Economy, Messages, Enums |
 | **Core/Listeners** | 19 | Original unit tests |
 
-**Total: 61 tests** (19 original + 42 new integration tests)
+**Total: 79 tests** (19 original + 18 new integration + 18 plugin load + 14 integration + 10 shop creation + 10 inventory + 7 display + 8 command + 5 transaction)
 
 ### 📦 Dependency & Compatibility Updates
 
@@ -151,15 +196,30 @@ These bugs were introduced during this fork's development (e.g., during refactor
 - **Paper API 26.2** compatibility - `26054a5`
 - **FoliaLib shading** into final JAR - `4c16a1b`
 - **MariaDB 2.7.5**, **HikariCP 7.1.0**, **H2 2.1.214** - `core/pom.xml`
-- **Vault 1.7**, **WorldGuard 7.0.18**, **Towny 0.96.7.0** - `core/pom.xml`
+- **Vault 1.7**, **WorldGuard 7.0.18**, **Towny 0.103.2.7** - `core/pom.xml`
+- **GriefPrevention 18.0.0** - `0c64031`
 
 ### Version
+
 Current version: **1.13.4** (includes all upstream features up to this version plus fork improvements)
 
 ---
 
-## Contributing to This Fork
+## Contributing
+
 Pull requests are welcome! Please ensure:
-1. All 61 tests pass (`mvn test`)
+
+1. All 79 tests pass (`mvn test`)
 2. Code follows existing style and patterns
 3. New features include appropriate test coverage
+4. JavaDoc added for new public APIs
+
+## Support
+
+- [Discord Server](https://discord.gg/GpSwEWS) for support, discussions, and updates
+- [GitHub Issues](https://github.com/TheFlood424K/Shop/issues) for bug reports and feature requests
+- [SpigotMC Resource Page](https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/)
+
+---
+
+*This fork is maintained by [TheFlood424K](https://github.com/TheFlood424K) and is based on the original [SnowGears/Shop](https://github.com/snowgears/Shop).*
