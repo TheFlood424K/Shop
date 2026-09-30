@@ -201,7 +201,7 @@ This fork (`TheFlood424K/Shop`) is **326+ commits ahead** of upstream `master` a
 
 ### Version
 
-Current version: **1.13.4** (includes all upstream features up to this version plus fork improvements)
+Current version: **1.13.5** (includes all upstream features up to this version plus fork improvements)
 
 ---
 

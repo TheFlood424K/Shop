@@ -42,7 +42,7 @@ import java.util.*;
  * </p>
  *
  * @author SnowGears
- * @version 1.13.4
+ * @version 1.13.5
  */
 public class Shop extends JavaPlugin {
 
