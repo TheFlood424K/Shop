@@ -7,6 +7,7 @@ import com.snowgears.shop.util.ItemListType;
 import com.snowgears.shop.util.PlayerSettings;
 import com.snowgears.shop.util.ShopMessage;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -111,6 +112,54 @@ public class CommandHandler extends BukkitCommand {
                 }
                 plugin.getShopHandler().removeLegacyDisplays();
 
+            }
+            else if (args[0].equalsIgnoreCase("help")) {
+                if (sender instanceof Player) {
+                    Player player = (Player) sender;
+                    sendCommandMessage("help.header", player);
+                    sendCommandMessage("help.title", player);
+                    sendCommandMessage("help.header2", player);
+                    sendCommandMessage("help.usage", player);
+                    sendCommandMessage("", player);
+                    sendCommandMessage("help.player", player);
+                    sendCommandMessage("help.cmd_list", player);
+                    sendCommandMessage("help.cmd_currency", player);
+                    sendCommandMessage("help.cmd_notify", player);
+                    sendCommandMessage("help.cmd_help", player);
+                    sendCommandMessage("", player);
+                    if ((plugin.usePerms() && player.hasPermission("shop.operator")) || player.isOp()) {
+                        sendCommandMessage("help.admin", player);
+                        sendCommandMessage("help.cmd_setcurrency", player);
+                        sendCommandMessage("help.cmd_setgamble", player);
+                        sendCommandMessage("help.cmd_itemrefresh", player);
+                        if (plugin.getItemListType() != ItemListType.NONE) {
+                            sendCommandMessage("help.cmd_itemlist", player);
+                        }
+                        sendCommandMessage("help.cmd_reload", player);
+                    }
+                    sendCommandMessage("help.footer", player);
+                } else {
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&8&m---------------------------------------------------"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&d&lShop Help &7v&f" + plugin.getDescription().getVersion() + "&d&l"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&8&m---------------------------------------------------"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&eUsage: &f/" + this.getName() + " <command> [args]"));
+                    sender.sendMessage("");
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b&lPlayer Commands:"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&f/" + this.getName() + " list &7- &fList your shops"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&f/" + this.getName() + " currency &7- &fView currency info"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&f/" + this.getName() + " notify <user|owner|stock> &7- &fToggle notifications"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&f/" + this.getName() + " help &7- &fShow this help menu"));
+                    sender.sendMessage("");
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&c&lAdmin Commands &7(requires operator):"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&f/" + this.getName() + " setcurrency &7- &fSet currency item (hold item)"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&f/" + this.getName() + " setgamble &7- &fSet gamble display item (hold item)"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&f/" + this.getName() + " item refresh &7- &fRefresh all shop displays"));
+                    if (plugin.getItemListType() != ItemListType.NONE) {
+                        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&f/" + this.getName() + " itemlist <add|remove> &7- &fManage item list"));
+                    }
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&f/" + this.getName() + " reload &7- &fReload the plugin"));
+                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&8&m---------------------------------------------------"));
+                }
             }
             else if (args[0].equalsIgnoreCase("currency")) {
                 if (sender instanceof Player) {
@@ -230,6 +279,7 @@ public class CommandHandler extends BukkitCommand {
         else if (args.length == 1) {
             results.add("list");
             results.add("currency");
+            results.add("help");
 
             boolean showOperatorCommands = false;
             if(sender instanceof Player){
