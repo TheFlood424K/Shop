@@ -51,13 +51,17 @@ public class DisplayUtil {
                 stand = (ArmorStand) blockLocation.getWorld().spawnEntity(standLocation, EntityType.ARMOR_STAND);
                 stand.setSmall(true);
                 stand.getEquipment().setLeggings(itemStack);
-                //TODO set legs pose to be slightly spread
+                // Set legs pose to be slightly spread
+                stand.setRightLegPose(new EulerAngle(Math.toRadians(20), 0, 0));
+                stand.setLeftLegPose(new EulerAngle(Math.toRadians(-20), 0, 0));
                 break;
             case FEET:
                 stand = (ArmorStand) blockLocation.getWorld().spawnEntity(standLocation, EntityType.ARMOR_STAND);
                 stand.setSmall(true);
                 stand.getEquipment().setBoots(itemStack);
-                //TODO set legs pose to be slightly spread
+                // Set legs pose to be slightly spread
+                stand.setRightLegPose(new EulerAngle(Math.toRadians(20), 0, 0));
+                stand.setLeftLegPose(new EulerAngle(Math.toRadians(-20), 0, 0));
                 break;
             case HAND:
                 stand = (ArmorStand) blockLocation.getWorld().spawnEntity(standLocation, EntityType.ARMOR_STAND);

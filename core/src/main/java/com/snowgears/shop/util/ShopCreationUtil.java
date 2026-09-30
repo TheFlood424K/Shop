@@ -262,10 +262,8 @@ public class ShopCreationUtil {
         shop.setNeedsSave(true);
         ShopMessage.sendMessage(shop.getType().toString(), "create", player, shop);
         shop.sendEffects(true, player);
-        // Save the shop to disk 
-        // TODO: We should move this save trigger elsewhere, it doesn't belong in `sendCreationSuccess`,
-        //       it is currently non-intuitive that this is the method to save a shop when it is created.
-        //       We should move it elsewhere.
+        // Save the shop to disk. This is called here to ensure the shop is persisted immediately after creation.
+        // Note: This save trigger could be moved to a more appropriate location in the future.
         Shop.getPlugin().getShopHandler().saveShops(shop.getOwnerUUID(), true);
         // Cleanup the shop creation process
         cleanupShopCreationProcess(player);

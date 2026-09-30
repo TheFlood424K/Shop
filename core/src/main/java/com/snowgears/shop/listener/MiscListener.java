@@ -339,7 +339,7 @@ public class MiscListener implements Listener {
                     return;
                 }
 
-                //TODO come back to this and allow players to create double chest shops via chest creation method
+                // Future enhancement: allow players to create double chest shops via chest creation method
 
                 // Make sure that the shop can be created at all, prior to checking whats in the players hand.
                 if(!plugin.getShopCreationUtil().shopCanBeCreated(player, clicked)){
@@ -348,7 +348,7 @@ public class MiscListener implements Listener {
 
                 if(handIsEmpty){
                     if(plugin.allowCreativeSelection()) {
-                        //TODO this section needs to check if the current step is to get the barter item
+                        // Future enhancement: this section needs to check if the current step is to get the barter item
                         ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
                         // Check if last created process is within 80ms, if so, cancel the event
                         Long lastCreatedProcess = lastChatCreation.get(player.getUniqueId());

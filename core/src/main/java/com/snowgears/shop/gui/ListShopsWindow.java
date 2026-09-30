@@ -20,7 +20,7 @@ public class ListShopsWindow extends ShopGuiWindow {
 
     public ListShopsWindow(UUID player){
         super(player);
-        //TODO save a list of all shops to a collection when opening this window for you to modify with filters
+        // Save a list of all shops to a collection when opening this window for you to modify with filters
         this.title = Shop.getPlugin().getGuiHandler().getTitle(ShopGuiHandler.GuiTitle.LIST_SHOPS);
         this.page = Bukkit.createInventory(null, INV_SIZE, this.title);
         allShops = Shop.getPlugin().getShopHandler().getAllShops();
