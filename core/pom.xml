@@ -79,6 +79,11 @@
             <id>dynmap-repo</id>
             <url>https://repo.mikeprimm.com/</url>
         </repository>
+        <repository>
+            <id>purpur-repo</id>
+            <name>Purpur Repository</name>
+            <url>https://repo.purpurmc.org/repository/maven-public/</url>
+        </repository>
     </repositories>
 
     <dependencyManagement>

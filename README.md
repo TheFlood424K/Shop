@@ -5,6 +5,7 @@
 [![bStats Servers](https://img.shields.io/bstats/servers/25211?style=flat-square&color=orange&logo=databricks&logoColor=white)](https://bstats.org/plugin/bukkit/shop-the-intuitive-shop-plugin/25211)
 [![bStats Players](https://img.shields.io/bstats/players/25211?style=flat-square&color=blueviolet&logo=databricks&logoColor=white)](https://bstats.org/plugin/bukkit/shop-the-intuitive-shop-plugin/25211)
 [![Paper Version](https://img.shields.io/badge/Paper-26.2%2B-2ea44f?style=flat-square&logo=minecraft&logoColor=white)](https://papermc.io/downloads)
+[![Purpur Version](https://img.shields.io/badge/Purpur-26.2%2B-5e2d91?style=flat-square&logo=minecraft&logoColor=white)](https://purpurmc.org/)
 [![Java Version](https://img.shields.io/badge/Java-21%2B%20%7C%2025-007396?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
 [![License](https://img.shields.io/github/license/TheFlood424K/Shop?style=flat-square&color=informational)](LICENSE)
 
@@ -15,9 +16,11 @@
 
 ## 🎯 What is Shop?
 
-**Shop** is a feature-rich, intuitive shop plugin for Paper/Spigot servers that lets players create shops naturally — no commands required. Place a sign on a chest, fill in the details, and you're in business.
+**Shop** is a feature-rich, intuitive shop plugin for **Paper, Purpur, and forks like DivineMC** that lets players create shops naturally — no commands required. Place a sign on a chest, fill in the details, and you're in business.
 
 Built with **ease of use** as the top priority, Shop feels like a native Minecraft feature rather than a plugin. Players of any skill level can set up shops in seconds.
+
+> **💜 DivineMC / Purpur Compatible** — This plugin runs natively on Purpur and its downstream forks (like DivineMC) with no additional configuration needed. The plugin gracefully handles the Purpur/Paper API differences and provides full compatibility with Purpur's enhanced performance features.
 
 ---
 
@@ -226,6 +229,7 @@ displayBatchDelay: 2            # ticks between batches
 | Requirement | Version | Notes |
 |-------------|---------|-------|
 | **Paper** | 26.2+ | 26.2.build.129-stable recommended |
+| **Purpur** | 26.2+ | Fully compatible (DivineMC, etc.) |
 | **Java** | 21+ | Java 25 fully supported |
 | **Vault** | 1.7+ | Required for economy currency |
 | **Optional Plugins** | Latest | WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, ARM, PlotSquared, DynMap, BlueMap |
