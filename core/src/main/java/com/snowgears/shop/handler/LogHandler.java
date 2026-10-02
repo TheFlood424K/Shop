@@ -21,6 +21,7 @@ import java.io.InputStreamReader;
 import java.sql.*;
 import java.util.*;
 import java.util.Date;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
@@ -417,6 +418,85 @@ public class LogHandler {
             plugin.getLogger().debug("Error calculating recent item volume");
             return 0; // Return 0 if any error occurs
         }
+    }
+
+    /**
+     * Looks up all transactions that occurred at shops owned by the given player between two points in time,
+     * optionally narrowed by a {@link TransactionLookupFilter} (action type, included/excluded items, customer name).
+     * Results are ordered most-recent first. The callback is always invoked on the main thread; it receives an
+     * empty list if logging is disabled or if the query fails.
+     */
+    public void getShopTransactions(UUID ownerUUID, long startTime, long endTime, TransactionLookupFilter filter, Consumer<List<PlayerTransactionRecord>> callback) {
+        if (!enabled) {
+            callback.accept(Collections.emptyList());
+            return;
+        }
+
+        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+            List<PlayerTransactionRecord> transactions = new ArrayList<>();
+
+            // Resolve the u: selector to a UUID off the main thread, since it may require a Mojang lookup for
+            // a name that isn't already cached locally.
+            UUID customerUUIDFilter = null;
+            if (filter.getCustomerName() != null) {
+                OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(filter.getCustomerName());
+                if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline()) {
+                    // Nobody by that name has ever played, so there can be no matching transactions.
+                    plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(Collections.emptyList()));
+                    return;
+                }
+                customerUUIDFilter = offlinePlayer.getUniqueId();
+            }
+
+            StringBuilder query = new StringBuilder(
+                    "SELECT * FROM shop_action JOIN shop_transaction ON shop_action.transaction_id = shop_transaction.id " +
+                    "WHERE owner_uuid=? AND player_action=? AND ts >= ? AND ts <= ?");
+            if (customerUUIDFilter != null) query.append(" AND player_uuid=?");
+            if (filter.getAction() != null) query.append(" AND t_type=?");
+            query.append(" ORDER BY ts DESC;");
+
+            try (
+                Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(query.toString());
+            ) {
+                int i = 1;
+                stmt.setString(i++, ownerUUID.toString());
+                stmt.setString(i++, ShopActionType.TRANSACT.toString());
+                stmt.setTimestamp(i++, new Timestamp(startTime));
+                stmt.setTimestamp(i++, new Timestamp(endTime));
+                if (customerUUIDFilter != null) stmt.setString(i++, customerUUIDFilter.toString());
+                if (filter.getAction() != null) stmt.setString(i++, filter.getAction().name());
+                ResultSet resultSet = stmt.executeQuery();
+
+                while (resultSet.next()) {
+                    ShopType tType = ShopType.valueOf(resultSet.getString("t_type"));
+                    double price = resultSet.getDouble("price");
+                    int amount = resultSet.getInt("amount");
+                    ItemStack item = UtilMethods.itemStackFromBase64(resultSet.getString("item"));
+                    String barterItemString = resultSet.getString("barter_item");
+                    ItemStack barterItem = barterItemString != null ? UtilMethods.itemStackFromBase64(barterItemString) : null;
+
+                    // i:/e: can't be pushed into SQL (items are stored as opaque base64 blobs), so filter here.
+                    // The item is already being decoded regardless, to build the display line, so this costs nothing extra.
+                    if (!filter.matchesItem(item)) continue;
+
+                    UUID customerUUID = UUID.fromString(resultSet.getString("player_uuid"));
+
+                    Location shopLocation = new Location(Bukkit.getWorld(resultSet.getString("shop_world")),
+                            resultSet.getInt("shop_x"), resultSet.getInt("shop_y"), resultSet.getInt("shop_z"));
+
+                    transactions.add(new PlayerTransactionRecord(resultSet.getTimestamp("ts"), tType, price, amount, item, barterItem, customerUUID, ownerUUID, shopLocation));
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.WARNING, "SQL error occurred while trying to look up shop transactions.");
+                e.printStackTrace();
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING, "Error occurred while trying to look up shop transactions. Unable to parse itemstack from base64!");
+                e.printStackTrace();
+            }
+
+            plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(transactions));
+        });
     }
 
     private void initDb() throws SQLException {

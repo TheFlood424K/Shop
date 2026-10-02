@@ -491,7 +491,8 @@ public abstract class AbstractDisplay {
         } catch (Error | Exception e) { /** Allow other logic to continue even if this fails (non-critical) */ }
     }
 
-    private Location getItemDropLocation(boolean isBarterItem) {
+    // Package-private for testing
+    Location getItemDropLocation(boolean isBarterItem) {
         AbstractShop shop = this.getShop();
 
         if(shop == null || shop.getFacing() == null)
@@ -576,7 +577,8 @@ public abstract class AbstractDisplay {
     }
 
 
-    private Vector getLargeItemBarterOffset(boolean isBarterItem){
+    // Package-private for testing
+    Vector getLargeItemBarterOffset(boolean isBarterItem){
         AbstractShop shop = this.getShop();
 
         Vector offset = new Vector(0,0,0);
