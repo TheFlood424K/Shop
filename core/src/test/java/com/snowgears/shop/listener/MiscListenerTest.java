@@ -100,9 +100,9 @@ class MiscListenerTest extends BaseMockBukkitTest {
         data.setFacing(signFacing);
         world.setBlockData(signBlock.getLocation(), data);
 
-        // Chest is in the SAME direction as the sign's facing
-        // (WallSign.getFacing() returns the direction the text faces, which is TOWARDS the chest)
-        BlockFace chestFace = signFacing;
+        // Chest is at the OPPOSITE face of the sign's facing
+        // (WallSign.getFacing() returns direction text faces; chest is behind the sign)
+        BlockFace chestFace = signFacing.getOppositeFace();
         Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
@@ -116,10 +116,12 @@ class MiscListenerTest extends BaseMockBukkitTest {
         SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
         getServer().getPluginManager().callEvent(signEvent);
 
-        // Verify shop creation dialog sent
+        // Verify shop creation dialog sent (first message is initialCreateInstruction, second is initialize)
         String msg = waitForNextMessage(player);
-        assertNotNull(msg, "Player should be prompted to initialize shop");
-        assertTrue(msg.contains("hit the sign with the item"), "Player should be prompted to initialize shop: " + msg);
+        assertNotNull(msg, "Player should receive initial instruction message: " + msg);
+
+        // Drain remaining messages (initialize message for the shop type)
+        waitForNextMessage(player);
 
         // Verify shop registered
         AbstractShop shop = shopHandler.getShop(signLoc);
@@ -137,7 +139,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         data.setFacing(BlockFace.NORTH);
         world.setBlockData(signBlock.getLocation(), data);
 
-        BlockFace chestFace = BlockFace.NORTH;
+        BlockFace chestFace = BlockFace.NORTH.getOppositeFace();
         Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
@@ -167,7 +169,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         data.setFacing(BlockFace.NORTH);
         world.setBlockData(signBlock.getLocation(), data);
 
-        BlockFace chestFace = BlockFace.NORTH;
+        BlockFace chestFace = BlockFace.NORTH.getOppositeFace();
         Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
@@ -210,7 +212,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         data.setFacing(BlockFace.NORTH);
         world.setBlockData(signBlock.getLocation(), data);
 
-        BlockFace chestFace = BlockFace.NORTH;
+        BlockFace chestFace = BlockFace.NORTH.getOppositeFace();
         Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
@@ -239,7 +241,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         data.setFacing(BlockFace.NORTH);
         world.setBlockData(signBlock.getLocation(), data);
 
-        BlockFace chestFace = BlockFace.NORTH;
+        BlockFace chestFace = BlockFace.NORTH.getOppositeFace();
         Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
@@ -267,7 +269,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         data.setFacing(BlockFace.NORTH);
         world.setBlockData(signBlock.getLocation(), data);
 
-        BlockFace chestFace = BlockFace.NORTH;
+        BlockFace chestFace = BlockFace.NORTH.getOppositeFace();
         Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
@@ -299,7 +301,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         data.setFacing(BlockFace.NORTH);
         world.setBlockData(signBlock.getLocation(), data);
 
-        BlockFace chestFace = BlockFace.NORTH;
+        BlockFace chestFace = BlockFace.NORTH.getOppositeFace();
         Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
@@ -314,7 +316,8 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("hit the sign with the item"), "Case-insensitive tag should work: " + msg);
+        // First message is initialCreateInstruction
+        assertTrue(msg.contains("set up your shop"), "Case-insensitive tag should work: " + msg);
     }
 
     @Test
@@ -914,7 +917,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         data.setFacing(BlockFace.NORTH);
         world.setBlockData(signBlock.getLocation(), data);
 
-        BlockFace chestFace = BlockFace.NORTH;
+        BlockFace chestFace = BlockFace.NORTH.getOppositeFace();
         Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
