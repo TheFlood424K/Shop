@@ -48,14 +48,17 @@ allowCreativeSelection: true # This will allow players to use the limited creati
 # Sign Create
 ## Create using a Sign & Item in hand
 
-1. Place a sign onto the chest/in front of it and enter the following details
+1. Place a sign and enter the following details:
+   - **Wall Sign** (placed ON the chest block): Attach the sign directly to the chest face
+   - **Sign Post** (freestanding on ground in front of chest): Place a sign on the ground one block away from the chest, facing the chest
+   - Both sign types work! The plugin automatically converts sign posts to wall signs on creation.
 ```
 [Shop]
 amount of item
 price of item
 buy/sell/barter
 ```
-2. Punch the shop with the item you want to buy/sell
+2. Punch the shop sign with the item you want to buy/sell
 
 **`config.yml` Defaults:**
 
@@ -66,14 +69,17 @@ creationMethod:
 
 ## Create using a Sign & Creative Selection
 
-1. Place a sign onto the chest/in front of it and enter the following details
+1. Place a sign and enter the following details:
+   - **Wall Sign** (placed ON the chest block): Attach the sign directly to the chest face
+   - **Sign Post** (freestanding on ground in front of chest): Place a sign on the ground one block away from the chest, facing the chest
+   - Both sign types work! The plugin automatically converts sign posts to wall signs on creation.
 ```
 [Shop]
 amount of item
 price of item
 buy/sell/barter
 ```
-2. Punch the shop with an empty hand to enter creative selection
+2. Punch the shop sign with an empty hand to enter creative selection
 3. Select the item from the creative menu and drop it outside the creative menu
 
 **`config.yml` Defaults:**
