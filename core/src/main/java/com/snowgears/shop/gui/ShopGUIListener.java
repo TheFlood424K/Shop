@@ -18,11 +18,15 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class ShopGUIListener implements Listener {
 
     private Shop plugin;
+    private Map<UUID, Long> cooldowns = new HashMap<>();
+    private static final long COOLDOWN_MS = 250;
 
     public ShopGUIListener(Shop instance) {
         plugin = instance;
@@ -74,6 +78,17 @@ public class ShopGUIListener implements Listener {
     public void onInvClick(InventoryClickEvent event){
         if(event.getWhoClicked() instanceof Player){
             Player player = (Player)event.getWhoClicked();
+
+            // Cooldown
+            long now = System.currentTimeMillis();
+            UUID playerUuid = player.getUniqueId();
+
+            if (cooldowns.containsKey(playerUuid) &&
+            now - cooldowns.get(playerUuid) < COOLDOWN_MS) {
+                return;
+            } else {
+                cooldowns.put(playerUuid, now);
+            }
 
             ShopGuiWindow window = plugin.getGuiHandler().getWindow(player);
 

@@ -138,30 +138,8 @@ public abstract class AbstractDisplay {
                     //drop second item on right
                     spawnItemPacket(player, barterItem, this.getItemDropLocation(true));
                     break;
-                case LARGE_ITEM:
-                    //put first large display down
-                    Location leftLoc = shop.getChestLocation().clone().add(0,1,0);
-                    leftLoc.add(getLargeItemBarterOffset(false));
-                    ArmorStandData armorStandData = DisplayUtil.getArmorStandData(item, leftLoc, shop.getFacing(), false);
-                    spawnArmorStandPacket(player, armorStandData, null);
-
-                    //put second large display down
-                    Location rightLoc = shop.getChestLocation().clone().add(0,1,0);
-                    rightLoc.add(getLargeItemBarterOffset(true));
-                    ArmorStandData armorStandData2 = DisplayUtil.getArmorStandData(barterItem, rightLoc, shop.getFacing(), false);
-                    spawnArmorStandPacket(player, armorStandData2, null);
-                    break;
-                case GLASS_CASE:
-                    //put the extra large glass casing down
-                    Location caseLoc = shop.getChestLocation().clone().add(0,1,0);
-                    ArmorStandData caseStandData = DisplayUtil.getArmorStandData(new ItemStack(Material.GLASS), caseLoc, shop.getFacing(), true);
-                    spawnArmorStandPacket(player, caseStandData, null);
-
-                    //Drop initial display item
-                    spawnItemPacket(player, item, this.getItemDropLocation(false));
-
-                    //Drop the barter display item
-                    spawnItemPacket(player, barterItem, this.getItemDropLocation(true));
+                default:
+                    // Other display types (LARGE_ITEM, GLASS_CASE, ITEM_FRAME) are not spawned
                     break;
             }
         }
@@ -174,40 +152,8 @@ public abstract class AbstractDisplay {
                 case ITEM:
                     spawnItemPacket(player, item, this.getItemDropLocation(false));
                     break;
-                case LARGE_ITEM:
-                    ArmorStandData armorStandData = DisplayUtil.getArmorStandData(item, shop.getChestLocation().clone().add(0,1,0), shop.getFacing(), false);
-                    spawnArmorStandPacket(player, armorStandData, null);
-                    break;
-                case GLASS_CASE:
-                    //put the extra large glass casing down
-                    Location caseLoc = shop.getChestLocation().clone().add(0,1,0);
-                    ArmorStandData caseStandData = DisplayUtil.getArmorStandData(new ItemStack(Material.GLASS), caseLoc, shop.getFacing(), true);
-                    spawnArmorStandPacket(player, caseStandData, null);
-
-                    //drop the display item in the glass case
-                    spawnItemPacket(player, item, this.getItemDropLocation(false));
-                    break;
-                case ITEM_FRAME:
-                    Location frameLocation;
-                    //only calculate the item frame location if the shop is in a loaded chunk (because Block is used)
-                    if(this.isChunkLoaded()) {
-                        Block aboveShop = shop.getChestLocation().getBlock().getRelative(BlockFace.UP);
-                        frameLocation = aboveShop.getLocation();
-                        //if display is blocked, put item frame on front
-                        if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
-                            frameLocation = aboveShop.getRelative(shop.getFacing()).getLocation();
-                        }
-                    }
-                    else{
-                        frameLocation = shop.getChestLocation().clone().add(0,1,0);
-                    }
-
-                    if(UtilMethods.isMCVersion17Plus() && Shop.getPlugin().getGlowingItemFrame()){
-                        spawnItemFramePacket(player, shop.getItemStack(), frameLocation, shop.getFacing(), true);
-                    }
-                    else {
-                        spawnItemFramePacket(player, shop.getItemStack(), frameLocation, shop.getFacing(), false);
-                    }
+                default:
+                    // Other display types (LARGE_ITEM, GLASS_CASE, ITEM_FRAME) are not spawned
                     break;
             }
         }
@@ -278,43 +224,8 @@ public abstract class AbstractDisplay {
                 case ITEM:
                     queuePacket.accept(() -> spawnItemPacket(null, item, this.getItemDropLocation(false)));
                     break;
-                case LARGE_ITEM:
-                    ArmorStandData armorStandData = DisplayUtil.getArmorStandData(item, shop.getChestLocation().clone().add(0,1,0), shop.getFacing(), false);
-                    queuePacket.accept(() -> spawnArmorStandPacket(null, armorStandData, null));
-                    break;
-                case GLASS_CASE:
-                    //put the extra large glass casing down
-                    Location caseLoc = shop.getChestLocation().clone().add(0,1,0);
-                    ArmorStandData caseStandData = DisplayUtil.getArmorStandData(new ItemStack(Material.GLASS), caseLoc, shop.getFacing(), true);
-                    queuePacket.accept(() -> spawnArmorStandPacket(null, caseStandData, null));
-
-                    //drop the display item in the glass case
-                    queuePacket.accept(() -> spawnItemPacket(null, item, this.getItemDropLocation(false)));
-                    break;
-                case ITEM_FRAME:
-                    Location frameLocation;
-                    //only calculate the item frame location if the shop is in a loaded chunk (because Block is used)
-                    if(this.isChunkLoaded()) {
-                        Block aboveShop = shop.getChestLocation().getBlock().getRelative(BlockFace.UP);
-                        frameLocation = aboveShop.getLocation();
-                        //if display is blocked, put item frame on front
-                        if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
-                            frameLocation = aboveShop.getRelative(shop.getFacing()).getLocation();
-                        }
-                    }
-                    else{
-                        frameLocation = shop.getChestLocation().clone().add(0,1,0);
-                    }
-
-                    // Capture frameLocation in a final variable for lambda
-                    final Location finalFrameLocation = frameLocation;
-
-                    if(UtilMethods.isMCVersion17Plus() && Shop.getPlugin().getGlowingItemFrame()){
-                        queuePacket.accept(() -> spawnItemFramePacket(null, shop.getItemStack(), finalFrameLocation, shop.getFacing(), true));
-                    }
-                    else {
-                        queuePacket.accept(() -> spawnItemFramePacket(null, shop.getItemStack(), finalFrameLocation, shop.getFacing(), false));
-                    }
+                default:
+                    // Other display types (LARGE_ITEM, GLASS_CASE, ITEM_FRAME) are not spawned
                     break;
             }
         }

@@ -187,17 +187,13 @@ public class ShopHandler {
     }
 
     public AbstractShop getShopTouchingBlock(Block block){
-        // Bug 10 fix: replace `instanceof WallSign` with a Tag-based union check so that
-        // sign-post shops (which have Rotatable block data, not WallSign) are also found
-        // during hopper placement and other adjacency checks. Previously this method always
-        // returned null for sign-post shops, silently ignoring them in onShopExpansion.
         BlockFace[] faces = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
         for(BlockFace face : faces){
             if(this.isChest(block.getRelative(face))){
                 Block shopChest = block.getRelative(face);
                 for(BlockFace newFace : faces){
                     Material signType = shopChest.getRelative(newFace).getType();
-                    if(Tag.WALL_SIGNS.isTagged(signType) || Tag.STANDING_SIGNS.isTagged(signType)){
+                    if(Tag.WALL_SIGNS.isTagged(signType)){
                         AbstractShop shop = getShop(shopChest.getRelative(newFace).getLocation());
                         if(shop != null)
                             return shop;

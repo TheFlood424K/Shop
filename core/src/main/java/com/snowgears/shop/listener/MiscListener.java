@@ -249,6 +249,24 @@ public class MiscListener implements Listener {
         }
     }
 
+    public boolean isPlayerTargetingShopCreationBlock(Player player) {
+        Block target = player.getTargetBlockExact(5);
+        if (target == null) {
+            return false;
+        }
+
+        if (target.getBlockData() instanceof WallSign) {
+            AbstractShop shop = plugin.getShopHandler().getShop(target.getLocation());
+            return shop != null && !shop.isInitialized();
+        }
+
+        if (plugin.getShopHandler().isChest(target)) {
+            return plugin.getShopHandler().getShopByChest(target) == null;
+        }
+
+        return false;
+    }
+
     public boolean isChestInShopCreationProcess(Location location) {
         return getShopCreationProcessByChest(location) != null;
     }
@@ -293,165 +311,158 @@ public class MiscListener implements Listener {
         final boolean handIsEmpty = itemInHand.getType() == Material.AIR;
 
         if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
-            final Block clicked = event.getClickedBlock();
+            handleShopLeftClick(player, event.getClickedBlock(), itemInHand, event.getBlockFace());
+        }
+    }
 
-            if (clicked.getBlockData() instanceof WallSign) {
+    public void handleShopLeftClick(Player player, Block clicked, ItemStack itemInHand, BlockFace blockFace) {
+        if (clicked.getBlockData() instanceof WallSign) {
 
-                if(!plugin.getAllowCreationMethodSign())
-                    return;
+            if(!plugin.getAllowCreationMethodSign())
+                return;
 
-                // We only want to handle shops that exist but are not initialized.
-                // This branch intentionally does NOT check event.isCancelled() — crate-key
-                // plugins cancel the interact event for their keys, which would otherwise
-                // silently swallow the sign-hit and prevent shop initialization.
-                AbstractShop shop = plugin.getShopHandler().getShop(clicked.getLocation());
-                if (shop == null || shop.isInitialized()) {
-                    return;
-                }
-
-                //creative selection listener will handle if item is null
-                if(handIsEmpty)
-                    return;
-
-                boolean initializedShop;
-                if(shop.getType() == ShopType.BARTER && shop.getItemStack() != null && shop.getSecondaryItemStack() == null)
-                    initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, shop.getItemStack(), itemInHand);
-                else
-                    initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, itemInHand, null);
-
-                if(initializedShop){
-                    plugin.getShopCreationUtil().sendCreationSuccess(player, shop);
-                    plugin.getLogHandler().logAction(player, shop, ShopActionType.INIT);
-                }
-
+            // We only want to handle shops that exist but are not initialized.
+            AbstractShop shop = plugin.getShopHandler().getShop(clicked.getLocation());
+            if (shop == null || shop.isInitialized()) {
                 return;
             }
-            else if(plugin.getShopHandler().isChest(clicked)){
 
-                // For chest-based creation, respect cancellation from other plugins —
-                // unlike the sign-hit path above, this path modifies creation state and
-                // we don't want to interfere with cancelled interactions on chests.
-                if (event.isCancelled()) { return; }
+            //creative selection listener will handle if item is null
+            if(itemInHand == null || itemInHand.getType() == Material.AIR)
+                return;
 
-                if(!plugin.getAllowCreationMethodChest())
-                    return;
+            boolean initializedShop;
+            if(shop.getType() == ShopType.BARTER && shop.getItemStack() != null && shop.getSecondaryItemStack() == null)
+                initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, shop.getItemStack(), itemInHand);
+            else
+                initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, itemInHand, null);
 
-                //dont let players create shops via chest on shops that already exist
-                // This check is also required for chests to be destroyed properly without new shops getting created. This is because PlayerInteractEvent is called before BlockBreakEvent.
-                AbstractShop existingShop = plugin.getShopHandler().getShopByChest(clicked);
-                if (existingShop != null) {
-                    return;
-                }
-
-                // Future enhancement: allow players to create double chest shops via chest creation method
-
-                // Make sure that the shop can be created at all, prior to checking whats in the players hand.
-                if(!plugin.getShopCreationUtil().shopCanBeCreated(player, clicked)){
-                    return;
-                }
-
-                if(handIsEmpty){
-                    if(plugin.allowCreativeSelection()) {
-                        // Future enhancement: this section needs to check if the current step is to get the barter item
-                        ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
-                        // Check if last created process is within 80ms, if so, cancel the event
-                        Long lastCreatedProcess = lastChatCreation.get(player.getUniqueId());
-                        if (lastCreatedProcess != null && (new Date().getTime() - lastCreatedProcess) < 80) {
-                            return;
-                        }
-                        if (currentProcess != null && currentProcess.getStep() == ShopCreationProcess.ChatCreationStep.BARTER_ITEM) {   
-                            plugin.getCreativeSelectionListener().putPlayerInCreativeSelection(player, clicked.getLocation(), false);
-                            return;
-                        }
-                        else if (currentProcess == null && player.isSneaking()){
-                            //if the player has created a new process in the last 5 seconds, block them from creating another
-                            if(lastCreatedProcess != null && (new Date().getTime() - lastCreatedProcess) < plugin.getDebug_shopCreateCooldown()) {
-                                ShopMessage.sendMessage("interactionIssue", "createCooldown", player, null);
-                                return;
-                            }
-
-                            BlockFace signFacing = plugin.getShopCreationUtil().calculateBlockFaceForSign(player, clicked, event.getBlockFace());
-                            if(signFacing == null) {
-                                return;
-                            }
-
-                            ShopCreationProcess process = new ShopCreationProcess(player, clicked, signFacing);
-                            playerChatCreationSteps.put(player.getUniqueId(), process);
-                            lastChatCreation.put(player.getUniqueId(), new Date().getTime());
-                            process.markInteracted();
-                            plugin.getCreativeSelectionListener().putPlayerInCreativeSelection(player, clicked.getLocation(), false);
-                        }
-                    }
-                    return;
-                }
-                else {
-                    ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
-                    plugin.getLogger().debug("Current Shop Creation Process: " + currentProcess);
-                    if (currentProcess != null && currentProcess.getStep() == ShopCreationProcess.ChatCreationStep.BARTER_ITEM) {
-                        if (!plugin.getShopCreationUtil().itemsCanBeInitialized(player, currentProcess.getItemStack(), itemInHand)) {
-                            return;
-                        }
-                        currentProcess.setBarterItemStack(itemInHand);
-                        currentProcess.markInteracted();
-                        currentProcess.displayFloatingText(currentProcess.getShopType().toString(), "createHitChestBarterAmount");
-                        return;
-                    }
-                }
-
-                if(!player.isSneaking())
-                    return;
-
-                Long lastCreatedProcess = lastChatCreation.get(player.getUniqueId());
-                if(lastCreatedProcess != null) {
-                    //if the player has created a new process in the last 5 seconds, block them from creating another
-                    long diff = (new Date().getTime() - lastCreatedProcess);
-                    if (diff < plugin.getDebug_shopCreateCooldown()) {
-                        ShopMessage.sendMessage("interactionIssue", "createCooldown", player, null);
-                        return;
-                    }
-                }
-                // Cleanup the last process if needed and cancel the existing shop creation process if it exists
-                if (playerChatCreationSteps.get(player.getUniqueId()) != null) {
-                    this.cancelShopCreationProcess(player);
-                    return;
-                }
-
-                BlockFace signFacing = plugin.getShopCreationUtil().calculateBlockFaceForSign(player, clicked, event.getBlockFace());
-                if(signFacing == null)
-                    return;
-
-                //since player is creating a shop via clicking a chest with an item, create a new object to track the steps of that process
-                ShopCreationProcess process = new ShopCreationProcess(player, clicked, signFacing);
-                process.setItemStack(itemInHand);
-                playerChatCreationSteps.put(player.getUniqueId(), process);
-                lastChatCreation.put(player.getUniqueId(), new Date().getTime());
-                process.markInteracted();
-
-                //send player text prompts after they have clicked the chest with the item they want to create a shop with
-                ShopMessage.sendMessage("initialCreateInstruction", null, process, player);
-                process.displayFloatingText("createHitChest", null);
-                List<String> autocomplete = new ArrayList<>();
-                Arrays.asList(ShopType.values()).forEach((shopType -> autocomplete.add(shopType.toString().toLowerCase())));
-                try {
-                    player.setCustomChatCompletions(autocomplete);
-                } catch (Error | Exception error) {} // Suppress error if autocomplete is not supported
-                if((!plugin.usePerms() && player.isOp()) || (plugin.usePerms() && player.hasPermission("shop.operator"))) {
-                    ShopMessage.sendMessage("adminCreateHitChest", null, process, player);
-                }
-
-                //give player a limited amount of time to finish creating the shop until it is deleted
-                final UUID originalProcessUUID = process.getUniqueID();
-                plugin.getFoliaLib().getScheduler().runLater(() -> {
-                    //the shop has still not been initialized with an item from a player
-                    ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
-                    if (currentProcess != null && currentProcess.getUniqueID().equals(originalProcessUUID)) {
-                        currentProcess.cleanup();
-                        playerChatCreationSteps.remove(player.getUniqueId());
-                        plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
-                        ShopMessage.sendMessage("interactionIssue", "createHitChestTimeout", currentProcess, player);
-                    }
-                }, 30 * 20); // 30 seconds * 20 ticks
+            if(initializedShop){
+                plugin.getShopCreationUtil().sendCreationSuccess(player, shop);
+                plugin.getLogHandler().logAction(player, shop, ShopActionType.INIT);
             }
+            return;
+        }
+        else if(plugin.getShopHandler().isChest(clicked)){
+
+            if(!plugin.getAllowCreationMethodChest())
+                return;
+
+            //dont let players create shops via chest on shops that already exist
+            // This check is also required for chests to be destroyed properly without new shops getting created. This is because PlayerInteractEvent is called before BlockBreakEvent.
+            AbstractShop existingShop = plugin.getShopHandler().getShopByChest(clicked);
+            if (existingShop != null) {
+                return;
+            }
+
+            //TODO come back to this and allow players to create double chest shops via chest creation method
+
+            // Make sure that the shop can be created at all, prior to checking whats in the players hand.
+            if(!plugin.getShopCreationUtil().shopCanBeCreated(player, clicked)){
+                return;
+            }
+
+            if(itemInHand == null || itemInHand.getType() == Material.AIR){
+                if(plugin.allowCreativeSelection()) {
+                    //TODO this section needs to check if the current step is to get the barter item
+                    ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
+                    // Check if last created process is within 80ms, if so, cancel the event
+                    Long lastCreatedProcess = lastChatCreation.get(player.getUniqueId());
+                    if (lastCreatedProcess != null && (new Date().getTime() - lastCreatedProcess) < 80) {
+                        return;
+                    }
+                    if (currentProcess != null && currentProcess.getStep() == ShopCreationProcess.ChatCreationStep.BARTER_ITEM) {
+                        plugin.getCreativeSelectionListener().putPlayerInCreativeSelection(player, clicked.getLocation(), false);
+                        return;
+                    }
+                    else if (currentProcess == null && player.isSneaking()){
+                        //if the player has created a new process in the last 5 seconds, block them from creating another
+                        if(lastCreatedProcess != null && (new Date().getTime() - lastCreatedProcess) < plugin.getDebug_shopCreateCooldown()) {
+                            ShopMessage.sendMessage("interactionIssue", "createCooldown", player, null);
+                            return;
+                        }
+
+                        BlockFace signFacing = plugin.getShopCreationUtil().calculateBlockFaceForSign(player, clicked, blockFace);
+                        if(signFacing == null) {
+                            return;
+                        }
+
+                        ShopCreationProcess process = new ShopCreationProcess(player, clicked, signFacing);
+                        playerChatCreationSteps.put(player.getUniqueId(), process);
+                        lastChatCreation.put(player.getUniqueId(), new Date().getTime());
+                        process.markInteracted();
+                        plugin.getCreativeSelectionListener().putPlayerInCreativeSelection(player, clicked.getLocation(), false);
+                    }
+                }
+                return;
+            }
+            else {
+                ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
+                plugin.getLogger().debug("Current Shop Creation Process: " + currentProcess);
+                if (currentProcess != null && currentProcess.getStep() == ShopCreationProcess.ChatCreationStep.BARTER_ITEM) {
+                    if (!plugin.getShopCreationUtil().itemsCanBeInitialized(player, currentProcess.getItemStack(), itemInHand)) {
+                        return;
+                    }
+                    currentProcess.setBarterItemStack(itemInHand);
+                    currentProcess.markInteracted();
+                    currentProcess.displayFloatingText(currentProcess.getShopType().toString(), "createHitChestBarterAmount");
+                    return;
+                }
+            }
+
+            if(!player.isSneaking())
+                return;
+
+            Long lastCreatedProcess = lastChatCreation.get(player.getUniqueId());
+            if(lastCreatedProcess != null) {
+                //if the player has created a new process in the last 5 seconds, block them from creating another
+                long diff = (new Date().getTime() - lastCreatedProcess);
+                if (diff < plugin.getDebug_shopCreateCooldown()) {
+                    ShopMessage.sendMessage("interactionIssue", "createCooldown", player, null);
+                    return;
+                }
+            }
+            // Cleanup the last process if needed and cancel the existing shop creation process if it exists
+            if (playerChatCreationSteps.get(player.getUniqueId()) != null) {
+                this.cancelShopCreationProcess(player);
+                return;
+            }
+
+            BlockFace signFacing = plugin.getShopCreationUtil().calculateBlockFaceForSign(player, clicked, blockFace);
+            if(signFacing == null)
+                return;
+
+            //since player is creating a shop via clicking a chest with an item, create a new object to track the steps of that process
+            ShopCreationProcess process = new ShopCreationProcess(player, clicked, signFacing);
+            process.setItemStack(itemInHand);
+            playerChatCreationSteps.put(player.getUniqueId(), process);
+            lastChatCreation.put(player.getUniqueId(), new Date().getTime());
+            process.markInteracted();
+
+            //send player text prompts after they have clicked the chest with the item they want to create a shop with
+            ShopMessage.sendMessage("initialCreateInstruction", null, process, player);
+            process.displayFloatingText("createHitChest", null);
+            List<String> autocomplete = new ArrayList<>();
+            Arrays.asList(ShopType.values()).forEach((shopType -> autocomplete.add(shopType.toString().toLowerCase())));
+            try {
+                player.setCustomChatCompletions(autocomplete);
+            } catch (Error | Exception error) {} // Suppress error if autocomplete is not supported
+            if((!plugin.usePerms() && player.isOp()) || (plugin.usePerms() && player.hasPermission("shop.operator"))) {
+                ShopMessage.sendMessage("adminCreateHitChest", null, process, player);
+            }
+
+            //give player a limited amount of time to finish creating the shop until it is deleted
+            final UUID originalProcessUUID = process.getUniqueID();
+            plugin.getFoliaLib().getScheduler().runLater(() -> {
+                //the shop has still not been initialized with an item from a player
+                ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
+                if (currentProcess != null && currentProcess.getUniqueID().equals(originalProcessUUID)) {
+                    currentProcess.cleanup();
+                    playerChatCreationSteps.remove(player.getUniqueId());
+                    plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
+                    ShopMessage.sendMessage("interactionIssue", "createHitChestTimeout", currentProcess, player);
+                }
+            }, 30 * 20); // 30 seconds * 20 ticks
         }
     }
 

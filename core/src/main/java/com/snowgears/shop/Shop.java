@@ -10,6 +10,7 @@ import com.snowgears.shop.listener.DisplayListener;
 import com.snowgears.shop.listener.InventoryChangeListener;
 import com.snowgears.shop.listener.MiscListener;
 import com.snowgears.shop.listener.ShopListener;
+import com.snowgears.shop.listener.SpearAttackListener;
 import com.snowgears.shop.shop.ShopType;
 import com.snowgears.shop.util.*;
 import com.snowgears.shop.hook.WorldGuardHook.WorldGuardConfig;
@@ -65,6 +66,7 @@ public class Shop extends JavaPlugin {
     private MiscListener miscListener;
     private CreativeSelectionListener creativeSelectionListener;
     private ShopGUIListener guiListener;
+    private SpearAttackListener spearAttackListener;
     private Boolean worldGuardExists = false;
     private LWCHookListener lwcHookListener;
     private DynmapHookListener dynmapHookListener;
@@ -319,6 +321,7 @@ public class Shop extends JavaPlugin {
         transactionHandler = new TransactionHandler(this);
         miscListener = new MiscListener(this);
         creativeSelectionListener = new CreativeSelectionListener(this);
+        spearAttackListener = new SpearAttackListener(this);
         displayListener = new DisplayListener(this);
         guiListener = new ShopGUIListener(this);
 
@@ -587,6 +590,7 @@ public class Shop extends JavaPlugin {
         getServer().getPluginManager().registerEvents(miscListener, this);
         getServer().getPluginManager().registerEvents(creativeSelectionListener, this);
         getServer().getPluginManager().registerEvents(guiListener, this);
+        getServer().getPluginManager().registerEvents(spearAttackListener, this);
 
         // Inventory change listener for stock cache invalidation
         InventoryChangeListener inventoryChangeListener = new InventoryChangeListener();

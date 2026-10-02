@@ -48,10 +48,7 @@ allowCreativeSelection: true # This will allow players to use the limited creati
 # Sign Create
 ## Create using a Sign & Item in hand
 
-1. Place a sign and enter the following details:
-   - **Wall Sign** (placed ON the chest block): Attach the sign directly to the chest face
-   - **Sign Post** (freestanding on ground in front of chest): Place a sign on the ground one block away from the chest, facing the chest
-   - Both sign types work! The plugin automatically converts sign posts to wall signs on creation.
+1. Place a **Wall Sign** on the chest block (attach the sign directly to the chest face) and enter the following details:
 ```
 [Shop]
 amount of item

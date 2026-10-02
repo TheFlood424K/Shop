@@ -20,10 +20,15 @@ import org.bukkit.block.data.type.WallSign;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public class ShopCreationUtil {
 
     private Shop plugin;
     private BlockFace[] wallFaces = new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
+    private final Map<UUID, Long> cooldowns = new HashMap<>();
 
     public ShopCreationUtil(Shop plugin){
         this.plugin = plugin;
@@ -50,7 +55,12 @@ public class ShopCreationUtil {
 
         if ((!plugin.usePerms() && !player.isOp()) || (plugin.usePerms() && !player.hasPermission("shop.operator"))) {
             if (numberOfShops >= buildPermissionNumber) {
-                ShopMessage.sendMessage("permission", "buildLimit", player, null);
+                if (player.isSneaking()) {
+                    if (!cooldowns.containsKey(player.getUniqueId()) || cooldowns.get(player.getUniqueId()) < System.currentTimeMillis()) {
+                        ShopMessage.sendMessage("permission", "buildLimit", player, null);
+                        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + 5000);
+                    }
+                }
                 return false;
             }
         }
@@ -183,45 +193,9 @@ public class ShopCreationUtil {
                 }
             }
 
-
+            // Only wall signs are supported. Sign posts are not supported.
             if (!(signBlock.getBlockData() instanceof WallSign)) {
-                if (!signBlock.getType().toString().contains("_SIGN")) {
-                    return null;
-                }
-                // Bug 1 fix: use matchMaterial() instead of valueOf() to avoid an uncaught
-                // IllegalArgumentException when the constructed wall-sign name isn't registered.
-                String wallSignString = signBlock.getType().toString().replaceAll("_SIGN", "_WALL_SIGN");
-                Material wallSignMaterial = Material.matchMaterial(wallSignString);
-                if (wallSignMaterial == null) {
-                    plugin.getLogger().warning("Shop creation failed: could not resolve wall sign material '" + wallSignString + "' for sign type '" + signBlock.getType() + "'. Aborting.");
-                    return null;
-                }
-
-                // Sign post to wall sign conversion: the sign post stands on a support block
-                // at Y+1 relative to the chest. The wall sign must be placed ON the chest block
-                // at the chest's Y-level, facing the chest. The sign post is then removed.
-                if (signBlock.getBlockData() instanceof Rotatable) {
-                    // Place wall sign on the chest block's face opposite to signDirection
-                    // (i.e., on the chest's face in the signDirection direction)
-                    Block wallSignBlock = chestBlock.getRelative(signDirection.getOppositeFace());
-                    wallSignBlock.setType(wallSignMaterial);
-                    Directional wallSignData = (Directional) wallSignBlock.getBlockData();
-                    wallSignData.setFacing(signDirection);
-                    wallSignBlock.setBlockData(wallSignData);
-                    wallSignBlock.getState().update();
-
-                    // Remove the sign post
-                    signBlock.setType(Material.AIR);
-
-                    // Update shop's sign location to the new wall sign location
-                    shop.setSignLocation(wallSignBlock.getLocation());
-                } else {
-                    // Already a wall sign (or other sign type), convert in place
-                    signBlock.setType(wallSignMaterial);
-                    Directional wallSignData = (Directional) signBlock.getBlockData();
-                    wallSignData.setFacing(signDirection);
-                    signBlock.setBlockData(wallSignData);
-                }
+                return null;
             }
             Sign signBlockState = (Sign) shop.getSignLocation().getBlock().getState();
             signBlockState.update();

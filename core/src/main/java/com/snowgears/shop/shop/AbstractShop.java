@@ -178,21 +178,12 @@ public abstract class AbstractShop {
 
             Block chestBlock;
 
-            // Bug 3 fix: load() previously required WallSign and deleted sign-post shops on
-            // reload. Sign-post shops (Rotatable block data) are valid — they are created via
-            // the onShopCreation sign-placement path. Accept both WallSign and Rotatable here,
-            // snapping the Rotatable rotation to the nearest cardinal face exactly as creation does.
             if (signBlock.getBlockData() instanceof WallSign) {
                 facing = ((WallSign) signBlock.getBlockData()).getFacing();
                 // Wall sign is mounted ON the chest block; chest is in the OPPOSITE direction of the sign's facing
                 chestBlock = signBlock.getRelative(facing.getOppositeFace());
-            } else if (signBlock.getBlockData() instanceof Rotatable) {
-                facing = snapToCardinal(((Rotatable) signBlock.getBlockData()).getRotation());
-                // Sign post stands on a block; chest is adjacent to that support block at ground level.
-                Block supportBlock = signBlock.getRelative(BlockFace.DOWN);
-                chestBlock = supportBlock.getRelative(facing);
             } else {
-                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign or sign post (detected: " + signBlock.getType() + "), deleting shop: " + this);
+                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign (detected: " + signBlock.getType() + "), deleting shop: " + this);
                 this.delete();
                 return false;
             }
