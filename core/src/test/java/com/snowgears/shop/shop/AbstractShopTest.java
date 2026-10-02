@@ -2,6 +2,7 @@ package com.snowgears.shop.shop;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.handler.ShopHandler;
+import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 import com.snowgears.shop.util.ShopLogger;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -10,14 +11,12 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.type.WallSign;
 import org.bukkit.inventory.ItemStack;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
-import org.mockbukkit.mockbukkit.MockBukkitExtension;
-import org.mockbukkit.mockbukkit.MockBukkitInject;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
 
 import java.util.UUID;
 
@@ -27,34 +26,28 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for AbstractShop core functionality.
  * Tests the critical fixes for NPEs, race conditions, and logic bugs.
  */
-@ExtendWith(MockBukkitExtension.class)
-class AbstractShopTest {
+@Tag("unit")
+class AbstractShopTest extends BaseMockBukkitTest {
 
-    @MockBukkitInject
-    private ServerMock server;
-
-    @MockBukkitInject
-    private World world;
-
-    private Shop plugin;
     private ShopHandler shopHandler;
+    private WorldMock world;
 
+    @Override
     @BeforeEach
-    void setUp() {
-        plugin = MockBukkit.loadSimple(Shop.class);
-        shopHandler = plugin.getShopHandler();
+    public void initServer() {
+        super.initServer();
+        shopHandler = getPlugin().getShopHandler();
+        world = getServer().addSimpleWorld("world");
     }
 
-    @AfterEach
-    void tearDown() {
-        // Do not manually call MockBukkit.unmock() when using @ExtendWith(MockBukkitExtension.class)
-        // The extension handles the MockBukkit lifecycle automatically.
+    private Location loc(int x, int y, int z) {
+        return new Location(world, x, y, z);
     }
 
     @Test
     void testIsInitializedReturnsFalseWhenItemNull() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // New shop without item should not be initialized
@@ -64,7 +57,7 @@ class AbstractShopTest {
     @Test
     void testIsInitializedReturnsTrueWhenItemSet() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // Setting item should mark as initialized
@@ -75,7 +68,7 @@ class AbstractShopTest {
     @Test
     void testGetItemStackReturnsNullWhenNotSet() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         assertNull(shop.getItemStack());
@@ -84,7 +77,7 @@ class AbstractShopTest {
     @Test
     void testGetItemStackReturnsClone() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         ItemStack original = new ItemStack(Material.DIAMOND);
@@ -101,7 +94,7 @@ class AbstractShopTest {
     @Test
     void testCalculateStockReturnsUnavailableWhenUninitialized() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // Uninitialized shop should return STOCK_UNAVAILABLE
@@ -111,7 +104,7 @@ class AbstractShopTest {
     @Test
     void testCalculateStockReturnsUnavailableWhenInventoryNull() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         shop.setItemStack(new ItemStack(Material.DIAMOND));
@@ -122,7 +115,7 @@ class AbstractShopTest {
     @Test
     void testUpdateStockSkipsWhenUnavailable() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // updateStock() should not throw NPE when stock is unavailable
@@ -133,7 +126,7 @@ class AbstractShopTest {
     @Test
     void testSetItemStackNullSafe() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // Setting null item should not throw
@@ -144,7 +137,7 @@ class AbstractShopTest {
     @Test
     void testGetChestLocationNullSafe() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
         SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
 
         // New shop has null chestLocation until load() is called
@@ -154,11 +147,11 @@ class AbstractShopTest {
     @Test
     void testDeleteHandlesNullDisplay() {
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(100, 64, 100);
 
         // delete() should not NPE if display is somehow null
         SellShop shop2 = new SellShop(
-            new Location(world, 200, 64, 200),
+            loc(200, 64, 200),
             ownerUUID,
             10.0,
             1,
@@ -184,8 +177,8 @@ class AbstractShopTest {
         // Sign on WEST face of chest (at x=100) -> sign at x=99 facing EAST
         // Chest should be at sign.getRelative(EAST) = x=100
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 99, 64, 100);
-        Location chestLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(99, 64, 100);
+        Location chestLocation = loc(100, 64, 100);
 
         // Place wall sign at signLocation
         Block signBlock = world.getBlockAt(signLocation);
@@ -212,13 +205,61 @@ class AbstractShopTest {
         // Sign on EAST face of chest (at x=100) -> sign at x=101 facing WEST
         // Chest should be at sign.getRelative(WEST) = x=100
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = new Location(world, 101, 64, 100);
-        Location chestLocation = new Location(world, 100, 64, 100);
+        Location signLocation = loc(101, 64, 100);
+        Location chestLocation = loc(100, 64, 100);
 
         Block signBlock = world.getBlockAt(signLocation);
         signBlock.setType(Material.OAK_WALL_SIGN);
         WallSign wallSignData = (WallSign) signBlock.getBlockData();
         wallSignData.setFacing(BlockFace.WEST); // Sign attached to east face of chest, faces WEST
+        signBlock.setBlockData(wallSignData);
+
+        Block chestBlock = world.getBlockAt(chestLocation);
+        chestBlock.setType(Material.CHEST);
+
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+
+        assertTrue(shop.load(), "Shop load should succeed");
+        assertEquals(chestLocation, shop.getChestLocation(), "Chest location should be resolved from sign facing");
+    }
+
+    @Test
+    void testLoadWallSignFacingSouth() {
+        // Sign on NORTH face of chest (at z=100) -> sign at z=101 facing SOUTH
+        // Chest should be at sign.getRelative(SOUTH) = z=100
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = loc(100, 64, 101);
+        Location chestLocation = loc(100, 64, 100);
+
+        Block signBlock = world.getBlockAt(signLocation);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign wallSignData = (WallSign) signBlock.getBlockData();
+        wallSignData.setFacing(BlockFace.SOUTH); // Sign attached to north face of chest, faces SOUTH
+        signBlock.setBlockData(wallSignData);
+
+        Block chestBlock = world.getBlockAt(chestLocation);
+        chestBlock.setType(Material.CHEST);
+
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+
+        assertTrue(shop.load(), "Shop load should succeed");
+        assertEquals(chestLocation, shop.getChestLocation(), "Chest location should be resolved from sign facing");
+    }
+
+    @Test
+    void testLoadWallSignFacingNorth() {
+        // Sign on SOUTH face of chest (at z=100) -> sign at z=99 facing NORTH
+        // Chest should be at sign.getRelative(NORTH) = z=100
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = loc(100, 64, 99);
+        Location chestLocation = loc(100, 64, 100);
+
+        Block signBlock = world.getBlockAt(signLocation);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign wallSignData = (WallSign) signBlock.getBlockData();
+        wallSignData.setFacing(BlockFace.NORTH); // Sign attached to south face of chest, faces NORTH
         signBlock.setBlockData(wallSignData);
 
         Block chestBlock = world.getBlockAt(chestLocation);
