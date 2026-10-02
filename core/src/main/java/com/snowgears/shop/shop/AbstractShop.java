@@ -190,7 +190,7 @@ public abstract class AbstractShop {
                 return false;
             }
 
-            Block chestBlock = signBlock.getRelative(facing.getOppositeFace());
+            Block chestBlock = signBlock.getRelative(facing);
             chestLocation = chestBlock.getLocation();
 
             if (!Shop.getPlugin().getShopHandler().isChest(chestBlock)){

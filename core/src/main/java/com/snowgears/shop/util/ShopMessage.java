@@ -871,11 +871,11 @@ public class ShopMessage {
     }
 
     public static String[] getShopSignText(String shopType) {
-        return shopSignTextMap.getOrDefault(shopType.toLowerCase(), new String[]{"Buy", "[item]", "[price]", "[stock]"});
+        return shopSignTextMap.getOrDefault(shopType.toUpperCase(), new String[]{"Buy", "[item]", "[price]", "[stock]"});
     }
 
     public static List<String> getDisplayText(String shopType) {
-        return displayTextMap.getOrDefault(shopType.toLowerCase(), Collections.emptyList());
+        return displayTextMap.getOrDefault(shopType.toUpperCase(), Collections.emptyList());
     }
 
     public static String getFreePriceWord() { return freePriceWord != null ? freePriceWord : "Free"; }
