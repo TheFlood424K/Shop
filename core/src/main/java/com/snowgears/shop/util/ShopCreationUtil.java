@@ -14,6 +14,7 @@ import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.block.*;
 import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.data.type.Light;
 import org.bukkit.block.data.type.WallSign;
 import org.bukkit.entity.Player;
@@ -195,13 +196,34 @@ public class ShopCreationUtil {
                     plugin.getLogger().warning("Shop creation failed: could not resolve wall sign material '" + wallSignString + "' for sign type '" + signBlock.getType() + "'. Aborting.");
                     return null;
                 }
-                signBlock.setType(wallSignMaterial);
 
-                Directional wallSignData = (Directional) signBlock.getBlockData();
-                wallSignData.setFacing(signDirection);
-                signBlock.setBlockData(wallSignData);
+                // Sign post to wall sign conversion: the sign post stands on a support block
+                // at Y+1 relative to the chest. The wall sign must be placed ON the chest block
+                // at the chest's Y-level, facing the chest. The sign post is then removed.
+                if (signBlock.getBlockData() instanceof Rotatable) {
+                    // Place wall sign on the chest block's face opposite to signDirection
+                    // (i.e., on the chest's face in the signDirection direction)
+                    Block wallSignBlock = chestBlock.getRelative(signDirection.getOppositeFace());
+                    wallSignBlock.setType(wallSignMaterial);
+                    Directional wallSignData = (Directional) wallSignBlock.getBlockData();
+                    wallSignData.setFacing(signDirection);
+                    wallSignBlock.setBlockData(wallSignData);
+                    wallSignBlock.getState().update();
+
+                    // Remove the sign post
+                    signBlock.setType(Material.AIR);
+
+                    // Update shop's sign location to the new wall sign location
+                    shop.setSignLocation(wallSignBlock.getLocation());
+                } else {
+                    // Already a wall sign (or other sign type), convert in place
+                    signBlock.setType(wallSignMaterial);
+                    Directional wallSignData = (Directional) signBlock.getBlockData();
+                    wallSignData.setFacing(signDirection);
+                    signBlock.setBlockData(wallSignData);
+                }
             }
-            Sign signBlockState = (Sign) signBlock.getState();
+            Sign signBlockState = (Sign) shop.getSignLocation().getBlock().getState();
             signBlockState.update();
 
             shop.setAdmin(isAdmin);

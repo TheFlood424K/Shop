@@ -125,10 +125,12 @@ public class MiscListener implements Listener {
         else if(b.getBlockData() instanceof Rotatable){ //regular sign post
             // Rotatable returns one of 16 directions; snap to the nearest cardinal so
             // that the chest lookup hits the correct adjacent block.
-            // For sign posts, the rotation IS the direction the sign faces (text direction),
-            // and the chest is in front of the sign in that same direction.
+            // For sign posts, the rotation IS the direction the sign faces (text direction).
+            // The sign post stands on a support block; the chest is adjacent to that
+            // support block at ground level, not at the sign post's Y-level.
             signDirection = snapToCardinal(((Rotatable) b.getBlockData()).getRotation());
-            chest = b.getRelative(signDirection);
+            Block supportBlock = b.getRelative(BlockFace.DOWN);
+            chest = supportBlock.getRelative(signDirection);
         }
         else
             return;
