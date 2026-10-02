@@ -184,8 +184,8 @@ public abstract class AbstractShop {
             // snapping the Rotatable rotation to the nearest cardinal face exactly as creation does.
             if (signBlock.getBlockData() instanceof WallSign) {
                 facing = ((WallSign) signBlock.getBlockData()).getFacing();
-                // Wall sign is mounted on the chest block; chest is in the direction the sign faces.
-                chestBlock = signBlock.getRelative(facing);
+                // Wall sign is mounted ON the chest block; chest is in the OPPOSITE direction of the sign's facing
+                chestBlock = signBlock.getRelative(facing.getOppositeFace());
             } else if (signBlock.getBlockData() instanceof Rotatable) {
                 facing = snapToCardinal(((Rotatable) signBlock.getBlockData()).getRotation());
                 // Sign post stands on a block; chest is adjacent to that support block at ground level.
