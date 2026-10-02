@@ -324,3 +324,12 @@ command:
       cmd_itemlist: "&f/[plugin] itemlist <add|remove> &7- &fManage item list"
       cmd_reload: "&f/[plugin] reload &7- &fReload the plugin"
       footer: "&8&m---------------------------------------------------"
+
+creation_words:
+  SHOP: "[Shop]"
+  SELL: "sell"
+  BUY: "buy"
+  BARTER: "barter"
+  COMBO: "combo"
+  GAMBLE: "gamble"
+  ADMIN: "admin"

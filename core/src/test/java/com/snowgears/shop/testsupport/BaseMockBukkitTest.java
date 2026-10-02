@@ -20,6 +20,7 @@ import org.mockbukkit.mockbukkit.world.WorldMock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
+import java.io.File;
 import java.util.Collections;
 
 /**
@@ -45,6 +46,9 @@ public abstract class BaseMockBukkitTest {
 
     @BeforeEach
     public void initServer() {
+        // Clean up data folder from previous test runs to avoid loading stale shops
+        cleanDataFolder();
+
         server = MockBukkit.mock();
         plugin = MockBukkit.load(Shop.class);
 
@@ -66,11 +70,32 @@ public abstract class BaseMockBukkitTest {
         plugin.onDisable();
         server.getScheduler().waitAsyncTasksFinished();
 
+        // Clean up data folder after test
+        cleanDataFolder();
+
         // Unmock the server to cleanup after ourselves
         MockBukkit.unmock();
 
         server = null;
         plugin = null;
+    }
+
+    private void cleanDataFolder() {
+        if (plugin != null) {
+            File dataFolder = plugin.getDataFolder();
+            if (dataFolder != null && dataFolder.exists()) {
+                deleteRecursive(dataFolder);
+            }
+        }
+    }
+
+    private void deleteRecursive(File file) {
+        if (file.isDirectory()) {
+            for (File child : file.listFiles()) {
+                deleteRecursive(child);
+            }
+        }
+        file.delete();
     }
 
     protected ServerMock getServer() {

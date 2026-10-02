@@ -12,6 +12,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.Sign;
 import org.bukkit.block.data.type.WallSign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.SignChangeEvent;
@@ -27,6 +28,7 @@ import org.mockbukkit.mockbukkit.world.WorldMock;
 import org.mockito.Mockito;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -56,7 +58,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         player = getServer().addPlayer();
         player.setOp(true);
 
-        // Enable sign and chest creation methods
+        // Enable sign and chest creation methods (field names from Shop class)
         setConfig("allowCreateMethodSign", true);
         setConfig("allowCreateMethodChest", true);
         setConfig("debug_shopCreateCooldown", 0);
@@ -94,30 +96,62 @@ class MiscListenerTest extends BaseMockBukkitTest {
         // Use unique location per test to avoid interference
         int offset = signFacing.ordinal() * 10;
         Location signLoc = new Location(world, 5 + offset, 65, 5 + offset);
+
+        // Place SIGN FIRST at signLoc
         Block signBlock = world.getBlockAt(signLoc);
         signBlock.setType(Material.OAK_WALL_SIGN);
         WallSign data = (WallSign) signBlock.getBlockData();
         data.setFacing(signFacing);
-        world.setBlockData(signBlock.getLocation(), data);
+        signBlock.setBlockData(data);
 
-        // Chest is at the OPPOSITE face of the sign's facing
-        // (WallSign.getFacing() returns direction text faces; chest is behind the sign)
-        BlockFace chestFace = signFacing.getOppositeFace();
-        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
-        Block chestBlock = world.getBlockAt(chestLoc);
+        // Place CHEST at the block the sign is attached to
+        // For a WallSign, the block it's attached to is at sign.getRelative(facing)
+        // (the sign faces TOWARDS the chest, so chest is in the SAME direction as the sign's facing)
+        // e.g., sign facing NORTH -> chest at sign.getRelative(NORTH) = (x, y, z-1)
+        // e.g., sign facing SOUTH -> chest at sign.getRelative(SOUTH) = (x, y, z+1)
+        // e.g., sign facing EAST -> chest at sign.getRelative(EAST) = (x+1, y, z)
+        // e.g., sign facing WEST -> chest at sign.getRelative(WEST) = (x-1, y, z)
+        // The plugin's onShopCreation uses: chest = b.getRelative(signDirection)
+        BlockFace actualFacing = ((WallSign) signBlock.getBlockData()).getFacing();
+        Block chestBlock = signBlock.getRelative(actualFacing);
         chestBlock.setType(Material.CHEST);
+        Location chestLoc = chestBlock.getLocation();
 
-        // Fire SignChangeEvent with proper lines
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
-        lines.add(net.kyori.adventure.text.Component.text("1"));
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        // Verify setup
+        assertEquals(Material.OAK_WALL_SIGN, world.getBlockAt(signLoc).getType(), "Sign should be at " + signLoc);
+        assertEquals(Material.CHEST, world.getBlockAt(chestLoc).getType(), "Chest should be at " + chestLoc);
+
+        // Verify chest is detected by ShopHandler
+        assertTrue(shopHandler.isChest(chestBlock), "ShopHandler should recognize chest at " + chestLoc);
+        assertEquals(chestBlock, signBlock.getRelative(actualFacing), "Chest should be at sign.getRelative(facing)");
+
+        System.out.println("DEBUG: signLoc=" + signLoc + " signFacing=" + signFacing + " actualFacing=" + actualFacing);
+        System.out.println("DEBUG: chestLoc=" + chestLoc + " chestType=" + chestBlock.getType());
+        System.out.println("DEBUG: sign.getRelative(" + actualFacing + ")=" + signBlock.getRelative(actualFacing).getLocation() + " type=" + signBlock.getRelative(actualFacing).getType());
+        System.out.println("DEBUG: creationWord=" + ShopMessage.getCreationWord("SHOP"));
+        System.out.println("DEBUG: allowCreateMethodSign=" + plugin.getAllowCreationMethodSign());
+        System.out.println("DEBUG: signBlock.getBlockData() instanceof WallSign=" + (signBlock.getBlockData() instanceof WallSign));
+        System.out.println("DEBUG: signBlock.getState() instanceof Sign=" + (signBlock.getState() instanceof Sign));
+
+        // Fire SignChangeEvent with proper lines (using String[] constructor for MockBukkit compatibility)
+        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String[] lines = {
+            creationWord,
+            "1",
+            "10",
+            ShopMessage.getCreationWord("SELL")
+        };
+        System.out.println("DEBUG: event lines=" + Arrays.toString(lines));
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines);
         getServer().getPluginManager().callEvent(signEvent);
+
+        // Check if shop was created (maybe immediately)
+        AbstractShop immediateShop = shopHandler.getShop(signLoc);
+        System.out.println("DEBUG: immediate shop after event=" + immediateShop);
 
         // Verify shop creation dialog sent (first message is initialCreateInstruction, second is initialize)
         String msg = waitForNextMessage(player);
+        System.out.println("DEBUG: waitForNextMessage returned: " + msg);
         assertNotNull(msg, "Player should receive initial instruction message: " + msg);
 
         // Drain remaining messages (initialize message for the shop type)
@@ -915,20 +949,23 @@ class MiscListenerTest extends BaseMockBukkitTest {
         signBlock.setType(Material.OAK_WALL_SIGN);
         WallSign data = (WallSign) signBlock.getBlockData();
         data.setFacing(BlockFace.NORTH);
-        world.setBlockData(signBlock.getLocation(), data);
+        signBlock.setBlockData(data);
 
-        BlockFace chestFace = BlockFace.NORTH.getOppositeFace();
-        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
+        // Chest is at the block the sign is attached to (opposite face of sign's facing)
+        BlockFace attachedFace = BlockFace.NORTH.getOppositeFace(); // SOUTH
+        Location chestLoc = signBlock.getRelative(attachedFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
-        lines.add(net.kyori.adventure.text.Component.text("1"));
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-
-        SignChangeEvent event = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        // Fire SignChangeEvent with proper lines (using String[] constructor for MockBukkit compatibility)
+        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String[] lines = {
+            creationWord,
+            "1",
+            "10",
+            ShopMessage.getCreationWord("SELL")
+        };
+        SignChangeEvent event = new SignChangeEvent(signBlock, player, lines);
         getServer().getPluginManager().callEvent(event);
         while (player.nextMessage() != null) {}
 

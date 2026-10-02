@@ -307,3 +307,12 @@ command:
    notify_stock: "&7Your notifications for your shops running out of stock are now [notify stock]"
    notify_on: "&aON"
    notify_off: "&cOFF"
+
+creation_words:
+  SHOP: "[Shop]"
+  SELL: "sell"
+  BUY: "buy"
+  BARTER: "barter"
+  COMBO: "combo"
+  GAMBLE: "gamble"
+  ADMIN: "admin"
