@@ -364,6 +364,40 @@ This fork is **326+ commits ahead** of upstream `master`.
 
 ---
 
+## 🆕 Recent Improvements from Izopropyl/Shop Fork
+
+The following improvements were cherry-picked from the [Izopropyl/Shop](https://github.com/Izopropyl/Shop) fork (compare: [master...Izopropyl:master](https://github.com/snowgears/Shop/compare/master...Izopropyl:Shop:master)):
+
+### 🛡️ Shop Creation Spam Prevention
+- **Cooldown system** in `ShopCreationUtil` — 5-second cooldown prevents build limit messages from spamming chat when players rapidly try to create shops beyond their limit
+- **File:** `core/src/main/java/com/snowgears/shop/util/ShopCreationUtil.java`
+
+### ⚔️ Spear/Trident Attack Listener
+- **New `SpearAttackListener`** — Detects spear/trident attacks (ARM_SWING with items containing "SPEAR" in name) and forwards them to shop creation logic
+- Allows spear users to interact with shop signs naturally
+- **File:** `core/src/main/java/com/snowgears/shop/listener/SpearAttackListener.java`
+
+### 🎨 Display Logic Simplification
+- **Only `NONE` and `ITEM` displays spawn** — `LARGE_ITEM`, `GLASS_CASE`, and `ITEM_FRAME` display types are now disabled by default
+- Reduces entity overhead and visual clutter
+- **File:** `core/src/main/java/com/snowgears/shop/display/AbstractDisplay.java`
+
+### ⚡ Menu Button Cooldown (Lag Exploit Prevention)
+- **250ms cooldown** on `/shop` GUI button clicks prevents rapid clicking exploits
+- **File:** `core/src/main/java/com/snowgears/shop/gui/ShopGUIListener.java`
+
+### 🔧 Sign System Refactor
+- **Removed sign post (standing sign) support** — Only wall signs are now supported
+- Simplifies chest detection logic significantly
+- **Files:** `MiscListener.java`, `ShopCreationUtil.java`, `AbstractShop.java`, `ShopHandler.java`
+
+### 📚 Documentation Updates
+- Updated [Player Instructions](wiki/player-instructions.md) to clarify wall sign placement
+- Wall signs must be attached directly to the chest block (not placed on ground)
+- **File:** `wiki/player-instructions.md`
+
+---
+
 ## 🤝 Contributing
 
 Pull requests are welcome! Please ensure:
