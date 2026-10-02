@@ -6,7 +6,9 @@ import com.snowgears.shop.util.ShopLogger;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.WallSign;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -174,5 +176,58 @@ class AbstractShopTest {
         }
 
         assertDoesNotThrow(() -> shop2.delete());
+    }
+
+    @Test
+    void testLoadWallSignResolvesChestCorrectly() {
+        // Test that load() correctly resolves chest location from wall sign facing
+        // Sign on WEST face of chest (at x=100) -> sign at x=99 facing EAST
+        // Chest should be at sign.getRelative(EAST) = x=100
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 99, 64, 100);
+        Location chestLocation = new Location(world, 100, 64, 100);
+
+        // Place wall sign at signLocation
+        Block signBlock = world.getBlockAt(signLocation);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign wallSignData = (WallSign) signBlock.getBlockData();
+        wallSignData.setFacing(BlockFace.EAST); // Sign attached to west face of chest, faces EAST
+        signBlock.setBlockData(wallSignData);
+
+        // Place chest at chestLocation (EAST of sign)
+        Block chestBlock = world.getBlockAt(chestLocation);
+        chestBlock.setType(Material.CHEST);
+
+        // Create shop with sign location and NORTH facing (will be overridden by load)
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+
+        // Load should read the sign's facing and resolve chest correctly
+        assertTrue(shop.load(), "Shop load should succeed");
+        assertEquals(chestLocation, shop.getChestLocation(), "Chest location should be resolved from sign facing");
+    }
+
+    @Test
+    void testLoadWallSignOppositeFace() {
+        // Sign on EAST face of chest (at x=100) -> sign at x=101 facing WEST
+        // Chest should be at sign.getRelative(WEST) = x=100
+        UUID ownerUUID = UUID.randomUUID();
+        Location signLocation = new Location(world, 101, 64, 100);
+        Location chestLocation = new Location(world, 100, 64, 100);
+
+        Block signBlock = world.getBlockAt(signLocation);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign wallSignData = (WallSign) signBlock.getBlockData();
+        wallSignData.setFacing(BlockFace.WEST); // Sign attached to east face of chest, faces WEST
+        signBlock.setBlockData(wallSignData);
+
+        Block chestBlock = world.getBlockAt(chestLocation);
+        chestBlock.setType(Material.CHEST);
+
+        SellShop shop = new SellShop(signLocation, ownerUUID, 10.0, 1, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+
+        assertTrue(shop.load(), "Shop load should succeed");
+        assertEquals(chestLocation, shop.getChestLocation(), "Chest location should be resolved from sign facing");
     }
 }
