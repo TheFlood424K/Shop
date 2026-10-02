@@ -69,58 +69,60 @@ class MiscListenerTest extends BaseMockBukkitTest {
     @Test
     @DisplayName("Wall sign facing SOUTH detects chest to the north")
     void testWallSignFacingSouth_chestNorth() {
-        testWallSignCreation(BlockFace.SOUTH, BlockFace.NORTH);
+        testWallSignCreation(BlockFace.SOUTH);
     }
 
     @Test
     @DisplayName("Wall sign facing NORTH detects chest to the south")
     void testWallSignFacingNorth_chestSouth() {
-        testWallSignCreation(BlockFace.NORTH, BlockFace.SOUTH);
+        testWallSignCreation(BlockFace.NORTH);
     }
 
     @Test
     @DisplayName("Wall sign facing EAST detects chest to the west")
     void testWallSignFacingEast_chestWest() {
-        testWallSignCreation(BlockFace.EAST, BlockFace.WEST);
+        testWallSignCreation(BlockFace.EAST);
     }
 
     @Test
     @DisplayName("Wall sign facing WEST detects chest to the east")
     void testWallSignFacingWest_chestEast() {
-        testWallSignCreation(BlockFace.WEST, BlockFace.EAST);
+        testWallSignCreation(BlockFace.WEST);
     }
 
-    private void testWallSignCreation(BlockFace signFacing, BlockFace chestRelative) {
-        // Place chest
-        Location chestLoc = new Location(world, 100, 64, 100);
+    private void testWallSignCreation(BlockFace signFacing) {
+        // Use unique location per test to avoid interference
+        int offset = signFacing.ordinal() * 10;
+        Location signLoc = new Location(world, 5 + offset, 65, 5 + offset);
+        Block signBlock = world.getBlockAt(signLoc);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(signFacing);
+        world.setBlockData(signBlock.getLocation(), data);
+
+        // Chest is in the SAME direction as the sign's facing
+        // (WallSign.getFacing() returns the direction the text faces, which is TOWARDS the chest)
+        BlockFace chestFace = signFacing;
+        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        // Place wall sign on the correct face
-        Block signBlock = world.getBlockAt(chestLoc.clone().add(chestRelative.getModX(), 0, chestRelative.getModZ()));
-        signBlock.setType(Material.OAK_WALL_SIGN);
-        WallSign signData = (WallSign) signBlock.getBlockData();
-        signData.setFacing(signFacing);
-        signBlock.setBlockData(signData);
-
-        // Fire SignChangeEvent
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        // Fire SignChangeEvent with proper lines
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
+        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
         lines.add(net.kyori.adventure.text.Component.text("1"));
         lines.add(net.kyori.adventure.text.Component.text("10"));
         lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-
-        SignChangeEvent event = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        getServer().getPluginManager().callEvent(signEvent);
 
         // Verify shop creation dialog sent
         String msg = waitForNextMessage(player);
-        assertNotNull(msg);
-        assertTrue(msg.contains("hit the sign with the item"), "Player should be prompted to initialize shop");
+        assertNotNull(msg, "Player should be prompted to initialize shop");
+        assertTrue(msg.contains("hit the sign with the item"), "Player should be prompted to initialize shop: " + msg);
 
         // Verify shop registered
-        AbstractShop shop = shopHandler.getShop(signBlock.getLocation());
+        AbstractShop shop = shopHandler.getShop(signLoc);
         assertNotNull(shop, "Shop should be created and registered");
         assertFalse(shop.isInitialized(), "Shop should not be initialized yet");
     }
@@ -128,28 +130,29 @@ class MiscListenerTest extends BaseMockBukkitTest {
     @Test
     @DisplayName("Sign without creation word is ignored")
     void testNonShopSignIgnored() {
-        Location chestLoc = new Location(world, 100, 64, 100);
+        Location signLoc = new Location(world, 100, 64, 100);
+        Block signBlock = world.getBlockAt(signLoc);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(BlockFace.NORTH);
+        world.setBlockData(signBlock.getLocation(), data);
+
+        BlockFace chestFace = BlockFace.NORTH;
+        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
-
-        Block signBlock = world.getBlockAt(100, 64, 101);
-        signBlock.setType(Material.OAK_WALL_SIGN);
-        WallSign signData = (WallSign) signBlock.getBlockData();
-        signData.setFacing(BlockFace.SOUTH);
-        signBlock.setBlockData(signData);
 
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
         lines.add(net.kyori.adventure.text.Component.text("Not a shop"));
         lines.add(net.kyori.adventure.text.Component.text("1"));
         lines.add(net.kyori.adventure.text.Component.text("10"));
         lines.add(net.kyori.adventure.text.Component.text("sell"));
-
-        SignChangeEvent event = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        getServer().getPluginManager().callEvent(signEvent);
 
         // No message should be sent
         assertNull(player.nextMessage(), "No message should be sent for non-shop signs");
-        assertNull(shopHandler.getShop(signBlock.getLocation()), "No shop should be created");
+        assertNull(shopHandler.getShop(signLoc), "No shop should be created");
     }
 
     @Test
@@ -157,131 +160,131 @@ class MiscListenerTest extends BaseMockBukkitTest {
     void testSignCreationDisabled() {
         setConfig("allowCreateMethodSign", false);
 
-        Location chestLoc = new Location(world, 100, 64, 100);
+        Location signLoc = new Location(world, 100, 64, 100);
+        Block signBlock = world.getBlockAt(signLoc);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(BlockFace.NORTH);
+        world.setBlockData(signBlock.getLocation(), data);
+
+        BlockFace chestFace = BlockFace.NORTH;
+        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        Block signBlock = world.getBlockAt(100, 64, 101);
-        signBlock.setType(Material.OAK_WALL_SIGN);
-        WallSign signData = (WallSign) signBlock.getBlockData();
-        signData.setFacing(BlockFace.SOUTH);
-        signBlock.setBlockData(signData);
-
-        String creationWord = ShopMessage.getCreationWord("SHOP");
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
+        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
         lines.add(net.kyori.adventure.text.Component.text("1"));
         lines.add(net.kyori.adventure.text.Component.text("10"));
         lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-
-        SignChangeEvent event = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        getServer().getPluginManager().callEvent(signEvent);
 
         assertNull(player.nextMessage(), "No message when creation disabled");
-        assertNull(shopHandler.getShop(signBlock.getLocation()), "No shop created when disabled");
+        assertNull(shopHandler.getShop(signLoc), "No shop created when disabled");
     }
 
     @Test
     @DisplayName("Invalid amount (zero) on line 2 rejects creation")
     void testInvalidAmountZero() {
-        setupValidSignAndChest();
-
-        String creationWord = ShopMessage.getCreationWord("SHOP");
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
-        lines.add(net.kyori.adventure.text.Component.text("0")); // Invalid: zero
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-
-        SignChangeEvent event = new SignChangeEvent(getSignBlock(), player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
-
-        String msg = waitForNextMessage(player);
-        assertNotNull(msg);
-        assertTrue(msg.contains("positive number"), "Should reject zero amount");
-        assertNull(shopHandler.getShop(getSignBlock().getLocation()), "No shop should be created");
+        testInvalidSignLine("0", "positive number");
     }
 
     @Test
     @DisplayName("Invalid amount (negative) on line 2 rejects creation")
     void testInvalidAmountNegative() {
-        setupValidSignAndChest();
-
-        String creationWord = ShopMessage.getCreationWord("SHOP");
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
-        lines.add(net.kyori.adventure.text.Component.text("-5")); // Invalid: negative
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-
-        SignChangeEvent event = new SignChangeEvent(getSignBlock(), player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
-
-        String msg = waitForNextMessage(player);
-        assertNotNull(msg);
-        assertTrue(msg.contains("positive number"), "Should reject negative amount");
+        testInvalidSignLine("-5", "positive number");
     }
 
     @Test
     @DisplayName("Non-numeric amount on line 2 rejects creation")
     void testNonNumericAmount() {
-        setupValidSignAndChest();
+        testInvalidSignLine("abc", "positive number");
+    }
 
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+    private void testInvalidSignLine(String amount, String expectedError) {
+        Location signLoc = new Location(world, 100, 64, 100);
+        Block signBlock = world.getBlockAt(signLoc);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(BlockFace.NORTH);
+        world.setBlockData(signBlock.getLocation(), data);
+
+        BlockFace chestFace = BlockFace.NORTH;
+        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
-        lines.add(net.kyori.adventure.text.Component.text("abc")); // Invalid: not a number
+        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
+        lines.add(net.kyori.adventure.text.Component.text(amount));
         lines.add(net.kyori.adventure.text.Component.text("10"));
         lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-
-        SignChangeEvent event = new SignChangeEvent(getSignBlock(), player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        getServer().getPluginManager().callEvent(signEvent);
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("positive number"), "Should reject non-numeric amount");
+        assertTrue(msg.contains(expectedError), "Should reject invalid amount: " + msg);
+        assertNull(shopHandler.getShop(signLoc), "No shop should be created");
     }
 
     @Test
     @DisplayName("Invalid price on line 3 rejects creation")
     void testInvalidPrice() {
-        setupValidSignAndChest();
+        Location signLoc = new Location(world, 100, 64, 100);
+        Block signBlock = world.getBlockAt(signLoc);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(BlockFace.NORTH);
+        world.setBlockData(signBlock.getLocation(), data);
 
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        BlockFace chestFace = BlockFace.NORTH;
+        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
+        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
         lines.add(net.kyori.adventure.text.Component.text("1"));
-        lines.add(net.kyori.adventure.text.Component.text("abc")); // Invalid: not a number
+        lines.add(net.kyori.adventure.text.Component.text("abc"));
         lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-
-        SignChangeEvent event = new SignChangeEvent(getSignBlock(), player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        getServer().getPluginManager().callEvent(signEvent);
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("price") || msg.contains("number"), "Should reject invalid price");
+        assertTrue(msg.contains("price") || msg.contains("number"), "Should reject invalid price: " + msg);
     }
 
     @Test
     @DisplayName("Admin shop creation via 'admin' keyword on line 3")
     void testAdminShopCreation() {
-        setupValidSignAndChest();
+        Location signLoc = new Location(world, 100, 64, 100);
+        Block signBlock = world.getBlockAt(signLoc);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(BlockFace.NORTH);
+        world.setBlockData(signBlock.getLocation(), data);
 
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        BlockFace chestFace = BlockFace.NORTH;
+        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
+        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
         lines.add(net.kyori.adventure.text.Component.text("1"));
         lines.add(net.kyori.adventure.text.Component.text("10"));
         lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL") + " admin"));
-
-        SignChangeEvent event = new SignChangeEvent(getSignBlock(), player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        getServer().getPluginManager().callEvent(signEvent);
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("unlimited stock") || msg.contains("admin"), "Should show admin creation message");
+        assertTrue(msg.contains("unlimited stock") || msg.contains("admin"), "Should show admin creation message: " + msg);
 
-        AbstractShop shop = shopHandler.getShop(getSignBlock().getLocation());
+        AbstractShop shop = shopHandler.getShop(signLoc);
         assertNotNull(shop);
         assertTrue(shop.isAdmin(), "Shop should be admin");
     }
@@ -289,44 +292,47 @@ class MiscListenerTest extends BaseMockBukkitTest {
     @Test
     @DisplayName("Case-insensitive [shop] tag works")
     void testCaseInsensitiveShopTag() {
-        setupValidSignAndChest();
+        Location signLoc = new Location(world, 100, 64, 100);
+        Block signBlock = world.getBlockAt(signLoc);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(BlockFace.NORTH);
+        world.setBlockData(signBlock.getLocation(), data);
 
-        String creationWord = ShopMessage.getCreationWord("SHOP").toLowerCase();
+        BlockFace chestFace = BlockFace.NORTH;
+        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
+        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP").toLowerCase()));
         lines.add(net.kyori.adventure.text.Component.text("1"));
         lines.add(net.kyori.adventure.text.Component.text("10"));
         lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-
-        SignChangeEvent event = new SignChangeEvent(getSignBlock(), player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        getServer().getPluginManager().callEvent(signEvent);
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("hit the sign with the item"), "Case-insensitive tag should work");
+        assertTrue(msg.contains("hit the sign with the item"), "Case-insensitive tag should work: " + msg);
     }
 
     @Test
     @DisplayName("Ground sign (non-wall) is ignored")
     void testGroundSignIgnored() {
-        Location chestLoc = new Location(world, 100, 64, 100);
-        Block chestBlock = world.getBlockAt(chestLoc);
-        chestBlock.setType(Material.CHEST);
-
-        Block signBlock = world.getBlockAt(100, 64, 101);
+        Location signLoc = new Location(world, 100, 64, 100);
+        Block signBlock = world.getBlockAt(signLoc);
         signBlock.setType(Material.OAK_SIGN); // Ground sign, not wall sign
 
-        String creationWord = ShopMessage.getCreationWord("SHOP");
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
+        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
         lines.add(net.kyori.adventure.text.Component.text("1"));
         lines.add(net.kyori.adventure.text.Component.text("10"));
         lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        getServer().getPluginManager().callEvent(signEvent);
 
-        SignChangeEvent event = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
-        getServer().getPluginManager().callEvent(event);
-
-        assertNull(shopHandler.getShop(signBlock.getLocation()), "Ground sign should not create shop");
+        assertNull(shopHandler.getShop(signLoc), "Ground sign should not create shop");
     }
 
     // ============================================================
@@ -336,7 +342,6 @@ class MiscListenerTest extends BaseMockBukkitTest {
     @Test
     @DisplayName("Bucket empty on wall sign cancels event")
     void testBucketEmptyOnWallSign() {
-        // Create a shop first
         AbstractShop shop = createInitializedShopViaSign();
 
         org.bukkit.event.player.PlayerBucketEmptyEvent event = mock(org.bukkit.event.player.PlayerBucketEmptyEvent.class);
@@ -352,11 +357,12 @@ class MiscListenerTest extends BaseMockBukkitTest {
     @Test
     @DisplayName("Bucket empty on non-shop wall sign does not cancel")
     void testBucketEmptyOnNonShopWallSign() {
-        Block signBlock = world.getBlockAt(200, 64, 100);
+        Location signLoc = new Location(world, 200, 64, 100);
+        Block signBlock = world.getBlockAt(signLoc);
         signBlock.setType(Material.OAK_WALL_SIGN);
-        WallSign signData = (WallSign) signBlock.getBlockData();
-        signData.setFacing(BlockFace.NORTH);
-        signBlock.setBlockData(signData);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(BlockFace.NORTH);
+        world.setBlockData(signBlock.getLocation(), data);
 
         org.bukkit.event.player.PlayerBucketEmptyEvent event = mock(org.bukkit.event.player.PlayerBucketEmptyEvent.class);
         when(event.getBlockClicked()).thenReturn(signBlock);
@@ -446,7 +452,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("timed out"), "Should receive timeout message");
+        assertTrue(msg.contains("timed out"), "Should receive timeout message: " + msg);
         assertNull(shopHandler.getShopByChest(chestBlock), "No shop should exist after timeout");
     }
 
@@ -455,15 +461,11 @@ class MiscListenerTest extends BaseMockBukkitTest {
     void testBarterShopCreation() {
         Location chestLoc = new Location(world, 100, 64, 100);
         ItemStack sellItem = new ItemStack(Material.DIAMOND);
-        ItemStack barterItem = new ItemStack(Material.GOLD_INGOT);
 
-        // Start creation
         AbstractShop shop = ShopCreationFlowTestUtil.createShopViaChestFlow(
                 getServer(), plugin, player, world, chestLoc, sellItem, "barter", 1, "1", true
         );
 
-        // Barter shop needs second item - the test util only does basic creation
-        // This verifies the barter type is recognized
         assertNotNull(shop);
         assertEquals(ShopType.BARTER, shop.getType());
     }
@@ -510,7 +512,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("destroyed"), "Should receive destroy confirmation");
+        assertTrue(msg.contains("destroyed"), "Should receive destroy confirmation: " + msg);
         assertEquals(Material.AIR, world.getBlockAt(shop.getSignLocation()).getType(), "Sign should be broken");
         assertNull(shopHandler.getShop(shop.getSignLocation()), "Shop should be removed");
     }
@@ -549,7 +551,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         String msg = waitForNextMessage(other);
         assertNotNull(msg);
-        assertTrue(msg.contains("not authorized"), "Should deny non-owner");
+        assertTrue(msg.contains("not authorized"), "Should deny non-owner: " + msg);
         assertNotNull(shopHandler.getShop(shop.getSignLocation()), "Shop should remain");
     }
 
@@ -566,7 +568,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         String msg = waitForNextMessage(operator);
         assertNotNull(msg);
-        assertTrue(msg.contains("destroyed"), "Operator should be able to destroy");
+        assertTrue(msg.contains("destroyed"), "Operator should be able to destroy: " + msg);
         assertNull(shopHandler.getShop(shop.getSignLocation()), "Shop should be removed");
     }
 
@@ -582,7 +584,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("must remove the sign"), "Should prompt to break sign first");
+        assertTrue(msg.contains("must remove the sign"), "Should prompt to break sign first: " + msg);
         assertEquals(Material.CHEST, chestBlock.getType(), "Chest should not break");
     }
 
@@ -683,7 +685,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("Cancelled"), "Should receive cancel message");
+        assertTrue(msg.contains("Cancelled"), "Should receive cancel message: " + msg);
         assertNull(miscListener.getShopCreationProcess(player), "Process should be removed");
     }
 
@@ -704,8 +706,6 @@ class MiscListenerTest extends BaseMockBukkitTest {
                 chestBlock, BlockFace.NORTH, org.bukkit.inventory.EquipmentSlot.HAND
         );
         getServer().getPluginManager().callEvent(startCreate);
-
-        // Drain messages
         while (player.nextMessage() != null) {}
 
         assertNotNull(miscListener.getShopCreationProcess(player), "Should return process");
@@ -781,7 +781,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        assertTrue(msg.contains("cooldown") || msg.contains("few seconds"), "Should be blocked by cooldown");
+        assertTrue(msg.contains("cooldown") || msg.contains("few seconds"), "Should be blocked by cooldown: " + msg);
     }
 
     // ============================================================
@@ -801,7 +801,6 @@ class MiscListenerTest extends BaseMockBukkitTest {
             fail("Reflection failed: " + e.getMessage());
         }
 
-        // Mock player targeting the sign
         // Note: MockBukkit doesn't fully support getTargetBlockExact
         // This test verifies the method doesn't throw
         boolean result = miscListener.isPlayerTargetingShopCreationBlock(player);
@@ -906,37 +905,22 @@ class MiscListenerTest extends BaseMockBukkitTest {
     // HELPER METHODS
     // ============================================================
 
-    private void setupValidSignAndChest() {
-        Location chestLoc = new Location(world, 100, 64, 100);
-        Block chestBlock = world.getBlockAt(chestLoc);
-        chestBlock.setType(Material.CHEST);
-
-        Block signBlock = world.getBlockAt(100, 64, 101);
-        signBlock.setType(Material.OAK_WALL_SIGN);
-        WallSign signData = (WallSign) signBlock.getBlockData();
-        signData.setFacing(BlockFace.SOUTH);
-        signBlock.setBlockData(signData);
-    }
-
-    private Block getSignBlock() {
-        return world.getBlockAt(100, 64, 101);
-    }
-
     private AbstractShop createInitializedShopViaSign() {
         // Create via sign method
-        Location chestLoc = new Location(world, 100, 64, 100);
+        Location signLoc = new Location(world, 100, 64, 100);
+        Block signBlock = world.getBlockAt(signLoc);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(BlockFace.NORTH);
+        world.setBlockData(signBlock.getLocation(), data);
+
+        BlockFace chestFace = BlockFace.NORTH;
+        Location chestLoc = signBlock.getRelative(chestFace).getLocation();
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        Block signBlock = world.getBlockAt(100, 64, 101);
-        signBlock.setType(Material.OAK_WALL_SIGN);
-        WallSign signData = (WallSign) signBlock.getBlockData();
-        signData.setFacing(BlockFace.SOUTH);
-        signBlock.setBlockData(signData);
-
-        String creationWord = ShopMessage.getCreationWord("SHOP");
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(creationWord));
+        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
         lines.add(net.kyori.adventure.text.Component.text("1"));
         lines.add(net.kyori.adventure.text.Component.text("10"));
         lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
@@ -945,8 +929,8 @@ class MiscListenerTest extends BaseMockBukkitTest {
         getServer().getPluginManager().callEvent(event);
         while (player.nextMessage() != null) {}
 
-        AbstractShop shop = shopHandler.getShop(signBlock.getLocation());
-        assertNotNull(shop);
+        AbstractShop shop = shopHandler.getShop(signLoc);
+        assertNotNull(shop, "Shop should be created");
 
         // Initialize with item
         ItemStack initItem = new ItemStack(Material.DIAMOND);

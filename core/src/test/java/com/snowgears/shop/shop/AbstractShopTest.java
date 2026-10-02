@@ -226,10 +226,10 @@ class AbstractShopTest extends BaseMockBukkitTest {
 
     @Test
     void testLoadWallSignFacingSouth() {
-        // Sign on NORTH face of chest (at z=100) -> sign at z=101 facing SOUTH
+        // Sign on NORTH face of chest (at z=100) -> sign at z=99 facing SOUTH
         // Chest should be at sign.getRelative(SOUTH) = z=100
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = loc(100, 64, 101);
+        Location signLocation = loc(100, 64, 99);
         Location chestLocation = loc(100, 64, 100);
 
         Block signBlock = world.getBlockAt(signLocation);
@@ -250,10 +250,10 @@ class AbstractShopTest extends BaseMockBukkitTest {
 
     @Test
     void testLoadWallSignFacingNorth() {
-        // Sign on SOUTH face of chest (at z=100) -> sign at z=99 facing NORTH
+        // Sign on SOUTH face of chest (at z=100) -> sign at z=101 facing NORTH
         // Chest should be at sign.getRelative(NORTH) = z=100
         UUID ownerUUID = UUID.randomUUID();
-        Location signLocation = loc(100, 64, 99);
+        Location signLocation = loc(100, 64, 101);
         Location chestLocation = loc(100, 64, 100);
 
         Block signBlock = world.getBlockAt(signLocation);

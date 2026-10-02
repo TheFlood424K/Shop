@@ -120,9 +120,9 @@ public class MiscListener implements Listener {
         Block chest = null;
         if(b.getBlockData() instanceof WallSign) {
             signDirection = ((WallSign) b.getBlockData()).getFacing();
-            // Wall sign is mounted ON the chest block; chest is in the SAME direction as the sign's facing
-            // (the sign text faces the chest)
-            chest = b.getRelative(signDirection);
+            // Wall sign is mounted ON the chest block; the sign's text faces the signDirection.
+            // The chest is behind the sign, in the OPPOSITE direction of the sign's facing.
+            chest = b.getRelative(signDirection.getOppositeFace());
         }
         else
             return;
@@ -184,6 +184,8 @@ public class MiscListener implements Listener {
                 playerChatCreationSteps.put(player.getUniqueId(), process);
 
                 process.displayFloatingText(type.toString(), "initialize");
+                // Send initial creation instruction message so player knows what to do next
+                ShopMessage.sendMessage("initialCreateInstruction", null, process, player);
                 if (plugin.allowCreativeSelection() && (type == ShopType.BUY || type == ShopType.COMBO)) {
                     ShopMessage.sendMessage(type.toString(), "initializeAlt", player, shop);
                 }

@@ -180,9 +180,9 @@ public abstract class AbstractShop {
 
             if (signBlock.getBlockData() instanceof WallSign) {
                 facing = ((WallSign) signBlock.getBlockData()).getFacing();
-                // Wall sign is mounted ON the chest block; chest is in the SAME direction as the sign's facing
-                // (the sign text faces the chest)
-                chestBlock = signBlock.getRelative(facing);
+                // Wall sign is mounted ON the chest block; the sign's text faces the facing direction.
+                // The chest is behind the sign, in the OPPOSITE direction of the sign's facing.
+                chestBlock = signBlock.getRelative(facing.getOppositeFace());
             } else {
                 Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign (detected: " + signBlock.getType() + "), deleting shop: " + this);
                 this.delete();
