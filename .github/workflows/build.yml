@@ -260,28 +260,19 @@ jobs:
                           if failure is not None:
                               failed += 1
                               total += 1
-                              msg = (failure.text or "").strip().replace("|", "\\|")
-                              failures_detail.append((classname, method, msg, "❌ FAIL"))
+                              msg = (failure.text or "").strip()
+                              # Truncate at first line, max 200 chars
+                              msg = msg.split('\n')[0][:200]
+                              failures_detail.append((classname, method, msg, "FAIL"))
                           elif error is not None:
                               failed += 1
                               total += 1
-                              msg = (error.text or "").strip().replace("|", "\\|")
-                              failures_detail.append((classname, method, msg, "💥 ERROR"))
+                              msg = (error.text or "").strip()
+                              msg = msg.split('\n')[0][:200]
+                              failures_detail.append((classname, method, msg, "ERROR"))
                           elif skipped_elem is not None:
                               skipped += 1
                               total += 1
-                              skip_msg = skipped_elem.get("message", "")
-                              if not skip_msg:
-                                  skip_msg = (skipped_elem.text or "").strip()
-                              if not skip_msg:
-                                  for child in skipped_elem:
-                                      if child.text:
-                                          skip_msg = child.text.strip()
-                                          break
-                              if not skip_msg:
-                                  skip_msg = "Skipped (no reason given)"
-                              skip_msg = skip_msg.replace("|", "\\|")
-                              failures_detail.append((classname, method, skip_msg, "⏭️ SKIP"))
                           else:
                               passed += 1
                               total += 1
@@ -299,13 +290,8 @@ jobs:
           if remaining < 0:
               remaining = 0
 
-          # Use HTML spans with inline styles for reliable color rendering
-          bar = (
-              f'<span style="color:#2ecc71;">{"█" * filled}</span>'
-              f'<span style="color:#e74c3c;">{"█" * failed_filled}</span>'
-              f'<span style="color:#f39c12;">{"█" * skipped_filled}</span>'
-              f'<span style="color:#95a5a6;">{"█" * remaining}</span>'
-          )
+          # Use emoji blocks - they render in GitHub markdown
+          bar = "🟩" * filled + "🟥" * failed_filled + "🟨" * skipped_filled + "⬜" * remaining
 
           lines = []
           lines.append("## 🧪 Test Results")
@@ -316,36 +302,29 @@ jobs:
           if total > 0:
               lines.append("| Status | Count | Percentage |")
               lines.append("|--------|-------|------------|")
-              lines.append(f"| <span style=\"color:#2ecc71;\">●</span> Passed | **{passed}** | {passed/total*100:.1f}% |")
+              lines.append(f"| 🟩 Passed | **{passed}** | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| <span style=\"color:#e74c3c;\">●</span> Failed | **{failed}** | {failed/total*100:.1f}% |")
+                  lines.append(f"| 🟥 Failed | **{failed}** | {failed/total*100:.1f}% |")
               if skipped > 0:
-                  lines.append(f"| <span style=\"color:#f39c12;\">●</span> Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+                  lines.append(f"| 🟨 Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
           if failures_detail:
-              lines.append("### ❌ All Test Failures")
+              lines.append("### ❌ Test Failures")
               lines.append("")
-              lines.append("| Class | Method | Status | Message | Details |")
-              lines.append("|-------|--------|--------|---------|---------|")
+              lines.append("| Class | Method | Status | Message |")
+              lines.append("|-------|--------|--------|---------|")
 
               class_groups = defaultdict(list)
               for classname, method, msg, status in failures_detail:
                   class_groups[classname].append((method, msg, status))
 
               for classname, methods in class_groups.items():
-                  first_method, first_msg, first_status = methods[0]
-                  msg_short = first_msg[:120] + ("..." if len(first_msg) > 120 else "")
-
-                  detail_lines = []
                   for method, msg, status in methods:
-                      msg_escaped = msg.replace("\n", "<br>").replace("|", "\\|")
-                      detail_lines.append(f"- **{method}** ({status}): {msg_escaped}")
-
-                  detail = "\n".join(detail_lines)
-
-                  lines.append(f"| {classname} | {first_method} | {first_status} | {msg_short} | <details><summary>{len(methods)} tests</summary>\n\n{detail}\n</details> |")
+                      msg_short = msg[:150] + ("..." if len(msg) > 150 else "")
+                      short_class = classname if len(classname) <= 50 else "..." + classname[-47:]
+                      lines.append(f"| {short_class} | {method} | {status} | {msg_short} |")
 
               lines.append("")
 
