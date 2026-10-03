@@ -220,10 +220,10 @@ jobs:
 
               for classname, methods in class_groups.items():
                   for method, msg, status in methods:
-                      msg_short = msg[:150] + ("..." if len(msg) > 150 else "")
-                      short_class = classname if len(classname) <= 50 else "..." + classname[-47:]
+                      # Escape pipe characters and newlines for markdown table
+                      msg_escaped = msg.replace('\n', '<br>').replace('|', '\\|')
                       status_emoji = "❌" if status == "FAIL" else ("💥" if status == "ERROR" else "⏭️")
-                      lines.append(f"| {short_class} | {method} | {status_emoji} {status} | {msg_short} |")
+                      lines.append(f"| {classname} | {method} | {status_emoji} {status} | {msg_escaped} |")
 
               lines.append("")
 
