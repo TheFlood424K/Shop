@@ -167,6 +167,7 @@ public class Shop extends JavaPlugin {
     private boolean debug_transactionDebugLogs;
     private int debug_shopCreateCooldown;
     private boolean debug_forceResaveAll;
+    private int debug_shopInitTimeout; // seconds, 0 = disabled
 
     private Metrics metrics;
 
@@ -885,6 +886,7 @@ public class Shop extends JavaPlugin {
         debug_transactionDebugLogs = config.getBoolean("debug.transactionDebugLogs");
         debug_shopCreateCooldown = config.getInt("debug.shopCreateCooldown");
         debug_forceResaveAll = config.getBoolean("debug.forceResaveAll");
+        debug_shopInitTimeout = config.getInt("debug.shopInitTimeout", 30); // default 30 seconds
 
         displayListener.startRepeatingDisplayViewTask();
 
@@ -1134,6 +1136,7 @@ public class Shop extends JavaPlugin {
     public boolean getDebug_transactionDebugLogs() { return debug_transactionDebugLogs; }
     public int getDebug_shopCreateCooldown() { return debug_shopCreateCooldown; }
     public boolean getDebug_forceResaveAll() { return debug_forceResaveAll; }
+    public int getDebug_shopInitTimeout() { return debug_shopInitTimeout; }
 
     public void setItemCurrency(ItemStack itemCurrency){
         this.itemCurrency = itemCurrency;

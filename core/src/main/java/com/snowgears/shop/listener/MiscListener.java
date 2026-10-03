@@ -120,17 +120,22 @@ public class MiscListener implements Listener {
         Block chest = null;
         if(b.getBlockData() instanceof WallSign) {
             signDirection = ((WallSign) b.getBlockData()).getFacing();
-            // Wall sign is mounted ON the chest block; chest is in the SAME direction as the sign's facing
-            // (the sign text faces the chest)
-            chest = b.getRelative(signDirection);
+            plugin.getLogger().info("[DEBUG onShopCreation] signLoc=" + b.getLocation() + " signFacing=" + signDirection);
+            // Wall sign is mounted ON the chest block; the sign's text faces AWAY from the chest.
+            // The chest is at the OPPOSITE face of the sign's facing.
+            chest = b.getRelative(signDirection.getOppositeFace());
+            plugin.getLogger().info("[DEBUG onShopCreation] chestLoc=" + chest.getLocation() + " chestType=" + chest.getType());
         }
-        else
+        else {
+            plugin.getLogger().info("[DEBUG onShopCreation] Not a WallSign: " + b.getBlockData());
             return;
+        }
 
         int amount = 0 ;
         ShopType type = null;
         boolean isAdmin = false;
         if (plugin.getShopHandler().isChest(chest)) {
+            plugin.getLogger().info("[DEBUG onShopCreation] Chest detected, proceeding with shop creation");
             final Sign signBlock = (Sign) b.getState();
             if (event.getLine(0).toLowerCase().contains(ShopMessage.getCreationWord("SHOP").toLowerCase())) {
 
@@ -185,7 +190,7 @@ public class MiscListener implements Listener {
 
                 process.displayFloatingText(type.toString(), "initialize");
                 // Send initial creation instruction message so player knows what to do next
-                ShopMessage.sendMessage("initialCreateInstruction", null, process, player);
+                ShopMessage.sendMessage("interaction", "initialCreateInstruction", process, player);
                 if (plugin.allowCreativeSelection() && (type == ShopType.BUY || type == ShopType.COMBO)) {
                     ShopMessage.sendMessage(type.toString(), "initializeAlt", player, shop);
                 }
@@ -209,7 +214,7 @@ public class MiscListener implements Listener {
                         }
                         cancelShopCreationProcess(player);
                     }
-                }, 30 * 20); // 30 seconds * 20 ticks
+                }, plugin.getDebug_shopInitTimeout() * 20); // seconds * 20 ticks
             }
         }
     }
@@ -455,7 +460,7 @@ public class MiscListener implements Listener {
                     plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
                     ShopMessage.sendMessage("interactionIssue", "createHitChestTimeout", currentProcess, player);
                 }
-            }, 30 * 20); // 30 seconds * 20 ticks
+            }, plugin.getDebug_shopInitTimeout() * 20); // seconds * 20 ticks
         }
     }
 

@@ -4,6 +4,7 @@ import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.DisplayType;
 import com.snowgears.shop.util.CurrencyType;
 import com.snowgears.shop.util.ShopCreationUtil;
+import com.snowgears.shop.util.ShopMessage;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import net.milkbowl.vault.economy.EconomyResponse.ResponseType;
@@ -21,6 +22,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Collections;
 
 /**
@@ -52,6 +57,12 @@ public abstract class BaseMockBukkitTest {
         server = MockBukkit.mock();
         plugin = MockBukkit.load(Shop.class);
 
+        // Copy config files from test resources to plugin data folder so ShopMessage can load them
+        copyTestConfigsToDataFolder();
+
+        // Reload ShopMessage configs since they were copied after plugin initialization
+        ShopMessage.reloadConfigs(plugin);
+
         server.getScheduler().waitAsyncTasksFinished();
 
         setConfig("checkUpdates", false);
@@ -62,6 +73,29 @@ public abstract class BaseMockBukkitTest {
         setConfig("debug_shopCreateCooldown", 0);
 
         // Test worlds can opt into a chunk auto-load patch via addSimpleWorldPatched(name)
+    }
+
+    private void copyTestConfigsToDataFolder() {
+        String[] configFiles = {"chatConfig.yml", "signConfig.yml", "displayConfig.yml", "guiConfig.yml", "config.yml"};
+        File dataFolder = plugin.getDataFolder();
+        if (dataFolder != null && !dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+        for (String configFile : configFiles) {
+            try (InputStream in = getClass().getClassLoader().getResourceAsStream(configFile)) {
+                if (in != null) {
+                    File outFile = new File(dataFolder, configFile);
+                    try (FileOutputStream out = new FileOutputStream(outFile)) {
+                        in.transferTo(out);
+                    }
+                    plugin.getLogger().info("[DEBUG] Copied config: " + configFile + " to " + outFile.getAbsolutePath());
+                } else {
+                    plugin.getLogger().warning("[DEBUG] Config file not found in resources: " + configFile);
+                }
+            } catch (IOException e) {
+                plugin.getLogger().warning("[DEBUG] Could not copy test config: " + configFile + " - " + e.getMessage());
+            }
+        }
     }
 
     @AfterEach

@@ -179,10 +179,19 @@ public abstract class AbstractShop {
             Block chestBlock;
 
             if (signBlock.getBlockData() instanceof WallSign) {
-                facing = ((WallSign) signBlock.getBlockData()).getFacing();
-                // Wall sign is mounted ON the chest block; the sign's text faces the chest.
-                // The chest is in the SAME direction as the sign's facing.
-                chestBlock = signBlock.getRelative(facing);
+                // Use stored facing from constructor (set during shop creation) instead of reading from sign's block data.
+                // The sign's block data facing may not persist correctly in some environments (e.g., MockBukkit).
+                BlockFace effectiveFacing = this.facing;
+                if (effectiveFacing == null) {
+                    // Fallback for old shops that didn't save facing
+                    effectiveFacing = ((WallSign) signBlock.getBlockData()).getFacing();
+                    this.facing = effectiveFacing;
+                }
+                Shop.getPlugin().getLogger().info("[DEBUG load] signLoc=" + signLocation + " effectiveFacing=" + effectiveFacing + " opposite=" + effectiveFacing.getOppositeFace());
+                // Wall sign is mounted ON the chest block; the sign's text faces AWAY from the chest.
+                // The chest is BEHIND the sign, in the OPPOSITE direction of the sign's facing.
+                chestBlock = signBlock.getRelative(effectiveFacing.getOppositeFace());
+                Shop.getPlugin().getLogger().info("[DEBUG load] chestBlock=" + chestBlock.getLocation() + " chestType=" + chestBlock.getType());
             } else {
                 Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign (detected: " + signBlock.getType() + "), deleting shop: " + this);
                 this.delete();

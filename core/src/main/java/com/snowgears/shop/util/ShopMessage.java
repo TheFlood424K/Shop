@@ -85,6 +85,34 @@ public class ShopMessage {
         loadPlaceholders();
     }
 
+    /**
+     * Reloads message configs from the plugin's data folder.
+     * Useful for tests where configs are copied after plugin initialization.
+     */
+    public static void reloadConfigs(Shop plugin) {
+        plugin.getLogger().info("[DEBUG ShopMessage.reloadConfigs] Loading configs from " + plugin.getDataFolder().getAbsolutePath());
+        File chatConfigFile = new File(plugin.getDataFolder(), "chatConfig.yml");
+        plugin.getLogger().info("[DEBUG ShopMessage.reloadConfigs] chatConfigFile exists: " + chatConfigFile.exists() + " path: " + chatConfigFile.getAbsolutePath());
+        chatConfig = YamlConfiguration.loadConfiguration(chatConfigFile);
+        File signConfigFile = new File(plugin.getDataFolder(), "signConfig.yml");
+        signConfig = YamlConfiguration.loadConfiguration(signConfigFile);
+        File displayConfigFile = new File(plugin.getDataFolder(), "displayConfig.yml");
+        displayConfig = YamlConfiguration.loadConfiguration(displayConfigFile);
+
+        loadMessagesFromConfig();
+        loadSignTextFromConfig();
+        loadDisplayTextFromConfig();
+        loadCreationWords();
+
+        plugin.getLogger().info("[DEBUG ShopMessage.reloadConfigs] messageMap size: " + messageMap.size());
+        plugin.getLogger().info("[DEBUG ShopMessage.reloadConfigs] interaction.initialCreateInstruction: " + messageMap.get("interaction.initialCreateInstruction"));
+
+        freePriceWord = signConfig.getString("sign_text.zeroPrice");
+        adminStockWord = signConfig.getString("sign_text.adminStock");
+        serverDisplayName = signConfig.getString("sign_text.serverDisplayName");
+        targetMaxLength = displayConfig.getInt("targetMaxLength", 40);
+    }
+
     // -----------------------------------------------------------------------
     // Adventure helpers
     // -----------------------------------------------------------------------
@@ -332,6 +360,7 @@ public class ShopMessage {
         context.setPlayer(player);
         context.setProcess(process);
         String message = getUnformattedMessage(key, subkey);
+        plugin.getLogger().info("[DEBUG sendMessage] key=" + key + " subkey=" + subkey + " message=" + message);
         if (message != null && !message.isEmpty())
             sendMessage(message, player, context);
     }
