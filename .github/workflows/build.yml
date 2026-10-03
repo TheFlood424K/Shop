@@ -45,33 +45,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Cache Spigot build outputs
-        uses: actions/cache@v6.1.0
-        with:
-          path: ./SpigotBuildTools
-          key: ${{ runner.os }}-spigot-${{ hashFiles('scripts/build-spigot-maven.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-spigot-
-
-      - name: Set up JDK 13 (Zulu)
-        uses: actions/setup-java@v6.0.1
-        with:
-          java-version: '13'
-          distribution: 'zulu'
-          java-package: jdk
-
-      - name: Set up JDK 17 (Temurin)
-        uses: actions/setup-java@v6.0.1
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Set up JDK 21 (Temurin)
-        uses: actions/setup-java@v6.0.1
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
       - name: Compute version with commit hash
         id: version
         run: |
@@ -89,21 +62,6 @@ jobs:
           echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
-
-      - name: Build Spigot artifacts natively
-        run: |
-          chmod +x ./scripts/build-spigot-maven.sh
-          ./scripts/build-spigot-maven.sh
-
-      - name: Install Dynmap API (CI fallback)
-        run: |
-          chmod +x ./scripts/install-dynmap-api.sh
-          ./scripts/install-dynmap-api.sh
-
-      - name: Install BlockProt API (CI fallback)
-        run: |
-          chmod +x ./scripts/install-blockprot-api.sh
-          ./scripts/install-blockprot-api.sh
 
       - name: Build & Test (single Maven invocation, parallel tests)
         id: build-and-test
