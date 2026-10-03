@@ -63,6 +63,16 @@ jobs:
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
+      - name: Cache dynmap/BlockProt artifacts
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.m2/repository/us/dynmap/dynmap-api
+            ~/.m2/repository/com/github/spnda/BlockProt
+          key: ${{ runner.os }}-opt-deps-${{ hashFiles('scripts/install-dynmap-api.sh', 'scripts/install-blockprot-api.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-opt-deps-
+
       - name: Install Dynmap API (CI fallback)
         run: |
           chmod +x ./scripts/install-dynmap-api.sh
@@ -223,16 +233,7 @@ jobs:
           # Use Unicode block emojis for color coding (renders in GitHub summary)
           # 🟩 = passed, 🟥 = failed, 🟨 = skipped, ⬜ = remaining
           pct = int((passed / total * 100)) if total > 0 else 0
-          bar_len = 20
-          filled = int(bar_len * passed / total) if total > 0 else 0
-          failed_filled = int(bar_len * failed / total) if total > 0 else 0
-          skipped_filled = int(bar_len * skipped / total) if total > 0 else 0
-          remaining = bar_len - filled - failed_filled - skipped_filled
-          if remaining < 0:
-              remaining = 0
-
-          # Build emoji progress bar (shorter: 12 segments)
-          bar_len = 12
+          bar_len = 24
           filled = int(bar_len * passed / total) if total > 0 else 0
           failed_filled = int(bar_len * failed / total) if total > 0 else 0
           skipped_filled = int(bar_len * skipped / total) if total > 0 else 0
@@ -260,12 +261,10 @@ jobs:
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          # Failure details table - collapsible per class
+          # Failure details table - collapsible per class using markdown details
           if failures_detail:
               lines.append("### ❌ All Test Failures")
               lines.append("")
-              lines.append("| Class | Methods | Status | Messages |")
-              lines.append("|-------|---------|--------|----------|")
 
               # Group by class
               from collections import defaultdict
@@ -282,7 +281,14 @@ jobs:
 
                   detail = "\n".join(detail_lines)
                   short_class = classname if len(classname) <= 50 else "..." + classname[-47:]
-                  lines.append(f"| <details><summary>{short_class}</summary>\n\n{detail}\n</details> | {len(methods)} | {methods[0][2]} | See details |")
+                  # Use markdown details block (not inside table)
+                  lines.append(f"<details>")
+                  lines.append(f"<summary><b>{short_class}</b> ({len(methods)} tests)</summary>")
+                  lines.append("")
+                  lines.append(detail)
+                  lines.append("")
+                  lines.append("</details>")
+                  lines.append("")
 
               lines.append("")
 
