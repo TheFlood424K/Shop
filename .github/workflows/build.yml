@@ -8,8 +8,8 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Read-only by default. Jobs that need to write (the tag-push release, the
-# dependency snapshot) opt in explicitly with their own `permissions:` block.
+# Read-only by default. The only job that needs write access is the tag-push
+# release, which opts in with its own `permissions:` block.
 permissions:
   contents: read
 
@@ -183,24 +183,24 @@ jobs:
           lines = []
           lines.append("## 🧪 Test Results")
           lines.append("")
-          lines.append(f"**Overall:** `{bar}` {pct}% ({passed}/{total} passed)")
+          lines.append(f"**{passed} of {total} passed** ({pct}%)")
+          lines.append("")
+          lines.append(f"`{bar}`")
           lines.append("")
 
           if total > 0:
-              lines.append("| Status | Count | Percentage |")
-              lines.append("|--------|-------|------------|")
-              lines.append(f"| ✅ Passed | **{passed}** | {passed/total*100:.1f}% |")
+              lines.append("| | Count | Share |")
+              lines.append("|---|------:|------:|")
+              lines.append(f"| Passed | {passed} | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| ❌ Failed | **{failed}** | {failed/total*100:.1f}% |")
+                  lines.append(f"| Failed | {failed} | {failed/total*100:.1f}% |")
               if skipped > 0:
-                  lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+                  lines.append(f"| Skipped | {skipped} | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          # Add build timing info if available
-          build_time = os.environ.get("BUILD_TIME", "")
-          if build_time:
-              lines.append(f"**Build Time:** {build_time}s")
+          if failed > 0 or skipped > 0:
+              lines.append("Legend: `█` passed · `▓` failed · `░` skipped · `·` not run")
               lines.append("")
 
           if all_details:
@@ -268,15 +268,15 @@ jobs:
               fi
             fi
             echo ""
-            echo "**Version:** ${{ env.VERSION }}"
-            echo "**Commit:** ${{ github.sha }}"
-            echo "**Branch:** ${{ github.ref_name }}"
-            echo ""
-
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Version** | \`${{ env.VERSION }}\` |"
+            echo "| **Commit** | [\`${{ github.sha }}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}) |"
+            echo "| **Branch** | \`${{ github.ref_name }}\` |"
             if [ -n "$BUILD_TIME" ]; then
-              echo "**Build Time:** ${BUILD_TIME}s"
-              echo ""
+              echo "| **Build time** | ${BUILD_TIME}s |"
             fi
+            echo ""
 
             if [ -f "test-summary.md" ]; then
               cat test-summary.md
@@ -287,19 +287,18 @@ jobs:
               echo ""
             fi
 
-            # The artifact link is appended after the upload step, which knows whether the
-            # upload actually succeeded — so it is not repeated here.
+            # Download instructions are appended after the upload step, which knows
+            # whether the artifact actually landed — see "Add artifact link" below.
             if [ "$JAR_FOUND" = "true" ] && [ -n "$JAR_PATH" ]; then
-              echo "## 📦 Artifacts"
-              echo ""
-              echo "\`${{ env.JAR_FILENAME }}\` was built — see the download instructions at the bottom of this summary."
+              echo "---"
               echo ""
             fi
-
-            echo "---"
-            echo "**Workflow:** [${{ github.workflow }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              echo "**PR:** #${{ github.event.number }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "[View this run on GitHub](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) · [PR #${{ github.event.number }}](https://github.com/${{ github.repository }}/pull/${{ github.event.number }})"
+              echo ""
+            else
+              echo "[View this run on GitHub](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+              echo ""
             fi
           } > build-summary.md
           cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
@@ -375,34 +374,3 @@ jobs:
           files: 'Shop-*.jar'
           fail_on_unmatched_files: true
           generate_release_notes: true
-
-  dependency-submission:
-    name: Dependency Submission
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          # Shallow clone is sufficient: the dependency action reads the POMs,
-          # not the commit history.
-          fetch-depth: 1
-
-      # Identical build environment to build-and-test — see the action for why.
-      - name: Set up build environment
-        uses: ./.github/actions/setup-build-env
-
-      # The action resolves dependencies itself via depgraph-maven-plugin, so
-      # there is no separate dependency:tree step. Multi-module support (core,
-      # dist) is built in as of v5. No -Drevision is passed: the POM declares
-      # <revision> in <properties>, so Maven resolves ${revision} on its own.
-      - name: Submit dependency snapshot
-        uses: advanced-security/maven-dependency-submission-action@v6.0.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          maven-args: -B -nsu -ntp
