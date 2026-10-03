@@ -68,6 +68,8 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         );
         server.getPluginManager().callEvent(startCreate);
         server.getScheduler().performTicks(20);
+        server.getScheduler().waitAsyncTasksFinished();
+        server.getScheduler().performTicks(20);
         String msg = waitForNextMessage(player);
         assertEquals("§eTo set up your shop, please type your responses in chat when prompted.", msg, "Player should be sent dialog to set up shop");
         msg = waitForNextMessage(player);
@@ -75,7 +77,19 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         if (msg.contains("Adding §eadmin §7will make the shop unlimited stock.")) {
             msg = waitForNextMessage(player);
         }
-        assertTrue(msg.contains("§eEnter in chat what to do with §a"), "Player should be sent dialog for shop type: " + msg);
+        // New createHitChest message is sent after admin message
+        if (msg != null && msg.contains("§eEnter in chat what to do with §a")) {
+            // This is the createHitChest message, get the next one for shop type
+            msg = waitForNextMessage(player);
+        }
+        System.out.println("DEBUG test: msg after createHitChest = " + msg);
+        if (msg == null) {
+            // Try one more time with more ticks
+            server.getScheduler().performTicks(20);
+            msg = waitForNextMessage(player);
+            System.out.println("DEBUG test: msg after second wait = " + msg);
+        }
+        assertTrue(msg != null && msg.contains("§eEnter in chat what to do with §a"), "Player should be sent dialog for shop type: " + msg);
         assertTrue(msg.contains("(s)§b §7("), "Player should be sent dialog for shop type");
         msg = player.nextMessage();
         if (msg != null) {

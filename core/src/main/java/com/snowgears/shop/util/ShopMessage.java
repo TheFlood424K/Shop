@@ -753,13 +753,20 @@ public class ShopMessage {
         messageMap.clear();
         if (chatConfig == null) return;
         for (String key : chatConfig.getKeys(false)) {
-            org.bukkit.configuration.ConfigurationSection section = chatConfig.getConfigurationSection(key);
-            if (section != null) {
-                for (String subKey : section.getKeys(false)) {
-                    messageMap.put(key + "." + subKey, section.getString(subKey, ""));
-                }
-            } else {
-                messageMap.put(key, chatConfig.getString(key, ""));
+            loadSectionMessages(key, chatConfig.getConfigurationSection(key));
+        }
+    }
+
+    private static void loadSectionMessages(String path, org.bukkit.configuration.ConfigurationSection section) {
+        if (section == null) return;
+        for (String subKey : section.getKeys(false)) {
+            String fullPath = path + "." + subKey;
+            Object value = section.get(subKey);
+            if (value instanceof String) {
+                messageMap.put(fullPath, (String) value);
+            } else if (value instanceof org.bukkit.configuration.ConfigurationSection) {
+                // Recursively load nested sections
+                loadSectionMessages(fullPath, (org.bukkit.configuration.ConfigurationSection) value);
             }
         }
     }

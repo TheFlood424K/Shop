@@ -1001,6 +1001,9 @@ class MiscListenerTest extends BaseMockBukkitTest {
         AbstractShop shop = shopHandler.getShop(signLoc);
         assertNotNull(shop, "Shop should be created");
 
+        // Cache player name so getOwnerName() works correctly in tests
+        com.snowgears.shop.util.PlayerNameCache.cacheName(player.getUniqueId(), player.getName());
+
         // Initialize with item
         ItemStack initItem = new ItemStack(Material.DIAMOND);
         player.getInventory().setItemInMainHand(initItem);

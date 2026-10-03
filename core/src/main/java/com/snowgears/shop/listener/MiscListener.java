@@ -120,16 +120,12 @@ public class MiscListener implements Listener {
         Block chest = null;
         if(b.getBlockData() instanceof WallSign) {
             signDirection = ((WallSign) b.getBlockData()).getFacing();
-            plugin.getLogger().info("[DEBUG onShopCreation] signLoc=" + b.getLocation() + " signFacing=" + signDirection);
             // Wall sign is mounted ON the chest block; the sign's text faces AWAY from the chest.
-            // The chest is at the OPPOSITE face of the sign's facing.
+            // The chest is BEHIND the sign, in the OPPOSITE direction of the sign's facing.
             chest = b.getRelative(signDirection.getOppositeFace());
-            plugin.getLogger().info("[DEBUG onShopCreation] chestLoc=" + chest.getLocation() + " chestType=" + chest.getType());
         }
-        else {
-            plugin.getLogger().info("[DEBUG onShopCreation] Not a WallSign: " + b.getBlockData());
+        else
             return;
-        }
 
         int amount = 0 ;
         ShopType type = null;
@@ -697,7 +693,7 @@ public class MiscListener implements Listener {
                 }
 
 
-                ShopMessage.sendMessage(shop.getType().toString(), "destroy", player, shop);
+                ShopMessage.sendMessage("interaction", shop.getType().name() + ".destroy", player, shop);
                 // We already log on ShopActionType.DESTROY in the Log Handler, so don't log the shop destroy reason
                 shop.delete();
 
