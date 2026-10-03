@@ -85,6 +85,8 @@ jobs:
 
       - name: Build & Test (single Maven invocation)
         run: |
+          set +e
+          start_time=$(date +%s)
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
             -Dmaven.compiler.fork=false \
@@ -94,7 +96,10 @@ jobs:
             -Dmaven.test.failure.ignore=true \
             clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}
+          end_time=$(date +%s)
+          BUILD_TIME=$((end_time - start_time))
           echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
+          echo "build_time=${BUILD_TIME}s" >> "$GITHUB_OUTPUT"
 
           # Always try to find the built JAR
           JAR_PATH=$(find . -name "Shop-*.jar" -path "*/target/*" 2>/dev/null | head -1)
@@ -206,6 +211,12 @@ jobs:
               if skipped > 0:
                   lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
+              lines.append("")
+
+          # Add build timing info if available
+          build_time = os.environ.get("BUILD_TIME", "")
+          if build_time:
+              lines.append(f"**Build Time:** {build_time}s")
               lines.append("")
 
           if all_details:
