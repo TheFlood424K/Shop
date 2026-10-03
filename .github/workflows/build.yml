@@ -82,7 +82,7 @@ jobs:
           ./scripts/install-blockprot-api.sh
 
       - name: Build & Test (parallel processes)
-        id: test
+        id: build-and-test
         run: |
           set +e
 
@@ -107,65 +107,26 @@ jobs:
           echo "build_exit_code=$BUILD_EXIT" >> "$GITHUB_OUTPUT"
           echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
 
-          # Fail if build failed (tests can fail independently)
-          exit $BUILD_EXIT
+          # Fail if either build OR tests failed
+          if [ $BUILD_EXIT -ne 0 ] || [ $TEST_EXIT -ne 0 ]; then
+            exit 1
+          fi
 
-      - name: Extract test results
+      - name: Extract test results & generate visual summary
         if: always()
-        id: extract-test-results
+        id: test-report
         run: |
-          python3 << 'EOF'
+          python3 << 'PYEOF'
           import xml.etree.ElementTree as ET
           import glob
           import os
-
-          passed = 0
-          failed = 0
-          skipped = 0
-          total = 0
+          import sys
 
           report_dir = "core/target/surefire-reports"
-          if os.path.exists(report_dir):
-              for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
-                  try:
-                      tree = ET.parse(xml_file)
-                      root = tree.getroot()
-                      # Sum up testsuite attributes
-                      for suite in root.findall(".//testsuite"):
-                          t = int(suite.get("tests", 0))
-                          f = int(suite.get("failures", 0))
-                          e = int(suite.get("errors", 0))
-                          s = int(suite.get("skipped", 0))
-                          total += t
-                          failed += f + e
-                          skipped += s
-                  except Exception as e:
-                      print(f"Warning: Failed to parse {xml_file}: {e}")
 
-          passed = total - failed - skipped
-          print(f"passed={passed}")
-          print(f"failed={failed}")
-          print(f"skipped={skipped}")
-          print(f"total={total}")
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"passed={passed}\n")
-              f.write(f"failed={failed}\n")
-              f.write(f"skipped={skipped}\n")
-              f.write(f"total={total}\n")
-          EOF
-
-      - name: Generate test failure summary
-        if: always() && steps.test.outputs.test_exit_code != '0'
-        id: failure-summary
-        run: |
-          python3 << 'EOF'
-          import xml.etree.ElementTree as ET
-          import glob
-          import os
-
-          report_dir = "core/target/surefire-reports"
-          output_lines = ["### ❌ Test Failures", "", "| Test Class | Method | Failure Message |", "|------------|--------|-----------------|"]
+          # Aggregate totals
+          passed = failed = skipped = total = 0
+          failures_detail = []  # (class, method, message, type)
 
           if os.path.exists(report_dir):
               for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
@@ -174,28 +135,92 @@ jobs:
                       root = tree.getroot()
                       classname = root.get("name", "Unknown")
 
+                      for suite in root.findall(".//testsuite"):
+                          t = int(suite.get("tests", 0))
+                          f = int(suite.get("failures", 0))
+                          e = int(suite.get("errors", 0))
+                          s = int(suite.get("skipped", 0))
+                          total += t
+                          failed += f + e
+                          skipped += s
+
                       for testcase in root.findall(".//testcase"):
                           failure = testcase.find("failure")
                           error = testcase.find("error")
-                          if failure is not None or error is not None:
-                              method = testcase.get("name", "unknown")
-                              elem = failure if failure is not None else error
-                              msg = elem.text or ""
-                              # Clean up message: escape pipes, truncate
-                              msg = msg.replace("|", "\\|").strip()
-                              msg = msg[:100] + ("..." if len(msg) > 100 else "")
-                              output_lines.append(f"| {classname} | {method} | {msg} |")
+                          skipped_elem = testcase.find("skipped")
+                          method = testcase.get("name", "unknown")
+
+                          if failure is not None:
+                              msg = (failure.text or "").strip()
+                              msg = msg.replace("|", "\\|")[:120] + ("..." if len(msg) > 120 else "")
+                              failures_detail.append((classname, method, msg, "❌ FAIL"))
+                          elif error is not None:
+                              msg = (error.text or "").strip()
+                              msg = msg.replace("|", "\\|")[:120] + ("..." if len(msg) > 120 else "")
+                              failures_detail.append((classname, method, msg, "💥 ERROR"))
+                          elif skipped_elem is not None:
+                              failures_detail.append((classname, method, "Skipped", "⏭️ SKIP"))
                   except Exception as e:
-                      print(f"Warning: Failed to parse {xml_file}: {e}")
-          else:
-              output_lines.append("| - | - | No test reports found |")
+                      print(f"Warning: Failed to parse {xml_file}: {e}", file=sys.stderr)
 
-          with open("test-failures.md", "w") as f:
-              f.write("\n".join(output_lines))
+          passed = total - failed - skipped
 
-          # Print for workflow logs
-          print("\n".join(output_lines))
-          EOF
+          # Write outputs for other steps
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"passed={passed}\n")
+              f.write(f"failed={failed}\n")
+              f.write(f"skipped={skipped}\n")
+              f.write(f"total={total}\n")
+              f.write(f"test_exit_code={1 if failed > 0 else 0}\n")
+
+          # Generate visual test summary markdown
+          pct = int((passed / total * 100)) if total > 0 else 0
+          bar_len = 20
+          filled = int(bar_len * passed / total) if total > 0 else 0
+          bar = "█" * filled + "░" * (bar_len - filled)
+
+          lines = []
+          lines.append("## 🧪 Test Results")
+          lines.append("")
+          lines.append(f"**Overall:** `{bar}` {pct}% ({passed}/{total} passed)")
+          lines.append("")
+
+          if total > 0:
+              lines.append("| Status | Count | Percentage |")
+              lines.append("|--------|-------|------------|")
+              lines.append(f"| ✅ Passed | **{passed}** | {passed/total*100:.1f}% |")
+              if failed > 0:
+                  lines.append(f"| ❌ Failed | **{failed}** | {failed/total*100:.1f}% |")
+              if skipped > 0:
+                  lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+              lines.append(f"| **Total** | **{total}** | 100% |")
+              lines.append("")
+
+          # Failure details table
+          if failures_detail:
+              lines.append("### 📋 Test Details")
+              lines.append("")
+              lines.append("<details>")
+              lines.append("<summary><b>Click to expand test breakdown</b></summary>")
+              lines.append("")
+              lines.append("| Class | Method | Status | Message |")
+              lines.append("|-------|--------|--------|---------|")
+
+              for classname, method, msg, status in failures_detail:
+                  # Truncate class name if too long
+                  short_class = classname if len(classname) <= 40 else "..." + classname[-37:]
+                  lines.append(f"| {short_class} | {method} | {status} | {msg} |")
+
+              lines.append("")
+              lines.append("</details>")
+              lines.append("")
+
+          with open("test-summary.md", "w") as f:
+              f.write("\n".join(lines))
+
+          # Print to workflow log
+          print("\n".join(lines))
+          PYEOF
 
       - name: Publish Test Results (JUnit)
         if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
@@ -217,12 +242,13 @@ jobs:
 
       - name: Upload JAR artifact
         id: upload-shop-jar
+        if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
           name: ${{ env.JAR_FILENAME }}
           path: '**/target/Shop-*.jar'
           compression-level: 0
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Upload diff-cover HTML artifact
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
@@ -236,19 +262,26 @@ jobs:
         if: always()
         run: |
           STATUS="${{ job.status }}"
-          TEST_EXIT="${{ steps.test.outputs.test_exit_code }}"
-          PASSED="${{ steps.extract-test-results.outputs.passed }}"
-          FAILED="${{ steps.extract-test-results.outputs.failed }}"
-          SKIPPED="${{ steps.extract-test-results.outputs.skipped }}"
-          TOTAL="${{ steps.extract-test-results.outputs.total }}"
+          BUILD_EXIT="${{ steps.build-and-test.outputs.build_exit_code }}"
+          TEST_EXIT="${{ steps.build-and-test.outputs.test_exit_code }}"
+          PASSED="${{ steps.test-report.outputs.passed }}"
+          FAILED="${{ steps.test-report.outputs.failed }}"
+          SKIPPED="${{ steps.test-report.outputs.skipped }}"
+          TOTAL="${{ steps.test-report.outputs.total }}"
           JAR_URL="${{ steps.upload-shop-jar.outputs.artifact-url }}"
           DIFF_URL="${{ steps.upload-diff-cover-report.outputs.artifact-url }}"
 
           {
             if [ "$STATUS" = "success" ]; then
-              echo "# ✅ Build Completed Successfully"
+              echo "# ✅ Build & Tests Passed"
             else
               echo "# ❌ Build Failed"
+              if [ "$BUILD_EXIT" != "0" ]; then
+                echo "**Reason:** Build/Compilation failed"
+              fi
+              if [ "$TEST_EXIT" != "0" ]; then
+                echo "**Reason:** Tests failed"
+              fi
             fi
             echo ""
             echo "**Version:** ${{ env.VERSION }}"
@@ -256,24 +289,13 @@ jobs:
             echo "**Branch:** ${{ github.ref_name }}"
             echo ""
 
-            # Test summary
-            echo "## 🧪 Test Results"
-            echo ""
-            if [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
-              echo "| Status | Count |"
-              echo "|--------|-------|"
-              [ -n "$PASSED" ] && [ "$PASSED" -gt 0 ] && echo "| ✅ Passed | $PASSED |"
-              [ -n "$FAILED" ] && [ "$FAILED" -gt 0 ] && echo "| ❌ Failed | $FAILED |"
-              [ -n "$SKIPPED" ] && [ "$SKIPPED" -gt 0 ] && echo "| ⏭️ Skipped | $SKIPPED |"
-              echo "| **Total** | **$TOTAL** |"
+            # Test summary from generated markdown
+            if [ -f "test-summary.md" ]; then
+              cat test-summary.md
             else
+              echo "## 🧪 Test Results"
+              echo ""
               echo "No test results available."
-            fi
-            echo ""
-
-            # Test failures details
-            if [ "$TEST_EXIT" != "0" ] && [ -f "test-failures.md" ]; then
-              cat test-failures.md
               echo ""
             fi
 
