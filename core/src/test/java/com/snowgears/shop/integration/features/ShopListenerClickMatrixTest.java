@@ -65,8 +65,10 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), sign, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
 
-        // Verify the shop opens by checking that no cancellation happened and interaction is consumed
-        assertFalse(event.isCancelled(), "Right-click on sign should not be cancelled");
+        // RIGHT_CLICK_SIGN is mapped to TRANSACT (see actionMappings in config.yml), so the
+        // listener consumes the interaction and cancels it. playerOpenShopEvent_firedAndCancellable
+        // asserts the same thing for the same setup; these two used to contradict each other.
+        assertTrue(event.isCancelled(), "Right-click on sign is a mapped shop action, so it is consumed");
     }
 
     @Test
@@ -83,7 +85,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
     }
 
     @Test
-    void rightClickChest_opensShop() {
+    void rightClickChest_nonOwnerDenied() {
         AbstractShop shop = createInitializedShopAt(new Location(world, 14, 65, 10));
         Block chest = shop.getChestLocation().getBlock();
 
@@ -91,12 +93,13 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), chest, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
 
-        // Right-click on chest opens shop
-        assertFalse(event.isCancelled(), "Right-click on chest should not be cancelled");
+        // Buyer is not the owner and has no operator permission, so the listener denies the
+        // container and cancels. Only the owner's own right-click would open the shop GUI.
+        assertTrue(event.isCancelled(), "Right-click on someone else's chest is denied");
     }
 
     @Test
-    void leftClickChest_noEffect() {
+    void leftClickChest_showsDetails() {
         AbstractShop shop = createInitializedShopAt(new Location(world, 16, 65, 10));
         Block chest = shop.getChestLocation().getBlock();
 
@@ -104,8 +107,8 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.LEFT_CLICK_BLOCK, new ItemStack(Material.AIR), chest, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
 
-        // Left-click on chest does nothing
-        assertFalse(event.isCancelled());
+        // LEFT_CLICK_CHEST is mapped to viewShopDetails (VIEW_DETAILS), so the click is consumed.
+        assertTrue(event.isCancelled(), "Left-click on chest is a mapped shop action, so it is consumed");
     }
 
     @Test
@@ -118,9 +121,9 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), chest, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
 
-        // Sneaking right-click on chest does not open shop (it's a chest access)
-        // The event should not be cancelled so the player can access the chest
-        assertFalse(event.isCancelled());
+        // Sneaking maps SHIFT_RIGHT_CLICK_CHEST to cycleShopDisplay, a handled action, so the
+        // click is consumed. It does not open the shop either way.
+        assertTrue(event.isCancelled(), "Sneaking right-click on chest is a mapped shop action, so it is consumed");
     }
 
     @Test
@@ -202,8 +205,9 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         server.getPluginManager().callEvent(event1);
         server.getPluginManager().callEvent(event2);
 
-        // Both should be handled without concurrency issues
-        assertFalse(event1.isCancelled());
-        assertFalse(event2.isCancelled());
+        // Both clicks are the mapped RIGHT_CLICK_SIGN action, so both are consumed. The point
+        // of this test is that neither handler blows up when they interleave.
+        assertTrue(event1.isCancelled(), "First concurrent sign click is consumed");
+        assertTrue(event2.isCancelled(), "Second concurrent sign click is consumed");
     }
 }
