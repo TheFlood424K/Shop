@@ -141,17 +141,16 @@ jobs:
                   break
 
           if not report_dir:
-              # Find any surefire-reports directory
-              for root, dirs, files in os.walk("."):
+              for root_dir, dirs, files in os.walk("."):
                   if "surefire-reports" in dirs:
-                      candidate = os.path.join(root, "surefire-reports")
+                      candidate = os.path.join(root_dir, "surefire-reports")
                       if glob.glob(os.path.join(candidate, "TEST-*.xml")):
                           report_dir = candidate
                           break
 
           print(f"Using report directory: {report_dir}", file=sys.stderr)
 
-          # Aggregate totals
+          # Aggregate totals - count from testcase elements directly for accuracy
           passed = failed = skipped = total = 0
           failures_detail = []  # (class, method, message, type)
 
@@ -162,14 +161,22 @@ jobs:
                       root = tree.getroot()
                       classname = root.get("name", "Unknown")
 
-                      for suite in root.findall(".//testsuite"):
-                          t = int(suite.get("tests", 0))
-                          f = int(suite.get("failures", 0))
-                          e = int(suite.get("errors", 0))
-                          s = int(suite.get("skipped", 0))
+                      # Debug: print root element info
+                      print(f"XML: {xml_file}, root tag: {root.tag}, root attrs: {root.attrib}", file=sys.stderr)
+
+                      # Count from root testsuite attributes first
+                      t = int(root.get("tests", 0))
+                      f = int(root.get("failures", 0))
+                      e = int(root.get("errors", 0))
+                      s = int(root.get("skipped", 0))
+                      if t > 0:
                           total += t
                           failed += f + e
                           skipped += s
+                          print(f"  Using root attrs: tests={t}, failures={f}, errors={e}, skipped={s}", file=sys.stderr)
+                      else:
+                          # Fallback: count from testcase elements
+                          print(f"  Root has no test counts, counting testcases...", file=sys.stderr)
 
                       for testcase in root.findall(".//testcase"):
                           failure = testcase.find("failure")
@@ -178,25 +185,30 @@ jobs:
                           method = testcase.get("name", "unknown")
 
                           if failure is not None:
+                              failed += 1
+                              total += 1
                               msg = (failure.text or "").strip()
                               msg = msg.replace("|", "\\|")[:120] + ("..." if len(msg) > 120 else "")
                               failures_detail.append((classname, method, msg, "❌ FAIL"))
                           elif error is not None:
+                              failed += 1
+                              total += 1
                               msg = (error.text or "").strip()
                               msg = msg.replace("|", "\\|")[:120] + ("..." if len(msg) > 120 else "")
                               failures_detail.append((classname, method, msg, "💥 ERROR"))
                           elif skipped_elem is not None:
+                              skipped += 1
+                              total += 1
                               failures_detail.append((classname, method, "Skipped", "⏭️ SKIP"))
+                          else:
+                              passed += 1
+                              total += 1
                   except Exception as e:
                       print(f"Warning: Failed to parse {xml_file}: {e}", file=sys.stderr)
           else:
               print("No surefire reports found!", file=sys.stderr)
-              # List directories for debugging
-              for root, dirs, files in os.walk("."):
-                  if "target" in root and "surefire" in " ".join(dirs):
-                      print(f"Found target dir: {root}", file=sys.stderr)
 
-          passed = total - failed - skipped
+          print(f"FINAL: passed={passed}, failed={failed}, skipped={skipped}, total={total}", file=sys.stderr)
 
           # Write outputs for other steps
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
