@@ -253,7 +253,7 @@ displayBatchDelay: 2            # ticks between batches
 
 ### Prerequisites
 - Docker
-- JDK 21
+- JDK 25
 - Maven
 
 ### Quick Build

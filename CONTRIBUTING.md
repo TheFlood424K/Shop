@@ -9,7 +9,7 @@ Thank you for your interest in contributing to Shop, the intuitive shop plugin f
 Before you begin, ensure you have the following requirements installed:
 
 - **Docker**: Install Docker from the [official website](https://www.docker.com/get-started)
-- **JDK 21**: Ensure you have JDK 21 installed. You can download it from the [Oracle website](https://www.oracle.com/java/technologies/downloads/#java21)
+- **JDK 25**: Ensure you have JDK 25 installed. You can download it from the [Adoptium website](https://adoptium.net/temurin/releases/?version=25)
 - **Maven**: Verify Maven is installed. You can download it from the [Maven website](https://maven.apache.org/download.cgi)
 
 ### Setting Up Your Development Environment
@@ -42,11 +42,11 @@ This script will compile all supported versions of Spigot and copy the Maven rep
 
 ### Build Environment Setup
 
-Building also requires a JDK 21 Maven toolchain (MockBukkit 4 runs the tests on JDK 21) and two integration APIs
+Building also requires a JDK 25 Maven toolchain and two integration APIs
 (Dynmap and BlockProt) that are not reliably resolvable from their upstream Maven/JitPack repositories. The
 `compile.sh` and `runDev.sh` scripts handle all of this automatically by invoking `scripts/setup-build-env.sh`,
 which registers the toolchain and installs those APIs from their stable GitHub Releases (each step is a no-op once
-satisfied). Ensure `JAVA_HOME` points at your JDK 21 installation before running them. To run the setup on its own:
+satisfied). Ensure `JAVA_HOME` points at your JDK 25 installation before running them. To run the setup on its own:
 
 ```shell
 ./scripts/setup-build-env.sh

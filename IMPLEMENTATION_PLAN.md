@@ -2,7 +2,7 @@
 
 **Generated**: 2026-09-29  
 **Based on**: Performance Analysis & Feature Proposals  
-**Branch**: `main` (current HEAD: e7fe12e)
+**Branch**: `main` (plan written against e7fe12e, 2026-09-29)
 
 ---
 
@@ -13,15 +13,17 @@
 | **Top 3 Optimizations** | #3 Incremental Stock, #7 Shop Indices, #8 Price/Location Caching | Lowest effort/risk, highest combined impact (~80% CPU allocation reduction on hot paths) |
 | **New Feature** | **Shop Templates & Blueprints** | S–M complexity, Low risk, immediate value for both admins & players, leverages existing creation flow |
 
+**Status (2026-10-03)**: #3 Incremental Stock — SHIPPED in c966ab6. #7 Shop Indices — SHIPPED in c966ab6. #8 Price/Location Caching — NOT STARTED. Shop Templates (PART 2) — NOT IMPLEMENTED.
+
 ---
 
 ## PART 1: Top 3 Optimization Targets
 
 ---
 
-### OPTIMIZATION 1: Incremental Stock Tracking (Eliminate Full Inventory Scans)
+### OPTIMIZATION 1: Incremental Stock Tracking (Eliminate Full Inventory Scans) [SHIPPED — c966ab6]
 
-**Reference**: PERFORMANCE_ANALYSIS.md §3 | `AbstractShop.java:226-248` | `InventoryUtils.java:134-148`
+**Reference**: PERFORMANCE_ANALYSIS.md §3 | `AbstractShop.java:237` | `InventoryUtils.java:139`
 
 #### Problem
 - `calculateStock()` → `InventoryUtils.getAmount()` iterates **entire chest inventory** (27-54 slots) per call
@@ -66,10 +68,11 @@ public void markStockDirty() { stockDirty = true; }  // Called by InventoryChang
 |------|---------|
 | `AbstractShop.java` | Add `stockCounter`, `stockDirty`; replace `calculateStock()` with incremental logic; add `adjustStock(int)` and `markStockDirty()` |
 | `Transaction.java` (or `TransactionHandler.java`) | Call `shop.adjustStock(-amount)` on SELL/BUY, `+amount` on restock |
-| `InventoryUtils.java` | **Deprecate** `getAmount()` for shop use; keep for other callers |
+| `InventoryUtils.java` | `getAmount()` kept as-is (NOT deprecated — still used by other callers) |
 | *New* `InventoryChangeListener.java` | Listen to `InventoryClickEvent`, `InventoryDragEvent`, `HopperInventorySearchEvent` → call `shop.markStockDirty()` for affected shop |
 
 #### Expected Performance Gain
+Estimated (never benchmarked):
 - **80-90% reduction** in stock calculation CPU
 - Eliminates 54-slot iteration × transaction rate
 - GC pressure reduced (fewer `ItemStack[]` allocations)
@@ -82,9 +85,9 @@ public void markStockDirty() { stockDirty = true; }  // Called by InventoryChang
 
 ---
 
-### OPTIMIZATION 2: Replace CopyOnWriteArrayList with Concurrent Structures
+### OPTIMIZATION 2: Replace CopyOnWriteArrayList with Concurrent Structures [SHIPPED — c966ab6]
 
-**Reference**: PERFORMANCE_ANALYSIS.md §7 | `ShopHandler.java:50-51, 360-366`
+**Reference**: PERFORMANCE_ANALYSIS.md §7 | `ShopHandler.java:50-51, 349-355`
 
 #### Problem
 - `playerShops`: `ConcurrentHashMap<UUID, List<Location>>` with `CopyOnWriteArrayList` values
@@ -151,7 +154,7 @@ public void compactIndices() {
 
 ### OPTIMIZATION 3: Price & Location String Caching
 
-**Reference**: PERFORMANCE_ANALYSIS.md §8 | `UtilMethods.java:149-181` | `AbstractShop.java:442-453, 638-645` | `Shop.java:1158-1204`
+**Reference**: PERFORMANCE_ANALYSIS.md §8 | `UtilMethods.java:149-181` | `AbstractShop.java:485` | `Shop.java:1184-1230`
 
 #### Problem
 - `formatLongToKString()`: Creates `DecimalFormat` + `TreeMap.floorEntry()` **every call**
@@ -223,7 +226,7 @@ public String getCleanLocation(boolean includeWorld) {
 
 ---
 
-## PART 2: New Feature — Shop Templates & Blueprints System
+## PART 2: New Feature — Shop Templates & Blueprints System [PROPOSED — NOT IMPLEMENTED]
 
 **Reference**: FEATURE_PROPOSALS.md §1 | Complexity: **S–M** | Risk: **Low**
 
@@ -315,11 +318,11 @@ core/src/main/java/com/snowgears/shop/template/
 ## PART 3: Implementation Order & Timeline
 
 ### Phase 1: Quick Wins (1-2 days)
-| Order | Task | Est. Effort |
-|-------|------|-------------|
-| 1 | **Optimization #3**: Price/Location caching | 4-6 hrs |
-| 2 | **Optimization #7**: Shop indices → ConcurrentLinkedQueue | 3-4 hrs |
-| 3 | **Optimization #1**: Incremental stock tracking | 6-8 hrs |
+| Order | Task | Est. Effort | Status |
+|-------|------|-------------|--------|
+| 1 | **DONE** — Incremental stock tracking (PERF #3) | 6-8 hrs | SHIPPED c966ab6 |
+| 2 | **DONE** — Shop indices to ConcurrentLinkedQueue (PERF #7) | 3-4 hrs | SHIPPED c966ab6 |
+| 3 | **TODO** — Price/location caching (PERF #8) | 4-6 hrs | |
 
 ### Phase 2: New Feature (3-5 days)
 | Order | Task | Est. Effort |
@@ -334,7 +337,7 @@ core/src/main/java/com/snowgears/shop/template/
 | Optimization | Reason |
 |--------------|--------|
 | #4 Deep ItemStack comparison keys | Medium risk — requires careful equivalence testing |
-| #1 Batched DB writes | Medium effort — needs DB-agnostic `RETURNING`/`LAST_INSERT_ID` |
+| #1 Batched DB writes (PERF #1) | Medium effort — needs DB-agnostic `RETURNING`/`LAST_INSERT_ID` |
 | #2 Display entity tracking redesign | High effort — architectural change |
 | #5 Async chunk loading | Medium-High effort — Folia region thread complexity |
 | #6 Sign update throttling | Low impact relative to effort; config option exists |
@@ -371,22 +374,21 @@ core/src/main/java/com/snowgears/shop/template/
 ## PART 5: Git Workflow
 
 ```bash
-# Branch per optimization/feature
-git checkout -b opt/incremental-stock
-# ... implement ...
+# NOTE (2026-10-03): the two shipped optimizations did NOT go in on separate
+# branches. They landed as a single commit on main:
+#   c966ab6 "Implement optimizations from plan" (2026-09-29)
+# The branch names below (opt/*, feat/*) never existed in this repo.
+
+# Shipped work, as actually committed:
 git commit -m "opt: incremental stock tracking with dirty flag
 
 - Add stockCounter/stockDirty to AbstractShop
 - Adjust counter in Transaction.execute()
 - Add InventoryChangeListener for external invalidation
-- 80-90% CPU reduction on stock calculation
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
-git push origin opt/incremental-stock
-# PR → review → merge to main
-
-# Repeat for each optimization, then feature branch:
+# Templates remain unimplemented; when done, a feature branch is still reasonable:
 git checkout -b feat/shop-templates
 # ... implement ...
 git commit -m "feat: shop templates & blueprints system
@@ -397,7 +399,7 @@ git commit -m "feat: shop templates & blueprints system
 - Commands: save/load/list/delete (personal + admin)
 - Permissions: shop.template.*
 
-Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
