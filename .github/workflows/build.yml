@@ -63,6 +63,16 @@ jobs:
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
+      - name: Install Dynmap API (CI fallback)
+        run: |
+          chmod +x ./scripts/install-dynmap-api.sh
+          ./scripts/install-dynmap-api.sh
+
+      - name: Install BlockProt API (CI fallback)
+        run: |
+          chmod +x ./scripts/install-blockprot-api.sh
+          ./scripts/install-blockprot-api.sh
+
       - name: Build & Test (single Maven invocation, parallel tests)
         id: build-and-test
         run: |
