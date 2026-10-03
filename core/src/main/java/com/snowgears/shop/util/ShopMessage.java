@@ -290,8 +290,10 @@ public class ShopMessage {
             if (part.matches(PLACEHOLDER_REGEX) && placeholders.containsKey(part.toLowerCase())) {
                 plugin.getLogger().hyper("[ShopMessage.format]     matched PLACEHOLDER_REGEX: " + part);
                 Object placeholderResult = placeholders.get(part.toLowerCase()).apply(context);
-                // If placeholder returns a raw color code string, process it as a color code
-                if (placeholderResult instanceof String && ((String) placeholderResult).matches(COLOR_CODE_REGEX)) {
+                // Handle null placeholder result
+                if (placeholderResult == null) {
+                    partComponent = Component.empty();
+                } else if (placeholderResult instanceof String && ((String) placeholderResult).matches(COLOR_CODE_REGEX)) {
                     char c = Character.toLowerCase(((String) placeholderResult).charAt(1));
                     if (c == 'r') {
                         latestColor = NamedTextColor.WHITE;
