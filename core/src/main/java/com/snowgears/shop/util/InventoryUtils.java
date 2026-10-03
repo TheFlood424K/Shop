@@ -118,10 +118,15 @@ public class InventoryUtils {
     }
 
     public static Inventory getVirtualInventory(Inventory inventory) {
-        // Check a cloned inventory instead of manipulating the original inventory
-        Inventory clonedInv = Bukkit.createInventory(null, inventory.getSize());
+        // Check a cloned inventory instead of manipulating the original inventory.
+        // Bukkit.createInventory rejects a size that is not a multiple of 9 and outside
+        // 9..54, which some inventories report (e.g. a player inventory in MockBukkit is 43).
+        // Round up to the next valid multiple so the clone can always be created.
+        int size = inventory.getSize();
+        int validSize = Math.min(54, Math.max(9, ((size + 8) / 9) * 9));
+        Inventory clonedInv = Bukkit.createInventory(null, validSize);
         // Copy each item stack to avoid sharing references
-        for (int i = 0; i < inventory.getSize(); i++) {
+        for (int i = 0; i < Math.min(size, validSize); i++) {
             ItemStack item = inventory.getItem(i);
             if (item != null) {
                 clonedInv.setItem(i, item.clone());

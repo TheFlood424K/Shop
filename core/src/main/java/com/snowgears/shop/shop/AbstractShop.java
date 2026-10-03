@@ -947,7 +947,8 @@ public abstract class AbstractShop {
                 this.printSalesInfo(player);
                 break;
             case CYCLE_DISPLAY:
-                if (!this.getOwnerName().equals(player.getName())) {
+                // UUID, not name: names are not unique (see MiscListener#shopDestroy).
+                if (!this.getOwnerUUID().equals(player.getUniqueId())) {
                     if((!Shop.getPlugin().usePerms() && player.isOp()) || (Shop.getPlugin().usePerms() && player.hasPermission("shop.operator"))) {
                         this.getDisplay().cycleType(player);
                     }

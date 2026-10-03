@@ -373,8 +373,10 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         String msg = waitForNextMessage(player);
         assertNotNull(msg);
-        // First message is initialCreateInstruction
-        assertTrue(msg.contains("set up your shop"), "Case-insensitive tag should work: " + msg);
+        // A completed sign creation answers with the "initialize" prompt, not the
+        // initialCreateInstruction that only the chat-click flow sends.
+        assertTrue(msg.contains("hit the sign"), "Case-insensitive tag should work: " + msg);
+        assertNotNull(shopHandler.getShop(signLoc), "Shop should be created from a lowercase tag");
     }
 
     @Test
@@ -493,6 +495,12 @@ class MiscListenerTest extends BaseMockBukkitTest {
     @Test
     @DisplayName("Chest creation timeout after 30 seconds")
     void testChestCreationTimeout() {
+        // The timeout is scheduled initTimeout seconds out and its duration is read while
+        // handling the click. The shared test config disables it (shopInitTimeout: 0), so
+        // opt back in before the event fires.
+        plugin.getConfig().set("debug.shopInitTimeout", 30);
+        setPluginField("debug_shopInitTimeout", 30);
+
         Location chestLoc = new Location(world, 100, 64, 100);
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
@@ -512,7 +520,8 @@ class MiscListenerTest extends BaseMockBukkitTest {
         // Drain initial messages
         while (player.nextMessage() != null) {}
 
-        // Wait for async timeout task
+        // Advance past the scheduled timeout so its task actually runs.
+        getServer().getScheduler().performTicks(30 * 20 + 20);
         getServer().getScheduler().waitAsyncTasksFinished();
 
         String msg = waitForNextMessage(player);

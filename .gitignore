@@ -11,3 +11,6 @@ scripts/diff-cover.md
 /.m2
 /build/maven-repo
 CLAUDE.md
+
+# Claude Code local agent scratch: worktrees and agent state are per-machine
+.claude/worktrees/

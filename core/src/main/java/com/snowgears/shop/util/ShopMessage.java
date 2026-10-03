@@ -9,6 +9,7 @@ import com.snowgears.shop.shop.ShopType;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -40,6 +41,7 @@ public class ShopMessage {
     private static final String COLOR_CODE_REGEX = "([&\u00a7][0-9A-FK-ORXa-fk-orx])";
     private static final String HEX_CODE_REGEX = "(#[0-9a-fA-F]{6})";
     private static final String PLACEHOLDER_REGEX = "(\\[([^&\u00a7#\\[\\]]+)\\])";
+
     private static final String TEXT_SEGMENT_REGEX = "([^&\u00a7\\[#]+)";
     private static final String OPEN_BRACKET_REGEX = "(\\[)";
     private static final String CLOSE_BRACKET_REGEX = "(\\])";
@@ -53,6 +55,11 @@ public class ShopMessage {
             "(.{1})";
 
     private static HashMap<String, String> messageMap = new HashMap<>();
+    // chatConfig.yml sections that nest a per-shop-type block (SELL:, BUY:, ...). A lookup that
+    // arrives keyed only by the shop type has to search each of these, in this order.
+    private static final String[] SHOP_TYPE_SECTIONS = {
+        "transaction_issue", "transaction", "interaction", "interaction_issue", "description"
+    };
     private static HashMap<String, String[]> shopSignTextMap = new HashMap<>();
     private static HashMap<String, List<String>> displayTextMap = new HashMap<>();
     private static String freePriceWord;
@@ -208,6 +215,16 @@ public class ShopMessage {
         placeholders.put(placeholder.toLowerCase(), valueFunction);
     }
 
+    /**
+     * True when a placeholder's component is nothing but a colour/formatting code, i.e. a
+     * directive that tints the text after it rather than content in its own right.
+     */
+    private static boolean isColorDirective(Component component) {
+        if (!(component instanceof TextComponent text)) return false;
+        String content = text.content();
+        return content != null && content.matches(COLOR_CODE_REGEX) && text.children().isEmpty();
+    }
+
     public static Component replacePlaceholder(String placeholder, PlaceholderContext context) {
         plugin.getLogger().spam("[ShopMessage.replacePlaceholder] Attempting to replace placeholder: " + placeholder + " " + context);
         Function<PlaceholderContext, Component> valueFunction = placeholders.get(placeholder.toLowerCase());
@@ -292,6 +309,28 @@ public class ShopMessage {
                 Object placeholderResult = placeholders.get(part.toLowerCase()).apply(context);
                 // Handle null placeholder result
                 if (placeholderResult == null) {
+                    partComponent = Component.empty();
+                } else if (placeholderResult instanceof Component && isColorDirective((Component) placeholderResult)) {
+                    // "[stock color]" resolves to a component whose entire content is a bare
+                    // colour code. Treat it as a colour directive so it tints the text that
+                    // follows; appending it as content dropped the colour entirely, leaving
+                    // out-of-stock shops with no colour on the sign.
+                    String code = ((TextComponent) placeholderResult).content();
+                    char c = Character.toLowerCase(code.charAt(1));
+                    if (c == 'r') {
+                        latestColor = NamedTextColor.WHITE;
+                        isBold = isItalic = isStrikethrough = isUnderlined = isObfuscated = false;
+                    } else if (isFormattingCode(code)) {
+                        TextDecoration dec = getDecoration(c);
+                        if (dec == TextDecoration.BOLD)          isBold = true;
+                        else if (dec == TextDecoration.ITALIC)   isItalic = true;
+                        else if (dec == TextDecoration.STRIKETHROUGH) isStrikethrough = true;
+                        else if (dec == TextDecoration.UNDERLINED) isUnderlined = true;
+                        else if (dec == TextDecoration.OBFUSCATED) isObfuscated = true;
+                    } else {
+                        TextColor color = getTextColor(code);
+                        if (color != null) latestColor = color;
+                    }
                     partComponent = Component.empty();
                 } else if (placeholderResult instanceof String && ((String) placeholderResult).matches(COLOR_CODE_REGEX)) {
                     char c = Character.toLowerCase(((String) placeholderResult).charAt(1));
@@ -490,6 +529,18 @@ public class ShopMessage {
             return null;
         });
         registerPlaceholder("[shop types]", ShopMessage::getShopTypesPlaceholder);
+        // "[shop]" and the per-type "[<type> shop]" tags appear on line 1 of every sign_text
+        // block in signConfig.yml, but were never registered, so signs rendered them literally.
+        registerPlaceholder("[shop]", ShopMessage::getShopNameWord);
+        for (ShopType shopType : ShopType.values()) {
+            registerPlaceholder("[" + shopType.name().toLowerCase() + " shop]", context -> shopNameWord(context, shopType));
+        }
+        registerPlaceholder("[buy / sell]", context -> {
+            if (context.getShop() == null) return null;
+            return context.getShop().getType() == ShopType.COMBO
+                    ? Component.text(getCreationWord("BUY") + " / " + getCreationWord("SELL"))
+                    : getShopNameWord(context);
+        });
         registerPlaceholder("[total shops]", context -> Component.text(String.valueOf(plugin.getShopHandler().getNumberOfShops())));
 
         registerPlaceholder("[owner]", context -> {
@@ -636,10 +687,13 @@ public class ShopMessage {
             return null;
         });
         registerPlaceholder("[stock color]", context -> {
+            // Keep the raw "&4"/"&a" as the component's content so format() recognises it as
+            // a colour directive (see isColorDirective) and applies it to the following text.
+            // Returning componentFromLegacy() instead produced an empty component and the
+            // colour was silently dropped.
             if (context.getShop() != null) {
                 int stock = context.getShop().isAdmin() ? Integer.MAX_VALUE : context.getShop().getStock();
-                String colorCode = stock > 0 ? stockColorInStock : stockColorOutOfStock;
-                return componentFromLegacy(colorCode);
+                return Component.text(stock > 0 ? stockColorInStock : stockColorOutOfStock);
             }
             return null;
         });
@@ -797,6 +851,46 @@ public class ShopMessage {
         return embedItem(plugin.getItemNameUtil().getName(item), item);
     }
 
+    /**
+     * The shop-type word used by the "[shop]" and "[&lt;type&gt; shop]" sign tags.
+     * <p>
+     * Reads the {@code sign_creation} table in signConfig.yml, NOT {@link #getCreationWord}.
+     * The two deliberately differ: {@code creation_words} in chatConfig.yml is written for
+     * chat, where {@code SHOP} is the brand tag "[Shop]", while {@code sign_creation} holds the
+     * word to print on a sign ("sell", "buy", ...). Using the chat table here would rewrite the
+     * literal "[Shop]" in shipped owner-notification messages into the word "sell".
+     */
+    private static Component getShopNameWord(PlaceholderContext context) {
+        // Only meaningful on a sign. In chat text "[Shop]" is the plugin's brand tag — it comes
+        // from creation_words.SHOP and must render literally, so resolving it to a shop-type
+        // word there would rewrite the brand tag in the shipped owner notifications.
+        if (!context.isForSign()) return Component.text("[Shop]");
+        if (context.getShop() == null || context.getShop().getType() == null) return null;
+        return shopNameWord(context, context.getShop().getType());
+    }
+
+    private static Component shopNameWord(PlaceholderContext context, ShopType type) {
+        // A per-type tag only reads correctly on a shop of that type; render nothing otherwise
+        // rather than telling a BARTER shop it is a "[sell shop]".
+        if (context.getShop() != null && context.getShop().getType() != null
+                && context.getShop().getType() != type) {
+            return null;
+        }
+        return Component.text(getSignCreationWord(type.name()));
+    }
+
+    /**
+     * The word for a shop type as it should appear on a sign, from signConfig.yml's
+     * {@code sign_creation} table, falling back to the lowercase type name.
+     */
+    private static String getSignCreationWord(String key) {
+        if (signConfig != null) {
+            String word = signConfig.getString("sign_creation." + key.toUpperCase());
+            if (word != null && !word.isEmpty()) return word;
+        }
+        return key.toLowerCase();
+    }
+
     private static Component getShopTypesPlaceholder(PlaceholderContext context) {
         TextComponent.Builder builder = Component.text();
         ShopType[] types = ShopType.values();
@@ -896,7 +990,78 @@ public class ShopMessage {
     // -----------------------------------------------------------------------
 
     public static String getUnformattedMessage(String key, String subkey) {
-        return messageMap.get(key + "." + subkey);
+        String fullPath = key + "." + subkey;
+        String message = messageMap.get(fullPath);
+        if (message != null) {
+            return message;
+        }
+
+        if (key == null || subkey == null) {
+            return null;
+        }
+
+        String upperSubkey = uppercaseLeadingTypeSegment(subkey);
+        if (!upperSubkey.equals(subkey)) {
+            message = messageMap.get(key + "." + upperSubkey);
+            if (message != null) {
+                return message;
+            }
+        }
+
+        // Shop-type-specific prompts reach this method in three shapes, while chatConfig.yml
+        // always nests the shop-type blocks ("SELL:", "BUY:", ...) under a named section in
+        // uppercase. A miss on the literal path is retried in the equivalent shape rather than
+        // silently returning null:
+        //   ("interaction", "sell.createHitChestAmount") -> "interaction.SELL.createHitChestAmount"
+        //   ("SELL", "create")                            -> "interaction.SELL.create"
+        //   ("sell", "playerNoStock")                     -> "transaction_issue.SELL.playerNoStock"
+        // The shop type reaches call sites via ShopType#toString(), which is lowercase, and
+        // TransactionHandler passes it as the whole key — so a bare ("sell", "playerNoStock")
+        // has to be resolved against every section that scopes messages per shop type. Failing
+        // to resolve it returns null, and the caller then sends the player nothing at all.
+        if (isShopTypeName(key)) {
+            String upperKey = key.toUpperCase();
+            for (String section : SHOP_TYPE_SECTIONS) {
+                message = messageMap.get(section + "." + upperKey + "." + subkey);
+                if (message == null) {
+                    message = messageMap.get(section + "." + key + "." + subkey);
+                }
+                if (message == null) {
+                    message = messageMap.get(section + "." + upperKey + "." + upperSubkey);
+                }
+                if (message != null) {
+                    return message;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Uppercases a leading lowercase shop-type segment, e.g. "sell.createHitChestAmount"
+     * becomes "SELL.createHitChestAmount". Other subkeys are returned unchanged.
+     */
+    private static String uppercaseLeadingTypeSegment(String subkey) {
+        int dot = subkey.indexOf('.');
+        if (dot <= 0) {
+            return subkey;
+        }
+        String first = subkey.substring(0, dot);
+        if (isShopTypeName(first)) {
+            return first.toUpperCase() + subkey.substring(dot);
+        }
+        return subkey;
+    }
+
+    /**
+     * True when the segment names a shop type (BUY, SELL, BARTER, COMBO, GAMBLE).
+     */
+    private static boolean isShopTypeName(String key) {
+        try {
+            return com.snowgears.shop.shop.ShopType.valueOf(key.toUpperCase()) != null;
+        } catch (IllegalArgumentException | NullPointerException notAShopType) {
+            return false;
+        }
     }
 
     /**
@@ -938,6 +1103,7 @@ public class ShopMessage {
         if (shop == null) return rawLines;
         PlaceholderContext context = new PlaceholderContext();
         context.setShop(shop);
+        context.setForSign(true);
         String[] formatted = new String[rawLines.length];
         for (int i = 0; i < rawLines.length; i++) {
             formatted[i] = toLegacy(format(rawLines[i], context));
@@ -990,6 +1156,14 @@ public class ShopMessage {
     }
 
     public static String[] getShopSignText(String shopType) {
+        // Shop types are stored uppercase (SELL, BUY, ...), but the shared sign-text keys
+        // are lowercase in signConfig.yml (deleted, timeout, ...). Trying the given key
+        // verbatim first means both resolve, instead of every non-shop-type key falling
+        // through to the placeholder default and rendering literal "[item]" text on signs.
+        String[] exact = shopSignTextMap.get(shopType);
+        if (exact != null) {
+            return exact;
+        }
         return shopSignTextMap.getOrDefault(shopType.toUpperCase(), new String[]{"Buy", "[item]", "[price]", "[stock]"});
     }
 

@@ -245,6 +245,13 @@ public class ShopCreationProcess {
             Shop.getPlugin().getLogger().warning("Unable to display floating text for player " + player.getName() + ", Display is disabled");
             return;
         }
+        // SpawEntities and hideEntity() are main-thread-only; the chat-creation flow reaches
+        // this from AsyncChatEvent, so hop back onto the main thread before touching entities.
+        if (!Bukkit.isPrimaryThread()) {
+            List<String> toDisplay = new ArrayList<>(lines);
+            Bukkit.getScheduler().runTask(Shop.getPlugin(), () -> displayFloatingLines(toDisplay));
+            return;
+        }
         this.display.removeDisplayEntities(player, true);
         Location loc = this.clickedChest.getLocation().clone().add(0.5, 0.625 + (0.248 * lines.size()), 0.5);
         int i = 0;

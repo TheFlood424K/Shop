@@ -104,6 +104,10 @@ public class EfficientChunkLoadTest extends BaseMockBukkitTest {
 
         // Act: delete should force load and clear the sign text
         shop.delete();
+        // delete() writes the sign from a scheduled task (runAtLocationLater, +1 tick) so the
+        // write lands on the correct region thread. Let the scheduler run before asserting.
+        server.getScheduler().performTicks(10);
+        server.getScheduler().waitAsyncTasksFinished();
 
         // Assert: chunk is now loaded
         assertTrue(isChunkLoaded(world, signLoc), "delete() should force-load the chunk to clear the sign");

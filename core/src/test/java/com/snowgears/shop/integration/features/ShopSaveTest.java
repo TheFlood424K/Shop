@@ -252,6 +252,18 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         @SuppressWarnings("unchecked")
         var root2 = (java.util.Map<String, Object>) new Yaml().load(yamlText2);
 
+        // saveShops() stores the item via YamlConfiguration#set(path, ItemStack), which
+        // serialises using the "==: org.bukkit.inventory.ItemStack" schema tag rather than
+        // writing a plain `type:` scalar. The on-disk shape is therefore:
+        //     item:
+        //       ==: org.bukkit.inventory.ItemStack
+        //       id: minecraft:dirt
+        //       count: 1
+        // so `item.type` never exists. Assert against `item.id` (the namespaced material
+        // key), which is the field actually persisted.
+        // The plugin's own loader (ShopHandler#loadShopsFromConfig) reads these back with
+        // YamlConfiguration#getItemStack, not with raw SnakeYAML traversal.
+
         // shops map exists
         @SuppressWarnings("unchecked")
         var shops1 = (java.util.Map<String, Object>) getAtPath(root1, "shops");
@@ -268,18 +280,18 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         assertEquals(4, getAtPath(root1, "shops." + playerUuid + ".1.amount"));
         assertEquals(2.0, ((Number) getAtPath(root1, "shops." + playerUuid + ".1.price")).doubleValue(), 0.0001);
         assertEquals("sell", getAtPath(root1, "shops." + playerUuid + ".1.type"));
-        assertEquals("DIRT", getAtPath(root1, "shops." + playerUuid + ".1.item.type"));
+        assertEquals("minecraft:dirt", getAtPath(root1, "shops." + playerUuid + ".1.item.id"));
         // Player1 shop 2 assertions
         assertEquals(8, getAtPath(root1, "shops." + playerUuid + ".2.amount"));
         assertEquals(3.0, ((Number) getAtPath(root1, "shops." + playerUuid + ".2.price")).doubleValue(), 0.0001);
         assertEquals("sell", getAtPath(root1, "shops." + playerUuid + ".2.type"));
-        assertEquals("STONE", getAtPath(root1, "shops." + playerUuid + ".2.item.type"));
+        assertEquals("minecraft:stone", getAtPath(root1, "shops." + playerUuid + ".2.item.id"));
 
         // Player2 only one shop (index 1)
         assertEquals(4, getAtPath(root2, "shops." + player2Uuid + ".1.amount"));
         assertEquals(1.0, ((Number) getAtPath(root2, "shops." + player2Uuid + ".1.price")).doubleValue(), 0.0001);
         assertEquals("sell", getAtPath(root2, "shops." + player2Uuid + ".1.type"));
-        assertEquals("OAK_LOG", getAtPath(root2, "shops." + player2Uuid + ".1.item.type"));
+        assertEquals("minecraft:oak_log", getAtPath(root2, "shops." + player2Uuid + ".1.item.id"));
     }
 
     @Test

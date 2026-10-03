@@ -5,11 +5,7 @@ import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.EquipmentSlot;
+import org.mockbukkit.mockbukkit.simulate.entity.PlayerSimulation;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -31,7 +27,10 @@ public class CreationDestructionCostTest extends BaseMockBukkitTest {
         PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
 
-        // Setup economy
+        // setupEconomy() only mocks Vault; the test config uses ITEM currency, where
+        // createShop() charges the creation cost out of the player's own inventory.
+        // Fund the player so the charge succeeds.
+        giveCurrency(player, 1000);
         setupEconomy();
 
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 10, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
@@ -39,16 +38,11 @@ public class CreationDestructionCostTest extends BaseMockBukkitTest {
         // Verify creation cost was charged
         // In a real test, we'd verify the economy balance decreased by 100
 
-        // Destroy the shop by breaking the sign
-        PlayerInteractEvent breakEvent = new PlayerInteractEvent(
-                player,
-                Action.LEFT_CLICK_BLOCK,
-                player.getInventory().getItemInMainHand(),
-                shop.getSignLocation().getBlock(),
-                BlockFace.NORTH,
-                EquipmentSlot.HAND
-        );
-        server.getPluginManager().callEvent(breakEvent);
+        // Destroy the shop by breaking the sign. This has to go through a real
+        // BlockBreakEvent (PlayerSimulation), because MiscListener#shopDestroy listens
+        // for that, not for PlayerInteractEvent.
+        PlayerSimulation simulation = new PlayerSimulation(player);
+        simulation.simulateBlockBreak(shop.getSignLocation().getBlock());
         server.getScheduler().performTicks(5);
 
         // Verify refund was given
@@ -66,20 +60,14 @@ public class CreationDestructionCostTest extends BaseMockBukkitTest {
         PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
 
+        giveCurrency(player, 1000);
         setupEconomy();
 
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 12, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
 
-        // Destroy the shop by breaking the sign
-        PlayerInteractEvent breakEvent = new PlayerInteractEvent(
-                player,
-                Action.LEFT_CLICK_BLOCK,
-                player.getInventory().getItemInMainHand(),
-                shop.getSignLocation().getBlock(),
-                BlockFace.NORTH,
-                EquipmentSlot.HAND
-        );
-        server.getPluginManager().callEvent(breakEvent);
+        // Destroy the shop by breaking the sign (real BlockBreakEvent, as above).
+        PlayerSimulation simulation = new PlayerSimulation(player);
+        simulation.simulateBlockBreak(shop.getSignLocation().getBlock());
         server.getScheduler().performTicks(5);
 
         // No refund should be given

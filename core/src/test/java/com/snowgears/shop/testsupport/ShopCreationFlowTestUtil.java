@@ -2,6 +2,7 @@ package com.snowgears.shop.testsupport;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.shop.AbstractShop;
+import com.snowgears.shop.shop.ShopType;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -35,6 +36,30 @@ public final class ShopCreationFlowTestUtil {
             String priceChat,
             boolean creatorIsOp
     ) {
+        return createShopViaChestFlow(server, plugin, player, world, chestLoc, itemInHand,
+                shopTypeChat, amountChat, priceChat, creatorIsOp, "COBBLESTONE", priceChat);
+    }
+
+    /**
+     * Drives the chat-creation flow to completion for any shop type.
+     *
+     * @param barterItemChat material name of the item to barter for (BARTER shops only)
+     * @param comboPriceChat what to type when a COMBO shop asks for the second (buy) price
+     */
+    public static AbstractShop createShopViaChestFlow(
+            ServerMock server,
+            Shop plugin,
+            PlayerMock player,
+            World world,
+            Location chestLoc,
+            ItemStack itemInHand,
+            String shopTypeChat,
+            int amountChat,
+            String priceChat,
+            boolean creatorIsOp,
+            String barterItemChat,
+            String comboPriceChat
+    ) {
         player.setOp(creatorIsOp);
 
         // Allow everyone to create by default (tests can override this before calling)
@@ -67,12 +92,50 @@ public final class ShopCreationFlowTestUtil {
         BaseMockBukkitTest.sendChatMessage(player, shopTypeChat);
         BaseMockBukkitTest.waitForNextMessage(player);
 
-        // Step 2: Amount
+        ShopType type = ShopType.valueOf(shopTypeChat.toUpperCase());
+
+        // Step 2: Amount. For BARTER this is still the sell-item amount, and answering it is
+        // what advances the process to ChatCreationStep.BARTER_ITEM.
         BaseMockBukkitTest.sendChatMessage(player, String.valueOf(amountChat));
         BaseMockBukkitTest.waitForNextMessage(player);
 
-        // Step 3: Price
-        BaseMockBukkitTest.sendChatMessage(player, priceChat);
+        if (type == ShopType.BARTER) {
+            // BARTER picks the item to trade for by left-clicking the chest again while holding
+            // it ("Now hit the chest again with the item you want to barter for"). This MUST
+            // happen while the step is BARTER_ITEM: MiscListener#handleShopLeftClick only takes
+            // the barter item on that step, and otherwise falls through and cancels the process.
+            // Sneaking is irrelevant on this step — the branch returns before the sneaking check.
+            ItemStack barterItem = new ItemStack(Material.valueOf(barterItemChat.toUpperCase()));
+            player.setSneaking(true);
+            player.getInventory().setItemInMainHand(barterItem);
+            PlayerInteractEvent pickBarterItem = new PlayerInteractEvent(
+                    player,
+                    Action.LEFT_CLICK_BLOCK,
+                    barterItem,
+                    chestBlock,
+                    BlockFace.NORTH,
+                    EquipmentSlot.HAND
+            );
+            server.getPluginManager().callEvent(pickBarterItem);
+            server.getScheduler().performTicks(5);
+            BaseMockBukkitTest.waitForNextMessage(player);
+
+            // Step 3: how many of the barter item to receive. BARTER asks no price question.
+            BaseMockBukkitTest.sendChatMessage(player, priceChat);
+            BaseMockBukkitTest.waitForNextMessage(player);
+        }
+        else {
+            // Step 3: Price
+            BaseMockBukkitTest.sendChatMessage(player, priceChat);
+            BaseMockBukkitTest.waitForNextMessage(player);
+        }
+
+        // COMBO then asks what the shop should buy for, before the shop is created.
+        if (type == ShopType.COMBO) {
+            BaseMockBukkitTest.sendChatMessage(player, comboPriceChat);
+            BaseMockBukkitTest.waitForNextMessage(player);
+        }
+
         // Success/failure message often arrives after at least one tick due to scheduled creation task
         server.getScheduler().performTicks(2);
 
