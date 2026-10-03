@@ -149,6 +149,10 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      - name: Output JAR URL
+        run: |
+          echo "jar_url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-shop-jar.outputs.artifact-id }}" >> "$GITHUB_OUTPUT"
+
   # Test job - runs tests (downloads compiled classes from build)
   test:
     name: Test (Parallel Methods)
@@ -208,29 +212,6 @@ jobs:
           path: core/target/surefire-reports
           if-no-files-found: ignore
 
-  # Summary job - creates workflow summary and uploads artifacts
-  summary:
-    name: Summary & Artifacts
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [build, test]
-    if: always()
-    env:
-      VERSION: ${{ needs.setup.outputs.version }}
-      JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
-    steps:
-      - name: Download JAR artifact
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: ${{ needs.setup.outputs.jar_filename }}
-          path: .
-
-      - name: Download test reports
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: surefire-reports-${{ github.run_id }}
-          path: core/target/surefire-reports
-
       - name: Generate test summary
         if: always()
         id: test-report
@@ -248,7 +229,9 @@ jobs:
           failures_detail = []
 
           if os.path.exists(report_dir):
-              for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
+              xml_files = glob.glob(os.path.join(report_dir, "TEST-*.xml"))
+              print(f"Found {len(xml_files)} test report files", file=sys.stderr)
+              for xml_file in xml_files:
                   try:
                       tree = ET.parse(xml_file)
                       root = tree.getroot()
@@ -302,7 +285,13 @@ jobs:
           if remaining < 0:
               remaining = 0
 
-          bar = "🟩" * filled + "🟥" * failed_filled + "🟨" * skipped_filled + "⬜" * remaining
+          # Use HTML spans with inline styles for reliable color rendering
+          bar = (
+              f'<span style="color:#2ecc71;">{"█" * filled}</span>'
+              f'<span style="color:#e74c3c;">{"█" * failed_filled}</span>'
+              f'<span style="color:#f39c12;">{"█" * skipped_filled}</span>'
+              f'<span style="color:#95a5a6;">{"█" * remaining}</span>'
+          )
 
           lines = []
           lines.append("## 🧪 Test Results")
@@ -313,11 +302,11 @@ jobs:
           if total > 0:
               lines.append("| Status | Count | Percentage |")
               lines.append("|--------|-------|------------|")
-              lines.append(f"| 🟩 Passed | **{passed}** | {passed/total*100:.1f}% |")
+              lines.append(f"| <span style=\"color:#2ecc71;\">●</span> Passed | **{passed}** | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| 🟥 Failed | **{failed}** | {failed/total*100:.1f}% |")
+                  lines.append(f"| <span style=\"color:#e74c3c;\">●</span> Failed | **{failed}** | {failed/total*100:.1f}% |")
               if skipped > 0:
-                  lines.append(f"| 🟨 Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+                  lines.append(f"| <span style=\"color:#f39c12;\">●</span> Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
