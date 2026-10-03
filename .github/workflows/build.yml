@@ -290,41 +290,99 @@ jobs:
           if remaining < 0:
               remaining = 0
 
-          # Use emoji blocks - they render in GitHub markdown
-          bar = "🟩" * filled + "🟥" * failed_filled + "🟨" * skipped_filled + "⬜" * remaining
+          # Use text-based indicators that work in GitHub markdown
+          bar = "█" * filled + "▓" * failed_filled + "░" * skipped_filled + "·" * remaining
 
           lines = []
           lines.append("## 🧪 Test Results")
           lines.append("")
-          lines.append(f"**Overall:** {bar} {pct}% ({passed}/{total} passed)")
+          lines.append(f"**Overall:** `{bar}` {pct}% ({passed}/{total} passed)")
           lines.append("")
 
           if total > 0:
               lines.append("| Status | Count | Percentage |")
               lines.append("|--------|-------|------------|")
-              lines.append(f"| 🟩 Passed | **{passed}** | {passed/total*100:.1f}% |")
+              lines.append(f"| ✅ Passed | **{passed}** | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| 🟥 Failed | **{failed}** | {failed/total*100:.1f}% |")
+                  lines.append(f"| ❌ Failed | **{failed}** | {failed/total*100:.1f}% |")
               if skipped > 0:
-                  lines.append(f"| 🟨 Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+                  lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          if failures_detail:
-              lines.append("### ❌ Test Failures")
+          # Include both failures and skips in the details table
+          all_details = failures_detail.copy()
+          # Add skipped tests with their reasons
+          if os.path.exists(report_dir):
+              for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
+                  try:
+                      tree = ET.parse(xml_file)
+                      root = tree.getroot()
+                      classname = root.get("name", "Unknown")
+
+                      for testcase in root.findall(".//testcase"):
+                          skipped_elem = testcase.find("skipped")
+                          method = testcase.get("name", "unknown")
+                          if skipped_elem is not None:
+                              skip_msg = skipped_elem.get("message", "")
+                              if not skip_msg:
+                                  skip_msg = (skipped_elem.text or "").strip()
+                              if not skip_msg:
+                                  for child in skipped_elem:
+                                      if child.text:
+                                          skip_msg = child.text.strip()
+                                          break
+                              if not skip_msg:
+                                  skip_msg = "Skipped (no reason given)"
+                              msg_short = skip_msg[:150] + ("..." if len(skip_msg) > 150 else "")
+                              all_details.append((classname, method, msg_short, "SKIP"))
+                  except Exception:
+                      pass
+
+          if failures_detail or skipped > 0:
+              lines.append("### 📋 Test Details (Failures & Skips)")
               lines.append("")
               lines.append("| Class | Method | Status | Message |")
               lines.append("|-------|--------|--------|---------|")
 
               class_groups = defaultdict(list)
-              for classname, method, msg, status in failures_detail:
+              all_details = failures_detail.copy()
+              # Re-collect skips from XML
+              if os.path.exists(report_dir):
+                  for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
+                      try:
+                          tree = ET.parse(xml_file)
+                          root = tree.getroot()
+                          classname = root.get("name", "Unknown")
+                          for testcase in root.findall(".//testcase"):
+                              skipped_elem = testcase.find("skipped")
+                              method = testcase.get("name", "unknown")
+                              if skipped_elem is not None:
+                                  skip_msg = skipped_elem.get("message", "")
+                                  if not skip_msg:
+                                      skip_msg = (skipped_elem.text or "").strip()
+                                  if not skip_msg:
+                                      for child in skipped_elem:
+                                          if child.text:
+                                              skip_msg = child.text.strip()
+                                              break
+                                  if not skip_msg:
+                                      skip_msg = "Skipped (no reason given)"
+                                  msg_short = skip_msg[:150] + ("..." if len(skip_msg) > 150 else "")
+                                  all_details.append((classname, method, msg_short, "SKIP"))
+                      except Exception:
+                          pass
+
+              class_groups = defaultdict(list)
+              for classname, method, msg, status in all_details:
                   class_groups[classname].append((method, msg, status))
 
               for classname, methods in class_groups.items():
                   for method, msg, status in methods:
                       msg_short = msg[:150] + ("..." if len(msg) > 150 else "")
                       short_class = classname if len(classname) <= 50 else "..." + classname[-47:]
-                      lines.append(f"| {short_class} | {method} | {status} | {msg_short} |")
+                      status_emoji = "❌" if status == "FAIL" else ("💥" if status == "ERROR" else "⏭️")
+                      lines.append(f"| {short_class} | {method} | {status_emoji} {status} | {msg_short} |")
 
               lines.append("")
 
@@ -354,9 +412,12 @@ jobs:
           DIFF_URL=""
 
           {
+            BUILD_EXIT="${{ needs.build.outputs.build_exit_code }}"
+            TEST_EXIT="${{ steps.test-report.outputs.test_exit_code }}"
+
             if [ "$STATUS" = "success" ] && [ "$TEST_EXIT" = "0" ]; then
               echo "# ✅ Build & Tests Passed"
-            elif [ "$STATUS" = "success" ] && [ "$TEST_EXIT" != "0" ] && [ -f "${{ needs.setup.outputs.jar_filename }}" ]; then
+            elif [ "$BUILD_EXIT" = "0" ] && [ "$TEST_EXIT" != "0" ]; then
               echo "# ⚠️ Build Passed, Tests Failed"
               echo ""
               echo "> Artifact was produced successfully but some tests failed."
@@ -383,10 +444,12 @@ jobs:
               echo ""
             fi
 
-            if [ -f "${{ needs.setup.outputs.jar_filename }}" ]; then
+            # Always show artifact if build succeeded (JAR_URL comes from build job)
+            JAR_URL="${{ needs.build.outputs.jar_url }}"
+            if [ -n "$JAR_URL" ]; then
               echo "## 📦 Artifacts"
               echo ""
-              echo "⬇️ [${{ needs.setup.outputs.jar_filename }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+              echo "⬇️ [${{ needs.setup.outputs.jar_filename }}]($JAR_URL)"
               echo ""
             fi
 
