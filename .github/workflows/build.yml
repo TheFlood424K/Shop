@@ -107,6 +107,11 @@ jobs:
           echo "build_exit_code=$BUILD_EXIT" >> "$GITHUB_OUTPUT"
           echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
 
+          # Debug: list surefire report locations
+          echo "=== Surefire report locations ==="
+          find . -name "surefire-reports" -type d 2>/dev/null | head -20
+          find . -name "TEST-*.xml" 2>/dev/null | head -20
+
           # Fail if either build OR tests failed
           if [ $BUILD_EXIT -ne 0 ] || [ $TEST_EXIT -ne 0 ]; then
             exit 1
@@ -122,13 +127,35 @@ jobs:
           import os
           import sys
 
-          report_dir = "core/target/surefire-reports"
+          # Check multiple possible report locations
+          possible_dirs = [
+              "core/target/surefire-reports",
+              "target/surefire-reports",
+              "**/target/surefire-reports"
+          ]
+
+          report_dir = None
+          for d in possible_dirs:
+              if glob.glob(os.path.join(d, "TEST-*.xml")):
+                  report_dir = d
+                  break
+
+          if not report_dir:
+              # Find any surefire-reports directory
+              for root, dirs, files in os.walk("."):
+                  if "surefire-reports" in dirs:
+                      candidate = os.path.join(root, "surefire-reports")
+                      if glob.glob(os.path.join(candidate, "TEST-*.xml")):
+                          report_dir = candidate
+                          break
+
+          print(f"Using report directory: {report_dir}", file=sys.stderr)
 
           # Aggregate totals
           passed = failed = skipped = total = 0
           failures_detail = []  # (class, method, message, type)
 
-          if os.path.exists(report_dir):
+          if report_dir and os.path.exists(report_dir):
               for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
                   try:
                       tree = ET.parse(xml_file)
@@ -162,6 +189,12 @@ jobs:
                               failures_detail.append((classname, method, "Skipped", "⏭️ SKIP"))
                   except Exception as e:
                       print(f"Warning: Failed to parse {xml_file}: {e}", file=sys.stderr)
+          else:
+              print("No surefire reports found!", file=sys.stderr)
+              # List directories for debugging
+              for root, dirs, files in os.walk("."):
+                  if "target" in root and "surefire" in " ".join(dirs):
+                      print(f"Found target dir: {root}", file=sys.stderr)
 
           passed = total - failed - skipped
 
