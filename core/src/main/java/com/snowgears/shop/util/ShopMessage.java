@@ -58,6 +58,8 @@ public class ShopMessage {
     private static String freePriceWord;
     private static String adminStockWord;
     private static String serverDisplayName;
+    private static String stockColorInStock;
+    private static String stockColorOutOfStock;
     private static HashMap<String, String> creationWords = new HashMap<>();
     private static YamlConfiguration chatConfig;
     private static YamlConfiguration signConfig;
@@ -74,6 +76,9 @@ public class ShopMessage {
 
         loadMessagesFromConfig();
         loadSignTextFromConfig();
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap keys: " + shopSignTextMap.keySet());
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap SELL: " + java.util.Arrays.toString(shopSignTextMap.get("SELL")));
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap BUY: " + java.util.Arrays.toString(shopSignTextMap.get("BUY")));
         loadDisplayTextFromConfig();
         loadCreationWords();
 
@@ -81,6 +86,10 @@ public class ShopMessage {
         adminStockWord = signConfig.getString("sign_text.adminStock");
         serverDisplayName = signConfig.getString("sign_text.serverDisplayName");
         targetMaxLength = displayConfig.getInt("targetMaxLength", 40);
+
+        // Load stock color config
+        stockColorInStock = signConfig.getString("stock_color.in_stock", "&a");
+        stockColorOutOfStock = signConfig.getString("stock_color.out_of_stock", "&4");
 
         loadPlaceholders();
     }
@@ -101,6 +110,9 @@ public class ShopMessage {
 
         loadMessagesFromConfig();
         loadSignTextFromConfig();
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap keys: " + shopSignTextMap.keySet());
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap SELL: " + java.util.Arrays.toString(shopSignTextMap.get("SELL")));
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap BUY: " + java.util.Arrays.toString(shopSignTextMap.get("BUY")));
         loadDisplayTextFromConfig();
         loadCreationWords();
 
@@ -111,6 +123,10 @@ public class ShopMessage {
         adminStockWord = signConfig.getString("sign_text.adminStock");
         serverDisplayName = signConfig.getString("sign_text.serverDisplayName");
         targetMaxLength = displayConfig.getInt("targetMaxLength", 40);
+
+        // Load stock color config
+        stockColorInStock = signConfig.getString("stock_color.in_stock", "&a");
+        stockColorOutOfStock = signConfig.getString("stock_color.out_of_stock", "&4");
     }
 
     // -----------------------------------------------------------------------
@@ -198,8 +214,16 @@ public class ShopMessage {
         if (valueFunction != null) {
             try {
                 plugin.getLogger().spam("[ShopMessage.replacePlaceholder]     Running placeholder function... " + placeholder);
-                Component message = valueFunction.apply(context);
-                if (message != null) {
+                Object result = valueFunction.apply(context);
+                if (result != null) {
+                    Component message;
+                    if (result instanceof Component) {
+                        message = (Component) result;
+                    } else if (result instanceof String) {
+                        message = componentFromLegacy((String) result);
+                    } else {
+                        message = Component.text(result.toString());
+                    }
                     plugin.getLogger().trace("[ShopMessage.replacePlaceholder]  *** placeholder " + placeholder + "  value: " + toPlain(message));
                     return message;
                 }
@@ -265,7 +289,36 @@ public class ShopMessage {
             Component partComponent;
             if (part.matches(PLACEHOLDER_REGEX) && placeholders.containsKey(part.toLowerCase())) {
                 plugin.getLogger().hyper("[ShopMessage.format]     matched PLACEHOLDER_REGEX: " + part);
-                partComponent = replacePlaceholder(part, context);
+                Object placeholderResult = placeholders.get(part.toLowerCase()).apply(context);
+                // Handle null placeholder result
+                if (placeholderResult == null) {
+                    partComponent = Component.empty();
+                } else if (placeholderResult instanceof String && ((String) placeholderResult).matches(COLOR_CODE_REGEX)) {
+                    char c = Character.toLowerCase(((String) placeholderResult).charAt(1));
+                    if (c == 'r') {
+                        latestColor = NamedTextColor.WHITE;
+                        isBold = isItalic = isStrikethrough = isUnderlined = isObfuscated = false;
+                    } else if (isFormattingCode((String) placeholderResult)) {
+                        TextDecoration dec = getDecoration(c);
+                        if (dec == TextDecoration.BOLD)          isBold = true;
+                        else if (dec == TextDecoration.ITALIC)   isItalic = true;
+                        else if (dec == TextDecoration.STRIKETHROUGH) isStrikethrough = true;
+                        else if (dec == TextDecoration.UNDERLINED) isUnderlined = true;
+                        else if (dec == TextDecoration.OBFUSCATED) isObfuscated = true;
+                    } else {
+                        TextColor color = getTextColor((String) placeholderResult);
+                        if (color != null) latestColor = color;
+                    }
+                    partComponent = Component.text(""); // empty component, color applied via latestColor
+                } else {
+                    if (placeholderResult instanceof Component) {
+                        partComponent = (Component) placeholderResult;
+                    } else if (placeholderResult instanceof String) {
+                        partComponent = componentFromLegacy((String) placeholderResult);
+                    } else {
+                        partComponent = Component.text(placeholderResult.toString());
+                    }
+                }
             } else {
                 partComponent = Component.text(part);
             }
@@ -351,6 +404,7 @@ public class ShopMessage {
 
     public static void sendMessage(String key, String subkey, Player player, AbstractShop shop) {
         String message = getUnformattedMessage(key, subkey);
+        plugin.getLogger().info("[DEBUG sendMessage] key=" + key + " subkey=" + subkey + " fullKey=" + (key + "." + subkey) + " message=" + message + " player=" + player.getName());
         if (message != null && !message.isEmpty())
             sendMessage(message, player, shop);
     }
@@ -432,7 +486,7 @@ public class ShopMessage {
             if (context.getProcess() != null && context.getProcess().getShopType() != null)
                 return Component.text(context.getProcess().getShopType().toString());
             if (context.getShop() != null)
-                return Component.text(ShopMessage.getCreationWord(context.getShop().getType().toString().toUpperCase()));
+                return Component.text(ShopMessage.getCreationWord(context.getShop().getType().name().toUpperCase()));
             return null;
         });
         registerPlaceholder("[shop types]", ShopMessage::getShopTypesPlaceholder);
@@ -581,6 +635,14 @@ public class ShopMessage {
             }
             return null;
         });
+        registerPlaceholder("[stock color]", context -> {
+            if (context.getShop() != null) {
+                int stock = context.getShop().isAdmin() ? Integer.MAX_VALUE : context.getShop().getStock();
+                String colorCode = stock > 0 ? stockColorInStock : stockColorOutOfStock;
+                return componentFromLegacy(colorCode);
+            }
+            return null;
+        });
         registerPlaceholder("[amount]", context -> {
             if (context.getShop() != null) return Component.text(String.valueOf(context.getShop().getAmount()));
             if (context.getProcess() != null) return Component.text(String.valueOf(context.getProcess().getItemAmount()));
@@ -701,7 +763,7 @@ public class ShopMessage {
         if (shop != null) {
             hoverText.append(Component.text("Owner: " + (shop.isAdmin() ? getServerDisplayName() : shop.getOwnerName())));
             hoverText.append(Component.newline());
-            hoverText.append(Component.text("Type: " + shop.getType().toString()));
+            hoverText.append(Component.text("Type: " + shop.getType().name()));
             hoverText.append(Component.newline());
             hoverText.append(Component.text("Item: "));
             hoverText.append(plugin.getItemNameUtil().getName(shop.getItemStack()));
@@ -779,11 +841,32 @@ public class ShopMessage {
         for (String key : signTextSection.getKeys(false)) {
             org.bukkit.configuration.ConfigurationSection shopSection = signTextSection.getConfigurationSection(key);
             if (shopSection == null) continue;
-            List<String> lines = new ArrayList<>();
-            for (int i = 1; i <= 4; i++) {
-                lines.add(shopSection.getString("line" + i, ""));
+
+            // Check if the section has sub-sections (normal, admin, etc.) or direct line keys
+            if (shopSection.getKeys(false).stream().anyMatch(k -> shopSection.getConfigurationSection(k) != null)) {
+                // Has nested variants (normal, admin, etc.) - prefer "normal" variant
+                org.bukkit.configuration.ConfigurationSection normalSection = shopSection.getConfigurationSection("normal");
+                if (normalSection != null) {
+                    List<String> lines = new ArrayList<>();
+                    // Config uses numeric keys (1, 2, 3, 4) instead of line1, line2, etc.
+                    for (int i = 1; i <= 4; i++) {
+                        lines.add(normalSection.getString(String.valueOf(i), ""));
+                    }
+                    shopSignTextMap.put(key, lines.toArray(new String[0]));
+                    System.out.println("[DEBUG loadSignTextFromConfig] Loaded " + key + " normal: " + java.util.Arrays.toString(lines.toArray()));
+                }
+            } else {
+                // Flat structure with line1, line2, etc. or numeric keys
+                List<String> lines = new ArrayList<>();
+                for (int i = 1; i <= 4; i++) {
+                    String val = shopSection.getString("line" + i);
+                    if (val == null || val.isEmpty()) {
+                        val = shopSection.getString(String.valueOf(i), "");
+                    }
+                    lines.add(val);
+                }
+                shopSignTextMap.put(key, lines.toArray(new String[0]));
             }
-            shopSignTextMap.put(key, lines.toArray(new String[0]));
         }
     }
 
@@ -850,7 +933,7 @@ public class ShopMessage {
      * Compat overload: returns sign lines for a shop, resolving the type key from the shop.
      */
     public static String[] getSignLines(AbstractShop shop, ShopType type) {
-        String key = (type != null ? type.toString() : (shop != null && shop.getType() != null ? shop.getType().toString() : "sell"));
+        String key = (type != null ? type.name() : (shop != null && shop.getType() != null ? shop.getType().name() : "sell"));
         String[] rawLines = getShopSignText(key);
         if (shop == null) return rawLines;
         PlaceholderContext context = new PlaceholderContext();
@@ -888,7 +971,7 @@ public class ShopMessage {
      * Compat overload: returns display tag lines resolved from a shop and type.
      */
     public static List<String> getDisplayTags(AbstractShop shop, ShopType type) {
-        String key = (type != null ? type.toString() : (shop != null && shop.getType() != null ? shop.getType().toString() : "sell"));
+        String key = (type != null ? type.name() : (shop != null && shop.getType() != null ? shop.getType().name() : "sell"));
         return getDisplayText(key);
     }
 
@@ -917,6 +1000,8 @@ public class ShopMessage {
     public static String getFreePriceWord() { return freePriceWord != null ? freePriceWord : "Free"; }
     public static String getAdminStockWord() { return adminStockWord != null ? adminStockWord : "\u221e"; }
     public static String getServerDisplayName() { return serverDisplayName != null ? serverDisplayName : "Server"; }
+    public static String getStockColorInStock() { return stockColorInStock != null ? stockColorInStock : "&a"; }
+    public static String getStockColorOutOfStock() { return stockColorOutOfStock != null ? stockColorOutOfStock : "&4"; }
     public static HashMap<String, String> getCreationWords() { return creationWords; }
     public static String getCreationWord(String key) {
         return creationWords.getOrDefault(key.toUpperCase(), UtilMethods.capitalize(key.toLowerCase()));

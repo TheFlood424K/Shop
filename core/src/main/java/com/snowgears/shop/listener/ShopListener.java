@@ -203,7 +203,7 @@ public class ShopListener implements Listener {
                             event.setCancelled(true);
                             shop.executeClickAction(event, ShopClickType.RIGHT_CLICK_CHEST); //we are cancelling this event regardless so no need to check if the action was performed
                         } else {
-                            ShopMessage.sendMessage(shop.getType().toString(), "opOpen", player, shop);
+                            ShopMessage.sendMessage(shop.getType().name(), "opOpen", player, shop);
                         }
                     } else {
                         // Cancel event to prevent other players from opening the chest

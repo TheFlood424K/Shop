@@ -15,14 +15,11 @@ permissions:
   issues: write
 
 jobs:
-  # Shared setup - prepares environment for both build and test
-  setup:
-    name: Setup Environment
+  build-and-test:
+    name: Build & Test (Java 25)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      jar_filename: ${{ steps.version.outputs.jar_filename }}
+    timeout-minutes: 30
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
@@ -47,24 +44,6 @@ jobs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-
-      - name: Compute version with commit hash
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            COMMIT_HASH="${{ github.event.pull_request.head.sha }}"
-          else
-            COMMIT_HASH="${{ github.sha }}"
-          fi
-          COMMIT_HASH="${COMMIT_HASH:0:7}"
-
-          CURRENT_VERSION=$(grep -m 1 "<revision>" pom.xml | sed 's/.*<revision>\(.*\)<\/revision>.*/\1/')
-          NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
-
-          echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
-          echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
       - name: Cache dynmap/BlockProt artifacts
         uses: actions/cache@v4
@@ -200,107 +179,59 @@ jobs:
           printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
 
       - name: Build (compile & package, no tests)
+      - name: Compute version with commit hash
+        id: version
         run: |
-          mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -DskipTests package
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_HASH="${{ github.event.pull_request.head.sha }}"
+          else
+            COMMIT_HASH="${{ github.sha }}"
+          fi
+          COMMIT_HASH="${COMMIT_HASH:0:7}"
 
-      - name: Upload target directory (for test job)
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: target-${{ github.run_id }}
-          path: core/target
-          compression-level: 0
-          if-no-files-found: error
+          CURRENT_VERSION=$(grep -m 1 "<revision>" pom.xml | sed 's/.*<revision>\(.*\)<\/revision>.*/\1/')
+          NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
 
-      - name: Upload JAR artifact
-        id: upload-shop-jar
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: ${{ env.JAR_FILENAME }}
-          path: '**/target/Shop-*.jar'
-          compression-level: 0
-          if-no-files-found: error
+          echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
+          echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
-  # Test job - runs tests (downloads compiled classes from build)
-  test:
-    name: Test (Parallel Methods)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [setup, build]
-    env:
-      VERSION: ${{ needs.setup.outputs.version }}
-      JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-        with:
-          fetch-depth: 0
-
-      - name: Set up JDK 25 (Temurin)
-        uses: actions/setup-java@v4.5.0
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Restore Maven cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Download target directory from build job
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: target-${{ github.run_id }}
-          path: core/target
-
-      - name: Fix toolchains.xml vendor to 'any'
-        run: |
-          printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
-
-      - name: Test (parallel methods, reduced threads for MockBukkit stability)
-        id: test
+      - name: Build & Test (single Maven invocation)
+        id: build
         run: |
           set +e
+          start_time=$(date +%s)
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
-            -Dparallel=methods -DthreadCount=4 \
+            -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
+            -Dmaven.compiler.fork=false \
+            -Dparallel=methods -DthreadCount=2 \
+            -DforkCount=2 -DreuseForks=true \
+            -DfailIfNoTests=false \
             -Dmaven.test.failure.ignore=true \
-            test 2>&1 | tee test-output.log
+            clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}
+          end_time=$(date +%s)
+          BUILD_TIME=$((end_time - start_time))
           echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
+          echo "build_time=${BUILD_TIME}s" >> "$GITHUB_OUTPUT"
 
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: surefire-reports-${{ github.run_id }}
-          path: core/target/surefire-reports
-          if-no-files-found: ignore
+          # Always try to find the built JAR
+          JAR_PATH=$(find . -name "Shop-*.jar" -path "*/target/*" 2>/dev/null | head -1)
+          if [ -n "$JAR_PATH" ]; then
+            echo "jar_path=$JAR_PATH" >> "$GITHUB_OUTPUT"
+            echo "jar_found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "jar_path=" >> "$GITHUB_OUTPUT"
+            echo "jar_found=false" >> "$GITHUB_OUTPUT"
+          fi
 
-  # Summary job - creates workflow summary and uploads artifacts
-  summary:
-    name: Summary & Artifacts
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [build, test]
-    if: always()
-    env:
-      VERSION: ${{ needs.setup.outputs.version }}
-      JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
-    steps:
-      - name: Download JAR artifact
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: ${{ needs.setup.outputs.jar_filename }}
-          path: .
-
-      - name: Download test reports
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: surefire-reports-${{ github.run_id }}
-          path: core/target/surefire-reports
+          # Exit 0 if JAR was produced (build succeeded), else exit test code
+          if [ -n "$JAR_PATH" ]; then
+            exit 0
+          else
+            exit $TEST_EXIT
+          fi
 
       - name: Generate test summary
         if: always()
@@ -316,10 +247,12 @@ jobs:
           report_dir = "core/target/surefire-reports"
 
           passed = failed = skipped = total = 0
-          failures_detail = []
+          all_details = []  # (classname, method, msg, status)
 
           if os.path.exists(report_dir):
-              for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
+              xml_files = glob.glob(os.path.join(report_dir, "TEST-*.xml"))
+              print(f"Found {len(xml_files)} test report files", file=sys.stderr)
+              for xml_file in xml_files:
                   try:
                       tree = ET.parse(xml_file)
                       root = tree.getroot()
@@ -334,13 +267,15 @@ jobs:
                           if failure is not None:
                               failed += 1
                               total += 1
-                              msg = (failure.text or "").strip().replace("|", "\\|")
-                              failures_detail.append((classname, method, msg, "❌ FAIL"))
+                              msg = (failure.text or "").strip()
+                              msg = msg.split('\n')[0][:200]
+                              all_details.append((classname, method, msg, "FAIL"))
                           elif error is not None:
                               failed += 1
                               total += 1
-                              msg = (error.text or "").strip().replace("|", "\\|")
-                              failures_detail.append((classname, method, msg, "💥 ERROR"))
+                              msg = (error.text or "").strip()
+                              msg = msg.split('\n')[0][:200]
+                              all_details.append((classname, method, msg, "ERROR"))
                           elif skipped_elem is not None:
                               skipped += 1
                               total += 1
@@ -354,8 +289,8 @@ jobs:
                                           break
                               if not skip_msg:
                                   skip_msg = "Skipped (no reason given)"
-                              skip_msg = skip_msg.replace("|", "\\|")
-                              failures_detail.append((classname, method, skip_msg, "⏭️ SKIP"))
+                              msg_short = skip_msg[:150] + ("..." if len(skip_msg) > 150 else "")
+                              all_details.append((classname, method, msg_short, "SKIP"))
                           else:
                               passed += 1
                               total += 1
@@ -373,47 +308,48 @@ jobs:
           if remaining < 0:
               remaining = 0
 
-          bar = "🟩" * filled + "🟥" * failed_filled + "🟨" * skipped_filled + "⬜" * remaining
+          # Use text-based blocks that render in GitHub markdown
+          bar = "█" * filled + "▓" * failed_filled + "░" * skipped_filled + "·" * remaining
 
           lines = []
           lines.append("## 🧪 Test Results")
           lines.append("")
-          lines.append(f"**Overall:** {bar} {pct}% ({passed}/{total} passed)")
+          lines.append(f"**Overall:** `{bar}` {pct}% ({passed}/{total} passed)")
           lines.append("")
 
           if total > 0:
               lines.append("| Status | Count | Percentage |")
               lines.append("|--------|-------|------------|")
-              lines.append(f"| 🟩 Passed | **{passed}** | {passed/total*100:.1f}% |")
+              lines.append(f"| ✅ Passed | **{passed}** | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| 🟥 Failed | **{failed}** | {failed/total*100:.1f}% |")
+                  lines.append(f"| ❌ Failed | **{failed}** | {failed/total*100:.1f}% |")
               if skipped > 0:
-                  lines.append(f"| 🟨 Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+                  lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          if failures_detail:
-              lines.append("### ❌ All Test Failures")
+          # Add build timing info if available
+          build_time = os.environ.get("BUILD_TIME", "")
+          if build_time:
+              lines.append(f"**Build Time:** {build_time}s")
               lines.append("")
-              lines.append("| Class | Method | Status | Message | Details |")
-              lines.append("|-------|--------|--------|---------|---------|")
+
+          if all_details:
+              lines.append("### 📋 Test Details (Failures & Skips)")
+              lines.append("")
+              lines.append("| Class | Method | Status | Message |")
+              lines.append("|-------|--------|--------|---------|")
 
               class_groups = defaultdict(list)
-              for classname, method, msg, status in failures_detail:
+              for classname, method, msg, status in all_details:
                   class_groups[classname].append((method, msg, status))
 
               for classname, methods in class_groups.items():
-                  first_method, first_msg, first_status = methods[0]
-                  msg_short = first_msg[:120] + ("..." if len(first_msg) > 120 else "")
-
-                  detail_lines = []
                   for method, msg, status in methods:
-                      msg_escaped = msg.replace("\n", "<br>").replace("|", "\\|")
-                      detail_lines.append(f"- **{method}** ({status}): {msg_escaped}")
-
-                  detail = "\n".join(detail_lines)
-
-                  lines.append(f"| {classname} | {first_method} | {first_status} | {msg_short} | <details><summary>{len(methods)} tests</summary>\n\n{detail}\n</details> |")
+                      # Escape pipe characters and newlines for markdown table
+                      msg_escaped = msg.replace('\n', '<br>').replace('|', '\\|')
+                      status_emoji = "❌" if status == "FAIL" else ("💥" if status == "ERROR" else "⏭️")
+                      lines.append(f"| {classname} | {method} | {status_emoji} {status} | {msg_escaped} |")
 
               lines.append("")
 
@@ -435,26 +371,31 @@ jobs:
         run: |
           STATUS="${{ job.status }}"
           TEST_EXIT="${{ steps.test-report.outputs.test_exit_code }}"
-          PASSED="${{ steps.test-report.outputs.passed }}"
-          FAILED="${{ steps.test-report.outputs.failed }}"
-          SKIPPED="${{ steps.test-report.outputs.skipped }}"
-          TOTAL="${{ steps.test-report.outputs.total }}"
-          JAR_URL="${{ needs.build.outputs.jar_url }}"
-          DIFF_URL=""
+          BUILD_TEST_EXIT="${{ steps.build.outputs.test_exit_code }}"
+          JAR_PATH="${{ steps.build.outputs.jar_path }}"
+          JAR_FOUND="${{ steps.build.outputs.jar_found }}"
+          BUILD_TIME="${{ steps.build.outputs.build_time }}"
 
           {
-            if [ "$STATUS" = "success" ] && [ "$TEST_EXIT" = "0" ]; then
+            # Determine status based on build success (JAR produced) and test results
+            # JAR_FOUND = true means build succeeded (compilation passed, artifact produced)
+            if [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" = "0" ]; then
               echo "# ✅ Build & Tests Passed"
-            elif [ "$STATUS" = "success" ] && [ "$TEST_EXIT" != "0" ] && [ -f "${{ needs.setup.outputs.jar_filename }}" ]; then
+            elif [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" != "0" ]; then
               echo "# ⚠️ Build Passed, Tests Failed"
               echo ""
               echo "> Artifact was produced successfully but some tests failed."
             else
               echo "# ❌ Build Failed"
-              if [ "$TEST_EXIT" != "0" ]; then
-                echo "**Reason:** Tests failed"
-              else
-                echo "**Reason:** Build/Compilation failed"
+              echo ""
+              echo "> No artifact was produced. Check compilation or test failures below."
+              if [ -f "build-test-output.log" ]; then
+                echo ""
+                echo "### 🔍 Build Errors (last 50 lines)"
+                echo ""
+                echo '```'
+                tail -n 50 build-test-output.log | grep -E "(ERROR|FAILURE|error:|cannot find symbol)" | head -n 20 || tail -n 20 build-test-output.log
+                echo '```'
               fi
             fi
             echo ""
@@ -462,6 +403,11 @@ jobs:
             echo "**Commit:** ${{ github.sha }}"
             echo "**Branch:** ${{ github.ref_name }}"
             echo ""
+
+            if [ -n "$BUILD_TIME" ]; then
+              echo "**Build Time:** ${BUILD_TIME}s"
+              echo ""
+            fi
 
             if [ -f "test-summary.md" ]; then
               cat test-summary.md
@@ -472,10 +418,11 @@ jobs:
               echo ""
             fi
 
-            if [ -f "${{ needs.setup.outputs.jar_filename }}" ]; then
+            # Always show artifact if build succeeded (JAR was produced)
+            if [ "$JAR_FOUND" = "true" ] && [ -n "$JAR_PATH" ]; then
               echo "## 📦 Artifacts"
               echo ""
-              echo "⬇️ [${{ needs.setup.outputs.jar_filename }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+              echo "⬇️ [${{ env.JAR_FILENAME }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
               echo ""
             fi
 
@@ -493,44 +440,3 @@ jobs:
         with:
           files: 'shop-*.jar'
           generate_release_notes: true
-
-  # Separate job for release tagging (manual trigger)
-  release-tag:
-    name: Create Release Tag
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-        with:
-          fetch-depth: 0
-
-      - name: Validate version format
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
-            echo "::error::Version '$VERSION' does not match expected format (e.g. 1.14.0 or 1.14.0-beta.1)"
-            exit 1
-          fi
-
-      - name: Bump version in pom.xml
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          sed -i "s|<revision>.*</revision>|<revision>${VERSION}</revision>|" pom.xml
-          echo "Bumped pom.xml revision to ${VERSION}"
-
-      - name: Commit and tag
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          PRERELEASE="${{ github.event.inputs.prerelease }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pom.xml
-          git commit -m "chore: release v${VERSION}"
-          git tag "v${VERSION}"
-          git push origin HEAD:main
-          git push origin "v${VERSION}"
-          echo "Tagged and pushed v${VERSION} — build workflow will now run for the release."
