@@ -61,7 +61,9 @@ public class TransactionHandler {
             fullStackOrder = false;
 
         //player did not click their own shop
-        if (!shop.getOwnerName().equals(player.getName()) || Shop.getPlugin().getDebug_allowUseOwnShop()) {
+        // Compare UUIDs: names are not unique, so a name check would let any player who
+        // shares the owner's name transact as the owner.
+        if (!shop.getOwnerUUID().equals(player.getUniqueId()) || Shop.getPlugin().getDebug_allowUseOwnShop()) {
 
             if (plugin.usePerms() && !(player.hasPermission("shop.use."+shop.getType().name().toLowerCase()) || player.hasPermission("shop.use"))) {
                 if (!player.hasPermission("shop.operator")) {
