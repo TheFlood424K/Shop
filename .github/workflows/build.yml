@@ -146,17 +146,6 @@ jobs:
                           report_dir = candidate
                           break
 
-          # DEBUG: Print all found surefire dirs and files
-          print("=== DEBUG: All surefire-reports directories ===", file=sys.stderr)
-          for root_dir, dirs, files in os.walk("."):
-              if "surefire-reports" in dirs:
-                  print(f"  Found dir: {os.path.join(root_dir, 'surefire-reports')}", file=sys.stderr)
-          print("=== DEBUG: All TEST-*.xml files ===", file=sys.stderr)
-          for f in glob.glob("**/TEST-*.xml", recursive=True):
-              print(f"  Found file: {f}", file=sys.stderr)
-
-          print(f"Using report directory: {report_dir}", file=sys.stderr)
-
           # Aggregate totals - count from testcase elements directly for accuracy
           passed = failed = skipped = total = 0
           failures_detail = []  # (class, method, message, type)
@@ -168,12 +157,6 @@ jobs:
                       root = tree.getroot()
                       classname = root.get("name", "Unknown")
 
-                      # Debug: print root element info
-                      print(f"XML: {xml_file}, root tag: {root.tag}, root attrs: {root.attrib}", file=sys.stderr)
-
-                      # Count from testcase elements for accuracy
-                      print(f"  Counting testcases...", file=sys.stderr)
-
                       for testcase in root.findall(".//testcase"):
                           failure = testcase.find("failure")
                           error = testcase.find("error")
@@ -184,7 +167,6 @@ jobs:
                               failed += 1
                               total += 1
                               msg = (failure.text or "").strip()
-                              # Full message, no truncation for details
                               msg = msg.replace("|", "\\|")
                               failures_detail.append((classname, method, msg, "❌ FAIL"))
                           elif error is not None:
@@ -199,10 +181,8 @@ jobs:
                               # Extract skip reason from skipped element - try multiple sources
                               skip_msg = skipped_elem.get("message", "")
                               if not skip_msg:
-                                  # Try to get text content
                                   skip_msg = (skipped_elem.text or "").strip()
                               if not skip_msg:
-                                  # Try child elements
                                   for child in skipped_elem:
                                       if child.text:
                                           skip_msg = child.text.strip()
@@ -218,8 +198,6 @@ jobs:
                       print(f"Warning: Failed to parse {xml_file}: {e}", file=sys.stderr)
           else:
               print("No surefire reports found!", file=sys.stderr)
-
-          print(f"FINAL: passed={passed}, failed={failed}, skipped={skipped}, total={total}", file=sys.stderr)
 
           # Write outputs for other steps
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
@@ -280,15 +258,9 @@ jobs:
                       detail_lines.append(f"- **{method}** ({status}): {msg_escaped}")
 
                   detail = "\n".join(detail_lines)
-                  short_class = classname if len(classname) <= 50 else "..." + classname[-47:]
-                  # Use markdown details block (not inside table)
-                  lines.append(f"<details>")
-                  lines.append(f"<summary><b>{short_class}</b> ({len(methods)} tests)</summary>")
-                  lines.append("")
-                  lines.append(detail)
-                  lines.append("")
-                  lines.append("</details>")
-                  lines.append("")
+
+                  # Table row with collapsible details
+                  lines.append(f"| {classname} | {first_method} | {first_status} | {msg_short} | <details><summary>{len(methods)} tests</summary>\n\n{detail}\n</details> |")
 
               lines.append("")
 
