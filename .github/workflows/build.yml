@@ -71,10 +71,17 @@ jobs:
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
-      - name: Build Maven Repository
+      - name: Set up JDK 13, 17, 21 for BuildTools
+        uses: actions/setup-java@v6.0.1
+        with:
+          java-version: '13, 17, 21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build Spigot artifacts natively
         run: |
-          chmod +x ./buildMavenRepo.sh
-          ./buildMavenRepo.sh
+          chmod +x ./scripts/build-spigot-maven.sh
+          ./scripts/build-spigot-maven.sh
 
       - name: Install Dynmap API (CI fallback)
         run: |
