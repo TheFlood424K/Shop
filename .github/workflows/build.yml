@@ -228,22 +228,34 @@ jobs:
           pct = int((passed / total * 100)) if total > 0 else 0
           bar_len = 20
           filled = int(bar_len * passed / total) if total > 0 else 0
-          bar = "█" * filled + "░" * (bar_len - filled)
+          failed_filled = int(bar_len * failed / total) if total > 0 else 0
+          skipped_filled = int(bar_len * skipped / total) if total > 0 else 0
+
+          # Color-coded progress bar using HTML spans
+          # Green for passed, Red for failed, Yellow for skipped, Gray for remaining
+          bar_parts = []
+          bar_parts.append(f'<span style="color:#2ecc71;">{"█" * filled}</span>')
+          bar_parts.append(f'<span style="color:#e74c3c;">{"█" * failed_filled}</span>')
+          bar_parts.append(f'<span style="color:#f39c12;">{"█" * skipped_filled}</span>')
+          remaining = bar_len - filled - failed_filled - skipped_filled
+          if remaining > 0:
+              bar_parts.append(f'<span style="color:#95a5a6;">{"█" * remaining}</span>')
+          bar = "".join(bar_parts)
 
           lines = []
           lines.append("## 🧪 Test Results")
           lines.append("")
-          lines.append(f"**Overall:** `{bar}` {pct}% ({passed}/{total} passed)")
+          lines.append(f"**Overall:** {bar} {pct}% ({passed}/{total} passed)")
           lines.append("")
 
           if total > 0:
               lines.append("| Status | Count | Percentage |")
               lines.append("|--------|-------|------------|")
-              lines.append(f"| ✅ Passed | **{passed}** | {passed/total*100:.1f}% |")
+              lines.append(f"| <span style=\"color:#2ecc71;\">⬤</span> Passed | **{passed}** | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| ❌ Failed | **{failed}** | {failed/total*100:.1f}% |")
+                  lines.append(f"| <span style=\"color:#e74c3c;\">⬤</span> Failed | **{failed}** | {failed/total*100:.1f}% |")
               if skipped > 0:
-                  lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+                  lines.append(f"| <span style=\"color:#f39c12;\">⬤</span> Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
