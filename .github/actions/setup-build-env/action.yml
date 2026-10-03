@@ -1,0 +1,59 @@
+name: Set up build environment
+description: >-
+  Shared build setup for every job that compiles this project: JDK 25 (Temurin)
+  with Maven caching, the toolchains.xml shim, and the Dynmap/BlockProt API jars
+  that must be installed by hand because they are not resolvable from Central.
+
+# Why this exists:
+# build-and-test and dependency-submission need byte-for-byte the same setup,
+# including a long `printf` that rewrites ~/.m2/toolchains.xml. The two copies
+# had already drifted (the redundant Maven-cache step sat in a different position
+# in each job), so the setup lives here once and both jobs call it.
+#
+# The caller MUST run actions/checkout before invoking this action: a local
+# action (`uses: ./...`) is resolved out of the checked-out workspace, so the
+# repository has to be on disk before this step starts. That is why checkout is
+# deliberately not a step inside this file.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up JDK 25 (Temurin)
+      uses: actions/setup-java@v6
+      with:
+        java-version: '25'
+        distribution: 'temurin'
+        # setup-java's built-in Maven cache replaces the hand-rolled
+        # `actions/cache` step on ~/.m2/repository that used to be duplicated
+        # in both jobs on top of this.
+        cache: 'maven'
+
+    - name: Fix toolchains.xml vendor to 'any'
+      shell: bash
+      run: |
+        printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
+
+    # Kept separate from setup-java's Maven cache: these are jars fetched from
+    # GitHub Releases by scripts/install-*.sh, not artifacts Maven resolves, so
+    # setup-java's cache key would never invalidate when they change.
+    - name: Cache dynmap/BlockProt artifacts
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.m2/repository/us/dynmap/dynmap-api
+          ~/.m2/repository/com/github/spnda/BlockProt
+        key: ${{ runner.os }}-opt-deps-${{ hashFiles('scripts/install-dynmap-api.sh', 'scripts/install-blockprot-api.sh') }}
+        restore-keys: |
+          ${{ runner.os }}-opt-deps-
+
+    - name: Install Dynmap API (from GitHub Releases)
+      shell: bash
+      run: |
+        chmod +x ./scripts/install-dynmap-api.sh
+        ./scripts/install-dynmap-api.sh
+
+    - name: Install BlockProt API (from GitHub Releases)
+      shell: bash
+      run: |
+        chmod +x ./scripts/install-blockprot-api.sh
+        ./scripts/install-blockprot-api.sh

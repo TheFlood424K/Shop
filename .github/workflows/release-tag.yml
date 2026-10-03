@@ -25,8 +25,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@v7
         with:
+          # Unlike build.yml, this workflow genuinely needs full history: it
+          # commits the bumped pom.xml and pushes a tag, and pushing a new
+          # commit on top of a shallow clone fails or loses the ancestry that
+          # the tag should point back through.
           fetch-depth: 0
 
       - name: Validate version format
