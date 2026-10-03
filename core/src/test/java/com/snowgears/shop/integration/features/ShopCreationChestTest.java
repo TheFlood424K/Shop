@@ -86,8 +86,19 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         if (msg == null) {
             // Try one more time with more ticks
             server.getScheduler().performTicks(20);
+            server.getScheduler().waitAsyncTasksFinished();
+            server.getScheduler().performTicks(20);
             msg = waitForNextMessage(player);
             System.out.println("DEBUG test: msg after second wait = " + msg);
+        }
+        // If still null, try a few more times
+        int attempts = 0;
+        while (msg == null && attempts < 5) {
+            server.getScheduler().performTicks(20);
+            server.getScheduler().waitAsyncTasksFinished();
+            msg = waitForNextMessage(player);
+            System.out.println("DEBUG test: msg attempt " + attempts + " = " + msg);
+            attempts++;
         }
         assertTrue(msg != null && msg.contains("§eEnter in chat what to do with §a"), "Player should be sent dialog for shop type: " + msg);
         assertTrue(msg.contains("(s)§b §7("), "Player should be sent dialog for shop type");

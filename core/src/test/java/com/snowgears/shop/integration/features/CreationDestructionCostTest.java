@@ -23,7 +23,7 @@ public class CreationDestructionCostTest extends BaseMockBukkitTest {
 
     @Test
     void creationCost_refundedOnDestroy_whenEnabled() {
-        setConfig("refundCreationCostOnDestroy", true);
+        setConfig("returnCreationCost", true);
         setConfig("creationCost", 100.0);
 
         ServerMock server = getServer();
@@ -58,7 +58,7 @@ public class CreationDestructionCostTest extends BaseMockBukkitTest {
 
     @Test
     void creationCost_notRefundedOnDestroy_whenDisabled() {
-        setConfig("refundCreationCostOnDestroy", false);
+        setConfig("returnCreationCost", false);
         setConfig("creationCost", 100.0);
 
         ServerMock server = getServer();
