@@ -2,6 +2,8 @@ package com.snowgears.shop.handler;
 
 import com.snowgears.shop.Shop;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,5 +81,48 @@ class CommandHandlerIntegrationTest {
         // Test various plugin getters
         assertNotNull(plugin.getConfig());
         assertNotNull(plugin.getLogger());
+    }
+
+    @Test
+    void testHelpCommandPlayer() {
+        // Test that /shop help works for a player
+        Player player = server.addPlayer("TestPlayer");
+        String[] args = {"help"};
+        Command shopCmd = server.getCommandMap().getCommand("shop");
+
+        // Execute the command as the player
+        boolean result = shopCmd.execute(player, "shop", args);
+        assertTrue(result);
+    }
+
+    @Test
+    void testHelpCommandConsole() {
+        // Test that /shop help works for console
+        CommandSender console = server.getConsoleSender();
+        String[] args = {"help"};
+        Command shopCmd = server.getCommandMap().getCommand("shop");
+
+        boolean result = shopCmd.execute(console, "shop", args);
+        assertTrue(result);
+    }
+
+    @Test
+    void testListCommandPlayer() {
+        Player player = server.addPlayer("TestPlayer");
+        String[] args = {"list"};
+        Command shopCmd = server.getCommandMap().getCommand("shop");
+
+        boolean result = shopCmd.execute(player, "shop", args);
+        assertTrue(result);
+    }
+
+    @Test
+    void testCurrencyCommandPlayer() {
+        Player player = server.addPlayer("TestPlayer");
+        String[] args = {"currency"};
+        Command shopCmd = server.getCommandMap().getCommand("shop");
+
+        boolean result = shopCmd.execute(player, "shop", args);
+        assertTrue(result);
     }
 }
