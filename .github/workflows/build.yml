@@ -53,9 +53,9 @@ jobs:
           NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
 
           echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
-          echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
+          echo "JAR_FILENAME=Shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
+          echo "jar_filename=Shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
       - name: Build & Test (single Maven invocation)
         id: build
@@ -282,7 +282,7 @@ jobs:
             if [ "$JAR_FOUND" = "true" ] && [ -n "$JAR_PATH" ]; then
               echo "## 📦 Artifacts"
               echo ""
-              echo "⬇️ [${{ env.JAR_FILENAME }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+              echo "⬇️ [\`${{ env.JAR_FILENAME }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) — download it from this run's **Artifacts** section at the bottom of the page."
               echo ""
             fi
 
@@ -294,11 +294,28 @@ jobs:
           } > build-summary.md
           cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Upload JAR as a workflow artifact
+        # Runs for every push and PR, not just tags, so a build can be downloaded and
+        # inspected without waiting for a release. Without this, PR and main-branch runs
+        # produced a JAR that nothing could download — the job summary linked to a bare
+        # run page instead.
+        if: always() && steps.build.outputs.jar_found == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: shop-${{ steps.version.outputs.version }}
+          path: ${{ steps.build.outputs.jar_path }}
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload JAR to GitHub Release (tag pushes only)
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          files: 'shop-*.jar'
+          # dist/pom.xml sets <finalName>Shop-${project.version}</finalName> — capital S.
+          # This glob used to be lowercase 'shop-*.jar', which matches nothing on a
+          # case-sensitive Linux runner, so releases were shipping with no JAR attached.
+          files: 'Shop-*.jar'
+          fail_on_unmatched_files: true
           generate_release_notes: true
 
   dependency-submission:
