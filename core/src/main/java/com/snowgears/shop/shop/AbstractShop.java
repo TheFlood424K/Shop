@@ -889,7 +889,7 @@ public abstract class AbstractShop {
     }
 
     public void printSalesInfo(Player player) {
-        for (String message : ShopMessage.getUnformattedMessageList(this.getType().toString(), "description")) {
+        for (String message : ShopMessage.getUnformattedMessageList(this.getType().name(), "description")) {
             if (message != null && !message.isEmpty()) {
                 Map<ItemStack, Integer> items = new HashMap<>();
                 items.put(this.item, this.amount);

@@ -63,7 +63,7 @@ public class TransactionHandler {
         //player did not click their own shop
         if (!shop.getOwnerName().equals(player.getName()) || Shop.getPlugin().getDebug_allowUseOwnShop()) {
 
-            if (plugin.usePerms() && !(player.hasPermission("shop.use."+shop.getType().toString().toLowerCase()) || player.hasPermission("shop.use"))) {
+            if (plugin.usePerms() && !(player.hasPermission("shop.use."+shop.getType().name().toLowerCase()) || player.hasPermission("shop.use"))) {
                 if (!player.hasPermission("shop.operator")) {
                     ShopMessage.sendMessage("permission", "use", player, shop);
                     return;

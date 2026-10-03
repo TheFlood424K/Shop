@@ -58,6 +58,8 @@ public class ShopMessage {
     private static String freePriceWord;
     private static String adminStockWord;
     private static String serverDisplayName;
+    private static String stockColorInStock;
+    private static String stockColorOutOfStock;
     private static HashMap<String, String> creationWords = new HashMap<>();
     private static YamlConfiguration chatConfig;
     private static YamlConfiguration signConfig;
@@ -81,6 +83,10 @@ public class ShopMessage {
         adminStockWord = signConfig.getString("sign_text.adminStock");
         serverDisplayName = signConfig.getString("sign_text.serverDisplayName");
         targetMaxLength = displayConfig.getInt("targetMaxLength", 40);
+
+        // Load stock color config
+        stockColorInStock = signConfig.getString("stock_color.in_stock", "&a");
+        stockColorOutOfStock = signConfig.getString("stock_color.out_of_stock", "&4");
 
         loadPlaceholders();
     }
@@ -111,6 +117,10 @@ public class ShopMessage {
         adminStockWord = signConfig.getString("sign_text.adminStock");
         serverDisplayName = signConfig.getString("sign_text.serverDisplayName");
         targetMaxLength = displayConfig.getInt("targetMaxLength", 40);
+
+        // Load stock color config
+        stockColorInStock = signConfig.getString("stock_color.in_stock", "&a");
+        stockColorOutOfStock = signConfig.getString("stock_color.out_of_stock", "&4");
     }
 
     // -----------------------------------------------------------------------
@@ -432,7 +442,7 @@ public class ShopMessage {
             if (context.getProcess() != null && context.getProcess().getShopType() != null)
                 return Component.text(context.getProcess().getShopType().toString());
             if (context.getShop() != null)
-                return Component.text(ShopMessage.getCreationWord(context.getShop().getType().toString().toUpperCase()));
+                return Component.text(ShopMessage.getCreationWord(context.getShop().getType().name().toUpperCase()));
             return null;
         });
         registerPlaceholder("[shop types]", ShopMessage::getShopTypesPlaceholder);
@@ -581,6 +591,13 @@ public class ShopMessage {
             }
             return null;
         });
+        registerPlaceholder("[stock color]", context -> {
+            if (context.getShop() != null) {
+                int stock = context.getShop().isAdmin() ? Integer.MAX_VALUE : context.getShop().getStock();
+                return stock > 0 ? Component.text(stockColorInStock) : Component.text(stockColorOutOfStock);
+            }
+            return null;
+        });
         registerPlaceholder("[amount]", context -> {
             if (context.getShop() != null) return Component.text(String.valueOf(context.getShop().getAmount()));
             if (context.getProcess() != null) return Component.text(String.valueOf(context.getProcess().getItemAmount()));
@@ -701,7 +718,7 @@ public class ShopMessage {
         if (shop != null) {
             hoverText.append(Component.text("Owner: " + (shop.isAdmin() ? getServerDisplayName() : shop.getOwnerName())));
             hoverText.append(Component.newline());
-            hoverText.append(Component.text("Type: " + shop.getType().toString()));
+            hoverText.append(Component.text("Type: " + shop.getType().name()));
             hoverText.append(Component.newline());
             hoverText.append(Component.text("Item: "));
             hoverText.append(plugin.getItemNameUtil().getName(shop.getItemStack()));
@@ -850,7 +867,7 @@ public class ShopMessage {
      * Compat overload: returns sign lines for a shop, resolving the type key from the shop.
      */
     public static String[] getSignLines(AbstractShop shop, ShopType type) {
-        String key = (type != null ? type.toString() : (shop != null && shop.getType() != null ? shop.getType().toString() : "sell"));
+        String key = (type != null ? type.name() : (shop != null && shop.getType() != null ? shop.getType().name() : "sell"));
         String[] rawLines = getShopSignText(key);
         if (shop == null) return rawLines;
         PlaceholderContext context = new PlaceholderContext();
@@ -888,7 +905,7 @@ public class ShopMessage {
      * Compat overload: returns display tag lines resolved from a shop and type.
      */
     public static List<String> getDisplayTags(AbstractShop shop, ShopType type) {
-        String key = (type != null ? type.toString() : (shop != null && shop.getType() != null ? shop.getType().toString() : "sell"));
+        String key = (type != null ? type.name() : (shop != null && shop.getType() != null ? shop.getType().name() : "sell"));
         return getDisplayText(key);
     }
 
@@ -917,6 +934,8 @@ public class ShopMessage {
     public static String getFreePriceWord() { return freePriceWord != null ? freePriceWord : "Free"; }
     public static String getAdminStockWord() { return adminStockWord != null ? adminStockWord : "\u221e"; }
     public static String getServerDisplayName() { return serverDisplayName != null ? serverDisplayName : "Server"; }
+    public static String getStockColorInStock() { return stockColorInStock != null ? stockColorInStock : "&a"; }
+    public static String getStockColorOutOfStock() { return stockColorOutOfStock != null ? stockColorOutOfStock : "&4"; }
     public static HashMap<String, String> getCreationWords() { return creationWords; }
     public static String getCreationWord(String key) {
         return creationWords.getOrDefault(key.toUpperCase(), UtilMethods.capitalize(key.toLowerCase()));
