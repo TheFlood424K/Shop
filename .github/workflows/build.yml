@@ -49,9 +49,27 @@ jobs:
         uses: actions/cache@v6.1.0
         with:
           path: ./SpigotBuildTools
-          key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
+          key: ${{ runner.os }}-spigot-${{ hashFiles('scripts/build-spigot-maven.sh') }}
           restore-keys: |
             ${{ runner.os }}-spigot-
+
+      - name: Set up JDK 13 (Temurin)
+        uses: actions/setup-java@v6.0.1
+        with:
+          java-version: '13'
+          distribution: 'temurin'
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v6.0.1
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v6.0.1
+        with:
+          java-version: '21'
+          distribution: 'temurin'
 
       - name: Compute version with commit hash
         id: version
@@ -70,13 +88,6 @@ jobs:
           echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
-
-      - name: Set up JDK 13, 17, 21 for BuildTools
-        uses: actions/setup-java@v6.0.1
-        with:
-          java-version: '13, 17, 21'
-          distribution: 'temurin'
-          cache: 'maven'
 
       - name: Build Spigot artifacts natively
         run: |
@@ -251,7 +262,7 @@ jobs:
           if remaining < 0:
               remaining = 0
 
-          # Build HTML color-coded progress bar (shorter: 12 segments)
+          # Build emoji progress bar (shorter: 12 segments)
           bar_len = 12
           filled = int(bar_len * passed / total) if total > 0 else 0
           failed_filled = int(bar_len * failed / total) if total > 0 else 0
@@ -260,13 +271,8 @@ jobs:
           if remaining < 0:
               remaining = 0
 
-          # Build HTML progress bar with inline styles
-          bar_parts = []
-          bar_parts.append(f'<span style="color:#2ecc71;">{"█" * filled}</span>')
-          bar_parts.append(f'<span style="color:#e74c3c;">{"█" * failed_filled}</span>')
-          bar_parts.append(f'<span style="color:#f39c12;">{"█" * skipped_filled}</span>')
-          bar_parts.append(f'<span style="color:#95a5a6;">{"█" * remaining}</span>')
-          bar = "".join(bar_parts)
+          # Build emoji progress bar (renders in GitHub markdown)
+          bar = "🟩" * filled + "🟥" * failed_filled + "🟨" * skipped_filled + "⬜" * remaining
 
           lines = []
           lines.append("## 🧪 Test Results")
@@ -277,26 +283,37 @@ jobs:
           if total > 0:
               lines.append("| Status | Count | Percentage |")
               lines.append("|--------|-------|------------|")
-              lines.append(f"| <span style=\"color:#2ecc71;\">●</span> Passed | **{passed}** | {passed/total*100:.1f}% |")
+              lines.append(f"| 🟩 Passed | **{passed}** | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| <span style=\"color:#e74c3c;\">●</span> Failed | **{failed}** | {failed/total*100:.1f}% |")
+                  lines.append(f"| 🟥 Failed | **{failed}** | {failed/total*100:.1f}% |")
               if skipped > 0:
-                  lines.append(f"| <span style=\"color:#f39c12;\">●</span> Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+                  lines.append(f"| 🟨 Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          # Failure details table - all failures (no truncation)
+          # Failure details table - collapsible per class
           if failures_detail:
               lines.append("### ❌ All Test Failures")
               lines.append("")
-              lines.append("| Class | Method | Status | Message |")
-              lines.append("|-------|--------|--------|---------|")
+              lines.append("| Class | Methods | Status | Messages |")
+              lines.append("|-------|---------|--------|----------|")
 
+              # Group by class
+              from collections import defaultdict
+              class_groups = defaultdict(list)
               for classname, method, msg, status in failures_detail:
-                  short_class = classname if len(classname) <= 45 else "..." + classname[-42:]
-                  # Escape newlines in message for table
-                  msg_escaped = msg.replace("\n", "<br>")
-                  lines.append(f"| {short_class} | {method} | {status} | {msg_escaped} |")
+                  class_groups[classname].append((method, msg, status))
+
+              for classname, methods in class_groups.items():
+                  # Create collapsible detail for each class
+                  detail_lines = []
+                  for method, msg, status in methods:
+                      msg_escaped = msg.replace("\n", "<br>").replace("|", "\\|")
+                      detail_lines.append(f"- **{method}** ({status}): {msg_escaped}")
+
+                  detail = "\n".join(detail_lines)
+                  short_class = classname if len(classname) <= 50 else "..." + classname[-47:]
+                  lines.append(f"| <details><summary>{short_class}</summary>\n\n{detail}\n</details> | {len(methods)} | {methods[0][2]} | See details |")
 
               lines.append("")
 
@@ -332,7 +349,7 @@ jobs:
 
       - name: Upload JAR artifact
         id: upload-shop-jar
-        if: always() && steps.build-and-test.outputs.jar_path != ''
+        if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
           name: ${{ env.JAR_FILENAME }}

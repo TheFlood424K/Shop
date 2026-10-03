@@ -152,23 +152,22 @@ main() {
     for jdk in 13 17 21; do
         log_info "=== Processing JDK $jdk ==="
 
-        # Set JAVA_HOME for the specific JDK (GitHub Actions setup-java puts them in standard locations)
-        # On ubuntu-latest with setup-java, JDKs are typically at:
-        # /usr/lib/jvm/temurin-13-jdk, /usr/lib/jvm/temurin-17-jdk, /usr/lib/jvm/temurin-21-jdk
-        # Or we can rely on the PATH being set correctly by setup-java
+        # Set JAVA_HOME for the specific JDK (GitHub Actions setup-java puts them in /opt/hostedtoolcache/)
+        local jdk_path="/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/${jdk}.*/x64"
+        # Expand the glob
+        local found_jdk=$(ls -d $jdk_path 2>/dev/null | head -1)
 
-        local jdk_path="/usr/lib/jvm/temurin-${jdk}-jdk"
-        if [[ -d "$jdk_path" ]]; then
-            export JAVA_HOME="$jdk_path"
+        if [[ -n "$found_jdk" && -d "$found_jdk" ]]; then
+            export JAVA_HOME="$found_jdk"
             export PATH="$JAVA_HOME/bin:$PATH"
             log_info "Using JDK $jdk at $JAVA_HOME"
         else
-            # Try alternative locations
-            for alt in "/usr/lib/jvm/java-${jdk}-temurin" "/usr/lib/jvm/java-${jdk}-openjdk" "/opt/java/jdk-${jdk}"; do
+            # Try alternative locations (standard locations as fallback)
+            for alt in "/usr/lib/jvm/temurin-${jdk}-jdk" "/usr/lib/jvm/java-${jdk}-temurin" "/usr/lib/jvm/java-${jdk}-openjdk" "/opt/java/jdk-${jdk}"; do
                 if [[ -d "$alt" ]]; then
                     export JAVA_HOME="$alt"
                     export PATH="$JAVA_HOME/bin:$PATH"
-                    log_info "Using JDK $jdk at $JAVA_HOME (alternative)"
+                    log_info "Using JDK $jdk at $JAVA_HOME (fallback)"
                     break
                 fi
             done
