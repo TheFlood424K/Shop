@@ -71,7 +71,11 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         String msg = waitForNextMessage(player);
         assertEquals("§eTo set up your shop, please type your responses in chat when prompted.", msg, "Player should be sent dialog to set up shop");
         msg = waitForNextMessage(player);
-        assertTrue(msg.contains("§eEnter in chat what to do with §a"), "Player should be sent dialog for shop type");
+        // Admin players receive an additional message about admin shops
+        if (msg.contains("Adding §eadmin §7will make the shop unlimited stock.")) {
+            msg = waitForNextMessage(player);
+        }
+        assertTrue(msg.contains("§eEnter in chat what to do with §a"), "Player should be sent dialog for shop type: " + msg);
         assertTrue(msg.contains("(s)§b §7("), "Player should be sent dialog for shop type");
         msg = player.nextMessage();
         if (msg != null) {

@@ -71,6 +71,8 @@ public abstract class BaseMockBukkitTest {
         setConfig("displayType", DisplayType.NONE);
         // No cooldown between shop creations to allow us to create multiple. We can change this in tests if needed.
         setConfig("debug_shopCreateCooldown", 0);
+        // Disable shop initialization timeout in tests
+        setConfig("debug_shopInitTimeout", 0);
 
         // Test worlds can opt into a chunk auto-load patch via addSimpleWorldPatched(name)
     }

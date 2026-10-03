@@ -1,0 +1,84 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< com.snowgears.shop:shop-core >--------------------
+[INFO] Building shop-core 1.13.5
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.2.0:clean (default-clean) @ shop-core ---
+[INFO] Deleting C:\Users\malex\Shop\core\target
+[INFO] 
+[INFO] --- toolchains:3.2.0:toolchain (default) @ shop-core ---
+[INFO] Required toolchain: jdk [ vendor='any' version='25' ]
+[INFO] Found matching toolchain for type jdk: JDK[C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\]
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ shop-core ---
+[INFO] Copying 8 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.15.0:compile (default-compile) @ shop-core ---
+[INFO] Toolchain in maven-compiler-plugin: JDK[C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\]
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 98 source files with javac [forked debug release 25] to target\classes
+[WARNING] C:\Users\malex\Shop\core\src\main\java\com\snowgears\shop\util\UtilMethods.java:[601,67] [removal] getKey() in TrimMaterial has been deprecated and marked for removal
+[WARNING] C:\Users\malex\Shop\core\src\main\java\com\snowgears\shop\util\UtilMethods.java:[602,65] [removal] getKey() in TrimPattern has been deprecated and marked for removal
+[WARNING] C:\Users\malex\Shop\core\src\main\java\com\snowgears\shop\util\UtilMethods.java:[628,89] [removal] getKey() in MusicInstrument has been deprecated and marked for removal
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ shop-core ---
+[INFO] Copying 8 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.15.0:testCompile (default-testCompile) @ shop-core ---
+[INFO] Toolchain in maven-compiler-plugin: JDK[C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\]
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 29 source files with javac [forked debug release 25] to target\test-classes
+[WARNING] C:\Users\malex\Shop\core\src\test\java\com\snowgears\shop\listener\MiscListenerTest.java:[965,32] [removal] SignChangeEvent(@org.jetbrains.annotations.NotNull Block,@org.jetbrains.annotations.NotNull Player,@org.jetbrains.annotations.NotNull String[]) in SignChangeEvent has been deprecated and marked for removal
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ shop-core ---
+[INFO] Toolchain in maven-surefire-plugin: JDK[C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\]
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.snowgears.shop.listener.MiscListenerTest
+DEBUG: signLoc=Location{world=org.mockbukkit.mockbukkit.world.WorldMock@37d8562f,x=25.0,y=65.0,z=25.0,pitch=0.0,yaw=0.0} signFacing=SOUTH actualFacing=SOUTH
+DEBUG: chestLoc=Location{world=org.mockbukkit.mockbukkit.world.WorldMock@37d8562f,x=25.0,y=65.0,z=24.0,pitch=0.0,yaw=0.0} chestType=CHEST
+DEBUG: sign.getRelative(NORTH)=Location{world=org.mockbukkit.mockbukkit.world.WorldMock@37d8562f,x=25.0,y=65.0,z=24.0,pitch=0.0,yaw=0.0} type=CHEST
+DEBUG: creationWord=[Shop]
+DEBUG: allowCreateMethodSign=true
+DEBUG: signBlock.getBlockData() instanceof WallSign=true
+DEBUG: signBlock.getState() instanceof Sign=true
+ticks: 0, message: `§eTo set up your shop, please type your responses in chat when prompted.`
+DEBUG: waitForNextMessage returned: §eTo set up your shop, please type your responses in chat when prompted.
+ticks: 1000, message: `null`
+[ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 6.412 s <<< FAILURE! -- in com.snowgears.shop.listener.MiscListenerTest
+[ERROR] com.snowgears.shop.listener.MiscListenerTest.testWallSignFacingSouth_chestNorth -- Time elapsed: 6.327 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: Shop should be created and registered ==> expected: not <null>
+	at org.junit.jupiter.api.Assertions.assertNotNull(Assertions.java:345)
+	at com.snowgears.shop.listener.MiscListenerTest.testWallSignCreation(MiscListenerTest.java:159)
+	at com.snowgears.shop.listener.MiscListenerTest.testWallSignFacingSouth_chestNorth(MiscListenerTest.java:74)
+
+[INFO] 
+[INFO] Results:
+[INFO] 
+[ERROR] Failures: 
+[ERROR]   MiscListenerTest.testWallSignFacingSouth_chestNorth:74->testWallSignCreation:159 Shop should be created and registered ==> expected: not <null>
+[INFO] 
+[ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  32.850 s
+[INFO] Finished at: 2026-10-02T17:10:10-04:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.3:test (default-test) on project shop-core: There are test failures.
+[ERROR] 
+[ERROR] See C:\Users\malex\Shop\core\target\surefire-reports for the individual test results.
+[ERROR] See dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

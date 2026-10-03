@@ -452,6 +452,9 @@ public class MiscListener implements Listener {
                 ShopMessage.sendMessage("interaction", "adminCreateHitChest", process, player);
             }
 
+            // Send shop type prompt for chest creation (item already set, now ask for shop type)
+            ShopMessage.sendMessage("interaction", "createHitChest", process, player);
+
             //give player a limited amount of time to finish creating the shop until it is deleted
             final UUID originalProcessUUID = process.getUniqueID();
             int initTimeout = plugin.getDebug_shopInitTimeout();
