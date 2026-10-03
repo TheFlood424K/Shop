@@ -39,6 +39,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 /**
  * Comprehensive unit and integration tests for MiscListener shop creation and management functionality.
@@ -415,7 +416,8 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         miscListener.onBucketEmpty(event);
 
-        assertTrue(event.isCancelled(), "Bucket empty on shop sign should be cancelled");
+        // Verify setCancelled was called with true
+        verify(event).setCancelled(true);
     }
 
     @Test
@@ -632,7 +634,9 @@ class MiscListenerTest extends BaseMockBukkitTest {
         sim.simulateBlockBreak(shop.getSignLocation().getBlock());
 
         String msg = waitForNextMessage(operator);
-        assertNotNull(msg);
+        System.out.println("DEBUG: operator message = " + msg);
+        System.out.println("DEBUG: shop owner name = " + shop.getOwnerName());
+        assertNotNull(msg, "Operator should receive a message");
         assertTrue(msg.contains("destroyed"), "Operator should be able to destroy: " + msg);
         assertNull(shopHandler.getShop(shop.getSignLocation()), "Shop should be removed");
     }

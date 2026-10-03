@@ -372,11 +372,11 @@ public class ShopCreationUtil {
 
             ShopCreationProcess process = plugin.getMiscListener().getShopCreationProcess(player);
             if (shop.getType() == ShopType.BARTER && barterItem == null) {
-                ShopMessage.sendMessage(shop.getType().toString(), "initializeInfo", player, shop);
+                ShopMessage.sendMessage("interaction", shop.getType().toString() + ".initializeInfo", player, shop);
                 process.setStep(ShopCreationProcess.ChatCreationStep.SIGN_BARTER_ITEM);
-                process.displayFloatingText(shop.getType().toString(), "initializeBarter");
+                process.displayFloatingText("interaction", shop.getType().toString() + ".initializeBarter");
                 if(plugin.allowCreativeSelection()) {
-                    ShopMessage.sendMessage("BUY", "initializeAlt", player, shop);
+                    ShopMessage.sendMessage("interaction", "BUY.initializeAlt", player, shop);
                 }
             }
             else if(shop.getType() != ShopType.BARTER){
