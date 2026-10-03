@@ -8,213 +8,357 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: write
+  pull-requests: write
+  checks: write
+  issues: write
+
 jobs:
   build:
+    name: Build & Test (Java 25)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v6.0.1
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Fix toolchains.xml vendor to 'any'
+        run: |
+          printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
+
+      - name: Cache Spigot build outputs & Maven artifacts
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ./SpigotBuildTools
+            ~/.m2/repository/org/spigotmc
+            ~/.m2/repository/org/bukkit
+          key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
+          restore-keys: |
+            ${{ runner.os }}-spigot-
+
+      - name: Compute version with commit hash
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_HASH="${{ github.event.pull_request.head.sha }}"
+          else
+            COMMIT_HASH="${{ github.sha }}"
+          fi
+          COMMIT_HASH="${COMMIT_HASH:0:7}"
+
+          CURRENT_VERSION=$(grep -m 1 "<revision>" pom.xml | sed 's/.*<revision>\(.*\)<\/revision>.*/\1/')
+          NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
+
+          echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
+          echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
+
+      - name: Build Maven Repository
+        run: |
+          chmod +x ./buildMavenRepo.sh
+          ./buildMavenRepo.sh
+
+      - name: Install Dynmap API (CI fallback)
+        run: |
+          chmod +x ./scripts/install-dynmap-api.sh
+          ./scripts/install-dynmap-api.sh
+
+      - name: Install BlockProt API (CI fallback)
+        run: |
+          chmod +x ./scripts/install-blockprot-api.sh
+          ./scripts/install-blockprot-api.sh
+
+      - name: Build JAR (skip tests)
+        run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -DskipTests clean package
+
+      - name: Run Tests (with parallel execution)
+        id: test
+        run: |
+          set +e
+          mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
+            -Dparallel=methods -DthreadCountStrategy=dynamic -DuseUnlimitedThreads=false \
+            test 2>&1 | tee test-output.log
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          echo "test_exit_code=$TEST_EXIT_CODE" >> "$GITHUB_OUTPUT"
+          exit $TEST_EXIT_CODE
+
+      - name: Extract test results
+        if: always()
+        run: |
+          set -euo pipefail
+          FAILED=0
+          PASSED=0
+          SKIPPED=0
+          ERROR=0
+
+          if [ -d "core/target/surefire-reports" ]; then
+            for f in core/target/surefire-reports/*.txt; do
+              [ -f "$f" ] || continue
+              # Extract test counts from surefire txt reports
+              while IFS= read -r line; do
+                if [[ "$line" =~ Tests\ run:\ ([0-9]+),\ Failures:\ ([0-9]+),\ Errors:\ ([0-9]+),\ Skipped:\ ([0-9]+) ]]; then
+                  total="${BASH_REMATCH[1]}"
+                  failures="${BASH_REMATCH[2]}"
+                  errors="${BASH_REMATCH[3]}"
+                  skipped="${BASH_REMATCH[4]}"
+                  PASSED=$((PASSED + total - failures - errors - skipped))
+                  FAILED=$((FAILED + failures + errors))
+                  SKIPPED=$((SKIPPED + skipped))
+                fi
+              done < "$f"
+            done
+          fi
+
+          echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+          echo "skipped=$SKIPPED" >> "$GITHUB_OUTPUT"
+          echo "total=$((PASSED + FAILED + SKIPPED))" >> "$GITHUB_OUTPUT"
+
+      - name: Generate test failure summary
+        if: always() && steps.test.outputs.test_exit_code != '0'
+        id: failure-summary
+        run: |
+          set -euo pipefail
+          {
+            echo "### ❌ Test Failures"
+            echo ""
+            echo "| Test Class | Method | Failure Message |"
+            echo "|------------|--------|-----------------|"
+            if [ -d "core/target/surefire-reports" ]; then
+              for xml in core/target/surefire-reports/TEST-*.xml; do
+                [ -f "$xml" ] || continue
+                classname=$(xmllint --xpath 'string(//testsuite/@name)' "$xml" 2>/dev/null || echo "Unknown")
+                # Extract failures
+                xmllint --xpath '//testcase[failure or error]' "$xml" 2>/dev/null | \
+                sed 's/<testcase /\n<testcase /g' | \
+                grep -E '(failure|error)' | \
+                while IFS= read -r tc; do
+                  [ -z "$tc" ] && continue
+                  method=$(echo "$tc" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+                  msg=$(echo "$tc" | sed -n 's/.*<failure[^>]*>\(.*\)<\/failure>.*/\1/p')
+                  [ -z "$msg" ] && msg=$(echo "$tc" | sed -n 's/.*<error[^>]*>\(.*\)<\/error>.*/\1/p')
+                  msg=$(echo "$msg" | sed 's/|/\\|/g' | cut -c1-100)
+                  echo "| $classname | $method | $msg |"
+                done
+              done
+            else
+              echo "| - | - | No test reports found |"
+            fi
+          } > test-failures.md
+          cat test-failures.md
+
+      - name: Publish Test Results (JUnit)
+        if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
+        uses: dorny/test-reporter@v3.0.0
+        continue-on-error: true
+        with:
+          name: JUnit Tests
+          path: '**/target/surefire-reports/*.xml'
+          reporter: java-junit
+          fail-on-error: false
+          fail-on-empty: false
+
+      - name: Generate diff-cover report (PR only)
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          chmod +x ./scripts/run-diff-cover.sh
+          ./scripts/run-diff-cover.sh "origin/${{ github.base_ref }}" ./scripts/diff-cover.md ./scripts/diff-cover.html
+        continue-on-error: true
+
+      - name: Upload JAR artifact
+        id: upload-shop-jar
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ${{ env.JAR_FILENAME }}
+          path: '**/target/Shop-*.jar'
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload diff-cover HTML artifact
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        id: upload-diff-cover-report
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: diff-cover-report.html
+          path: scripts/diff-cover.html
+
+      - name: Create workflow summary
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          TEST_EXIT="${{ steps.test.outputs.test_exit_code }}"
+          PASSED="${{ steps.extract-test-results.outputs.passed }}"
+          FAILED="${{ steps.extract-test-results.outputs.failed }}"
+          SKIPPED="${{ steps.extract-test-results.outputs.skipped }}"
+          TOTAL="${{ steps.extract-test-results.outputs.total }}"
+          JAR_URL="${{ steps.upload-shop-jar.outputs.artifact-url }}"
+          DIFF_URL="${{ steps.upload-diff-cover-report.outputs.artifact-url }}"
+
+          {
+            if [ "$STATUS" = "success" ]; then
+              echo "# ✅ Build Completed Successfully"
+            else
+              echo "# ❌ Build Failed"
+            fi
+            echo ""
+            echo "**Version:** ${{ env.VERSION }}"
+            echo "**Commit:** ${{ github.sha }}"
+            echo "**Branch:** ${{ github.ref_name }}"
+            echo ""
+
+            # Test summary
+            echo "## 🧪 Test Results"
+            echo ""
+            if [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
+              echo "| Status | Count |"
+              echo "|--------|-------|"
+              [ -n "$PASSED" ] && [ "$PASSED" -gt 0 ] && echo "| ✅ Passed | $PASSED |"
+              [ -n "$FAILED" ] && [ "$FAILED" -gt 0 ] && echo "| ❌ Failed | $FAILED |"
+              [ -n "$SKIPPED" ] && [ "$SKIPPED" -gt 0 ] && echo "| ⏭️ Skipped | $SKIPPED |"
+              echo "| **Total** | **$TOTAL** |"
+            else
+              echo "No test results available."
+            fi
+            echo ""
+
+            # Test failures details
+            if [ "$TEST_EXIT" != "0" ] && [ -f "test-failures.md" ]; then
+              cat test-failures.md
+              echo ""
+            fi
+
+            # Artifacts
+            if [ -n "$DIFF_URL" ]; then
+              echo "## 📊 Coverage"
+              echo ""
+              echo "**Diff Cover:** [View report]($DIFF_URL)"
+              echo ""
+            fi
+
+            if [ -n "$JAR_URL" ]; then
+              echo "## 📦 Artifacts"
+              echo ""
+              echo "⬇️ [${{ env.JAR_FILENAME }}]($JAR_URL)"
+              echo ""
+            fi
+
+            # Links
+            echo "---"
+            echo "**Workflow:** [${{ github.workflow }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "**PR:** #${{ github.event.number }}"
+            fi
+          } > build-summary.md
+          cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment PR with build summary
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
+        with:
+          path: build-summary.md
+          header: "## Shop Build Summary"
+          delete: true
+
+      - name: Comment PR with JaCoCo Coverage Report
+        if: always() && hashFiles('**/target/site/jacoco/jacoco.xml') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: madrapps/jacoco-report@v1.8.0
+        continue-on-error: true
+        with:
+          paths: |
+            **/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 0
+          min-coverage-changed-files: 30
+          title: Coverage Report
+          update-comment: true
+          pass-emoji: ':green_circle:'
+          fail-emoji: ':small_orange_diamond:'
+          fail-on-error: true
+
+      - name: Generate changelog (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          CURRENT_TAG="${GITHUB_REF_NAME}"
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n 1)
+
+          {
+            echo "## What's Changed"
+            echo ""
+            if [ -n "$PREVIOUS_TAG" ]; then
+              echo "### Commits since ${PREVIOUS_TAG}"
+              git log "${PREVIOUS_TAG}..HEAD" \
+                --pretty=format:'- [%h](https://github.com/${{ github.repository }}/commit/%H) %s (%an)' \
+                --no-merges
+            else
+              echo "### All Commits"
+              git log HEAD \
+                --pretty=format:'- [%h](https://github.com/${{ github.repository }}/commit/%H) %s (%an)' \
+                --no-merges
+            fi
+            echo ""
+            echo ""
+            echo "**Full diff:** https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}"
+          } > changelog.md
+
+      - name: Create Release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3.0.3
+        with:
+          files: '**/target/Shop-*.jar'
+          body_path: changelog.md
+          generate_release_notes: true
+          make_latest: true
+
+  # Separate job for release tagging (manual trigger)
+  release-tag:
+    name: Create Release Tag
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
-      checks: write
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
 
     steps:
-    - uses: actions/checkout@v7.0.1
-      with:
-        # Full history is required for the diff-cover git range comparison
-        # and for the changelog commit-log between tags.
-        fetch-depth: 0
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
-    - name: Set up JDK
-      uses: actions/setup-java@v6.0.1
-      with:
-        java-version: '25'
-        distribution: 'temurin'
-        cache: 'maven'
-
-    # setup-java writes vendor=Temurin but core/pom.xml requests vendor=any.
-    # Overwrite with vendor=any so maven-toolchains-plugin can match the entry.
-    - name: Fix toolchains.xml vendor to 'any'
-      run: |
-        printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
-
-    # Single combined cache for both the SpigotBuildTools working directory
-    # and the installed Spigot/Bukkit Maven artifacts.
-    - name: Cache Spigot build outputs and Maven artifacts
-      uses: actions/cache@v6.1.0
-      with:
-        path: |
-          ./SpigotBuildTools
-          ~/.m2/repository/org/spigotmc
-          ~/.m2/repository/org/bukkit
-        key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
-        restore-keys: |
-          ${{ runner.os }}-spigot-
-
-    - name: Compute version with commit hash
-      run: |
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          COMMIT_HASH="${{ github.event.pull_request.head.sha }}"
-        else
-          COMMIT_HASH="${{ github.sha }}"
-        fi
-        COMMIT_HASH="${COMMIT_HASH:0:7}"
-
-        CURRENT_VERSION=$(grep -m 1 "<revision>" pom.xml | sed 's/.*<revision>\(.*\)<\/revision>.*/\1/')
-        NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
-
-        echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
-        echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
-
-    - name: Build Maven Repository
-      run: |
-        chmod +x ./buildMavenRepo.sh
-        ./buildMavenRepo.sh
-
-    - name: Install Dynmap API (CI fallback)
-      run: |
-        chmod +x ./scripts/install-dynmap-api.sh
-        ./scripts/install-dynmap-api.sh
-
-    - name: Install BlockProt API (CI fallback)
-      run: |
-        chmod +x ./scripts/install-blockprot-api.sh
-        ./scripts/install-blockprot-api.sh
-
-    - name: Build JAR for tests
-      run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -DskipTests clean package
-
-    # -ntp  suppresses artifact download progress lines (the main source of log noise).
-    # -T 1C builds all Maven modules in parallel using one thread per CPU core.
-    # -Dmaven.test.failure.ignore=false ensures tests failures fail the build
-    # -Drat.numUnapprovedLicenses=0 fails the build on unapproved licenses (if rat plugin is configured)
-    # Parallel test execution: use all available cores for test methods
-    - name: Build and Test
-      run: mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -Dparallel=methods -DthreadCountStrategy=dynamic -DuseUnlimitedThreads=false test
-
-    - name: Publish Test Results
-      if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
-      uses: dorny/test-reporter@v3.0.0
-      continue-on-error: true
-      with:
-        name: JUnit Tests
-        path: '**/target/surefire-reports/*.xml'
-        reporter: java-junit
-        fail-on-error: false
-        fail-on-empty: false
-
-    - name: Create workflow summary
-      if: always()
-      run: |
-        STATUS="${{ job.status }}"
-        JAR_URL="${{ steps.upload-shop-jar.outputs.artifact-url }}"
-        DIFF_URL="${{ steps.upload-diff-cover-report.outputs.artifact-url }}"
-        {
-          if [ "$STATUS" = "success" ]; then
-            echo "# Build Completed Successfully! 🎉"
-          else
-            echo "# Build Failed ❌"
+      - name: Validate version format
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "::error::Version '$VERSION' does not match expected format (e.g. 1.14.0 or 1.14.0-beta.1)"
+            exit 1
           fi
-          echo ""
-          echo "**Version:** $VERSION"
-          echo ""
-          if [ -f "**/target/surefire-reports/TEST-*.xml" ]; then
-            echo "**Test Results:** Tests were executed and results are available"
-          else
-            echo "**Test Results:** No test results found"
-          fi
-          if [ -n "$DIFF_URL" ]; then
-            echo "**Diff Cover:** [View report]($DIFF_URL)"
-          fi
-          echo ""
-          if [ -n "$JAR_URL" ]; then
-            echo "### Download Build"
-            echo "⬇️ [$JAR_FILENAME]($JAR_URL)"
-            echo ""
-          fi
-        } > build-summary.md
-        cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
 
-    - name: Generate diff-cover report
-      if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      run: |
-        chmod +x ./scripts/run-diff-cover.sh
-        ./scripts/run-diff-cover.sh "origin/${{ github.base_ref }}" ./scripts/diff-cover.md ./scripts/diff-cover.html
-      continue-on-error: true
+      - name: Bump version in pom.xml
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          sed -i "s|<revision>.*</revision>|<revision>${VERSION}</revision>|" pom.xml
+          echo "Bumped pom.xml revision to ${VERSION}"
 
-    - name: Upload Artifact
-      id: upload-shop-jar
-      uses: actions/upload-artifact@v7.0.1
-      with:
-        name: ${{ env.JAR_FILENAME }}
-        path: '**/target/Shop-*.jar'
-        compression-level: 0
-        if-no-files-found: error
-
-    - name: Upload diff-cover HTML artifact
-      if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      id: upload-diff-cover-report
-      uses: actions/upload-artifact@v7.0.1
-      with:
-        name: diff-cover-report.html
-        path: scripts/diff-cover.html
-
-    - name: Build Summary
-      if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      uses: marocchino/sticky-pull-request-comment@v3.0.5
-      with:
-        path: build-summary.md
-
-    - name: Comment PR with JaCoCo Coverage Report
-      if: always() && hashFiles('**/target/site/jacoco/jacoco.xml') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-      uses: madrapps/jacoco-report@v1.8.0
-      continue-on-error: true
-      with:
-        paths: |
-          **/target/site/jacoco/jacoco.xml
-        token: ${{ secrets.GITHUB_TOKEN }}
-        min-coverage-overall: 0
-        min-coverage-changed-files: 30
-        title: Coverage Report
-        update-comment: true
-        pass-emoji: ':green_circle:'
-        fail-emoji: ':small_orange_diamond:'
-        # Ensure coverage report is always generated and commented
-        fail-on-error: true
-
-    # Only runs on tag pushes (v*).
-    # 1. Generates a commit-log changelog between the previous tag and this one.
-    # 2. Passes it to softprops via body_path for a rich release description.
-    # 3. generate_release_notes: true appends GitHub's auto-generated PR list
-    #    (categorised by .github/release.yml) below the commit log.
-    - name: Generate changelog
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        CURRENT_TAG="${GITHUB_REF_NAME}"
-        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n 1)
-
-        {
-          echo "## What's Changed"
-          echo ""
-          if [ -n "$PREVIOUS_TAG" ]; then
-            echo "### Commits since ${PREVIOUS_TAG}"
-            git log "${PREVIOUS_TAG}..HEAD" \
-              --pretty=format:'- [`%h`](https://github.com/${{ github.repository }}/commit/%H) %s (%an)' \
-              --no-merges
-          else
-            echo "### All Commits"
-            git log HEAD \
-              --pretty=format:'- [`%h`](https://github.com/${{ github.repository }}/commit/%H) %s (%an)' \
-              --no-merges
-          fi
-          echo ""
-          echo ""
-          echo "**Full diff:** https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}"
-        } > changelog.md
-
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v3.0.3
-      with:
-        files: '**/target/Shop-*.jar'
-        body_path: changelog.md
-        generate_release_notes: true
-        make_latest: true
+      - name: Commit and tag
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          PRERELEASE="${{ github.event.inputs.prerelease }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          git commit -m "chore: release v${VERSION}"
+          git tag "v${VERSION}"
+          git push origin HEAD:main
+          git push origin "v${VERSION}"
+          echo "Tagged and pushed v${VERSION} — build workflow will now run for the release."

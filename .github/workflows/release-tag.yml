@@ -18,37 +18,47 @@ on:
 
 jobs:
   tag:
+    name: Tag Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-    - uses: actions/checkout@v7.0.1
-      with:
-        fetch-depth: 0
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
-    - name: Validate version format
-      run: |
-        VERSION="${{ inputs.version }}"
-        if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
-          echo "::error::Version '$VERSION' does not match expected format (e.g. 1.14.0 or 1.14.0-beta.1)"
-          exit 1
-        fi
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.version }}"
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "::error::Version '$VERSION' does not match expected format (e.g. 1.14.0 or 1.14.0-beta.1)"
+            exit 1
+          fi
 
-    - name: Bump version in pom.xml
-      run: |
-        VERSION="${{ inputs.version }}"
-        sed -i "s|<revision>.*</revision>|<revision>${VERSION}</revision>|" pom.xml
-        echo "Bumped pom.xml revision to ${VERSION}"
+      - name: Bump version in pom.xml
+        run: |
+          VERSION="${{ inputs.version }}"
+          sed -i "s|<revision>.*</revision>|<revision>${VERSION}</revision>|" pom.xml
+          echo "Bumped pom.xml revision to ${VERSION}"
 
-    - name: Commit and tag
-      run: |
-        VERSION="${{ inputs.version }}"
-        git config user.name  "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add pom.xml
-        git commit -m "chore: release v${VERSION}"
-        git tag "v${VERSION}"
-        git push origin HEAD:main
-        git push origin "v${VERSION}"
-        echo "Tagged and pushed v${VERSION} — build.yml release flow will now run."
+      - name: Commit and tag
+        run: |
+          VERSION="${{ inputs.version }}"
+          PRERELEASE="${{ inputs.prerelease }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          git commit -m "chore: release v${VERSION}"
+          git tag "v${VERSION}"
+          git push origin HEAD:main
+          git push origin "v${VERSION}"
+          echo "Tagged and pushed v${VERSION} — build.yml release flow will now run."
+
+      - name: Trigger build workflow
+        if: github.event.inputs.prerelease == 'false'
+        run: |
+          gh workflow run build.yml --ref "v${{ inputs.version }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
