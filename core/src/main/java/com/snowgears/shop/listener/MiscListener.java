@@ -721,7 +721,7 @@ public class MiscListener implements Listener {
                         event.setDropItems(false);
                     }
 
-                    ShopMessage.sendMessage("interaction", shop.getType().toString() + ".opDestroy", player, shop);
+                    ShopMessage.sendMessage("interaction", shop.getType().name() + ".opDestroy", player, shop);
                     shop.delete();
                 } else {
                     ShopMessage.sendMessage("permission", "destroyOther", player, shop);
