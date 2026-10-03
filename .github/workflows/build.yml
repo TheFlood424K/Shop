@@ -287,11 +287,12 @@ jobs:
               echo ""
             fi
 
-            # Always show artifact if build succeeded (JAR was produced)
+            # The artifact link is appended after the upload step, which knows whether the
+            # upload actually succeeded — so it is not repeated here.
             if [ "$JAR_FOUND" = "true" ] && [ -n "$JAR_PATH" ]; then
               echo "## 📦 Artifacts"
               echo ""
-              echo "⬇️ [\`${{ env.JAR_FILENAME }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) — download it from this run's **Artifacts** section at the bottom of the page."
+              echo "\`${{ env.JAR_FILENAME }}\` was built — see the download instructions at the bottom of this summary."
               echo ""
             fi
 
@@ -310,11 +311,38 @@ jobs:
         # run page instead.
         if: always() && steps.build.outputs.jar_found == 'true'
         uses: actions/upload-artifact@v7
+        id: upload_jar
         with:
           name: shop-${{ steps.version.outputs.version }}
           path: ${{ steps.build.outputs.jar_path }}
           if-no-files-found: error
           retention-days: 30
+
+      - name: Add artifact link to the job summary
+        # Appended after the upload so it can state whether the artifact is actually
+        # there. GitHub has no direct file URL for run artifacts — they are only ever
+        # served as a zip from the run page's Artifacts section — so the honest thing to
+        # do is link that section and name the artifact, rather than a link that looks
+        # like a file download and isn't.
+        if: always() && steps.build.outputs.jar_found == 'true'
+        run: |
+          if [ "${{ steps.upload_jar.outcome }}" = "success" ]; then
+            {
+              echo ""
+              echo "### 📦 JAR"
+              echo ""
+              echo "\`${{ env.JAR_FILENAME }}\` (version \`${{ steps.version.outputs.version }}\`) uploaded as artifact **\`shop-${{ steps.version.outputs.version }}\`**."
+              echo ""
+              echo "[Download it from this run's Artifacts section](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts) — GitHub serves artifacts as a zip, so extract the JAR from it."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo ""
+              echo "### 📦 JAR"
+              echo ""
+              echo "Artifact upload did not succeed (\`${{ steps.upload_jar.outcome }}\`). The built JAR is at \`${{ steps.build.outputs.jar_path }}\` inside the runner workspace."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   # Creating the GitHub Release needs contents: write. Keeping it in its own
   # tag-gated job means build-and-test never has to run with write scope, so
