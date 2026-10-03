@@ -94,6 +94,16 @@ jobs:
             clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}
           echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
+
+          # Always try to find the built JAR (tests can fail but package should succeed)
+          JAR_PATH=$(find . -name "Shop-*.jar" -path "*/target/*" 2>/dev/null | head -1)
+          if [ -n "$JAR_PATH" ]; then
+            echo "jar_path=$JAR_PATH" >> "$GITHUB_OUTPUT"
+            echo "JAR found at: $JAR_PATH"
+          else
+            echo "JAR not found"
+          fi
+
           exit $TEST_EXIT
 
       - name: Extract test results & generate visual summary
@@ -176,18 +186,22 @@ jobs:
                               failed += 1
                               total += 1
                               msg = (failure.text or "").strip()
-                              msg = msg.replace("|", "\\|")[:120] + ("..." if len(msg) > 120 else "")
+                              # Full message, no truncation for details
+                              msg = msg.replace("|", "\\|")
                               failures_detail.append((classname, method, msg, "❌ FAIL"))
                           elif error is not None:
                               failed += 1
                               total += 1
                               msg = (error.text or "").strip()
-                              msg = msg.replace("|", "\\|")[:120] + ("..." if len(msg) > 120 else "")
+                              msg = msg.replace("|", "\\|")
                               failures_detail.append((classname, method, msg, "💥 ERROR"))
                           elif skipped_elem is not None:
                               skipped += 1
                               total += 1
-                              failures_detail.append((classname, method, "Skipped", "⏭️ SKIP"))
+                              # Extract skip reason from skipped element
+                              skip_msg = skipped_elem.get("message", "Skipped (no reason given)")
+                              skip_msg = skip_msg.replace("|", "\\|")
+                              failures_detail.append((classname, method, skip_msg, "⏭️ SKIP"))
                           else:
                               passed += 1
                               total += 1
@@ -229,60 +243,24 @@ jobs:
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          # Failure details table - only top 20 failures for summary
+          # Failure details table - all failures (no truncation)
           if failures_detail:
-              lines.append("### ❌ Failures (top 20)")
+              lines.append("### ❌ All Test Failures")
               lines.append("")
-              lines.append("| Class | Method | Message |")
-              lines.append("|-------|--------|---------|")
+              lines.append("| Class | Method | Status | Message |")
+              lines.append("|-------|--------|--------|---------|")
 
-              for classname, method, msg, status in failures_detail[:20]:
+              for classname, method, msg, status in failures_detail:
                   short_class = classname if len(classname) <= 45 else "..." + classname[-42:]
-                  lines.append(f"| {short_class} | {method} | {msg} |")
-
-              if len(failures_detail) > 20:
-                  lines.append(f"| ... | ... | *{len(failures_detail) - 20} more failures hidden* |")
+                  lines.append(f"| {short_class} | {method} | {status} | {msg} |")
 
               lines.append("")
 
           with open("test-summary.md", "w") as f:
               f.write("\n".join(lines))
 
-          # Generate full details for PR comment (separate file)
-          detail_lines = []
-          detail_lines.append("## 🧪 Test Results")
-          detail_lines.append("")
-          detail_lines.append(f"**Overall:** `{bar}` {pct}% ({passed}/{total} passed)")
-          detail_lines.append("")
-
-          if total > 0:
-              detail_lines.append("| Status | Count | Percentage |")
-              detail_lines.append("|--------|-------|------------|")
-              detail_lines.append(f"| ✅ Passed | **{passed}** | {passed/total*100:.1f}% |")
-              if failed > 0:
-                  detail_lines.append(f"| ❌ Failed | **{failed}** | {failed/total*100:.1f}% |")
-              if skipped > 0:
-                  detail_lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
-              detail_lines.append(f"| **Total** | **{total}** | 100% |")
-              detail_lines.append("")
-
-          if failures_detail:
-              detail_lines.append("### 📋 All Test Failures")
-              detail_lines.append("")
-              detail_lines.append("<details>")
-              detail_lines.append("<summary><b>Click to expand full test breakdown</b></summary>")
-              detail_lines.append("")
-              detail_lines.append("| Class | Method | Status | Message |")
-              detail_lines.append("|-------|--------|--------|---------|")
-
-              for classname, method, msg, status in failures_detail:
-                  short_class = classname if len(classname) <= 45 else "..." + classname[-42:]
-                  detail_lines.append(f"| {short_class} | {method} | {status} | {msg} |")
-
-              detail_lines.append("")
-              detail_lines.append("</details>")
-              detail_lines.append("")
-
+          # Generate full details for PR comment (separate file) - same content now
+          detail_lines = list(lines)
           with open("test-details.md", "w") as f:
               f.write("\n".join(detail_lines))
 
@@ -314,7 +292,7 @@ jobs:
         uses: actions/upload-artifact@v7.0.1
         with:
           name: ${{ env.JAR_FILENAME }}
-          path: '**/target/Shop-*.jar'
+          path: ${{ steps.build-and-test.outputs.jar_path }}
           compression-level: 0
           if-no-files-found: warn
 
