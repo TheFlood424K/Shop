@@ -245,22 +245,24 @@ jobs:
         run: |
           STATUS="${{ job.status }}"
           TEST_EXIT="${{ steps.test-report.outputs.test_exit_code }}"
+          BUILD_EXIT="${{ steps.build.outputs.test_exit_code }}"
           JAR_PATH="${{ steps.build.outputs.jar_path }}"
           JAR_FOUND="${{ steps.build.outputs.jar_found }}"
 
           {
-            if [ "$STATUS" = "success" ] && [ "${{ steps.build.outputs.test_exit_code }}" = "0" ]; then
+            # Determine status based on build success (JAR produced) and test results
+            if [ "$BUILD_EXIT" = "0" ] && [ "$TEST_EXIT" = "0" ]; then
               echo "# ✅ Build & Tests Passed"
-            elif [ "${{ steps.build.outputs.build_exit_code }}" = "0" ] && [ "${{ steps.test-report.outputs.test_exit_code }}" != "0" ]; then
+            elif [ "$BUILD_EXIT" = "0" ] && [ "$TEST_EXIT" != "0" ]; then
               echo "# ⚠️ Build Passed, Tests Failed"
               echo ""
               echo "> Artifact was produced successfully but some tests failed."
             else
               echo "# ❌ Build Failed"
-              if [ "${{ steps.build.outputs.test_exit_code }}" != "0" ]; then
-                echo "**Reason:** Tests failed"
-              else
+              if [ "$BUILD_EXIT" != "0" ]; then
                 echo "**Reason:** Build/Compilation failed"
+              elif [ "$TEST_EXIT" != "0" ]; then
+                echo "**Reason:** Tests failed"
               fi
             fi
             echo ""
@@ -278,7 +280,8 @@ jobs:
               echo ""
             fi
 
-            if [ -n "$JAR_PATH" ]; then
+            # Always show artifact if build succeeded (JAR was produced)
+            if [ "$BUILD_EXIT" = "0" ] && [ -n "${{ steps.build.outputs.jar_path }}" ]; then
               echo "## 📦 Artifacts"
               echo ""
               echo "⬇️ [${{ env.JAR_FILENAME }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
