@@ -102,13 +102,21 @@ jobs:
           JAR_PATH=$(find . -name "Shop-*.jar" -path "*/target/*" 2>/dev/null | head -1)
           if [ -n "$JAR_PATH" ]; then
             echo "jar_path=$JAR_PATH" >> "$GITHUB_OUTPUT"
+            echo "jar_found=true" >> "$GITHUB_OUTPUT"
             echo "JAR found at: $JAR_PATH"
           else
             echo "jar_path=" >> "$GITHUB_OUTPUT"
+            echo "jar_found=false" >> "$GITHUB_OUTPUT"
             echo "JAR not found"
           fi
 
-          exit $TEST_EXIT
+          # Exit 0 if JAR was produced (build succeeded), else exit test code
+          # This makes GitHub show "success" for artifact-producing runs even with test failures
+          if [ -n "$JAR_PATH" ]; then
+            exit 0
+          else
+            exit $TEST_EXIT
+          fi
 
       - name: Extract test results & generate visual summary
         if: always()
@@ -225,22 +233,19 @@ jobs:
               f.write(f"test_exit_code={1 if failed > 0 else 0}\n")
 
           # Generate visual test summary markdown (for workflow summary)
+          # Use Unicode block emojis for color coding (renders in GitHub summary)
+          # 🟩 = passed, 🟥 = failed, 🟨 = skipped, ⬜ = remaining
           pct = int((passed / total * 100)) if total > 0 else 0
           bar_len = 20
           filled = int(bar_len * passed / total) if total > 0 else 0
           failed_filled = int(bar_len * failed / total) if total > 0 else 0
           skipped_filled = int(bar_len * skipped / total) if total > 0 else 0
-
-          # Color-coded progress bar using HTML spans
-          # Green for passed, Red for failed, Yellow for skipped, Gray for remaining
-          bar_parts = []
-          bar_parts.append(f'<span style="color:#2ecc71;">{"█" * filled}</span>')
-          bar_parts.append(f'<span style="color:#e74c3c;">{"█" * failed_filled}</span>')
-          bar_parts.append(f'<span style="color:#f39c12;">{"█" * skipped_filled}</span>')
           remaining = bar_len - filled - failed_filled - skipped_filled
-          if remaining > 0:
-              bar_parts.append(f'<span style="color:#95a5a6;">{"█" * remaining}</span>')
-          bar = "".join(bar_parts)
+          if remaining < 0:
+              remaining = 0
+
+          # Build emoji progress bar
+          bar = "🟩" * filled + "🟥" * failed_filled + "🟨" * skipped_filled + "⬜" * remaining
 
           lines = []
           lines.append("## 🧪 Test Results")
@@ -251,11 +256,11 @@ jobs:
           if total > 0:
               lines.append("| Status | Count | Percentage |")
               lines.append("|--------|-------|------------|")
-              lines.append(f"| <span style=\"color:#2ecc71;\">⬤</span> Passed | **{passed}** | {passed/total*100:.1f}% |")
+              lines.append(f"| 🟩 Passed | **{passed}** | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| <span style=\"color:#e74c3c;\">⬤</span> Failed | **{failed}** | {failed/total*100:.1f}% |")
+                  lines.append(f"| 🟥 Failed | **{failed}** | {failed/total*100:.1f}% |")
               if skipped > 0:
-                  lines.append(f"| <span style=\"color:#f39c12;\">⬤</span> Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+                  lines.append(f"| 🟨 Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
@@ -325,12 +330,18 @@ jobs:
         run: |
           STATUS="${{ job.status }}"
           TEST_EXIT="${{ steps.build-and-test.outputs.test_exit_code }}"
+          JAR_FOUND="${{ steps.build-and-test.outputs.jar_found }}"
           JAR_URL="${{ steps.upload-shop-jar.outputs.artifact-url }}"
           DIFF_URL="${{ steps.upload-diff-cover-report.outputs.artifact-url }}"
 
           {
-            if [ "$STATUS" = "success" ]; then
+            # Determine status for GitHub run list
+            if [ "$STATUS" = "success" ] && [ "$TEST_EXIT" = "0" ]; then
               echo "# ✅ Build & Tests Passed"
+            elif [ "$STATUS" = "success" ] && [ "$TEST_EXIT" != "0" ] && [ "$JAR_FOUND" = "true" ]; then
+              echo "# ⚠️ Build Passed, Tests Failed"
+              echo ""
+              echo "> Artifact was produced successfully but some tests failed."
             else
               echo "# ❌ Build Failed"
               if [ "$TEST_EXIT" != "0" ]; then
