@@ -44,7 +44,9 @@ jobs:
             ./SpigotBuildTools
             ~/.m2/repository/org/spigotmc
             ~/.m2/repository/org/bukkit
-          key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
+            ~/.m2/repository/us/dynmap/dynmap-api
+            ~/.m2/repository/com/github/spnda/BlockProt
+          key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile', 'scripts/install-dynmap-api.sh', 'scripts/install-blockprot-api.sh') }}
           restore-keys: |
             ${{ runner.os }}-spigot-
 
