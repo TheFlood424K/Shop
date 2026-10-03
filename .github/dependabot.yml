@@ -1,0 +1,85 @@
+# Dependabot version updates.
+#
+# Security updates were already enabled on the repository (dependabot_security_updates),
+# which is what raises the open alerts for transitive Maven and npm dependencies. Without
+# this file Dependabot had no version-update configuration at all, so those advisories were
+# reported but never turned into upgrade PRs.
+#
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates
+
+version: 2
+
+updates:
+  # ---------------------------------------------------------------------------
+  # Maven — a reactor build: the parent pom declares core and dist as modules.
+  # Pointing at the root lets Dependabot follow transitive advisories (log4j-api,
+  # plexus-utils, commons-lang3) up to whatever actually declares them.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - java
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      # One PR for routine bumps rather than a dozen single-dependency PRs.
+      maven-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      maven-security:
+        applies-to: security-updates
+
+  # ---------------------------------------------------------------------------
+  # npm — the Mineflayer integration test harness.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: npm
+    directory: /mineflayer-tests
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - javascript
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      npm-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      npm-security:
+        applies-to: security-updates
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions — the workflow files reference actions by tag, so a bump here
+  # is what keeps them off deprecated runner runtimes (Node 20 warnings).
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        applies-to: version-updates
