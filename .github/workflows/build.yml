@@ -97,68 +97,90 @@ jobs:
 
       - name: Extract test results
         if: always()
+        id: extract-test-results
         run: |
-          set -euo pipefail
-          FAILED=0
-          PASSED=0
-          SKIPPED=0
-          ERROR=0
+          python3 << 'EOF'
+          import xml.etree.ElementTree as ET
+          import glob
+          import os
 
-          if [ -d "core/target/surefire-reports" ]; then
-            for f in core/target/surefire-reports/*.txt; do
-              [ -f "$f" ] || continue
-              # Extract test counts from surefire txt reports
-              while IFS= read -r line; do
-                if [[ "$line" =~ Tests\ run:\ ([0-9]+),\ Failures:\ ([0-9]+),\ Errors:\ ([0-9]+),\ Skipped:\ ([0-9]+) ]]; then
-                  total="${BASH_REMATCH[1]}"
-                  failures="${BASH_REMATCH[2]}"
-                  errors="${BASH_REMATCH[3]}"
-                  skipped="${BASH_REMATCH[4]}"
-                  PASSED=$((PASSED + total - failures - errors - skipped))
-                  FAILED=$((FAILED + failures + errors))
-                  SKIPPED=$((SKIPPED + skipped))
-                fi
-              done < "$f"
-            done
-          fi
+          passed = 0
+          failed = 0
+          skipped = 0
+          total = 0
 
-          echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
-          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
-          echo "skipped=$SKIPPED" >> "$GITHUB_OUTPUT"
-          echo "total=$((PASSED + FAILED + SKIPPED))" >> "$GITHUB_OUTPUT"
+          report_dir = "core/target/surefire-reports"
+          if os.path.exists(report_dir):
+              for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
+                  try:
+                      tree = ET.parse(xml_file)
+                      root = tree.getroot()
+                      # Sum up testsuite attributes
+                      for suite in root.findall(".//testsuite"):
+                          t = int(suite.get("tests", 0))
+                          f = int(suite.get("failures", 0))
+                          e = int(suite.get("errors", 0))
+                          s = int(suite.get("skipped", 0))
+                          total += t
+                          failed += f + e
+                          skipped += s
+                  except Exception as e:
+                      print(f"Warning: Failed to parse {xml_file}: {e}")
+
+          passed = total - failed - skipped
+          print(f"passed={passed}")
+          print(f"failed={failed}")
+          print(f"skipped={skipped}")
+          print(f"total={total}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"passed={passed}\n")
+              f.write(f"failed={failed}\n")
+              f.write(f"skipped={skipped}\n")
+              f.write(f"total={total}\n")
+          EOF
 
       - name: Generate test failure summary
         if: always() && steps.test.outputs.test_exit_code != '0'
         id: failure-summary
         run: |
-          set -euo pipefail
-          {
-            echo "### ❌ Test Failures"
-            echo ""
-            echo "| Test Class | Method | Failure Message |"
-            echo "|------------|--------|-----------------|"
-            if [ -d "core/target/surefire-reports" ]; then
-              for xml in core/target/surefire-reports/TEST-*.xml; do
-                [ -f "$xml" ] || continue
-                classname=$(xmllint --xpath 'string(//testsuite/@name)' "$xml" 2>/dev/null || echo "Unknown")
-                # Extract failures
-                xmllint --xpath '//testcase[failure or error]' "$xml" 2>/dev/null | \
-                sed 's/<testcase /\n<testcase /g' | \
-                grep -E '(failure|error)' | \
-                while IFS= read -r tc; do
-                  [ -z "$tc" ] && continue
-                  method=$(echo "$tc" | sed -n 's/.*name="\([^"]*\)".*/\1/p')
-                  msg=$(echo "$tc" | sed -n 's/.*<failure[^>]*>\(.*\)<\/failure>.*/\1/p')
-                  [ -z "$msg" ] && msg=$(echo "$tc" | sed -n 's/.*<error[^>]*>\(.*\)<\/error>.*/\1/p')
-                  msg=$(echo "$msg" | sed 's/|/\\|/g' | cut -c1-100)
-                  echo "| $classname | $method | $msg |"
-                done
-              done
-            else
-              echo "| - | - | No test reports found |"
-            fi
-          } > test-failures.md
-          cat test-failures.md
+          python3 << 'EOF'
+          import xml.etree.ElementTree as ET
+          import glob
+          import os
+
+          report_dir = "core/target/surefire-reports"
+          output_lines = ["### ❌ Test Failures", "", "| Test Class | Method | Failure Message |", "|------------|--------|-----------------|"]
+
+          if os.path.exists(report_dir):
+              for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
+                  try:
+                      tree = ET.parse(xml_file)
+                      root = tree.getroot()
+                      classname = root.get("name", "Unknown")
+
+                      for testcase in root.findall(".//testcase"):
+                          failure = testcase.find("failure")
+                          error = testcase.find("error")
+                          if failure is not None or error is not None:
+                              method = testcase.get("name", "unknown")
+                              elem = failure if failure is not None else error
+                              msg = elem.text or ""
+                              # Clean up message: escape pipes, truncate
+                              msg = msg.replace("|", "\\|").strip()
+                              msg = msg[:100] + ("..." if len(msg) > 100 else "")
+                              output_lines.append(f"| {classname} | {method} | {msg} |")
+                  except Exception as e:
+                      print(f"Warning: Failed to parse {xml_file}: {e}")
+          else:
+              output_lines.append("| - | - | No test reports found |")
+
+          with open("test-failures.md", "w") as f:
+              f.write("\n".join(output_lines))
+
+          # Print for workflow logs
+          print("\n".join(output_lines))
+          EOF
 
       - name: Publish Test Results (JUnit)
         if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
