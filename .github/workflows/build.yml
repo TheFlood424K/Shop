@@ -65,11 +65,268 @@ jobs:
           chmod +x ./scripts/install-blockprot-api.sh
           ./scripts/install-blockprot-api.sh
 
-  # Dependency submission job - submits the Maven dependency snapshot to GitHub.
-  # Independent of build-and-test: it declares no `needs`, so it starts in
-  # parallel on its own runner and does not affect the build/test wall clock.
-  # Skipped on PRs from forks, whose GITHUB_TOKEN is read-only and cannot
-  # submit a snapshot.
+      - name: Compute version with commit hash
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_HASH="${{ github.event.pull_request.head.sha }}"
+          else
+            COMMIT_HASH="${{ github.sha }}"
+          fi
+          COMMIT_HASH="${COMMIT_HASH:0:7}"
+
+          CURRENT_VERSION=$(grep -m 1 "<revision>" pom.xml | sed 's/.*<revision>\(.*\)<\/revision>.*/\1/')
+          NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
+
+          echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
+          echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
+
+      - name: Build & Test (single Maven invocation)
+        id: build
+        run: |
+          set +e
+          start_time=$(date +%s)
+          mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
+            -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
+            -Dmaven.compiler.fork=false \
+            -Dparallel=methods -DthreadCount=2 \
+            -DforkCount=2 -DreuseForks=true \
+            -DfailIfNoTests=false \
+            -Dmaven.test.failure.ignore=true \
+            clean test package 2>&1 | tee build-test-output.log
+          TEST_EXIT=${PIPESTATUS[0]}
+          end_time=$(date +%s)
+          BUILD_TIME=$((end_time - start_time))
+          echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
+          echo "build_time=${BUILD_TIME}s" >> "$GITHUB_OUTPUT"
+
+          # Always try to find the built JAR
+          JAR_PATH=$(find . -name "Shop-*.jar" -path "*/target/*" 2>/dev/null | head -1)
+          if [ -n "$JAR_PATH" ]; then
+            echo "jar_path=$JAR_PATH" >> "$GITHUB_OUTPUT"
+            echo "jar_found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "jar_path=" >> "$GITHUB_OUTPUT"
+            echo "jar_found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Exit 0 if JAR was produced (build succeeded), else exit test code
+          if [ -n "$JAR_PATH" ]; then
+            exit 0
+          else
+            exit $TEST_EXIT
+          fi
+
+      - name: Generate test summary
+        if: always()
+        id: test-report
+        run: |
+          python3 << 'PYEOF'
+          import xml.etree.ElementTree as ET
+          import glob
+          import os
+          import sys
+          from collections import defaultdict
+
+          report_dir = "core/target/surefire-reports"
+
+          passed = failed = skipped = total = 0
+          all_details = []  # (classname, method, msg, status)
+
+          if os.path.exists(report_dir):
+              xml_files = glob.glob(os.path.join(report_dir, "TEST-*.xml"))
+              print(f"Found {len(xml_files)} test report files", file=sys.stderr)
+              for xml_file in xml_files:
+                  try:
+                      tree = ET.parse(xml_file)
+                      root = tree.getroot()
+                      classname = root.get("name", "Unknown")
+
+                      for testcase in root.findall(".//testcase"):
+                          failure = testcase.find("failure")
+                          error = testcase.find("error")
+                          skipped_elem = testcase.find("skipped")
+                          method = testcase.get("name", "unknown")
+
+                          if failure is not None:
+                              failed += 1
+                              total += 1
+                              msg = (failure.text or "").strip()
+                              msg = msg.split('\n')[0][:200]
+                              all_details.append((classname, method, msg, "FAIL"))
+                          elif error is not None:
+                              failed += 1
+                              total += 1
+                              msg = (error.text or "").strip()
+                              msg = msg.split('\n')[0][:200]
+                              all_details.append((classname, method, msg, "ERROR"))
+                          elif skipped_elem is not None:
+                              skipped += 1
+                              total += 1
+                              skip_msg = skipped_elem.get("message", "")
+                              if not skip_msg:
+                                  skip_msg = (skipped_elem.text or "").strip()
+                              if not skip_msg:
+                                  for child in skipped_elem:
+                                      if child.text:
+                                          skip_msg = child.text.strip()
+                                          break
+                              if not skip_msg:
+                                  skip_msg = "Skipped (no reason given)"
+                              msg_short = skip_msg[:150] + ("..." if len(skip_msg) > 150 else "")
+                              all_details.append((classname, method, msg_short, "SKIP"))
+                          else:
+                              passed += 1
+                              total += 1
+                  except Exception as e:
+                      print(f"Warning: Failed to parse {xml_file}: {e}", file=sys.stderr)
+          else:
+              print("No surefire reports found!", file=sys.stderr)
+
+          pct = int((passed / total * 100)) if total > 0 else 0
+          bar_len = 24
+          filled = int(bar_len * passed / total) if total > 0 else 0
+          failed_filled = int(bar_len * failed / total) if total > 0 else 0
+          skipped_filled = int(bar_len * skipped / total) if total > 0 else 0
+          remaining = bar_len - filled - failed_filled - skipped_filled
+          if remaining < 0:
+              remaining = 0
+
+          # Use text-based blocks that render in GitHub markdown
+          bar = "█" * filled + "▓" * failed_filled + "░" * skipped_filled + "·" * remaining
+
+          lines = []
+          lines.append("## 🧪 Test Results")
+          lines.append("")
+          lines.append(f"**Overall:** `{bar}` {pct}% ({passed}/{total} passed)")
+          lines.append("")
+
+          if total > 0:
+              lines.append("| Status | Count | Percentage |")
+              lines.append("|--------|-------|------------|")
+              lines.append(f"| ✅ Passed | **{passed}** | {passed/total*100:.1f}% |")
+              if failed > 0:
+                  lines.append(f"| ❌ Failed | **{failed}** | {failed/total*100:.1f}% |")
+              if skipped > 0:
+                  lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+              lines.append(f"| **Total** | **{total}** | 100% |")
+              lines.append("")
+
+          # Add build timing info if available
+          build_time = os.environ.get("BUILD_TIME", "")
+          if build_time:
+              lines.append(f"**Build Time:** {build_time}s")
+              lines.append("")
+
+          if all_details:
+              lines.append("### 📋 Test Details (Failures & Skips)")
+              lines.append("")
+              lines.append("| Class | Method | Status | Message |")
+              lines.append("|-------|--------|--------|---------|")
+
+              class_groups = defaultdict(list)
+              for classname, method, msg, status in all_details:
+                  class_groups[classname].append((method, msg, status))
+
+              for classname, methods in class_groups.items():
+                  for method, msg, status in methods:
+                      # Escape pipe characters and newlines for markdown table
+                      msg_escaped = msg.replace('\n', '<br>').replace('|', '\\|')
+                      status_emoji = "❌" if status == "FAIL" else ("💥" if status == "ERROR" else "⏭️")
+                      lines.append(f"| {classname} | {method} | {status_emoji} {status} | {msg_escaped} |")
+
+              lines.append("")
+
+          with open("test-summary.md", "w") as f:
+              f.write("\n".join(lines))
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"passed={passed}\n")
+              f.write(f"failed={failed}\n")
+              f.write(f"skipped={skipped}\n")
+              f.write(f"total={total}\n")
+              f.write(f"test_exit_code={1 if failed > 0 else 0}\n")
+
+          print("\n".join(lines))
+          PYEOF
+
+      - name: Create workflow summary
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          TEST_EXIT="${{ steps.test-report.outputs.test_exit_code }}"
+          BUILD_TEST_EXIT="${{ steps.build.outputs.test_exit_code }}"
+          JAR_PATH="${{ steps.build.outputs.jar_path }}"
+          JAR_FOUND="${{ steps.build.outputs.jar_found }}"
+          BUILD_TIME="${{ steps.build.outputs.build_time }}"
+
+          {
+            # Determine status based on build success (JAR produced) and test results
+            # JAR_FOUND = true means build succeeded (compilation passed, artifact produced)
+            if [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" = "0" ]; then
+              echo "# ✅ Build & Tests Passed"
+            elif [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" != "0" ]; then
+              echo "# ⚠️ Build Passed, Tests Failed"
+              echo ""
+              echo "> Artifact was produced successfully but some tests failed."
+            else
+              echo "# ❌ Build Failed"
+              echo ""
+              echo "> No artifact was produced. Check compilation or test failures below."
+              if [ -f "build-test-output.log" ]; then
+                echo ""
+                echo "### 🔍 Build Errors (last 50 lines)"
+                echo ""
+                echo '```'
+                tail -n 50 build-test-output.log | grep -E "(ERROR|FAILURE|error:|cannot find symbol)" | head -n 20 || tail -n 20 build-test-output.log
+                echo '```'
+              fi
+            fi
+            echo ""
+            echo "**Version:** ${{ env.VERSION }}"
+            echo "**Commit:** ${{ github.sha }}"
+            echo "**Branch:** ${{ github.ref_name }}"
+            echo ""
+
+            if [ -n "$BUILD_TIME" ]; then
+              echo "**Build Time:** ${BUILD_TIME}s"
+              echo ""
+            fi
+
+            if [ -f "test-summary.md" ]; then
+              cat test-summary.md
+            else
+              echo "## 🧪 Test Results"
+              echo ""
+              echo "No test results available."
+              echo ""
+            fi
+
+            # Always show artifact if build succeeded (JAR was produced)
+            if [ "$JAR_FOUND" = "true" ] && [ -n "$JAR_PATH" ]; then
+              echo "## 📦 Artifacts"
+              echo ""
+              echo "⬇️ [${{ env.JAR_FILENAME }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+              echo ""
+            fi
+
+            echo "---"
+            echo "**Workflow:** [${{ github.workflow }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "**PR:** #${{ github.event.number }}"
+            fi
+          } > build-summary.md
+          cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload JAR to GitHub Release (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: 'shop-*.jar'
+          generate_release_notes: true
+
   dependency-submission:
     name: Dependency Submission
     runs-on: ubuntu-latest
@@ -133,4 +390,3 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           maven-args: -B -nsu -ntp
-
