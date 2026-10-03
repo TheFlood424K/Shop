@@ -85,8 +85,10 @@ jobs:
         id: build-and-test
         run: |
           set +e
+          # Use classes parallelism instead of methods to reduce MockBukkit conflicts
+          # Reduce thread count to avoid resource exhaustion
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
-            -Dparallel=methods -DthreadCountStrategy=dynamic -DuseUnlimitedThreads=false \
+            -Dparallel=classes -DthreadCount=4 \
             -Dmaven.test.failure.ignore=true \
             clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}
@@ -194,7 +196,7 @@ jobs:
               f.write(f"total={total}\n")
               f.write(f"test_exit_code={1 if failed > 0 else 0}\n")
 
-          # Generate visual test summary markdown
+          # Generate visual test summary markdown (for workflow summary)
           pct = int((passed / total * 100)) if total > 0 else 0
           bar_len = 20
           filled = int(bar_len * passed / total) if total > 0 else 0
@@ -217,29 +219,64 @@ jobs:
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          # Failure details table
+          # Failure details table - only top 20 failures for summary
           if failures_detail:
-              lines.append("### 📋 Test Details")
+              lines.append("### ❌ Failures (top 20)")
               lines.append("")
-              lines.append("<details>")
-              lines.append("<summary><b>Click to expand test breakdown</b></summary>")
-              lines.append("")
-              lines.append("| Class | Method | Status | Message |")
-              lines.append("|-------|--------|--------|---------|")
+              lines.append("| Class | Method | Message |")
+              lines.append("|-------|--------|---------|")
 
-              for classname, method, msg, status in failures_detail:
-                  # Truncate class name if too long
-                  short_class = classname if len(classname) <= 40 else "..." + classname[-37:]
-                  lines.append(f"| {short_class} | {method} | {status} | {msg} |")
+              for classname, method, msg, status in failures_detail[:20]:
+                  short_class = classname if len(classname) <= 45 else "..." + classname[-42:]
+                  lines.append(f"| {short_class} | {method} | {msg} |")
 
-              lines.append("")
-              lines.append("</details>")
+              if len(failures_detail) > 20:
+                  lines.append(f"| ... | ... | *{len(failures_detail) - 20} more failures hidden* |")
+
               lines.append("")
 
           with open("test-summary.md", "w") as f:
               f.write("\n".join(lines))
 
-          # Print to workflow log
+          # Generate full details for PR comment (separate file)
+          detail_lines = []
+          detail_lines.append("## 🧪 Test Results")
+          detail_lines.append("")
+          detail_lines.append(f"**Overall:** `{bar}` {pct}% ({passed}/{total} passed)")
+          detail_lines.append("")
+
+          if total > 0:
+              detail_lines.append("| Status | Count | Percentage |")
+              detail_lines.append("|--------|-------|------------|")
+              detail_lines.append(f"| ✅ Passed | **{passed}** | {passed/total*100:.1f}% |")
+              if failed > 0:
+                  detail_lines.append(f"| ❌ Failed | **{failed}** | {failed/total*100:.1f}% |")
+              if skipped > 0:
+                  detail_lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+              detail_lines.append(f"| **Total** | **{total}** | 100% |")
+              detail_lines.append("")
+
+          if failures_detail:
+              detail_lines.append("### 📋 All Test Failures")
+              detail_lines.append("")
+              detail_lines.append("<details>")
+              detail_lines.append("<summary><b>Click to expand full test breakdown</b></summary>")
+              detail_lines.append("")
+              detail_lines.append("| Class | Method | Status | Message |")
+              detail_lines.append("|-------|--------|--------|---------|")
+
+              for classname, method, msg, status in failures_detail:
+                  short_class = classname if len(classname) <= 45 else "..." + classname[-42:]
+                  detail_lines.append(f"| {short_class} | {method} | {status} | {msg} |")
+
+              detail_lines.append("")
+              detail_lines.append("</details>")
+              detail_lines.append("")
+
+          with open("test-details.md", "w") as f:
+              f.write("\n".join(detail_lines))
+
+          # Print summary to workflow log
           print("\n".join(lines))
           PYEOF
 
@@ -284,10 +321,6 @@ jobs:
         run: |
           STATUS="${{ job.status }}"
           TEST_EXIT="${{ steps.build-and-test.outputs.test_exit_code }}"
-          PASSED="${{ steps.test-report.outputs.passed }}"
-          FAILED="${{ steps.test-report.outputs.failed }}"
-          SKIPPED="${{ steps.test-report.outputs.skipped }}"
-          TOTAL="${{ steps.test-report.outputs.total }}"
           JAR_URL="${{ steps.upload-shop-jar.outputs.artifact-url }}"
           DIFF_URL="${{ steps.upload-diff-cover-report.outputs.artifact-url }}"
 
@@ -346,7 +379,7 @@ jobs:
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
-          path: build-summary.md
+          path: test-details.md
           header: "## Shop Build Summary"
           delete: true
 
