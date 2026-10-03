@@ -104,8 +104,12 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         msg = waitForNextMessage(player);
         assertTrue(msg.contains("§eEnter in chat the price you will sell §a"), "Player should be sent dialog for price");
         sendChatMessage(player, price);
+        // Shop creation is scheduled, so the success message only arrives once the
+        // scheduled create/sign/init tasks have run.
+        server.getScheduler().performTicks(5);
+        server.getScheduler().waitAsyncTasksFinished();
         msg = waitForNextMessage(player);
-        assertTrue(msg.contains("§eYou have created a shop that sells §6"), "Player should be sent dialog for successfully setup shop");
+        assertTrue(msg != null && msg.contains("§eYou have created a shop that sells §6"), "Player should be sent dialog for successfully setup shop: " + msg);
 
         // Assert: shop created and initialized (attached to the chest)
         AbstractShop created = plugin.getShopHandler().getShopByChest(chestBlock);

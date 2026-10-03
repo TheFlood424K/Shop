@@ -896,37 +896,58 @@ public class ShopMessage {
     // -----------------------------------------------------------------------
 
     public static String getUnformattedMessage(String key, String subkey) {
-        return getUnformattedMessage(key + "." + subkey);
-    }
-
-    /**
-     * Looks up a fully-qualified message path (e.g. {@code "interaction.SELL.createHitChestAmount"}).
-     * <p>
-     * Shop-type-specific prompts are addressed as {@code "<type>.createHitChestAmount"}, and the
-     * shop type reaches these call sites through {@code ShopType#toString()}, which is lowercase.
-     * chatConfig.yml declares those sections in uppercase ({@code SELL:}), so a direct map hit on
-     * a lowercase path silently returned {@code null} and the prompt was never sent. Retry with
-     * the shop-type segment uppercased before giving up.
-     */
-    public static String getUnformattedMessage(String fullPath) {
+        String fullPath = key + "." + subkey;
         String message = messageMap.get(fullPath);
         if (message != null) {
             return message;
         }
-        int lastDot = fullPath.lastIndexOf('.');
-        if (lastDot <= 0) {
-            return null;
+
+        // Shop-type-specific prompts reach this method in three shapes, while chatConfig.yml
+        // always nests the shop-type sections under "interaction:" in uppercase. A miss on the
+        // literal path is retried in the equivalent shape rather than silently returning null:
+        //   ("interaction", "sell.createHitChestAmount") -> "interaction.SELL.createHitChestAmount"
+        //   ("SELL", "create")                            -> "interaction.SELL.create"
+        // The shop type reaches call sites via ShopType#toString(), which is lowercase.
+        if (key != null && subkey != null) {
+            String upperSubkey = uppercaseLeadingTypeSegment(subkey);
+            if (!upperSubkey.equals(subkey)) {
+                message = messageMap.get(key + "." + upperSubkey);
+                if (message != null) {
+                    return message;
+                }
+            }
+            if (isShopTypeName(key)) {
+                return messageMap.get("interaction." + key + "." + subkey);
+            }
         }
-        String prefix = fullPath.substring(0, lastDot);
-        String leaf = fullPath.substring(lastDot + 1);
-        // "interaction.sell.createHitChestAmount" -> prefix "interaction.sell"
-        int typeSeparator = prefix.lastIndexOf('.');
-        if (typeSeparator < 0) {
-            return null;
+        return null;
+    }
+
+    /**
+     * Uppercases a leading lowercase shop-type segment, e.g. "sell.createHitChestAmount"
+     * becomes "SELL.createHitChestAmount". Other subkeys are returned unchanged.
+     */
+    private static String uppercaseLeadingTypeSegment(String subkey) {
+        int dot = subkey.indexOf('.');
+        if (dot <= 0) {
+            return subkey;
         }
-        String section = prefix.substring(0, typeSeparator);
-        String shopType = prefix.substring(typeSeparator + 1);
-        return messageMap.get(section + "." + shopType.toUpperCase() + "." + leaf);
+        String first = subkey.substring(0, dot);
+        if (isShopTypeName(first)) {
+            return first.toUpperCase() + subkey.substring(dot);
+        }
+        return subkey;
+    }
+
+    /**
+     * True when the segment names a shop type (BUY, SELL, BARTER, COMBO, GAMBLE).
+     */
+    private static boolean isShopTypeName(String key) {
+        try {
+            return com.snowgears.shop.shop.ShopType.valueOf(key.toUpperCase()) != null;
+        } catch (IllegalArgumentException | NullPointerException notAShopType) {
+            return false;
+        }
     }
 
     /**
