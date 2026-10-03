@@ -36,7 +36,7 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Arrange: create an initialized shop for the player
         ItemStack item = new ItemStack(Material.DIRT);
@@ -78,7 +78,7 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create one shop so saveShops attempts to write
         ShopCreationChestTest.createShop(server, plugin, player, world, new Location(world, 40, 65, 40), new ItemStack(Material.DIRT), "sell", 1, "1");
@@ -112,7 +112,7 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create one shop so saveShops attempts to write
         ShopCreationChestTest.createShop(server, plugin, player, world, new Location(world, 41, 65, 41), new ItemStack(Material.DIRT), "sell", 1, "1");
@@ -146,7 +146,7 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Arrange: create a shop so saveShops will attempt to write
         ShopCreationChestTest.createShop(server, plugin, player, world, new Location(world, 42, 65, 42), new ItemStack(Material.DIRT), "sell", 1, "1");
@@ -211,8 +211,8 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
-        PlayerMock player2 = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
+        PlayerMock player2 = addStubbedPlayer("TestPlayer");
 
         // Arrange: create two initialized shops for the player
         AbstractShop shop1 = ShopCreationChestTest.createShop(
@@ -287,7 +287,7 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create one shop
         AbstractShop shop = ShopCreationChestTest.createShop(
@@ -352,7 +352,7 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Arrange: create a shop so saveShops writes a YAML
         ShopCreationChestTest.createShop(server, plugin, player, world, new Location(world, 10, 65, 10), new ItemStack(Material.DIRT), "sell", 1, "5");
@@ -397,7 +397,7 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Arrange: create a shop so saveShops will attempt to write
         ShopCreationChestTest.createShop(server, plugin, player, world, new Location(world, 12, 65, 12), new ItemStack(Material.DIRT), "sell", 1, "5");

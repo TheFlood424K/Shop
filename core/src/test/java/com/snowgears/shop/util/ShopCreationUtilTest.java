@@ -1,5 +1,6 @@
 package com.snowgears.shop.util;
 
+import com.snowgears.shop.testsupport.StubbedPlayers;
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.util.ShopCreationUtil;
 import org.bukkit.Material;
@@ -55,7 +56,7 @@ class ShopCreationUtilTest {
         Block chestBlock = world.getBlockAt(100, 64, 100);
         chestBlock.setType(Material.CHEST);
 
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         player.setOp(false);
 
         // This will check permissions - with usePermissions=true default,

@@ -1,5 +1,6 @@
 package com.snowgears.shop.listener;
 
+import com.snowgears.shop.testsupport.StubbedPlayers;
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.util.ShopLogger;
 import org.bukkit.Material;
@@ -54,7 +55,7 @@ class SpearAttackListenerTest {
 
     @Test
     void testOnSpearSwingIgnoresNonSpearItems() {
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         player.getInventory().setItem(EquipmentSlot.HAND, new ItemStack(Material.DIAMOND_SWORD));
 
         // Mock ray trace to return a block
@@ -73,7 +74,7 @@ class SpearAttackListenerTest {
     @Test
     void testOnSpearSwingWithTrident() {
         // Trident contains "SPEAR" in its name
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         player.getInventory().setItem(EquipmentSlot.HAND, new ItemStack(Material.TRIDENT));
 
         Block targetBlock = world.getBlockAt(100, 64, 100);

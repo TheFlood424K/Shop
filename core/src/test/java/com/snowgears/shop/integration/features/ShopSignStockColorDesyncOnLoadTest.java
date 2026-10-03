@@ -40,7 +40,7 @@ public class ShopSignStockColorDesyncOnLoadTest extends BaseMockBukkitTest {
     void load_shouldUpdateStockColorOnSign_whenShopHasStock() {
         ServerMock server = getServer();
         WorldMock world = addSimpleWorldPatched("world");
-        PlayerMock owner = server.addPlayer();
+        PlayerMock owner = addStubbedPlayer("TestPlayer");
 
         // Arrange: a valid wall sign with a chest behind it
         Location signLoc = new Location(world, 20, 65, 20);

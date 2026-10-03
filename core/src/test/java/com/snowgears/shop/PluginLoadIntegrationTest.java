@@ -1,5 +1,6 @@
 package com.snowgears.shop;
 
+import com.snowgears.shop.testsupport.StubbedPlayers;
 import com.snowgears.shop.display.AbstractDisplay;
 import com.snowgears.shop.display.Display;
 import com.snowgears.shop.display.DisplayType;
@@ -112,7 +113,7 @@ class PluginLoadIntegrationTest {
 
         // Create a test shop
         Location signLoc = new Location(world, 100, 64, 100);
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         UUID owner = player.getUniqueId();
 
         // Use AbstractShop factory to create shop
@@ -140,7 +141,7 @@ class PluginLoadIntegrationTest {
 
         // Test basic transaction setup
         Location signLoc = new Location(world, 100, 64, 100);
-        Player player = server.addPlayer("Buyer");
+        Player player = StubbedPlayers.add(server, "Buyer");
         UUID owner = UUID.randomUUID();
 
         AbstractShop shop = AbstractShop.create(signLoc, owner, 10.0, 5.0, 1, false, ShopType.SELL, BlockFace.NORTH);

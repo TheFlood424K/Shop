@@ -24,13 +24,30 @@ public class Display extends AbstractDisplay {
         super(shopSignLocation);
     }
 
+    /**
+     * Hides a spawned display entity from players who have not yet been sent its show-packet.
+     *
+     * <p>{@code setVisibleByDefault} is not implemented by every server implementation this plugin
+     * runs against, and a throw here would abort the rest of the entity setup — leaving a shop
+     * display half-configured. Visibility is cosmetic, so a failure here is logged and ignored
+     * rather than propagated.
+     */
+    private static void hideByDefault(Entity entity) {
+        try {
+            entity.setVisibleByDefault(false);
+        } catch (Error | Exception e) {
+            Shop.getPlugin().getLogger().fine(
+                    "Could not set visibility on display entity " + entity.getType() + ": " + e.getMessage());
+        }
+    }
+
     @Override
     protected void spawnItemPacket(Player player, ItemStack is, Location location) {
         if(location == null || location.getWorld() == null)
             return;
 
         location.getWorld().spawn(location, ItemDisplay.class, entity -> {
-            entity.setVisibleByDefault(false);
+            hideByDefault(entity);
             entity.setPersistent(false);
             entity.setItemStack(is);
 
@@ -72,7 +89,7 @@ public class Display extends AbstractDisplay {
 
         if(hasText){
             location.getWorld().spawn(location, TextDisplay.class, entity -> {
-                entity.setVisibleByDefault(false);
+                hideByDefault(entity);
                 entity.setPersistent(false);
                 entity.text(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().deserialize(text));
                 entity.setRotation((float) armorStandData.getYaw(), 0);
@@ -86,7 +103,7 @@ public class Display extends AbstractDisplay {
         }
         else {
             location.getWorld().spawn(location, ItemDisplay.class, entity -> {
-                entity.setVisibleByDefault(false);
+                hideByDefault(entity);
                 entity.setPersistent(false);
                 entity.setItemStack(armorStandData.getEquipment());
                 entity.setRotation((float) armorStandData.getYaw(), 0);
@@ -112,7 +129,7 @@ public class Display extends AbstractDisplay {
             return;
 
         location.getWorld().spawn(location, ItemDisplay.class, entity -> {
-            entity.setVisibleByDefault(false);
+            hideByDefault(entity);
             entity.setPersistent(false);
             entity.setItemStack(is);
             if(isGlowing){

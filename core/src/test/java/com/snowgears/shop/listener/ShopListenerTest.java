@@ -58,7 +58,7 @@ class ShopListenerTest extends BaseMockBukkitTest {
         shopHandler.addShop(shop);
 
         // Create mock player
-        PlayerMock player = getServer().addPlayer("TestPlayer");
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create mock event with a chest block
         Block clickedBlock = world.getBlockAt(100, 64, 101);
@@ -96,7 +96,7 @@ class ShopListenerTest extends BaseMockBukkitTest {
         shopHandler.addShop(shop);
 
         // Create mock player
-        PlayerMock player = getServer().addPlayer("TestPlayer");
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create mock event with a chest block
         Block clickedBlock = world.getBlockAt(100, 64, 101);
@@ -142,7 +142,7 @@ class ShopListenerTest extends BaseMockBukkitTest {
         shopHandler.addShop(shop);
 
         // Create mock player
-        PlayerMock player = getServer().addPlayer("TestPlayer");
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create mock event with a sign block
         Block clickedBlock = world.getBlockAt(signLoc);
@@ -161,7 +161,7 @@ class ShopListenerTest extends BaseMockBukkitTest {
         World world = getServer().addSimpleWorld("world");
 
         // Create mock player
-        PlayerMock player = getServer().addPlayer("TestPlayer");
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create mock event with a sign block (no shop registered)
         Block clickedBlock = world.getBlockAt(100, 64, 100);

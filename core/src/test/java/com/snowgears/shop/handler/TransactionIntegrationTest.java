@@ -1,5 +1,6 @@
 package com.snowgears.shop.handler;
 
+import com.snowgears.shop.testsupport.StubbedPlayers;
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.BuyShop;
@@ -68,7 +69,7 @@ class TransactionIntegrationTest {
         shopHandler.addShop(shop);
 
         // Create player with money
-        Player player = server.addPlayer("Buyer");
+        Player player = StubbedPlayers.add(server, "Buyer");
 
         // Set up chest with items
         Block chestBlock = world.getBlockAt(100, 64, 101);
@@ -105,7 +106,7 @@ class TransactionIntegrationTest {
         shopHandler.addShop(shop);
 
         // Create player with items to sell
-        Player player = server.addPlayer("Seller");
+        Player player = StubbedPlayers.add(server, "Seller");
 
         // Set up chest
         Block chestBlock = world.getBlockAt(100, 64, 101);
@@ -139,7 +140,7 @@ class TransactionIntegrationTest {
 
         shopHandler.addShop(shop);
 
-        Player player = server.addPlayer("Buyer");
+        Player player = StubbedPlayers.add(server, "Buyer");
 
         // Use stone instead of chest
         Block stoneBlock = world.getBlockAt(100, 64, 102);
@@ -172,7 +173,7 @@ class TransactionIntegrationTest {
 
         shopHandler.addShop(shop);
 
-        Player player = server.addPlayer("Buyer");
+        Player player = StubbedPlayers.add(server, "Buyer");
         Block chestBlock = world.getBlockAt(100, 64, 101);
         chestBlock.setType(Material.CHEST);
 

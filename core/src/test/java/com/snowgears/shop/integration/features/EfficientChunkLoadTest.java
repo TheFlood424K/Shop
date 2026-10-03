@@ -37,7 +37,7 @@ public class EfficientChunkLoadTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         WorldMock world = addSimpleWorldPatched("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create a valid shop via chest flow
         AbstractShop shop = ShopCreationChestTest.createShop(
@@ -64,7 +64,7 @@ public class EfficientChunkLoadTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         WorldMock world = addSimpleWorldPatched("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         AbstractShop shop = ShopCreationChestTest.createShop(
                 server, plugin, player, world,
@@ -89,7 +89,7 @@ public class EfficientChunkLoadTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         WorldMock world = addSimpleWorldPatched("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         AbstractShop shop = ShopCreationChestTest.createShop(
                 server, plugin, player, world,
@@ -127,7 +127,7 @@ public class EfficientChunkLoadTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         WorldMock world = addSimpleWorldPatched("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         AbstractShop shop = ShopCreationChestTest.createShop(
                 server, plugin, player, world,

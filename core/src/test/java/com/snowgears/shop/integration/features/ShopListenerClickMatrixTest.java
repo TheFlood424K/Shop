@@ -48,8 +48,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
     void setup() {
         server = getServer();
         world = server.addSimpleWorld("world");
-        owner = server.addPlayer();
-        owner.setOp(true);
+        owner = addStubbedOpPlayer("Owner");
         owner.setSneaking(false);
     }
 
@@ -62,7 +61,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 10, 65, 10));
         Block sign = shop.getSignLocation().getBlock();
 
-        PlayerMock buyer = server.addPlayer("Buyer");
+        PlayerMock buyer = addStubbedPlayer("Buyer");
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), sign, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
 
@@ -75,7 +74,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 12, 65, 10));
         Block sign = shop.getSignLocation().getBlock();
 
-        PlayerMock buyer = server.addPlayer("Buyer");
+        PlayerMock buyer = addStubbedPlayer("Buyer");
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.LEFT_CLICK_BLOCK, new ItemStack(Material.AIR), sign, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
 
@@ -88,7 +87,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 14, 65, 10));
         Block chest = shop.getChestLocation().getBlock();
 
-        PlayerMock buyer = server.addPlayer("Buyer");
+        PlayerMock buyer = addStubbedPlayer("Buyer");
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), chest, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
 
@@ -101,7 +100,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 16, 65, 10));
         Block chest = shop.getChestLocation().getBlock();
 
-        PlayerMock buyer = server.addPlayer("Buyer");
+        PlayerMock buyer = addStubbedPlayer("Buyer");
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.LEFT_CLICK_BLOCK, new ItemStack(Material.AIR), chest, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
 
@@ -114,7 +113,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 18, 65, 10));
         Block chest = shop.getChestLocation().getBlock();
 
-        PlayerMock buyer = server.addPlayer("Buyer");
+        PlayerMock buyer = addStubbedPlayer("Buyer");
         buyer.setSneaking(true);
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), chest, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
@@ -129,7 +128,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 20, 65, 10));
         Block sign = shop.getSignLocation().getBlock();
 
-        PlayerMock buyer = server.addPlayer("Buyer");
+        PlayerMock buyer = addStubbedPlayer("Buyer");
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), sign, BlockFace.UP, EquipmentSlot.OFF_HAND);
         server.getPluginManager().callEvent(event);
 
@@ -142,7 +141,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 22, 65, 10));
         Block chest = shop.getChestLocation().getBlock();
 
-        PlayerMock buyer = server.addPlayer("Buyer");
+        PlayerMock buyer = addStubbedPlayer("Buyer");
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), chest, BlockFace.UP, EquipmentSlot.OFF_HAND);
         server.getPluginManager().callEvent(event);
 
@@ -156,7 +155,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 24, 65, 10));
         AbstractShop spy = com.snowgears.shop.testsupport.ShopSpyTestUtil.spyAndReplace(getPlugin(), shop);
 
-        PlayerMock buyer = server.addPlayer("Buyer");
+        PlayerMock buyer = addStubbedPlayer("Buyer");
         Block sign = shop.getSignLocation().getBlock();
 
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), sign, BlockFace.UP, EquipmentSlot.HAND);
@@ -179,7 +178,7 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         };
         org.bukkit.Bukkit.getPluginManager().registerEvents(canceller, getPlugin());
 
-        PlayerMock buyer = server.addPlayer("Buyer");
+        PlayerMock buyer = addStubbedPlayer("Buyer");
         Block sign = shop.getSignLocation().getBlock();
         PlayerInteractEvent event = new PlayerInteractEvent(buyer, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), sign, BlockFace.UP, EquipmentSlot.HAND);
         server.getPluginManager().callEvent(event);
@@ -193,8 +192,8 @@ public class ShopListenerClickMatrixTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 30, 65, 10));
         Block sign = shop.getSignLocation().getBlock();
 
-        PlayerMock buyer1 = server.addPlayer("Buyer1");
-        PlayerMock buyer2 = server.addPlayer("Buyer2");
+        PlayerMock buyer1 = addStubbedPlayer("Buyer1");
+        PlayerMock buyer2 = addStubbedPlayer("Buyer2");
 
         // Both players click the sign simultaneously
         PlayerInteractEvent event1 = new PlayerInteractEvent(buyer1, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.AIR), sign, BlockFace.UP, EquipmentSlot.HAND);

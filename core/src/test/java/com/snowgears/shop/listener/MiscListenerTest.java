@@ -61,8 +61,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         miscListener = plugin.getMiscListener();
 
         world = getServer().addSimpleWorld("world");
-        player = getServer().addPlayer();
-        player.setOp(true);
+        player = addStubbedOpPlayer("TestPlayer");
 
         // Enable sign and chest creation methods (field names from Shop class)
         setConfig("allowCreateMethodSign", true);
@@ -473,8 +472,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertNotNull(shop1);
 
         // Attempt second creation on same chest
-        PlayerMock player2 = getServer().addPlayer();
-        player2.setOp(true);
+        PlayerMock player2 = addStubbedOpPlayer("TestPlayer2");
         ItemStack item2 = new ItemStack(Material.GOLD_INGOT);
 
         player2.setSneaking(true);
@@ -610,8 +608,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
     void testNonOwnerCannotDestroy() {
         AbstractShop shop = createInitializedShopViaSign();
 
-        PlayerMock other = getServer().addPlayer();
-        other.setOp(false);
+        PlayerMock other = addStubbedPlayer("Other");
 
         PlayerSimulation sim = new PlayerSimulation(other);
         sim.simulateBlockBreak(shop.getSignLocation().getBlock());
@@ -627,8 +624,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
     void testOperatorCanDestroyOther() {
         AbstractShop shop = createInitializedShopViaSign();
 
-        PlayerMock operator = getServer().addPlayer();
-        operator.setOp(true);
+        PlayerMock operator = addStubbedOpPlayer("Operator");
 
         // Test that operator can receive messages directly
         operator.sendMessage("Test direct message");
@@ -718,8 +714,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         Block underBlock = world.getBlockAt(under);
         underBlock.setType(Material.STONE);
 
-        PlayerMock random = getServer().addPlayer();
-        random.setOp(false);
+        PlayerMock random = addStubbedPlayer("Random");
         PlayerSimulation sim = new PlayerSimulation(random);
         sim.simulateBlockBreak(underBlock);
 
@@ -808,7 +803,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         while (player.nextMessage() != null) {}
 
         assertNotNull(miscListener.getShopCreationProcess(player), "Should return process");
-        assertNull(miscListener.getShopCreationProcess(getServer().addPlayer("Other")), "Should return null for other player");
+        assertNull(miscListener.getShopCreationProcess(addStubbedPlayer("Other")), "Should return null for other player");
     }
 
     @Test

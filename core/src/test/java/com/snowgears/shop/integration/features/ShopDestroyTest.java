@@ -34,7 +34,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void destroyOwn_op() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         // create the shop
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 8, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
 
@@ -49,7 +49,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
 
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setName("Toby");
         player.setOp(false);
         player.addAttachment(getPlugin(), "shop.create.sell", true);
@@ -73,11 +73,11 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
         setConfig("usePerms", false);
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         // create the shop
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 12, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
 
-        PlayerMock playerTwo = server.addPlayer();
+        PlayerMock playerTwo = addStubbedPlayer("TestPlayer");
         playerTwo.setOp(false);
         PlayerSimulation simulationTwo = new PlayerSimulation(playerTwo);
         simulationTwo.simulateBlockBreak(shop.getSignLocation().getBlock());
@@ -89,12 +89,12 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void destroyOther_op() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setName("Steve");
         // create the shop
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 14, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
 
-        PlayerMock playerTwo = server.addPlayer();
+        PlayerMock playerTwo = addStubbedPlayer("TestPlayer");
         playerTwo.setOp(true);
         PlayerSimulation simulationTwo = new PlayerSimulation(playerTwo);
         simulationTwo.simulateBlockBreak(shop.getSignLocation().getBlock());
@@ -109,13 +109,13 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
 
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setName("Toby");
         player.setOp(true);
         // create the shop
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 16, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
 
-        PlayerMock playerTwo = server.addPlayer();
+        PlayerMock playerTwo = addStubbedPlayer("TestPlayer");
         playerTwo.setOp(false);
         PlayerSimulation simulationTwo = new PlayerSimulation(playerTwo);
         simulationTwo.simulateBlockBreak(shop.getSignLocation().getBlock());
@@ -123,7 +123,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
         assertNotNull(getPlugin().getShopHandler().getShop(shop.getSignLocation()), "Shop should still exist when player lacks destroy.other permission");
         assertEquals(Material.OAK_WALL_SIGN, world.getBlockAt(shop.getSignLocation()).getType(), "Shop should still exist when player lacks destroy.other permission");
 
-        PlayerMock playerThree = server.addPlayer();
+        PlayerMock playerThree = addStubbedPlayer("TestPlayer");
         playerThree.setOp(false);
         playerThree.addAttachment(getPlugin(), "shop.destroy.other", true);
         PlayerSimulation simulationThree = new PlayerSimulation(playerThree);
@@ -137,7 +137,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void chestBreak_primary_prompts_sign_for_owner() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // create the shop
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 20, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
@@ -156,7 +156,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void chestBreak_expansion_allowed_for_owner() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // create the shop
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 22, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
@@ -185,7 +185,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void chestBreak_expansion_authorization_otherPlayer() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock owner = server.addPlayer();
+        PlayerMock owner = addStubbedPlayer("TestPlayer");
 
         // create the shop
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), owner, world, 42, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
@@ -197,7 +197,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
         expansion.setType(Material.CHEST);
 
         // Non-owner without permission should be denied
-        PlayerMock other = server.addPlayer();
+        PlayerMock other = addStubbedPlayer("TestPlayer");
         other.setOp(false);
         PlayerSimulation simOther = new PlayerSimulation(other);
         // Try to break the primary chest first: should be denied and message shown
@@ -228,7 +228,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void breakBlockUnderShop_protection() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock owner = server.addPlayer();
+        PlayerMock owner = addStubbedPlayer("TestPlayer");
 
         // create the shop
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), owner, world, 24, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
@@ -240,7 +240,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
         assertEquals(Material.STONE, underBlock.getType());
 
         // Unauthorized player cannot break the block under the chest
-        PlayerMock random = server.addPlayer();
+        PlayerMock random = addStubbedPlayer("TestPlayer");
         random.setOp(false);
         PlayerSimulation simRandom = new PlayerSimulation(random);
         simRandom.simulateBlockBreak(underBlock);
@@ -258,7 +258,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
 
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // create the shop
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 26, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
@@ -281,7 +281,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void destroy_event_cancellable_prevents_delete() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 34, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
 
@@ -302,7 +302,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void explosion_protects_shop_blocks() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 36, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
 
@@ -329,7 +329,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void destroyChest_while_creation_denied() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
 
         // Place chest with free space to the NORTH for sign placement
@@ -363,7 +363,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
         assertEquals(Material.CHEST, chestBlock.getType(), "Chest should not break during creation process");
 
         // A different player attempting to break the chest always gets the original warning
-        PlayerMock other = server.addPlayer();
+        PlayerMock other = addStubbedPlayer("TestPlayer");
         new PlayerSimulation(other).simulateBlockBreak(chestBlock);
         assertEquals("§cThis chest cannot be destroyed while a shop is being created for it.", waitForNextMessage(other),
                 "Player should be warned chest cannot be destroyed during shop creation");
@@ -374,7 +374,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void ownerSecondBreak_cancels_creation_and_breaks_chest() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         Block chestBlock = startSellChestCreation(server, world, player, new Location(world, 42, 65, 10));
 
         // First attempt: warn the owner and arm the cancel; chest stays intact
@@ -400,10 +400,10 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void nonOwner_cannot_cancel_creation_by_breaking() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         Block chestBlock = startSellChestCreation(server, world, player, new Location(world, 44, 65, 10));
 
-        PlayerMock other = server.addPlayer();
+        PlayerMock other = addStubbedPlayer("TestPlayer");
 
         // A non-owner breaking repeatedly never arms or cancels the owner's creation
         for (int i = 0; i < 2; i++) {
@@ -420,7 +420,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void coincidentStartBreak_doesNotWarnOrArm() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
         setConfig("allowCreateMethodChest", true);
 
@@ -452,7 +452,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     void coincidentBarterSelectionBreak_doesNotCancelCreation() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
         setConfig("allowCreateMethodChest", true);
 

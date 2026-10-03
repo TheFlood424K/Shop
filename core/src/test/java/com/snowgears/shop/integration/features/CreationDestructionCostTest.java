@@ -28,7 +28,7 @@ public class CreationDestructionCostTest extends BaseMockBukkitTest {
 
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
 
         // Setup economy
@@ -63,7 +63,7 @@ public class CreationDestructionCostTest extends BaseMockBukkitTest {
 
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
 
         setupEconomy();

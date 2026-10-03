@@ -1,5 +1,6 @@
 package com.snowgears.shop.handler;
 
+import com.snowgears.shop.testsupport.StubbedPlayers;
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.SellShop;
@@ -65,7 +66,7 @@ class TransactionHandlerTest {
         shop.setItemStack(new ItemStack(Material.DIAMOND));
 
         // Create mock player
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         player.setOp(true); // Give permissions
 
         // Create mock event
@@ -99,7 +100,7 @@ class TransactionHandlerTest {
         shop.setItemStack(new ItemStack(Material.DIAMOND));
 
         // Create mock player
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         player.setOp(true); // Give permissions
 
         // Create mock event with a non-chest block

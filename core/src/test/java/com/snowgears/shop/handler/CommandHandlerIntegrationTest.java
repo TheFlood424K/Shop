@@ -1,5 +1,6 @@
 package com.snowgears.shop.handler;
 
+import com.snowgears.shop.testsupport.StubbedPlayers;
 import com.snowgears.shop.Shop;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -86,7 +87,7 @@ class CommandHandlerIntegrationTest {
     @Test
     void testHelpCommandPlayer() {
         // Test that /shop help works for a player
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         String[] args = {"help"};
         Command shopCmd = server.getCommandMap().getCommand("shop");
 
@@ -108,7 +109,7 @@ class CommandHandlerIntegrationTest {
 
     @Test
     void testListCommandPlayer() {
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         String[] args = {"list"};
         Command shopCmd = server.getCommandMap().getCommand("shop");
 
@@ -118,7 +119,7 @@ class CommandHandlerIntegrationTest {
 
     @Test
     void testCurrencyCommandPlayer() {
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         String[] args = {"currency"};
         Command shopCmd = server.getCommandMap().getCommand("shop");
 

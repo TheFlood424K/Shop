@@ -1,5 +1,6 @@
 package com.snowgears.shop.handler;
 
+import com.snowgears.shop.testsupport.StubbedPlayers;
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.util.ShopLogger;
 import org.bukkit.Location;
@@ -50,7 +51,7 @@ class ShopHandlerRaceConditionTest {
     @Test
     void testPlayersProcessingShopDisplaysAtomicAdd() throws Exception {
         // Test that the atomic add pattern prevents duplicate processing
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         UUID playerId = player.getUniqueId();
         player.teleport(new Location(world, 100, 64, 100));
 
@@ -75,7 +76,7 @@ class ShopHandlerRaceConditionTest {
     @Test
     void testProcessShopDisplaysNearPlayerRaceCondition() {
         // Test that processShopDisplaysNearPlayer handles concurrent calls correctly
-        Player player = server.addPlayer("TestPlayer2");
+        Player player = StubbedPlayers.add(server, "TestPlayer2");
         UUID playerId = player.getUniqueId();
         player.teleport(new Location(world, 100, 64, 100));
 

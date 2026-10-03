@@ -26,7 +26,7 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
     void createUsingChestFlow_withChatSteps() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         // create the shop
         AbstractShop shop = createShop(player, world, 10, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
         assertEquals(Material.DIRT, shop.getItemStack().getType());
@@ -139,7 +139,7 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
     void preventCreationOnExistingChest_interactEarlyReturn() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Arrange: an existing shop on a chest
         AbstractShop existing = createShop(server, getPlugin(), player, world, 50, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
@@ -168,7 +168,7 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
     void creationTimesOutAfter30Seconds_withoutFinishing() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
 
         // Enable chest creation

@@ -32,7 +32,7 @@ public class ShopMissingBlocksTest extends BaseMockBukkitTest {
     void load_returnsFalse_whenSignBlockIsAir() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         Location signLoc = new Location(world, 5, 65, 5);
         world.getBlockAt(signLoc).setType(Material.AIR);
@@ -48,7 +48,7 @@ public class ShopMissingBlocksTest extends BaseMockBukkitTest {
     void load_returnsFalse_whenSignBlockIsNotWallSign() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         Location signLoc = new Location(world, 6, 65, 5);
         world.getBlockAt(signLoc).setType(Material.OAK_SIGN); // standing sign, not a WallSign
@@ -64,7 +64,7 @@ public class ShopMissingBlocksTest extends BaseMockBukkitTest {
     void load_returnsFalse_whenChestBehindSignIsInvalid() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         Location signLoc = new Location(world, 7, 65, 5);
         Block signBlock = world.getBlockAt(signLoc);
@@ -88,7 +88,7 @@ public class ShopMissingBlocksTest extends BaseMockBukkitTest {
     void updateSign_deletesShop_whenSignBlockNotASign() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create a valid shop via chest flow helper so it is registered
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 12, 65, 12, new org.bukkit.inventory.ItemStack(Material.DIRT), "sell", 8, "1");
@@ -112,7 +112,7 @@ public class ShopMissingBlocksTest extends BaseMockBukkitTest {
     void load_catchesException_andDeletes() throws Exception {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
 
         // Create a valid shop first so construction succeeds and it is registered
         AbstractShop realShop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 44, 65, 12, new org.bukkit.inventory.ItemStack(Material.DIRT), "sell", 8, "1");
@@ -135,7 +135,7 @@ public class ShopMissingBlocksTest extends BaseMockBukkitTest {
         ServerMock server = getServer();
         Shop plugin = getPlugin();
         World world = server.addSimpleWorld("world");
-        PlayerMock player = server.addPlayer();
+        PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
 
         // Prepare a valid chest far from the sign

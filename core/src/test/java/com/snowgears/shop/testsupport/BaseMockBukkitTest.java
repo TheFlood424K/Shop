@@ -9,6 +9,7 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import net.milkbowl.vault.economy.EconomyResponse.ResponseType;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -75,6 +76,31 @@ public abstract class BaseMockBukkitTest {
         setConfig("debug_shopInitTimeout", 0);
 
         // Test worlds can opt into a chunk auto-load patch via addSimpleWorldPatched(name)
+    }
+
+    /**
+     * Creates a {@link StubbedPlayerMock} and registers it with the server.
+     *
+     * <p>MockBukkit v26.2 (4.116.1) implements several entity APIs the Shop plugin depends on —
+     * {@code setVisibleByDefault}, {@code getTargetBlockExact}, and friends — as
+     * {@code UnimplementedOperationException} stubs. That exception extends JUnit's
+     * {@code TestAbortedException}, so any test touching one is reported as <em>skipped</em> rather
+     * than failed, silently hiding coverage. {@link StubbedPlayerMock} supplies real implementations.
+     *
+     * <p>Prefer this over {@code getServer().addPlayer(name)}: MockBukkit's {@code PlayerMockFactory}
+     * is {@code final} with no setter, so its own {@code addPlayer} cannot be redirected.
+     */
+    protected static PlayerMock addStubbedPlayer(String name) {
+        PlayerMock player = new StubbedPlayerMock(server, name);
+        server.addPlayer(player);
+        return player;
+    }
+
+    /** As {@link #addStubbedPlayer(String)}, but with operator permissions. */
+    protected static PlayerMock addStubbedOpPlayer(String name) {
+        PlayerMock player = addStubbedPlayer(name);
+        player.setOp(true);
+        return player;
     }
 
     private void copyTestConfigsToDataFolder() {

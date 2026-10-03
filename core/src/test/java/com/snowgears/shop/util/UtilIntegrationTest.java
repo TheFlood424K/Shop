@@ -1,5 +1,6 @@
 package com.snowgears.shop.util;
 
+import com.snowgears.shop.testsupport.StubbedPlayers;
 import com.snowgears.shop.Shop;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -96,7 +97,7 @@ class UtilIntegrationTest {
         PlayerNameCache cache = new PlayerNameCache();
 
         // Test basic functionality - just verify it doesn't throw
-        Player player = server.addPlayer("TestPlayer");
+        Player player = StubbedPlayers.add(server, "TestPlayer");
         assertDoesNotThrow(() -> cache.getName(player.getUniqueId()));
     }
 

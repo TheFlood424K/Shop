@@ -34,7 +34,7 @@ public class ShopTransactionsTest extends BaseMockBukkitTest {
     void setup() {
         server = getServer();
         world = server.addSimpleWorld("world");
-        owner = server.addPlayer();
+        owner = addStubbedPlayer("TestPlayer");
         owner.setOp(true);
         owner.setSneaking(false);
     }
@@ -49,7 +49,7 @@ public class ShopTransactionsTest extends BaseMockBukkitTest {
         AbstractShop shop = createInitializedShopAt(new Location(world, 54, 65, 10));
         // For this test, no need to spy, use real executeClickAction to drive TransactionHandler path
 
-        PlayerMock other = server.addPlayer();
+        PlayerMock other = addStubbedPlayer("TestPlayer");
         other.setOp(false);
         setConfig("usePerms", false);
 
