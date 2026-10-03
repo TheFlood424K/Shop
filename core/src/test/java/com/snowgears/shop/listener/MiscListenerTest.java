@@ -630,12 +630,42 @@ class MiscListenerTest extends BaseMockBukkitTest {
         PlayerMock operator = getServer().addPlayer();
         operator.setOp(true);
 
+        // Test that operator can receive messages directly
+        operator.sendMessage("Test direct message");
+        String directMsg = waitForNextMessage(operator);
+        System.out.println("DEBUG: direct message test = " + directMsg);
+
         PlayerSimulation sim = new PlayerSimulation(operator);
         sim.simulateBlockBreak(shop.getSignLocation().getBlock());
 
-        String msg = waitForNextMessage(operator);
+        // Check immediately after event
+        String msg = operator.nextMessage();
+        System.out.println("DEBUG: immediate nextMessage = " + msg);
+
+        if (msg == null) {
+            // Wait a bit more
+            getServer().getScheduler().performTicks(5);
+            msg = operator.nextMessage();
+            System.out.println("DEBUG: after 5 ticks = " + msg);
+        }
+
+        if (msg == null) {
+            msg = waitForNextMessage(operator);
+        }
+
         System.out.println("DEBUG: operator message = " + msg);
         System.out.println("DEBUG: shop owner name = " + shop.getOwnerName());
+        System.out.println("DEBUG: shop type = " + shop.getType());
+
+        // Also check the original player's messages
+        String ownerMsg = player.nextMessage();
+        System.out.println("DEBUG: owner message = " + ownerMsg);
+
+        // Try sending a direct message after the event
+        operator.sendMessage("Test after destroy");
+        String directMsg2 = waitForNextMessage(operator);
+        System.out.println("DEBUG: direct message after destroy = " + directMsg2);
+
         assertNotNull(msg, "Operator should receive a message");
         assertTrue(msg.contains("destroyed"), "Operator should be able to destroy: " + msg);
         assertNull(shopHandler.getShop(shop.getSignLocation()), "Shop should be removed");

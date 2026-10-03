@@ -256,7 +256,7 @@ public class ShopCreationUtil {
         Shop.getPlugin().getLogger().trace("[ShopCreationUtil.sendCreationSuccess] updateSign");
         shop.updateSign(true);
         shop.setNeedsSave(true);
-        ShopMessage.sendMessage(shop.getType().toString(), "create", player, shop);
+        ShopMessage.sendMessage(shop.getType().name(), "create", player, shop);
         shop.sendEffects(true, player);
         // Save the shop to disk. This is called here to ensure the shop is persisted immediately after creation.
         // Note: This save trigger could be moved to a more appropriate location in the future.
@@ -372,9 +372,9 @@ public class ShopCreationUtil {
 
             ShopCreationProcess process = plugin.getMiscListener().getShopCreationProcess(player);
             if (shop.getType() == ShopType.BARTER && barterItem == null) {
-                ShopMessage.sendMessage("interaction", shop.getType().toString() + ".initializeInfo", player, shop);
+                ShopMessage.sendMessage("interaction", shop.getType().name() + ".initializeInfo", player, shop);
                 process.setStep(ShopCreationProcess.ChatCreationStep.SIGN_BARTER_ITEM);
-                process.displayFloatingText("interaction", shop.getType().toString() + ".initializeBarter");
+                process.displayFloatingText("interaction", shop.getType().name() + ".initializeBarter");
                 if(plugin.allowCreativeSelection()) {
                     ShopMessage.sendMessage("interaction", "BUY.initializeAlt", player, shop);
                 }
