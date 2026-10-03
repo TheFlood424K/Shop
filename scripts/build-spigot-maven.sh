@@ -153,9 +153,22 @@ main() {
         log_info "=== Processing JDK $jdk ==="
 
         # Set JAVA_HOME for the specific JDK (GitHub Actions setup-java puts them in /opt/hostedtoolcache/)
-        local jdk_path="/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/${jdk}.*/x64"
-        # Expand the glob
-        local found_jdk=$(ls -d $jdk_path 2>/dev/null | head -1)
+        # Zulu JDKs: /opt/hostedtoolcache/Java_Zulu_jdk/{version}/x64 (for JDK 13)
+        # Temurin JDKs: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/{version}/x64 (for JDK 17, 21)
+
+        local found_jdk=""
+
+        # First try Zulu (for JDK 13)
+        if [[ $jdk -eq 13 ]]; then
+            local zulu_path="/opt/hostedtoolcache/Java_Zulu_jdk/${jdk}.*/x64"
+            found_jdk=$(ls -d $zulu_path 2>/dev/null | head -1)
+        fi
+
+        # Then try Temurin (for JDK 17, 21)
+        if [[ -z "$found_jdk" ]]; then
+            local temurin_path="/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/${jdk}.*/x64"
+            found_jdk=$(ls -d $temurin_path 2>/dev/null | head -1)
+        fi
 
         if [[ -n "$found_jdk" && -d "$found_jdk" ]]; then
             export JAVA_HOME="$found_jdk"
