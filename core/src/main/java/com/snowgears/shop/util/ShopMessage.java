@@ -1041,6 +1041,14 @@ public class ShopMessage {
     }
 
     public static String[] getShopSignText(String shopType) {
+        // Shop types are stored uppercase (SELL, BUY, ...), but the shared sign-text keys
+        // are lowercase in signConfig.yml (deleted, timeout, ...). Trying the given key
+        // verbatim first means both resolve, instead of every non-shop-type key falling
+        // through to the placeholder default and rendering literal "[item]" text on signs.
+        String[] exact = shopSignTextMap.get(shopType);
+        if (exact != null) {
+            return exact;
+        }
         return shopSignTextMap.getOrDefault(shopType.toUpperCase(), new String[]{"Buy", "[item]", "[price]", "[stock]"});
     }
 
