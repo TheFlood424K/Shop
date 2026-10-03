@@ -363,13 +363,6 @@
                     <testFailureIgnore>false</testFailureIgnore>
                     <argLine>-Dnet.bytebuddy.experimental -Dnet.bytebuddy.dont-enable-optional-strict-floating-point=true -Dmockito.inline.mockmaker=true</argLine>
                 </configuration>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.mockito</groupId>
-                        <artifactId>mockito-inline</artifactId>
-                        <version>5.24.0</version>
-                    </dependency>
-                </dependencies>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
