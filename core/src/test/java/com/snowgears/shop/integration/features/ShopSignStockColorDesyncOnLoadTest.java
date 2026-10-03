@@ -18,10 +18,23 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
 
+import java.lang.reflect.Field;
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("integration")
 public class ShopSignStockColorDesyncOnLoadTest extends BaseMockBukkitTest {
+
+    private Object getFieldValue(Object obj, String fieldName) {
+        try {
+            Field field = obj.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(obj);
+        } catch (Exception e) {
+            return "ERROR: " + e.getMessage();
+        }
+    }
 
     @Test
     void load_shouldUpdateStockColorOnSign_whenShopHasStock() {
@@ -70,9 +83,18 @@ public class ShopSignStockColorDesyncOnLoadTest extends BaseMockBukkitTest {
 
         // Let scheduled sign update run (updateSign uses a 2 tick delay)
         server.getScheduler().performTicks(3);
+        // Also run async tasks in case the sign update runs on async thread
+        server.getScheduler().waitAsyncTasksFinished();
 
         Sign signState = (Sign) signLoc.getBlock().getState();
         String line0BeforeLoad = signState.getLine(0);
+        System.out.println("DEBUG: line0BeforeLoad = '" + line0BeforeLoad + "'");
+        System.out.println("DEBUG: all lines = " + Arrays.toString(signState.getLines()));
+        System.out.println("DEBUG: signLinesRequireRefresh = " + getFieldValue(shop, "signLinesRequireRefresh"));
+        System.out.println("DEBUG: stock = " + shop.getStock());
+        System.out.println("DEBUG: isInitialized = " + shop.isInitialized());
+        System.out.println("DEBUG: sign block type = " + signLoc.getBlock().getType());
+        System.out.println("DEBUG: sign block state type = " + signLoc.getBlock().getState().getClass().getName());
         assertTrue(line0BeforeLoad.startsWith("§4"),
                 "Precondition: sign should be rendered as out-of-stock (red) before load; was: " + line0BeforeLoad);
 

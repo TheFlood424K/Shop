@@ -76,6 +76,9 @@ public class ShopMessage {
 
         loadMessagesFromConfig();
         loadSignTextFromConfig();
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap keys: " + shopSignTextMap.keySet());
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap SELL: " + java.util.Arrays.toString(shopSignTextMap.get("SELL")));
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap BUY: " + java.util.Arrays.toString(shopSignTextMap.get("BUY")));
         loadDisplayTextFromConfig();
         loadCreationWords();
 
@@ -107,6 +110,9 @@ public class ShopMessage {
 
         loadMessagesFromConfig();
         loadSignTextFromConfig();
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap keys: " + shopSignTextMap.keySet());
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap SELL: " + java.util.Arrays.toString(shopSignTextMap.get("SELL")));
+        plugin.getLogger().info("[DEBUG loadSignTextFromConfig] shopSignTextMap BUY: " + java.util.Arrays.toString(shopSignTextMap.get("BUY")));
         loadDisplayTextFromConfig();
         loadCreationWords();
 
@@ -208,8 +214,16 @@ public class ShopMessage {
         if (valueFunction != null) {
             try {
                 plugin.getLogger().spam("[ShopMessage.replacePlaceholder]     Running placeholder function... " + placeholder);
-                Component message = valueFunction.apply(context);
-                if (message != null) {
+                Object result = valueFunction.apply(context);
+                if (result != null) {
+                    Component message;
+                    if (result instanceof Component) {
+                        message = (Component) result;
+                    } else if (result instanceof String) {
+                        message = componentFromLegacy((String) result);
+                    } else {
+                        message = Component.text(result.toString());
+                    }
                     plugin.getLogger().trace("[ShopMessage.replacePlaceholder]  *** placeholder " + placeholder + "  value: " + toPlain(message));
                     return message;
                 }
@@ -275,7 +289,34 @@ public class ShopMessage {
             Component partComponent;
             if (part.matches(PLACEHOLDER_REGEX) && placeholders.containsKey(part.toLowerCase())) {
                 plugin.getLogger().hyper("[ShopMessage.format]     matched PLACEHOLDER_REGEX: " + part);
-                partComponent = replacePlaceholder(part, context);
+                Object placeholderResult = placeholders.get(part.toLowerCase()).apply(context);
+                // If placeholder returns a raw color code string, process it as a color code
+                if (placeholderResult instanceof String && ((String) placeholderResult).matches(COLOR_CODE_REGEX)) {
+                    char c = Character.toLowerCase(((String) placeholderResult).charAt(1));
+                    if (c == 'r') {
+                        latestColor = NamedTextColor.WHITE;
+                        isBold = isItalic = isStrikethrough = isUnderlined = isObfuscated = false;
+                    } else if (isFormattingCode((String) placeholderResult)) {
+                        TextDecoration dec = getDecoration(c);
+                        if (dec == TextDecoration.BOLD)          isBold = true;
+                        else if (dec == TextDecoration.ITALIC)   isItalic = true;
+                        else if (dec == TextDecoration.STRIKETHROUGH) isStrikethrough = true;
+                        else if (dec == TextDecoration.UNDERLINED) isUnderlined = true;
+                        else if (dec == TextDecoration.OBFUSCATED) isObfuscated = true;
+                    } else {
+                        TextColor color = getTextColor((String) placeholderResult);
+                        if (color != null) latestColor = color;
+                    }
+                    partComponent = Component.text(""); // empty component, color applied via latestColor
+                } else {
+                    if (placeholderResult instanceof Component) {
+                        partComponent = (Component) placeholderResult;
+                    } else if (placeholderResult instanceof String) {
+                        partComponent = componentFromLegacy((String) placeholderResult);
+                    } else {
+                        partComponent = Component.text(placeholderResult.toString());
+                    }
+                }
             } else {
                 partComponent = Component.text(part);
             }
@@ -361,6 +402,7 @@ public class ShopMessage {
 
     public static void sendMessage(String key, String subkey, Player player, AbstractShop shop) {
         String message = getUnformattedMessage(key, subkey);
+        plugin.getLogger().info("[DEBUG sendMessage] key=" + key + " subkey=" + subkey + " fullKey=" + (key + "." + subkey) + " message=" + message + " player=" + player.getName());
         if (message != null && !message.isEmpty())
             sendMessage(message, player, shop);
     }
@@ -796,11 +838,32 @@ public class ShopMessage {
         for (String key : signTextSection.getKeys(false)) {
             org.bukkit.configuration.ConfigurationSection shopSection = signTextSection.getConfigurationSection(key);
             if (shopSection == null) continue;
-            List<String> lines = new ArrayList<>();
-            for (int i = 1; i <= 4; i++) {
-                lines.add(shopSection.getString("line" + i, ""));
+
+            // Check if the section has sub-sections (normal, admin, etc.) or direct line keys
+            if (shopSection.getKeys(false).stream().anyMatch(k -> shopSection.getConfigurationSection(k) != null)) {
+                // Has nested variants (normal, admin, etc.) - prefer "normal" variant
+                org.bukkit.configuration.ConfigurationSection normalSection = shopSection.getConfigurationSection("normal");
+                if (normalSection != null) {
+                    List<String> lines = new ArrayList<>();
+                    // Config uses numeric keys (1, 2, 3, 4) instead of line1, line2, etc.
+                    for (int i = 1; i <= 4; i++) {
+                        lines.add(normalSection.getString(String.valueOf(i), ""));
+                    }
+                    shopSignTextMap.put(key, lines.toArray(new String[0]));
+                    System.out.println("[DEBUG loadSignTextFromConfig] Loaded " + key + " normal: " + java.util.Arrays.toString(lines.toArray()));
+                }
+            } else {
+                // Flat structure with line1, line2, etc. or numeric keys
+                List<String> lines = new ArrayList<>();
+                for (int i = 1; i <= 4; i++) {
+                    String val = shopSection.getString("line" + i);
+                    if (val == null || val.isEmpty()) {
+                        val = shopSection.getString(String.valueOf(i), "");
+                    }
+                    lines.add(val);
+                }
+                shopSignTextMap.put(key, lines.toArray(new String[0]));
             }
-            shopSignTextMap.put(key, lines.toArray(new String[0]));
         }
     }
 

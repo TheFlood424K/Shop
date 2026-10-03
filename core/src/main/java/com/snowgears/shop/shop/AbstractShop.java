@@ -699,17 +699,37 @@ public abstract class AbstractShop {
     public String[] getSignLines() { return signLines; }
     public void updateSign() { this.updateSign(false); }
     public void updateSign(boolean forceUpdate) {
+        System.out.println("[DEBUG updateSign] called forceUpdate=" + forceUpdate + " signLinesRequireRefresh=" + signLinesRequireRefresh + " isChunkLoaded=" + this.isChunkLoaded());
         // If we don't need to update the lines, then don't update them!
-        if (!signLinesRequireRefresh && !forceUpdate) { return; }
+        if (!signLinesRequireRefresh && !forceUpdate) {
+            System.out.println("[DEBUG updateSign] early return 1");
+            return;
+        }
         // Do not trigger the sign update if the chunk has not been loaded yet
-        if (!this.isChunkLoaded()) { if (forceUpdate) { signLinesRequireRefresh = true; } return; }
+        if (!this.isChunkLoaded()) {
+            if (forceUpdate) { signLinesRequireRefresh = true; }
+            System.out.println("[DEBUG updateSign] early return 2 - chunk not loaded");
+            return;
+        }
         // Atomically check-and-clear the refresh flag to prevent multiple concurrent updates
-        if (!signLinesRequireRefresh && !forceUpdate) { return; }
-        signLinesRequireRefresh = false;
+        if (!signLinesRequireRefresh && !forceUpdate) {
+            System.out.println("[DEBUG updateSign] early return 3");
+            return;
+        }
         String[] newSignLines = ShopMessage.getSignLines(this, this.type);
+        System.out.println("[DEBUG updateSign] newSignLines[0]=" + newSignLines[0]);
+        // Only clear the flag if not forceUpdate; for forceUpdate, let the scheduled task clear it after updating
+        if (!forceUpdate) {
+            signLinesRequireRefresh = false;
+        }
 
         // Use the sign's location to ensure the update runs in the correct region in Folia
         Shop.getPlugin().getFoliaLib().getScheduler().runAtLocationLater(signLocation, task -> {
+            System.out.println("[DEBUG updateSign task] running forceUpdate=" + forceUpdate);
+            // For forceUpdate, clear the flag now that we're actually updating
+            if (forceUpdate) {
+                signLinesRequireRefresh = false;
+            }
             // Update the GUI Icon since the sign needs an update.
             refreshGuiIcon();
 
@@ -736,6 +756,7 @@ public abstract class AbstractShop {
             String[] oldLines = signBlock.getLines();
             boolean hasSignUpdate = false;
             boolean linesMatch = newSignLines[0].equals(oldLines[0]) && newSignLines[1].equals(oldLines[1]) && newSignLines[2].equals(oldLines[2]) && newSignLines[3].equals(oldLines[3]);
+            System.out.println("[DEBUG updateSign task] linesMatch=" + linesMatch + " oldLines[0]='" + oldLines[0] + "' newSignLines[0]='" + newSignLines[0] + "'");
 
             if (!isInitialized()) {
                 hasSignUpdate = true;

@@ -127,7 +127,7 @@ jobs:
           report_dir = "core/target/surefire-reports"
 
           passed = failed = skipped = total = 0
-          failures_detail = []
+          all_details = []  # (classname, method, msg, status)
 
           if os.path.exists(report_dir):
               xml_files = glob.glob(os.path.join(report_dir, "TEST-*.xml"))
@@ -149,16 +149,28 @@ jobs:
                               total += 1
                               msg = (failure.text or "").strip()
                               msg = msg.split('\n')[0][:200]
-                              failures_detail.append((classname, method, msg, "FAIL"))
+                              all_details.append((classname, method, msg, "FAIL"))
                           elif error is not None:
                               failed += 1
                               total += 1
                               msg = (error.text or "").strip()
                               msg = msg.split('\n')[0][:200]
-                              failures_detail.append((classname, method, msg, "ERROR"))
+                              all_details.append((classname, method, msg, "ERROR"))
                           elif skipped_elem is not None:
                               skipped += 1
                               total += 1
+                              skip_msg = skipped_elem.get("message", "")
+                              if not skip_msg:
+                                  skip_msg = (skipped_elem.text or "").strip()
+                              if not skip_msg:
+                                  for child in skipped_elem:
+                                      if child.text:
+                                          skip_msg = child.text.strip()
+                                          break
+                              if not skip_msg:
+                                  skip_msg = "Skipped (no reason given)"
+                              msg_short = skip_msg[:150] + ("..." if len(skip_msg) > 150 else "")
+                              all_details.append((classname, method, msg_short, "SKIP"))
                           else:
                               passed += 1
                               total += 1
@@ -196,21 +208,21 @@ jobs:
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          if failed > 0:
-              lines.append("### ❌ Test Failures")
+          if all_details:
+              lines.append("### 📋 Test Details (Failures & Skips)")
               lines.append("")
               lines.append("| Class | Method | Status | Message |")
               lines.append("|-------|--------|--------|---------|")
 
               class_groups = defaultdict(list)
-              for classname, method, msg, status in failures_detail:
+              for classname, method, msg, status in all_details:
                   class_groups[classname].append((method, msg, status))
 
               for classname, methods in class_groups.items():
                   for method, msg, status in methods:
                       msg_short = msg[:150] + ("..." if len(msg) > 150 else "")
                       short_class = classname if len(classname) <= 50 else "..." + classname[-47:]
-                      status_emoji = "❌" if status == "FAIL" else "💥"
+                      status_emoji = "❌" if status == "FAIL" else ("💥" if status == "ERROR" else "⏭️")
                       lines.append(f"| {short_class} | {method} | {status_emoji} {status} | {msg_short} |")
 
               lines.append("")
