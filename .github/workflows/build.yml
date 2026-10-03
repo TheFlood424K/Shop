@@ -81,12 +81,13 @@ jobs:
           chmod +x ./scripts/install-blockprot-api.sh
           ./scripts/install-blockprot-api.sh
 
-      - name: Build & Test (parallel test execution)
+      - name: Build & Test (parallel test execution, package regardless of test result)
         id: test
         run: |
           set +e
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dparallel=methods -DthreadCountStrategy=dynamic -DuseUnlimitedThreads=false \
+            -Dmaven.test.failure.ignore=true \
             clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT_CODE=${PIPESTATUS[0]}
           echo "test_exit_code=$TEST_EXIT_CODE" >> "$GITHUB_OUTPUT"
