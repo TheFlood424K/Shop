@@ -322,12 +322,6 @@
             <version>5.24.0</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-inline</artifactId>
-            <version>5.24.0</version>
-            <scope>test</scope>
-        </dependency>
         <!-- MockBukkit for testing Bukkit/Spigot/Paper plugins -->
         <dependency>
             <groupId>org.mockbukkit.mockbukkit</groupId>
