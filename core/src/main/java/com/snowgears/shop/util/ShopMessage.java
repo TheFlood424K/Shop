@@ -55,6 +55,11 @@ public class ShopMessage {
             "(.{1})";
 
     private static HashMap<String, String> messageMap = new HashMap<>();
+    // chatConfig.yml sections that nest a per-shop-type block (SELL:, BUY:, ...). A lookup that
+    // arrives keyed only by the shop type has to search each of these, in this order.
+    private static final String[] SHOP_TYPE_SECTIONS = {
+        "transaction_issue", "transaction", "interaction", "interaction_issue", "description"
+    };
     private static HashMap<String, String[]> shopSignTextMap = new HashMap<>();
     private static HashMap<String, List<String>> displayTextMap = new HashMap<>();
     private static String freePriceWord;
@@ -847,10 +852,19 @@ public class ShopMessage {
     }
 
     /**
-     * The shop-type word used by the "[shop]" and "[&lt;type&gt; shop]" sign tags. Uses the
-     * localized creation word so the sign matches the language the server is configured for.
+     * The shop-type word used by the "[shop]" and "[&lt;type&gt; shop]" sign tags.
+     * <p>
+     * Reads the {@code sign_creation} table in signConfig.yml, NOT {@link #getCreationWord}.
+     * The two deliberately differ: {@code creation_words} in chatConfig.yml is written for
+     * chat, where {@code SHOP} is the brand tag "[Shop]", while {@code sign_creation} holds the
+     * word to print on a sign ("sell", "buy", ...). Using the chat table here would rewrite the
+     * literal "[Shop]" in shipped owner-notification messages into the word "sell".
      */
     private static Component getShopNameWord(PlaceholderContext context) {
+        // Only meaningful on a sign. In chat text "[Shop]" is the plugin's brand tag — it comes
+        // from creation_words.SHOP and must render literally, so resolving it to a shop-type
+        // word there would rewrite the brand tag in the shipped owner notifications.
+        if (!context.isForSign()) return Component.text("[Shop]");
         if (context.getShop() == null || context.getShop().getType() == null) return null;
         return shopNameWord(context, context.getShop().getType());
     }
@@ -862,7 +876,19 @@ public class ShopMessage {
                 && context.getShop().getType() != type) {
             return null;
         }
-        return Component.text(getCreationWord(type.name()));
+        return Component.text(getSignCreationWord(type.name()));
+    }
+
+    /**
+     * The word for a shop type as it should appear on a sign, from signConfig.yml's
+     * {@code sign_creation} table, falling back to the lowercase type name.
+     */
+    private static String getSignCreationWord(String key) {
+        if (signConfig != null) {
+            String word = signConfig.getString("sign_creation." + key.toUpperCase());
+            if (word != null && !word.isEmpty()) return word;
+        }
+        return key.toLowerCase();
     }
 
     private static Component getShopTypesPlaceholder(PlaceholderContext context) {
@@ -970,22 +996,42 @@ public class ShopMessage {
             return message;
         }
 
+        if (key == null || subkey == null) {
+            return null;
+        }
+
+        String upperSubkey = uppercaseLeadingTypeSegment(subkey);
+        if (!upperSubkey.equals(subkey)) {
+            message = messageMap.get(key + "." + upperSubkey);
+            if (message != null) {
+                return message;
+            }
+        }
+
         // Shop-type-specific prompts reach this method in three shapes, while chatConfig.yml
-        // always nests the shop-type sections under "interaction:" in uppercase. A miss on the
-        // literal path is retried in the equivalent shape rather than silently returning null:
+        // always nests the shop-type blocks ("SELL:", "BUY:", ...) under a named section in
+        // uppercase. A miss on the literal path is retried in the equivalent shape rather than
+        // silently returning null:
         //   ("interaction", "sell.createHitChestAmount") -> "interaction.SELL.createHitChestAmount"
         //   ("SELL", "create")                            -> "interaction.SELL.create"
-        // The shop type reaches call sites via ShopType#toString(), which is lowercase.
-        if (key != null && subkey != null) {
-            String upperSubkey = uppercaseLeadingTypeSegment(subkey);
-            if (!upperSubkey.equals(subkey)) {
-                message = messageMap.get(key + "." + upperSubkey);
+        //   ("sell", "playerNoStock")                     -> "transaction_issue.SELL.playerNoStock"
+        // The shop type reaches call sites via ShopType#toString(), which is lowercase, and
+        // TransactionHandler passes it as the whole key — so a bare ("sell", "playerNoStock")
+        // has to be resolved against every section that scopes messages per shop type. Failing
+        // to resolve it returns null, and the caller then sends the player nothing at all.
+        if (isShopTypeName(key)) {
+            String upperKey = key.toUpperCase();
+            for (String section : SHOP_TYPE_SECTIONS) {
+                message = messageMap.get(section + "." + upperKey + "." + subkey);
+                if (message == null) {
+                    message = messageMap.get(section + "." + key + "." + subkey);
+                }
+                if (message == null) {
+                    message = messageMap.get(section + "." + upperKey + "." + upperSubkey);
+                }
                 if (message != null) {
                     return message;
                 }
-            }
-            if (isShopTypeName(key)) {
-                return messageMap.get("interaction." + key + "." + subkey);
             }
         }
         return null;
@@ -1057,6 +1103,7 @@ public class ShopMessage {
         if (shop == null) return rawLines;
         PlaceholderContext context = new PlaceholderContext();
         context.setShop(shop);
+        context.setForSign(true);
         String[] formatted = new String[rawLines.length];
         for (int i = 0; i < rawLines.length; i++) {
             formatted[i] = toLegacy(format(rawLines[i], context));

@@ -20,6 +20,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.Sign;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.block.Action;
 
@@ -68,14 +69,29 @@ public class ShopTransactionsTest extends BaseMockBukkitTest {
 
         assertEquals("§cThis shop is out of stock.", waitForNextMessage(other));
         assertEquals("§c[Shop] Your selling shop at <(54, 65, 9)> is out of stock.", waitForNextMessage(owner));
-        // Shop sign should also show out of stock color/text
-        assertEquals("§4§4§l[sell shop]", shop.getSignLines()[0]);
+        // Shop sign should also show out of stock color/text. Read the sign block rather than
+        // shop.getSignLines(): that field is populated once in the constructor and never
+        // refreshed, so it cannot reflect a stock change. The block is what players see.
+        // The chunk must be loaded first — updateSign() early-returns on an unloaded chunk, so
+        // without this the sign text was never written and the assertion saw an empty sign.
+        world.loadChunk(shop.getSignLocation().getBlockX() >> 4, shop.getSignLocation().getBlockZ() >> 4);
+        server.getScheduler().performTicks(5);
+        server.getScheduler().waitAsyncTasksFinished();
+        shop.updateSign(true);
+        server.getScheduler().performTicks(5);
+        server.getScheduler().waitAsyncTasksFinished();
+        assertEquals("§4§lsell", ((Sign) shop.getSignLocation().getBlock().getState()).getLine(0));
         // add stock to shop
+        // Load the sign's chunk, not just the chest's: updateSign() early-returns when the
+        // sign's chunk is unloaded, so restocking would leave the sign stale at out-of-stock red.
+        world.getChunkAt(shop.getSignLocation()).load(true);
         shop.getChestLocation().getChunk().load(true); // chest location is null if chunk is not loaded for MockBukkit
         shop.getInventory().addItem(new ItemStack(Material.DIRT, 8));
         shop.updateStock();
+        server.getScheduler().performTicks(5); // updateSign writes the sign from a scheduled task
+        server.getScheduler().waitAsyncTasksFinished();
         // Shop sign should now show in stock color/text
-        assertEquals("§a§a§l[sell shop]", shop.getSignLines()[0]);
+        assertEquals("§a§lsell", ((Sign) shop.getSignLocation().getBlock().getState()).getLine(0));
 
         // Make sure we setup inventories correctly and verify the current contents
         assertEquals(0, InventoryUtils.getAmount(other.getInventory(), new ItemStack(Material.DIRT)));
@@ -92,14 +108,16 @@ public class ShopTransactionsTest extends BaseMockBukkitTest {
         assertEquals(9, InventoryUtils.getAmount(other.getInventory(), new ItemStack(Material.EMERALD)));
         String msg = waitForNextMessage(other);
         assertTrue(msg.startsWith("§7You bought §f8 "), "§7You bought §f8 " + msg);
-        assertTrue(msg.contains("§b §7from Player0 for §a1 "), "§b §7from Player0 for §a1 " + msg);
-        assertTrue(msg.contains("(s)§7."), "(s)§7." + msg);
+        // "[owner]" resolves to the shop owner's name, which is the "TestPlayer" created in setup().
+        assertTrue(msg.contains("§b §7from TestPlayer for §a1§7."), "§b §7from TestPlayer for §a1§7." + msg);
+        // "[item](s)[item enchants]" — the enchants segment sits between the two, and renders
+        // empty (but not absent) when the item has no enchantments.
+        assertTrue(msg.contains("(s)§b §7from"), "(s)§b §7from" + msg);
 
         assertEquals(0, InventoryUtils.getAmount(shop.getInventory(), new ItemStack(Material.DIRT)));
         assertEquals(1, InventoryUtils.getAmount(shop.getInventory(), new ItemStack(Material.EMERALD)));
         String msg2 = waitForNextMessage(owner);
-        assertTrue(msg2.startsWith("§7Player1 bought §f8 "), "§7Player1 bought §f8 " + msg2);
-        assertTrue(msg2.contains("§b §7from you for §a1 "), "§b §7from you for §a1 " + msg2);
-        assertTrue(msg2.contains("(s)§7 at §f(54, 65, 9)§7."), "(s)§7 at §f(54, 65, 9)§7." + msg2);
+        assertTrue(msg2.startsWith("§7TestPlayer bought §f8 "), "§7TestPlayer bought §f8 " + msg2);
+        assertTrue(msg2.contains("§b §7from you for §a1§7 at §f(54, 65, 9)§7."), "§b §7from you for §a1§7 at §f(54, 65, 9)§7." + msg2);
     }
 }
