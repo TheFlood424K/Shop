@@ -35,7 +35,7 @@ Built with **ease of use** as the top priority, Shop feels like a native Minecra
 | **Containers** | Chests, Trapped chests, Barrels, Copper chests, All 17 Shulker boxes |
 | **Integrations** | WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, ARM, PlotSquared, DynMap, BlueMap |
 | **Admin Tools** | Admin shops, Item list restrictions, Build limits, Offline notifications |
-| **Developer** | Full API, Events, 79 test suite, Java 25 support, Folia compatible |
+| **Developer** | Full API, Events, 183 test suite, Java 25 support, Folia compatible |
 
 ---
 
@@ -280,18 +280,19 @@ cd core && mvn test
 
 ## 🧪 Test Suite
 
-**79 tests** covering all functionality:
+**183 tests** covering all functionality:
 
-| Category | Tests | Coverage |
-|----------|-------|----------|
-| Plugin Load | 18 | Loading, handlers, config, hooks, displays, commands, utilities |
-| Shop Creation | 8 | All types (Sell, Buy, Combo, Barter, Gamble), factory method |
-| Transactions | 4 | Buy/sell/barter, invalid blocks, null safety |
-| Inventory/Stock | 4 | Cloning, null safety, cache invalidation |
-| Display System | 5 | Creation, types, tags, sign updates |
-| Command Handler | 8 | Registration, plugin components, command alias |
-| Core/Listeners | 19 | Original unit tests |
-| Integration Tests | 36 | Cross-component workflows |
+| Package | Tests | Coverage |
+|---------|-------|----------|
+| `integration.features` | 53 | Cross-component workflows: destroy, save, click matrix, missing blocks, chunk loading, creation costs |
+| `listener` | 44 | Damage/interaction listeners, spear attacks, misc listeners |
+| `shop` | 26 | AbstractShop, all shop types (Sell, Buy, Combo, Barter, Gamble), inventory/stock |
+| `handler` | 23 | Command registration, transactions, shop handling, race conditions |
+| `PluginLoadIntegrationTest` | 18 | Plugin loading, handlers, config, hooks, displays, commands |
+| `util` | 14 | Shop creation utils, general utility helpers |
+| `display` | 5 | Display creation, types, tags, sign updates |
+
+Counts are from the surefire reports for `mvn -pl core -am test`.
 
 ```bash
 cd core && mvn test
@@ -330,7 +331,7 @@ This fork is **326+ commits ahead** of upstream `master`.
 - **Sign-Post Shop Support** — Full support for standing signs in all interactions
 - **Sign-Post Display Cycling** — Display cycling works with sign-post shops
 - **Shop Analytics Foundation** — Real-time cache invalidation hooks
-- **Comprehensive Test Suite** — 79 tests covering all shop types, transactions, displays
+- **Comprehensive Test Suite** — 183 tests covering all shop types, transactions, displays
 - **Java 25 Support** — Full compatibility with Java 25
 - **Folia Support** — Thread-safe display removal via FoliaLib scheduler
 - **PhoenixCrates Font Stripping** — Strips custom font NBT before SNBT round-trip
@@ -402,7 +403,7 @@ The following improvements were cherry-picked from the [Izopropyl/Shop](https://
 
 Pull requests are welcome! Please ensure:
 
-1. **All 79 tests pass** (`mvn test`)
+1. **All 183 tests pass** (`mvn test`)
 2. Code follows existing style and patterns
 3. New features include appropriate test coverage
 4. JavaDoc added for new public APIs

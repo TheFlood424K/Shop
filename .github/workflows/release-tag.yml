@@ -18,6 +18,9 @@ jobs:
   tag:
     name: Tag Release
     runs-on: ubuntu-latest
+    # A full clone plus two network pushes. GitHub's default job timeout is 6h, which
+    # would hold a runner for hours on a hung push.
+    timeout-minutes: 10
     permissions:
       contents: write
 

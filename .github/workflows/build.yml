@@ -13,17 +13,30 @@ on:
 permissions:
   contents: read
 
+# Without this, every new push to a PR branch queues another ~30 min run while
+# the superseded one keeps burning a runner and can report stale results against
+# the PR. Grouping per-ref lets PR runs self-cancel. main/tag runs are left
+# alone so a release in progress is never cancelled by a later commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-and-test:
     name: Build & Test (Java 25)
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # contents: write is required by softprops/action-gh-release below, which
-    # creates the GitHub Release for tag pushes. The job does not comment on
-    # PRs or open issues, so it needs no pull-requests/issues/checks write.
+    # Read-only. This job runs on every PR and every main-branch push; the only
+    # step needing write access (creating the GitHub Release) lives in the
+    # separate publish-release job below, which is tag-gated and holds
+    # contents: write. Every other run therefore needs no write scope at all.
     permissions:
-      contents: write
+      contents: read
+
+    # Exposed so publish-release can name the artifact it downloads.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout repository
@@ -65,10 +78,8 @@ jobs:
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
             -Dmaven.compiler.fork=false \
-            -Dparallel=methods -DthreadCount=2 \
             -DforkCount=2 -DreuseForks=true \
             -DfailIfNoTests=false \
-            -Dmaven.test.failure.ignore=true \
             clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}
           end_time=$(date +%s)
@@ -86,12 +97,10 @@ jobs:
             echo "jar_found=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Exit 0 if JAR was produced (build succeeded), else exit test code
-          if [ -n "$JAR_PATH" ]; then
-            exit 0
-          else
-            exit $TEST_EXIT
-          fi
+          # Exit on Maven's own status, never on JAR presence. A JAR is an artifact of a
+          # previous phase, not proof the whole invocation succeeded, so keying the step's
+          # status to it can only ever turn a red build green.
+          exit $TEST_EXIT
 
       - name: Generate test summary
         if: always()
@@ -307,9 +316,30 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload JAR to GitHub Release (tag pushes only)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v3
+  # Creating the GitHub Release needs contents: write. Keeping it in its own
+  # tag-gated job means build-and-test never has to run with write scope, so
+  # every PR and main-branch run executes read-only.
+  publish-release:
+    name: Publish Release
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Download built JAR
+        uses: actions/download-artifact@v8
+        with:
+          name: shop-${{ needs.build-and-test.outputs.version }}
+
+      - name: Attach JAR to the GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           # dist/pom.xml sets <finalName>Shop-${project.version}</finalName> — capital S.
           # This glob used to be lowercase 'shop-*.jar', which matches nothing on a
