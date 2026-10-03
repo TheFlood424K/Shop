@@ -84,6 +84,7 @@ jobs:
           echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
       - name: Build & Test (single Maven invocation)
+        id: build
         run: |
           set +e
           start_time=$(date +%s)
@@ -256,24 +257,31 @@ jobs:
         run: |
           STATUS="${{ job.status }}"
           TEST_EXIT="${{ steps.test-report.outputs.test_exit_code }}"
-          BUILD_EXIT="${{ steps.build.outputs.test_exit_code }}"
+          BUILD_TEST_EXIT="${{ steps.build.outputs.test_exit_code }}"
           JAR_PATH="${{ steps.build.outputs.jar_path }}"
           JAR_FOUND="${{ steps.build.outputs.jar_found }}"
+          BUILD_TIME="${{ steps.build.outputs.build_time }}"
 
           {
             # Determine status based on build success (JAR produced) and test results
-            if [ "$BUILD_EXIT" = "0" ] && [ "$TEST_EXIT" = "0" ]; then
+            # JAR_FOUND = true means build succeeded (compilation passed, artifact produced)
+            if [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" = "0" ]; then
               echo "# ✅ Build & Tests Passed"
-            elif [ "$BUILD_EXIT" = "0" ] && [ "$TEST_EXIT" != "0" ]; then
+            elif [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" != "0" ]; then
               echo "# ⚠️ Build Passed, Tests Failed"
               echo ""
               echo "> Artifact was produced successfully but some tests failed."
             else
               echo "# ❌ Build Failed"
-              if [ "$BUILD_EXIT" != "0" ]; then
-                echo "**Reason:** Build/Compilation failed"
-              elif [ "$TEST_EXIT" != "0" ]; then
-                echo "**Reason:** Tests failed"
+              echo ""
+              echo "> No artifact was produced. Check compilation or test failures below."
+              if [ -f "build-test-output.log" ]; then
+                echo ""
+                echo "### 🔍 Build Errors (last 50 lines)"
+                echo ""
+                echo '```'
+                tail -n 50 build-test-output.log | grep -E "(ERROR|FAILURE|error:|cannot find symbol)" | head -n 20 || tail -n 20 build-test-output.log
+                echo '```'
               fi
             fi
             echo ""
@@ -281,6 +289,11 @@ jobs:
             echo "**Commit:** ${{ github.sha }}"
             echo "**Branch:** ${{ github.ref_name }}"
             echo ""
+
+            if [ -n "$BUILD_TIME" ]; then
+              echo "**Build Time:** ${BUILD_TIME}s"
+              echo ""
+            fi
 
             if [ -f "test-summary.md" ]; then
               cat test-summary.md
@@ -292,7 +305,7 @@ jobs:
             fi
 
             # Always show artifact if build succeeded (JAR was produced)
-            if [ "$BUILD_EXIT" = "0" ] && [ -n "${{ steps.build.outputs.jar_path }}" ]; then
+            if [ "$JAR_FOUND" = "true" ] && [ -n "$JAR_PATH" ]; then
               echo "## 📦 Artifacts"
               echo ""
               echo "⬇️ [${{ env.JAR_FILENAME }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
