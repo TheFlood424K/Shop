@@ -37,6 +37,7 @@ updates:
           - patch
       maven-security:
         applies-to: security-updates
+        dependency-type: production
 
   # ---------------------------------------------------------------------------
   # npm — the Mineflayer integration test harness.
@@ -62,6 +63,7 @@ updates:
           - patch
       npm-security:
         applies-to: security-updates
+        dependency-type: production
 
   # ---------------------------------------------------------------------------
   # GitHub Actions — the workflow files reference actions by tag, so a bump here
@@ -83,3 +85,6 @@ updates:
     groups:
       github-actions:
         applies-to: version-updates
+        update-types:
+          - minor
+          - patch
