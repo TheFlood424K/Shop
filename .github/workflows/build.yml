@@ -53,11 +53,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spigot-
 
-      - name: Set up JDK 13 (Temurin)
+      - name: Set up JDK 13 (Zulu)
         uses: actions/setup-java@v6.0.1
         with:
           java-version: '13'
-          distribution: 'temurin'
+          distribution: 'zulu'
+          java-package: jdk
 
       - name: Set up JDK 17 (Temurin)
         uses: actions/setup-java@v6.0.1
