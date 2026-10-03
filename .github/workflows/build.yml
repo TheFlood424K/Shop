@@ -85,10 +85,9 @@ jobs:
         id: build-and-test
         run: |
           set +e
-          # Use classes parallelism instead of methods to reduce MockBukkit conflicts
-          # Reduce thread count to avoid resource exhaustion
+          # Parallel classes with Mockito inline instrumentation (see core/pom.xml argLine)
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
-            -Dparallel=classes -DthreadCount=4 \
+            -Dparallel=classes -DthreadCount=8 \
             -Dmaven.test.failure.ignore=true \
             clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}

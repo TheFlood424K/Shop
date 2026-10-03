@@ -361,7 +361,7 @@
                         <include>**/*Test.java</include>
                     </includes>
                     <testFailureIgnore>false</testFailureIgnore>
-                    <argLine>-Dnet.bytebuddy.experimental -Dnet.bytebuddy.dont-enable-optional-strict-floating-point=true -Dmockito.inline.mockmaker=true</argLine>
+                    <argLine>-Dnet.bytebuddy.experimental -Dnet.bytebuddy.dont-enable-optional-strict-floating-point=true -Dmockito.inline.mockmaker=true -javaagent:${settings.localRepository}/org/mockito/mockito-inline/5.24.0/mockito-inline-5.24.0.jar</argLine>
                 </configuration>
             </plugin>
             <plugin>
