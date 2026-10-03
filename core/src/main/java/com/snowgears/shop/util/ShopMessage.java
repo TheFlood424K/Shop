@@ -204,7 +204,7 @@ public class ShopMessage {
     // Placeholder registry
     // -----------------------------------------------------------------------
 
-    public static void registerPlaceholder(String placeholder, Function<PlaceholderContext, Object> valueFunction) {
+    public static void registerPlaceholder(String placeholder, Function<PlaceholderContext, Component> valueFunction) {
         placeholders.put(placeholder.toLowerCase(), valueFunction);
     }
 
