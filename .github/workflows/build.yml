@@ -174,19 +174,8 @@ jobs:
                       # Debug: print root element info
                       print(f"XML: {xml_file}, root tag: {root.tag}, root attrs: {root.attrib}", file=sys.stderr)
 
-                      # Count from root testsuite attributes first
-                      t = int(root.get("tests", 0))
-                      f = int(root.get("failures", 0))
-                      e = int(root.get("errors", 0))
-                      s = int(root.get("skipped", 0))
-                      if t > 0:
-                          total += t
-                          failed += f + e
-                          skipped += s
-                          print(f"  Using root attrs: tests={t}, failures={f}, errors={e}, skipped={s}", file=sys.stderr)
-                      else:
-                          # Fallback: count from testcase elements
-                          print(f"  Root has no test counts, counting testcases...", file=sys.stderr)
+                      # Count from testcase elements for accuracy
+                      print(f"  Counting testcases...", file=sys.stderr)
 
                       for testcase in root.findall(".//testcase"):
                           failure = testcase.find("failure")
@@ -273,7 +262,9 @@ jobs:
 
               for classname, method, msg, status in failures_detail:
                   short_class = classname if len(classname) <= 45 else "..." + classname[-42:]
-                  lines.append(f"| {short_class} | {method} | {status} | {msg} |")
+                  # Escape newlines in message for table
+                  msg_escaped = msg.replace("\n", "<br>")
+                  lines.append(f"| {short_class} | {method} | {status} | {msg_escaped} |")
 
               lines.append("")
 
