@@ -9,6 +9,7 @@ import com.snowgears.shop.shop.ShopType;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -40,6 +41,7 @@ public class ShopMessage {
     private static final String COLOR_CODE_REGEX = "([&\u00a7][0-9A-FK-ORXa-fk-orx])";
     private static final String HEX_CODE_REGEX = "(#[0-9a-fA-F]{6})";
     private static final String PLACEHOLDER_REGEX = "(\\[([^&\u00a7#\\[\\]]+)\\])";
+
     private static final String TEXT_SEGMENT_REGEX = "([^&\u00a7\\[#]+)";
     private static final String OPEN_BRACKET_REGEX = "(\\[)";
     private static final String CLOSE_BRACKET_REGEX = "(\\])";
@@ -208,6 +210,16 @@ public class ShopMessage {
         placeholders.put(placeholder.toLowerCase(), valueFunction);
     }
 
+    /**
+     * True when a placeholder's component is nothing but a colour/formatting code, i.e. a
+     * directive that tints the text after it rather than content in its own right.
+     */
+    private static boolean isColorDirective(Component component) {
+        if (!(component instanceof TextComponent text)) return false;
+        String content = text.content();
+        return content != null && content.matches(COLOR_CODE_REGEX) && text.children().isEmpty();
+    }
+
     public static Component replacePlaceholder(String placeholder, PlaceholderContext context) {
         plugin.getLogger().spam("[ShopMessage.replacePlaceholder] Attempting to replace placeholder: " + placeholder + " " + context);
         Function<PlaceholderContext, Component> valueFunction = placeholders.get(placeholder.toLowerCase());
@@ -292,6 +304,28 @@ public class ShopMessage {
                 Object placeholderResult = placeholders.get(part.toLowerCase()).apply(context);
                 // Handle null placeholder result
                 if (placeholderResult == null) {
+                    partComponent = Component.empty();
+                } else if (placeholderResult instanceof Component && isColorDirective((Component) placeholderResult)) {
+                    // "[stock color]" resolves to a component whose entire content is a bare
+                    // colour code. Treat it as a colour directive so it tints the text that
+                    // follows; appending it as content dropped the colour entirely, leaving
+                    // out-of-stock shops with no colour on the sign.
+                    String code = ((TextComponent) placeholderResult).content();
+                    char c = Character.toLowerCase(code.charAt(1));
+                    if (c == 'r') {
+                        latestColor = NamedTextColor.WHITE;
+                        isBold = isItalic = isStrikethrough = isUnderlined = isObfuscated = false;
+                    } else if (isFormattingCode(code)) {
+                        TextDecoration dec = getDecoration(c);
+                        if (dec == TextDecoration.BOLD)          isBold = true;
+                        else if (dec == TextDecoration.ITALIC)   isItalic = true;
+                        else if (dec == TextDecoration.STRIKETHROUGH) isStrikethrough = true;
+                        else if (dec == TextDecoration.UNDERLINED) isUnderlined = true;
+                        else if (dec == TextDecoration.OBFUSCATED) isObfuscated = true;
+                    } else {
+                        TextColor color = getTextColor(code);
+                        if (color != null) latestColor = color;
+                    }
                     partComponent = Component.empty();
                 } else if (placeholderResult instanceof String && ((String) placeholderResult).matches(COLOR_CODE_REGEX)) {
                     char c = Character.toLowerCase(((String) placeholderResult).charAt(1));
@@ -490,6 +524,18 @@ public class ShopMessage {
             return null;
         });
         registerPlaceholder("[shop types]", ShopMessage::getShopTypesPlaceholder);
+        // "[shop]" and the per-type "[<type> shop]" tags appear on line 1 of every sign_text
+        // block in signConfig.yml, but were never registered, so signs rendered them literally.
+        registerPlaceholder("[shop]", ShopMessage::getShopNameWord);
+        for (ShopType shopType : ShopType.values()) {
+            registerPlaceholder("[" + shopType.name().toLowerCase() + " shop]", context -> shopNameWord(context, shopType));
+        }
+        registerPlaceholder("[buy / sell]", context -> {
+            if (context.getShop() == null) return null;
+            return context.getShop().getType() == ShopType.COMBO
+                    ? Component.text(getCreationWord("BUY") + " / " + getCreationWord("SELL"))
+                    : getShopNameWord(context);
+        });
         registerPlaceholder("[total shops]", context -> Component.text(String.valueOf(plugin.getShopHandler().getNumberOfShops())));
 
         registerPlaceholder("[owner]", context -> {
@@ -636,10 +682,13 @@ public class ShopMessage {
             return null;
         });
         registerPlaceholder("[stock color]", context -> {
+            // Keep the raw "&4"/"&a" as the component's content so format() recognises it as
+            // a colour directive (see isColorDirective) and applies it to the following text.
+            // Returning componentFromLegacy() instead produced an empty component and the
+            // colour was silently dropped.
             if (context.getShop() != null) {
                 int stock = context.getShop().isAdmin() ? Integer.MAX_VALUE : context.getShop().getStock();
-                String colorCode = stock > 0 ? stockColorInStock : stockColorOutOfStock;
-                return componentFromLegacy(colorCode);
+                return Component.text(stock > 0 ? stockColorInStock : stockColorOutOfStock);
             }
             return null;
         });
@@ -795,6 +844,25 @@ public class ShopMessage {
         else if (context.getProcess() != null) item = context.getProcess().getBarterItemStack();
         if (item == null) return null;
         return embedItem(plugin.getItemNameUtil().getName(item), item);
+    }
+
+    /**
+     * The shop-type word used by the "[shop]" and "[&lt;type&gt; shop]" sign tags. Uses the
+     * localized creation word so the sign matches the language the server is configured for.
+     */
+    private static Component getShopNameWord(PlaceholderContext context) {
+        if (context.getShop() == null || context.getShop().getType() == null) return null;
+        return shopNameWord(context, context.getShop().getType());
+    }
+
+    private static Component shopNameWord(PlaceholderContext context, ShopType type) {
+        // A per-type tag only reads correctly on a shop of that type; render nothing otherwise
+        // rather than telling a BARTER shop it is a "[sell shop]".
+        if (context.getShop() != null && context.getShop().getType() != null
+                && context.getShop().getType() != type) {
+            return null;
+        }
+        return Component.text(getCreationWord(type.name()));
     }
 
     private static Component getShopTypesPlaceholder(PlaceholderContext context) {
