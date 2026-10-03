@@ -81,17 +81,34 @@ jobs:
           chmod +x ./scripts/install-blockprot-api.sh
           ./scripts/install-blockprot-api.sh
 
-      - name: Build & Test (parallel test execution, package regardless of test result)
+      - name: Build & Test (parallel processes)
         id: test
         run: |
           set +e
+
+          # Run build (compile + package, skip tests) in background
+          mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -DskipTests clean package \
+            2>&1 | tee build-output.log &
+          BUILD_PID=$!
+
+          # Run tests in parallel in background
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dparallel=methods -DthreadCountStrategy=dynamic -DuseUnlimitedThreads=false \
             -Dmaven.test.failure.ignore=true \
-            clean test package 2>&1 | tee build-test-output.log
-          TEST_EXIT_CODE=${PIPESTATUS[0]}
-          echo "test_exit_code=$TEST_EXIT_CODE" >> "$GITHUB_OUTPUT"
-          exit $TEST_EXIT_CODE
+            test 2>&1 | tee test-output.log &
+          TEST_PID=$!
+
+          # Wait for both and capture exit codes
+          wait $BUILD_PID
+          BUILD_EXIT=$?
+          wait $TEST_PID
+          TEST_EXIT=$?
+
+          echo "build_exit_code=$BUILD_EXIT" >> "$GITHUB_OUTPUT"
+          echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
+
+          # Fail if build failed (tests can fail independently)
+          exit $BUILD_EXIT
 
       - name: Extract test results
         if: always()
