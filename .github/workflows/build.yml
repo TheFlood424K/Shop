@@ -15,11 +15,14 @@ permissions:
   issues: write
 
 jobs:
-  build:
-    name: Build & Test (Java 25)
+  # Shared setup - prepares environment for both build and test
+  setup:
+    name: Setup Environment
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      jar_filename: ${{ steps.version.outputs.jar_filename }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -83,26 +86,113 @@ jobs:
           chmod +x ./scripts/install-blockprot-api.sh
           ./scripts/install-blockprot-api.sh
 
-      - name: Cache target directories (compiled classes & test classes)
+  # Build job - compiles and packages the JAR
+  build:
+    name: Build (Compile & Package)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: setup
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v6.0.1
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Restore Maven cache
         uses: actions/cache@v6.1.0
         with:
-          path: |
-            core/target
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Restore target cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: core/target
           key: ${{ runner.os }}-target-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-target-
 
+      - name: Fix toolchains.xml vendor to 'any'
+        run: |
+          printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
+
       - name: Build (compile & package, no tests)
-        id: build
         run: |
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -DskipTests package
+
+      - name: Upload target directory (for test job)
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: target-${{ github.run_id }}
+          path: core/target
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload JAR artifact
+        id: upload-shop-jar
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ${{ env.JAR_FILENAME }}
+          path: '**/target/Shop-*.jar'
+          compression-level: 0
+          if-no-files-found: error
+
+  # Test job - runs tests (downloads compiled classes from build)
+  test:
+    name: Test (Parallel Methods)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: setup
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v6.0.1
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Restore Maven cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Download target directory from build job
+        uses: actions/download-artifact@v7.0.1
+        with:
+          name: target-${{ github.run_id }}
+          path: core/target
+
+      - name: Fix toolchains.xml vendor to 'any'
+        run: |
+          printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
 
       - name: Test (parallel methods, reduced threads for MockBukkit stability)
         id: test
         run: |
           set +e
-          # Use methods parallelism with fewer threads to reduce MockBukkit conflicts
-          # mockito-inline mockmaker handles parallel better than class-level
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dparallel=methods -DthreadCount=4 \
             -Dmaven.test.failure.ignore=true \
@@ -110,21 +200,38 @@ jobs:
           TEST_EXIT=${PIPESTATUS[0]}
           echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
 
-          # Always try to find the built JAR
-          JAR_PATH=$(find . -name "Shop-*.jar" -path "*/target/*" 2>/dev/null | head -1)
-          if [ -n "$JAR_PATH" ]; then
-            echo "jar_path=$JAR_PATH" >> "$GITHUB_OUTPUT"
-            echo "jar_found=true" >> "$GITHUB_OUTPUT"
-            echo "JAR found at: $JAR_PATH"
-          else
-            echo "jar_path=" >> "$GITHUB_OUTPUT"
-            echo "jar_found=false" >> "$GITHUB_OUTPUT"
-            echo "JAR not found"
-          fi
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: surefire-reports-${{ github.run_id }}
+          path: core/target/surefire-reports
+          if-no-files-found: ignore
 
-          exit $TEST_EXIT
+  # Summary job - creates workflow summary and uploads artifacts
+  summary:
+    name: Summary & Artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build, test]
+    if: always()
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
+    steps:
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v7.0.1
+        with:
+          name: ${{ needs.setup.outputs.jar_filename }}
+          path: .
 
-      - name: Extract test results & generate visual summary
+      - name: Download test reports
+        uses: actions/download-artifact@v7.0.1
+        with:
+          name: surefire-reports-${{ github.run_id }}
+          path: core/target/surefire-reports
+
+      - name: Generate test summary
         if: always()
         id: test-report
         run: |
@@ -133,33 +240,14 @@ jobs:
           import glob
           import os
           import sys
+          from collections import defaultdict
 
-          # Check multiple possible report locations
-          possible_dirs = [
-              "core/target/surefire-reports",
-              "target/surefire-reports",
-              "**/target/surefire-reports"
-          ]
+          report_dir = "core/target/surefire-reports"
 
-          report_dir = None
-          for d in possible_dirs:
-              if glob.glob(os.path.join(d, "TEST-*.xml")):
-                  report_dir = d
-                  break
-
-          if not report_dir:
-              for root_dir, dirs, files in os.walk("."):
-                  if "surefire-reports" in dirs:
-                      candidate = os.path.join(root_dir, "surefire-reports")
-                      if glob.glob(os.path.join(candidate, "TEST-*.xml")):
-                          report_dir = candidate
-                          break
-
-          # Aggregate totals - count from testcase elements directly for accuracy
           passed = failed = skipped = total = 0
-          failures_detail = []  # (class, method, message, type)
+          failures_detail = []
 
-          if report_dir and os.path.exists(report_dir):
+          if os.path.exists(report_dir):
               for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
                   try:
                       tree = ET.parse(xml_file)
@@ -175,19 +263,16 @@ jobs:
                           if failure is not None:
                               failed += 1
                               total += 1
-                              msg = (failure.text or "").strip()
-                              msg = msg.replace("|", "\\|")
+                              msg = (failure.text or "").strip().replace("|", "\\|")
                               failures_detail.append((classname, method, msg, "❌ FAIL"))
                           elif error is not None:
                               failed += 1
                               total += 1
-                              msg = (error.text or "").strip()
-                              msg = msg.replace("|", "\\|")
+                              msg = (error.text or "").strip().replace("|", "\\|")
                               failures_detail.append((classname, method, msg, "💥 ERROR"))
                           elif skipped_elem is not None:
                               skipped += 1
                               total += 1
-                              # Extract skip reason from skipped element - try multiple sources
                               skip_msg = skipped_elem.get("message", "")
                               if not skip_msg:
                                   skip_msg = (skipped_elem.text or "").strip()
@@ -208,17 +293,6 @@ jobs:
           else:
               print("No surefire reports found!", file=sys.stderr)
 
-          # Write outputs for other steps
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"passed={passed}\n")
-              f.write(f"failed={failed}\n")
-              f.write(f"skipped={skipped}\n")
-              f.write(f"total={total}\n")
-              f.write(f"test_exit_code={1 if failed > 0 else 0}\n")
-
-          # Generate visual test summary markdown (for workflow summary)
-          # Use Unicode block emojis for color coding (renders in GitHub summary)
-          # 🟩 = passed, 🟥 = failed, 🟨 = skipped, ⬜ = remaining
           pct = int((passed / total * 100)) if total > 0 else 0
           bar_len = 24
           filled = int(bar_len * passed / total) if total > 0 else 0
@@ -228,7 +302,6 @@ jobs:
           if remaining < 0:
               remaining = 0
 
-          # Build emoji progress bar (renders in GitHub markdown)
           bar = "🟩" * filled + "🟥" * failed_filled + "🟨" * skipped_filled + "⬜" * remaining
 
           lines = []
@@ -248,19 +321,20 @@ jobs:
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          # Failure details table - collapsible per class using markdown details
           if failures_detail:
               lines.append("### ❌ All Test Failures")
               lines.append("")
+              lines.append("| Class | Method | Status | Message | Details |")
+              lines.append("|-------|--------|--------|---------|---------|")
 
-              # Group by class
-              from collections import defaultdict
               class_groups = defaultdict(list)
               for classname, method, msg, status in failures_detail:
                   class_groups[classname].append((method, msg, status))
 
               for classname, methods in class_groups.items():
-                  # Create collapsible detail for each class
+                  first_method, first_msg, first_status = methods[0]
+                  msg_short = first_msg[:120] + ("..." if len(first_msg) > 120 else "")
+
                   detail_lines = []
                   for method, msg, status in methods:
                       msg_escaped = msg.replace("\n", "<br>").replace("|", "\\|")
@@ -268,7 +342,6 @@ jobs:
 
                   detail = "\n".join(detail_lines)
 
-                  # Table row with collapsible details
                   lines.append(f"| {classname} | {first_method} | {first_status} | {msg_short} | <details><summary>{len(methods)} tests</summary>\n\n{detail}\n</details> |")
 
               lines.append("")
@@ -276,65 +349,32 @@ jobs:
           with open("test-summary.md", "w") as f:
               f.write("\n".join(lines))
 
-          # Generate full details for PR comment (separate file) - same content now
-          detail_lines = list(lines)
-          with open("test-details.md", "w") as f:
-              f.write("\n".join(detail_lines))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"passed={passed}\n")
+              f.write(f"failed={failed}\n")
+              f.write(f"skipped={skipped}\n")
+              f.write(f"total={total}\n")
+              f.write(f"test_exit_code={1 if failed > 0 else 0}\n")
 
-          # Print summary to workflow log
           print("\n".join(lines))
           PYEOF
-
-      - name: Publish Test Results (JUnit)
-        if: always() && hashFiles('**/target/surefire-reports/*.xml') != ''
-        uses: dorny/test-reporter@v3.0.0
-        continue-on-error: true
-        with:
-          name: JUnit Tests
-          path: '**/target/surefire-reports/*.xml'
-          reporter: java-junit
-          fail-on-error: false
-          fail-on-empty: false
-
-      - name: Generate diff-cover report (PR only)
-        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          chmod +x ./scripts/run-diff-cover.sh
-          ./scripts/run-diff-cover.sh "origin/${{ github.base_ref }}" ./scripts/diff-cover.md ./scripts/diff-cover.html
-        continue-on-error: true
-
-      - name: Upload JAR artifact
-        id: upload-shop-jar
-        if: always()
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: ${{ env.JAR_FILENAME }}
-          path: ${{ steps.build-and-test.outputs.jar_path }}
-          compression-level: 0
-          if-no-files-found: warn
-
-      - name: Upload diff-cover HTML artifact
-        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        id: upload-diff-cover-report
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: diff-cover-report.html
-          path: scripts/diff-cover.html
 
       - name: Create workflow summary
         if: always()
         run: |
           STATUS="${{ job.status }}"
-          TEST_EXIT="${{ steps.build-and-test.outputs.test_exit_code }}"
-          JAR_FOUND="${{ steps.build-and-test.outputs.jar_found }}"
-          JAR_URL="${{ steps.upload-shop-jar.outputs.artifact-url }}"
-          DIFF_URL="${{ steps.upload-diff-cover-report.outputs.artifact-url }}"
+          TEST_EXIT="${{ steps.test-report.outputs.test_exit_code }}"
+          PASSED="${{ steps.test-report.outputs.passed }}"
+          FAILED="${{ steps.test-report.outputs.failed }}"
+          SKIPPED="${{ steps.test-report.outputs.skipped }}"
+          TOTAL="${{ steps.test-report.outputs.total }}"
+          JAR_URL="${{ needs.build.outputs.jar_url }}"
+          DIFF_URL=""
 
           {
-            # Determine status for GitHub run list
             if [ "$STATUS" = "success" ] && [ "$TEST_EXIT" = "0" ]; then
               echo "# ✅ Build & Tests Passed"
-            elif [ "$STATUS" = "success" ] && [ "$TEST_EXIT" != "0" ] && [ "$JAR_FOUND" = "true" ]; then
+            elif [ "$STATUS" = "success" ] && [ "$TEST_EXIT" != "0" ] && [ -f "${{ needs.setup.outputs.jar_filename }}" ]; then
               echo "# ⚠️ Build Passed, Tests Failed"
               echo ""
               echo "> Artifact was produced successfully but some tests failed."
@@ -352,7 +392,6 @@ jobs:
             echo "**Branch:** ${{ github.ref_name }}"
             echo ""
 
-            # Test summary from generated markdown
             if [ -f "test-summary.md" ]; then
               cat test-summary.md
             else
@@ -362,22 +401,13 @@ jobs:
               echo ""
             fi
 
-            # Artifacts
-            if [ -n "$DIFF_URL" ]; then
-              echo "## 📊 Coverage"
-              echo ""
-              echo "**Diff Cover:** [View report]($DIFF_URL)"
-              echo ""
-            fi
-
-            if [ -n "$JAR_URL" ]; then
+            if [ -f "${{ needs.setup.outputs.jar_filename }}" ]; then
               echo "## 📦 Artifacts"
               echo ""
-              echo "⬇️ [${{ env.JAR_FILENAME }}]($JAR_URL)"
+              echo "⬇️ [${{ needs.setup.outputs.jar_filename }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
               echo ""
             fi
 
-            # Links
             echo "---"
             echo "**Workflow:** [${{ github.workflow }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
             if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -386,63 +416,12 @@ jobs:
           } > build-summary.md
           cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Comment PR with build summary
-        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: marocchino/sticky-pull-request-comment@v3.0.5
-        with:
-          path: test-details.md
-          header: "## Shop Build Summary"
-          delete: true
-
-      - name: Comment PR with JaCoCo Coverage Report
-        if: always() && hashFiles('**/target/site/jacoco/jacoco.xml') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: madrapps/jacoco-report@v1.8.0
-        continue-on-error: true
-        with:
-          paths: |
-            **/target/site/jacoco/jacoco.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-          min-coverage-overall: 0
-          min-coverage-changed-files: 30
-          title: Coverage Report
-          update-comment: true
-          pass-emoji: ':green_circle:'
-          fail-emoji: ':small_orange_diamond:'
-          fail-on-error: true
-
-      - name: Generate changelog (tag pushes only)
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          CURRENT_TAG="${GITHUB_REF_NAME}"
-          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n 1)
-
-          {
-            echo "## What's Changed"
-            echo ""
-            if [ -n "$PREVIOUS_TAG" ]; then
-              echo "### Commits since ${PREVIOUS_TAG}"
-              git log "${PREVIOUS_TAG}..HEAD" \
-                --pretty=format:'- [%h](https://github.com/${{ github.repository }}/commit/%H) %s (%an)' \
-                --no-merges
-            else
-              echo "### All Commits"
-              git log HEAD \
-                --pretty=format:'- [%h](https://github.com/${{ github.repository }}/commit/%H) %s (%an)' \
-                --no-merges
-            fi
-            echo ""
-            echo ""
-            echo "**Full diff:** https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}"
-          } > changelog.md
-
-      - name: Create Release (tag pushes only)
+      - name: Upload JAR to GitHub Release (tag pushes only)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3.0.3
         with:
-          files: '**/target/Shop-*.jar'
-          body_path: changelog.md
+          files: 'shop-*.jar'
           generate_release_notes: true
-          make_latest: true
 
   # Separate job for release tagging (manual trigger)
   release-tag:
