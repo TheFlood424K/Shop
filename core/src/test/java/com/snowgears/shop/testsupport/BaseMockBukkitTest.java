@@ -13,7 +13,9 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
+import io.papermc.paper.chat.ChatRenderer;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
 import org.mockito.Mockito;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
@@ -169,10 +171,30 @@ public abstract class BaseMockBukkitTest {
     }
 
     // ---------- Test tooling helpers ----------
+    /**
+     * Feeds a line of chat to the plugin's chat-creation handler.
+     * <p>
+     * Fires {@link AsyncChatEvent}, which is what {@code MiscListener#onPlayerChat} actually
+     * listens for. The older {@code AsyncPlayerChatEvent} it replaces is still accepted by the
+     * server for compatibility, but no Shop handler subscribes to it, so firing it silently
+     * delivers the input to nobody.
+     */
     protected static void sendChatMessage(PlayerMock player, String message) {
-        AsyncPlayerChatEvent amountEvent = new AsyncPlayerChatEvent(true, player, message, Collections.emptySet());
+        AsyncChatEvent chatEvent = new AsyncChatEvent(
+                true,
+                player,
+                Collections.emptySet(),
+                ChatRenderer.defaultRenderer(),
+                Component.text(message),
+                Component.text(message),
+                null
+        );
         try {
-            server.getScheduler().executeAsyncEvent(amountEvent).get();
+            server.getScheduler().executeAsyncEvent(chatEvent).get();
+            // The handler runs async and hops its display work back onto the main thread;
+            // run those scheduled tasks so their messages/entities land before we assert.
+            server.getScheduler().performTicks(1);
+            server.getScheduler().waitAsyncTasksFinished();
         } catch (Error | Exception e) {
             throw new RuntimeException("Failed to send chat message", e);
         }

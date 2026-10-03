@@ -896,7 +896,37 @@ public class ShopMessage {
     // -----------------------------------------------------------------------
 
     public static String getUnformattedMessage(String key, String subkey) {
-        return messageMap.get(key + "." + subkey);
+        return getUnformattedMessage(key + "." + subkey);
+    }
+
+    /**
+     * Looks up a fully-qualified message path (e.g. {@code "interaction.SELL.createHitChestAmount"}).
+     * <p>
+     * Shop-type-specific prompts are addressed as {@code "<type>.createHitChestAmount"}, and the
+     * shop type reaches these call sites through {@code ShopType#toString()}, which is lowercase.
+     * chatConfig.yml declares those sections in uppercase ({@code SELL:}), so a direct map hit on
+     * a lowercase path silently returned {@code null} and the prompt was never sent. Retry with
+     * the shop-type segment uppercased before giving up.
+     */
+    public static String getUnformattedMessage(String fullPath) {
+        String message = messageMap.get(fullPath);
+        if (message != null) {
+            return message;
+        }
+        int lastDot = fullPath.lastIndexOf('.');
+        if (lastDot <= 0) {
+            return null;
+        }
+        String prefix = fullPath.substring(0, lastDot);
+        String leaf = fullPath.substring(lastDot + 1);
+        // "interaction.sell.createHitChestAmount" -> prefix "interaction.sell"
+        int typeSeparator = prefix.lastIndexOf('.');
+        if (typeSeparator < 0) {
+            return null;
+        }
+        String section = prefix.substring(0, typeSeparator);
+        String shopType = prefix.substring(typeSeparator + 1);
+        return messageMap.get(section + "." + shopType.toUpperCase() + "." + leaf);
     }
 
     /**

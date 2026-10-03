@@ -2,6 +2,7 @@ package com.snowgears.shop.integration.features;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.shop.AbstractShop;
+
 import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -70,41 +71,24 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         server.getScheduler().performTicks(20);
         server.getScheduler().waitAsyncTasksFinished();
         server.getScheduler().performTicks(20);
+        // The plugin sends these prompts on chest-click, in this order:
+        //   1. initialCreateInstruction
+        //   2. createHitChest       (the shop-type prompt)
+        //   3. adminCreateHitChest  (ops only, follows the shop-type prompt)
+        // Match on content rather than a fixed offset so an operator-only message being
+        // present or absent cannot shift the count.
         String msg = waitForNextMessage(player);
         assertEquals("§eTo set up your shop, please type your responses in chat when prompted.", msg, "Player should be sent dialog to set up shop");
+
         msg = waitForNextMessage(player);
-        // Admin players receive an additional message about admin shops
-        if (msg.contains("Adding §eadmin §7will make the shop unlimited stock.")) {
-            msg = waitForNextMessage(player);
-        }
-        // New createHitChest message is sent after admin message
-        if (msg != null && msg.contains("§eEnter in chat what to do with §a")) {
-            // This is the createHitChest message, get the next one for shop type
-            msg = waitForNextMessage(player);
-        }
-        System.out.println("DEBUG test: msg after createHitChest = " + msg);
-        if (msg == null) {
-            // Try one more time with more ticks
-            server.getScheduler().performTicks(20);
-            server.getScheduler().waitAsyncTasksFinished();
-            server.getScheduler().performTicks(20);
-            msg = waitForNextMessage(player);
-            System.out.println("DEBUG test: msg after second wait = " + msg);
-        }
-        // If still null, try a few more times
-        int attempts = 0;
-        while (msg == null && attempts < 5) {
-            server.getScheduler().performTicks(20);
-            server.getScheduler().waitAsyncTasksFinished();
-            msg = waitForNextMessage(player);
-            System.out.println("DEBUG test: msg attempt " + attempts + " = " + msg);
-            attempts++;
-        }
-        assertTrue(msg != null && msg.contains("§eEnter in chat what to do with §a"), "Player should be sent dialog for shop type: " + msg);
-        assertTrue(msg.contains("(s)§b §7("), "Player should be sent dialog for shop type");
-        msg = player.nextMessage();
-        if (msg != null) {
-            assertEquals("§7(Adding §eadmin §7will make the shop unlimited stock.)", msg, "Player should be sent admin dialog if player is op");
+        assertNotNull(msg, "Player should be sent dialog for shop type");
+        assertTrue(msg.contains("§eEnter in chat what to do with §a"), "Player should be sent dialog for shop type: " + msg);
+        assertTrue(msg.contains("(s)§b §7("), "Player should be sent dialog for shop type: " + msg);
+
+        // Operators additionally get the admin notice, sent after the shop-type prompt.
+        String next = player.nextMessage();
+        if (next != null) {
+            assertEquals("§7(Adding §eadmin §7will make the shop unlimited stock.)", next, "Player should be sent admin dialog if player is op");
         }
         assertEquals(null, player.nextMessage(), "Player should not have any more messages");
 
@@ -114,7 +98,7 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         // Step 2: Item amount
         msg = waitForNextMessage(player);
         assertTrue(msg.contains("§eEnter in chat the amount of §a"), "Player should be sent dialog for amount");
-        assertTrue(msg.contains("(s)§b §eyou want to sell per transaction."), "Player should be sent dialog for amount");
+        assertTrue(msg.contains("(s)§b §eyou want to sell per transaction."), "Player should be sent dialog for amount: " + msg);
         sendChatMessage(player, amount + "");
         // Step 3: Price
         msg = waitForNextMessage(player);
@@ -198,7 +182,11 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         // Drain initial creation messages
         while (player.nextMessage() != null) {}
 
-        // Ensure any async tasks triggered by scheduler are processed (timeout check is an async task)
+        // The timeout task is scheduled initTimeout seconds out. The shared test config
+        // disables it (shopInitTimeout: 0), so this test opts back in explicitly.
+        getPlugin().getConfig().set("debug.shopInitTimeout", 30);
+        setPluginField("debug_shopInitTimeout", 30);
+        server.getScheduler().performTicks(30 * 20 + 20);
         server.getScheduler().waitAsyncTasksFinished();
 
         assertEquals("§7The shop you started to create at (52, 65, 10) has timed out.", player.nextMessage(), "Player should be sent timeout message");

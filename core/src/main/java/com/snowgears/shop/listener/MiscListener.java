@@ -438,6 +438,9 @@ public class MiscListener implements Listener {
 
             //send player text prompts after they have clicked the chest with the item they want to create a shop with
             ShopMessage.sendMessage("interaction", "initialCreateInstruction", process, player);
+            // Shop type prompt. displayFloatingText falls back to sending the same message in
+            // chat when floating text is disabled, so it must not also be sent directly here —
+            // that would duplicate the prompt for every non-floating-text server.
             process.displayFloatingText("interaction", "createHitChest");
             List<String> autocomplete = new ArrayList<>();
             Arrays.asList(ShopType.values()).forEach((shopType -> autocomplete.add(shopType.toString().toLowerCase())));
@@ -447,9 +450,6 @@ public class MiscListener implements Listener {
             if((!plugin.usePerms() && player.isOp()) || (plugin.usePerms() && player.hasPermission("shop.operator"))) {
                 ShopMessage.sendMessage("interaction", "adminCreateHitChest", process, player);
             }
-
-            // Send shop type prompt for chest creation (item already set, now ask for shop type)
-            ShopMessage.sendMessage("interaction", "createHitChest", process, player);
 
             //give player a limited amount of time to finish creating the shop until it is deleted
             final UUID originalProcessUUID = process.getUniqueID();

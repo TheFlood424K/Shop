@@ -171,7 +171,10 @@ creationMethod:
    hitChest: true
 
 # This will show shop creation instructions as floating text above shops #
-displayFloatingCreateText: true
+# Disabled in tests: the creation-flow tests assert on the chat prompts, and with
+# floating text enabled those prompts are rendered as holograms instead of chat messages.
+# Hologram rendering itself is covered by DisplayIntegrationTest.
+displayFloatingCreateText: false
 
 # This will allow players to use the limited creative mode selection tool to choose shop items when creating a shop #
 # This is triggered when the player right clicks a chest with an empty hand #
