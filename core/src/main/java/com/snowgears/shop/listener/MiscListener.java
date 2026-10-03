@@ -644,7 +644,10 @@ public class MiscListener implements Listener {
                 }
             }
             //player trying to break their own shop
-            if (shop.getOwnerName().equals(player.getName())) {
+            // Compare UUIDs, not names: names are not unique, so a name check lets any
+            // player who happens to share the owner's name destroy the shop. Every other
+            // ownership check in this class already uses the UUID.
+            if (shop.getOwnerUUID().equals(player.getUniqueId())) {
                 if (plugin.usePerms() && !(player.hasPermission("shop.destroy") || player.hasPermission("shop.operator"))) {
                     event.setCancelled(true);
                     ShopMessage.sendMessage("permission", "destroy", player, shop);
