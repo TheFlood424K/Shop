@@ -214,10 +214,17 @@ public class UtilMethods {
     /**
      * Strips non-numeric characters from a price/number string and returns it clean.
      * E.g. "$1,234.56" -> "1234.56"
+     * Preserves leading minus sign for negative number detection.
      */
     public static String cleanNumberText(String text) {
         if (text == null) return "0";
-        return text.replaceAll("[^0-9.]", "");
+        // Preserve leading minus sign, remove all other non-numeric chars except decimal point
+        String cleaned = text.replaceAll("[^0-9.-]", "");
+        // Remove any minus signs that aren't at the start
+        if (cleaned.length() > 1) {
+            cleaned = cleaned.charAt(0) + cleaned.substring(1).replace("-", "");
+        }
+        return cleaned;
     }
 
     /**

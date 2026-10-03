@@ -184,12 +184,14 @@ class MiscListenerTest extends BaseMockBukkitTest {
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text("Not a shop"));
-        lines.add(net.kyori.adventure.text.Component.text("1"));
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text("sell"));
-        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        // Use String[] constructor for MockBukkit compatibility
+        String[] lines = {
+            "Not a shop",
+            "1",
+            "10",
+            "sell"
+        };
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines);
         getServer().getPluginManager().callEvent(signEvent);
 
         // No message should be sent
@@ -214,12 +216,15 @@ class MiscListenerTest extends BaseMockBukkitTest {
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
-        lines.add(net.kyori.adventure.text.Component.text("1"));
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        // Use String[] constructor for MockBukkit compatibility
+        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String[] lines = {
+            creationWord,
+            "1",
+            "10",
+            ShopMessage.getCreationWord("SELL")
+        };
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines);
         getServer().getPluginManager().callEvent(signEvent);
 
         assertNull(player.nextMessage(), "No message when creation disabled");
@@ -257,12 +262,15 @@ class MiscListenerTest extends BaseMockBukkitTest {
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
-        lines.add(net.kyori.adventure.text.Component.text(amount));
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        // Use String[] constructor for MockBukkit compatibility
+        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String[] lines = {
+            creationWord,
+            amount,
+            "10",
+            ShopMessage.getCreationWord("SELL")
+        };
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines);
         getServer().getPluginManager().callEvent(signEvent);
 
         String msg = waitForNextMessage(player);
@@ -286,12 +294,15 @@ class MiscListenerTest extends BaseMockBukkitTest {
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
-        lines.add(net.kyori.adventure.text.Component.text("1"));
-        lines.add(net.kyori.adventure.text.Component.text("abc"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        // Use String[] constructor for MockBukkit compatibility
+        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String[] lines = {
+            creationWord,
+            "1",
+            "abc",
+            ShopMessage.getCreationWord("SELL")
+        };
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines);
         getServer().getPluginManager().callEvent(signEvent);
 
         String msg = waitForNextMessage(player);
@@ -314,12 +325,15 @@ class MiscListenerTest extends BaseMockBukkitTest {
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
-        lines.add(net.kyori.adventure.text.Component.text("1"));
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL") + " admin"));
-        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        // Use String[] constructor for MockBukkit compatibility
+        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String[] lines = {
+            creationWord,
+            "1",
+            "10",
+            creationWord + " admin"
+        };
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines);
         getServer().getPluginManager().callEvent(signEvent);
 
         // First message is initialCreateInstruction
@@ -346,12 +360,15 @@ class MiscListenerTest extends BaseMockBukkitTest {
         Block chestBlock = world.getBlockAt(chestLoc);
         chestBlock.setType(Material.CHEST);
 
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP").toLowerCase()));
-        lines.add(net.kyori.adventure.text.Component.text("1"));
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        // Use String[] constructor for MockBukkit compatibility
+        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String[] lines = {
+            creationWord.toLowerCase(),
+            "1",
+            "10",
+            ShopMessage.getCreationWord("SELL")
+        };
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines);
         getServer().getPluginManager().callEvent(signEvent);
 
         String msg = waitForNextMessage(player);
@@ -367,12 +384,15 @@ class MiscListenerTest extends BaseMockBukkitTest {
         Block signBlock = world.getBlockAt(signLoc);
         signBlock.setType(Material.OAK_SIGN); // Ground sign, not wall sign
 
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SHOP")));
-        lines.add(net.kyori.adventure.text.Component.text("1"));
-        lines.add(net.kyori.adventure.text.Component.text("10"));
-        lines.add(net.kyori.adventure.text.Component.text(ShopMessage.getCreationWord("SELL")));
-        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines, org.bukkit.block.sign.Side.FRONT);
+        // Use String[] constructor for MockBukkit compatibility
+        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String[] lines = {
+            creationWord,
+            "1",
+            "10",
+            ShopMessage.getCreationWord("SELL")
+        };
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, player, lines);
         getServer().getPluginManager().callEvent(signEvent);
 
         assertNull(shopHandler.getShop(signLoc), "Ground sign should not create shop");
@@ -390,6 +410,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         org.bukkit.event.player.PlayerBucketEmptyEvent event = mock(org.bukkit.event.player.PlayerBucketEmptyEvent.class);
         Block signBlock = shop.getSignLocation().getBlock();
         when(event.getBlockClicked()).thenReturn(signBlock);
+        when(event.getBlockFace()).thenReturn(BlockFace.NORTH);
         when(event.isCancelled()).thenReturn(false);
 
         miscListener.onBucketEmpty(event);
@@ -409,6 +430,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         org.bukkit.event.player.PlayerBucketEmptyEvent event = mock(org.bukkit.event.player.PlayerBucketEmptyEvent.class);
         when(event.getBlockClicked()).thenReturn(signBlock);
+        when(event.getBlockFace()).thenReturn(BlockFace.NORTH);
         when(event.isCancelled()).thenReturn(false);
 
         miscListener.onBucketEmpty(event);
@@ -835,11 +857,11 @@ class MiscListenerTest extends BaseMockBukkitTest {
     @DisplayName("isPlayerTargetingShopCreationBlock returns true for uninitialized shop sign")
     void testIsPlayerTargetingUninitializedSign() {
         AbstractShop shop = createInitializedShopViaSign();
-        // Make it uninitialized
+        // Make it uninitialized by setting item to null
         try {
-            java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("initialized");
+            java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("item");
             field.setAccessible(true);
-            field.set(shop, false);
+            field.set(shop, null);
         } catch (Exception e) {
             fail("Reflection failed: " + e.getMessage());
         }
@@ -925,11 +947,11 @@ class MiscListenerTest extends BaseMockBukkitTest {
     @DisplayName("handleShopLeftClick initializes uninitialized shop sign")
     void testHandleShopLeftClickInitializes() {
         AbstractShop shop = createInitializedShopViaSign();
-        // Make it uninitialized
+        // Make it uninitialized by setting item to null
         try {
-            java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("initialized");
+            java.lang.reflect.Field field = AbstractShop.class.getDeclaredField("item");
             field.setAccessible(true);
-            field.set(shop, false);
+            field.set(shop, null);
         } catch (Exception e) {
             fail("Reflection failed: " + e.getMessage());
         }
