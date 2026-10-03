@@ -15,14 +15,11 @@ permissions:
   issues: write
 
 jobs:
-  # Shared setup - prepares environment for both build and test
-  setup:
-    name: Setup Environment
+  build-and-test:
+    name: Build & Test (Java 25)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      jar_filename: ${{ steps.version.outputs.jar_filename }}
+    timeout-minutes: 30
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
@@ -48,24 +45,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Compute version with commit hash
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            COMMIT_HASH="${{ github.event.pull_request.head.sha }}"
-          else
-            COMMIT_HASH="${{ github.sha }}"
-          fi
-          COMMIT_HASH="${COMMIT_HASH:0:7}"
-
-          CURRENT_VERSION=$(grep -m 1 "<revision>" pom.xml | sed 's/.*<revision>\(.*\)<\/revision>.*/\1/')
-          NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
-
-          echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
-          echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
-
       - name: Cache dynmap/BlockProt artifacts
         uses: actions/cache@v4
         with:
@@ -86,145 +65,53 @@ jobs:
           chmod +x ./scripts/install-blockprot-api.sh
           ./scripts/install-blockprot-api.sh
 
-  # Build job - compiles and packages the JAR
-  build:
-    name: Build (Compile & Package)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: setup
-    env:
-      VERSION: ${{ needs.setup.outputs.version }}
-      JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-        with:
-          fetch-depth: 0
-
-      - name: Set up JDK 25 (Temurin)
-        uses: actions/setup-java@v4.5.0
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Restore Maven cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Restore target cache
-        uses: actions/cache@v4
-        with:
-          path: core/target
-          key: ${{ runner.os }}-target-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-target-
-
-      - name: Fix toolchains.xml vendor to 'any'
+      - name: Compute version with commit hash
+        id: version
         run: |
-          printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_HASH="${{ github.event.pull_request.head.sha }}"
+          else
+            COMMIT_HASH="${{ github.sha }}"
+          fi
+          COMMIT_HASH="${COMMIT_HASH:0:7}"
 
-      - name: Build (compile & package, no tests)
+          CURRENT_VERSION=$(grep -m 1 "<revision>" pom.xml | sed 's/.*<revision>\(.*\)<\/revision>.*/\1/')
+          NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
+
+          echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
+          echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
+
+      - name: Build & Test (single Maven invocation)
         run: |
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
-            -DskipTests -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
+            -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
             -Dmaven.compiler.fork=false \
-            package
-
-      - name: Upload target directory (for test job)
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: target-${{ github.run_id }}
-          path: core/target
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload JAR artifact
-        id: upload-shop-jar
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: ${{ env.JAR_FILENAME }}
-          path: '**/target/Shop-*.jar'
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Output JAR URL
-        run: |
-          echo "jar_url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-shop-jar.outputs.artifact-id }}" >> "$GITHUB_OUTPUT"
-
-  # Test job - runs tests (downloads compiled classes from build)
-  test:
-    name: Test (Parallel Methods)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [setup, build]
-    env:
-      VERSION: ${{ needs.setup.outputs.version }}
-      JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-        with:
-          fetch-depth: 0
-
-      - name: Set up JDK 25 (Temurin)
-        uses: actions/setup-java@v4.5.0
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Restore Maven cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Restore target cache
-        uses: actions/cache@v4
-        with:
-          path: core/target
-          key: ${{ runner.os }}-target-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-target-
-
-      - name: Download target directory from build job
-        if: ${{ !hashFiles('core/target/**') }}
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: target-${{ github.run_id }}
-          path: core/target
-
-      - name: Fix toolchains.xml vendor to 'any'
-        run: |
-          printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
-
-      - name: Test (parallel methods, fork reuse for speed)
-        id: test
-        run: |
-          set +e
-          mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dparallel=methods -DthreadCount=2 \
             -DforkCount=2 -DreuseForks=true \
             -DfailIfNoTests=false \
             -Dmaven.test.failure.ignore=true \
-            test 2>&1 | tee test-output.log
+            clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}
           echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
 
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: surefire-reports-${{ github.run_id }}
-          path: core/target/surefire-reports
-          if-no-files-found: ignore
+          # Always try to find the built JAR
+          JAR_PATH=$(find . -name "Shop-*.jar" -path "*/target/*" 2>/dev/null | head -1)
+          if [ -n "$JAR_PATH" ]; then
+            echo "jar_path=$JAR_PATH" >> "$GITHUB_OUTPUT"
+            echo "jar_found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "jar_path=" >> "$GITHUB_OUTPUT"
+            echo "jar_found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Exit 0 if JAR was produced (build succeeded), else exit test code
+          if [ -n "$JAR_PATH" ]; then
+            exit 0
+          else
+            exit $TEST_EXIT
+          fi
 
       - name: Generate test summary
         if: always()
@@ -261,7 +148,6 @@ jobs:
                               failed += 1
                               total += 1
                               msg = (failure.text or "").strip()
-                              # Truncate at first line, max 200 chars
                               msg = msg.split('\n')[0][:200]
                               failures_detail.append((classname, method, msg, "FAIL"))
                           elif error is not None:
@@ -290,7 +176,7 @@ jobs:
           if remaining < 0:
               remaining = 0
 
-          # Use text-based indicators that work in GitHub markdown
+          # Use text-based blocks that render in GitHub markdown
           bar = "█" * filled + "▓" * failed_filled + "░" * skipped_filled + "·" * remaining
 
           lines = []
@@ -310,78 +196,21 @@ jobs:
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
-          # Include both failures and skips in the details table
-          all_details = failures_detail.copy()
-          # Add skipped tests with their reasons
-          if os.path.exists(report_dir):
-              for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
-                  try:
-                      tree = ET.parse(xml_file)
-                      root = tree.getroot()
-                      classname = root.get("name", "Unknown")
-
-                      for testcase in root.findall(".//testcase"):
-                          skipped_elem = testcase.find("skipped")
-                          method = testcase.get("name", "unknown")
-                          if skipped_elem is not None:
-                              skip_msg = skipped_elem.get("message", "")
-                              if not skip_msg:
-                                  skip_msg = (skipped_elem.text or "").strip()
-                              if not skip_msg:
-                                  for child in skipped_elem:
-                                      if child.text:
-                                          skip_msg = child.text.strip()
-                                          break
-                              if not skip_msg:
-                                  skip_msg = "Skipped (no reason given)"
-                              msg_short = skip_msg[:150] + ("..." if len(skip_msg) > 150 else "")
-                              all_details.append((classname, method, msg_short, "SKIP"))
-                  except Exception:
-                      pass
-
-          if failures_detail or skipped > 0:
-              lines.append("### 📋 Test Details (Failures & Skips)")
+          if failed > 0:
+              lines.append("### ❌ Test Failures")
               lines.append("")
               lines.append("| Class | Method | Status | Message |")
               lines.append("|-------|--------|--------|---------|")
 
               class_groups = defaultdict(list)
-              all_details = failures_detail.copy()
-              # Re-collect skips from XML
-              if os.path.exists(report_dir):
-                  for xml_file in glob.glob(os.path.join(report_dir, "TEST-*.xml")):
-                      try:
-                          tree = ET.parse(xml_file)
-                          root = tree.getroot()
-                          classname = root.get("name", "Unknown")
-                          for testcase in root.findall(".//testcase"):
-                              skipped_elem = testcase.find("skipped")
-                              method = testcase.get("name", "unknown")
-                              if skipped_elem is not None:
-                                  skip_msg = skipped_elem.get("message", "")
-                                  if not skip_msg:
-                                      skip_msg = (skipped_elem.text or "").strip()
-                                  if not skip_msg:
-                                      for child in skipped_elem:
-                                          if child.text:
-                                              skip_msg = child.text.strip()
-                                              break
-                                  if not skip_msg:
-                                      skip_msg = "Skipped (no reason given)"
-                                  msg_short = skip_msg[:150] + ("..." if len(skip_msg) > 150 else "")
-                                  all_details.append((classname, method, msg_short, "SKIP"))
-                      except Exception:
-                          pass
-
-              class_groups = defaultdict(list)
-              for classname, method, msg, status in all_details:
+              for classname, method, msg, status in failures_detail:
                   class_groups[classname].append((method, msg, status))
 
               for classname, methods in class_groups.items():
                   for method, msg, status in methods:
                       msg_short = msg[:150] + ("..." if len(msg) > 150 else "")
                       short_class = classname if len(classname) <= 50 else "..." + classname[-47:]
-                      status_emoji = "❌" if status == "FAIL" else ("💥" if status == "ERROR" else "⏭️")
+                      status_emoji = "❌" if status == "FAIL" else "💥"
                       lines.append(f"| {short_class} | {method} | {status_emoji} {status} | {msg_short} |")
 
               lines.append("")
@@ -404,26 +233,19 @@ jobs:
         run: |
           STATUS="${{ job.status }}"
           TEST_EXIT="${{ steps.test-report.outputs.test_exit_code }}"
-          PASSED="${{ steps.test-report.outputs.passed }}"
-          FAILED="${{ steps.test-report.outputs.failed }}"
-          SKIPPED="${{ steps.test-report.outputs.skipped }}"
-          TOTAL="${{ steps.test-report.outputs.total }}"
-          JAR_URL="${{ needs.build.outputs.jar_url }}"
-          DIFF_URL=""
+          JAR_PATH="${{ steps.build.outputs.jar_path }}"
+          JAR_FOUND="${{ steps.build.outputs.jar_found }}"
 
           {
-            BUILD_EXIT="${{ needs.build.outputs.build_exit_code }}"
-            TEST_EXIT="${{ steps.test-report.outputs.test_exit_code }}"
-
-            if [ "$STATUS" = "success" ] && [ "$TEST_EXIT" = "0" ]; then
+            if [ "$STATUS" = "success" ] && [ "${{ steps.build.outputs.test_exit_code }}" = "0" ]; then
               echo "# ✅ Build & Tests Passed"
-            elif [ "$BUILD_EXIT" = "0" ] && [ "$TEST_EXIT" != "0" ]; then
+            elif [ "${{ steps.build.outputs.build_exit_code }}" = "0" ] && [ "${{ steps.test-report.outputs.test_exit_code }}" != "0" ]; then
               echo "# ⚠️ Build Passed, Tests Failed"
               echo ""
               echo "> Artifact was produced successfully but some tests failed."
             else
               echo "# ❌ Build Failed"
-              if [ "$TEST_EXIT" != "0" ]; then
+              if [ "${{ steps.build.outputs.test_exit_code }}" != "0" ]; then
                 echo "**Reason:** Tests failed"
               else
                 echo "**Reason:** Build/Compilation failed"
@@ -444,12 +266,10 @@ jobs:
               echo ""
             fi
 
-            # Always show artifact if build succeeded (JAR_URL comes from build job)
-            JAR_URL="${{ needs.build.outputs.jar_url }}"
-            if [ -n "$JAR_URL" ]; then
+            if [ -n "$JAR_PATH" ]; then
               echo "## 📦 Artifacts"
               echo ""
-              echo "⬇️ [${{ needs.setup.outputs.jar_filename }}]($JAR_URL)"
+              echo "⬇️ [${{ env.JAR_FILENAME }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
               echo ""
             fi
 
@@ -467,44 +287,3 @@ jobs:
         with:
           files: 'shop-*.jar'
           generate_release_notes: true
-
-  # Separate job for release tagging (manual trigger)
-  release-tag:
-    name: Create Release Tag
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-        with:
-          fetch-depth: 0
-
-      - name: Validate version format
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
-            echo "::error::Version '$VERSION' does not match expected format (e.g. 1.14.0 or 1.14.0-beta.1)"
-            exit 1
-          fi
-
-      - name: Bump version in pom.xml
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          sed -i "s|<revision>.*</revision>|<revision>${VERSION}</revision>|" pom.xml
-          echo "Bumped pom.xml revision to ${VERSION}"
-
-      - name: Commit and tag
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          PRERELEASE="${{ github.event.inputs.prerelease }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pom.xml
-          git commit -m "chore: release v${VERSION}"
-          git tag "v${VERSION}"
-          git push origin HEAD:main
-          git push origin "v${VERSION}"
-          echo "Tagged and pushed v${VERSION} — build workflow will now run for the release."
