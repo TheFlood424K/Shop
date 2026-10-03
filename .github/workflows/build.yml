@@ -81,41 +81,17 @@ jobs:
           chmod +x ./scripts/install-blockprot-api.sh
           ./scripts/install-blockprot-api.sh
 
-      - name: Build & Test (parallel processes)
+      - name: Build & Test (single Maven invocation, parallel tests)
         id: build-and-test
         run: |
           set +e
-
-          # Run build (compile + package, skip tests) in background
-          mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -DskipTests clean package \
-            2>&1 | tee build-output.log &
-          BUILD_PID=$!
-
-          # Run tests in parallel in background
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dparallel=methods -DthreadCountStrategy=dynamic -DuseUnlimitedThreads=false \
             -Dmaven.test.failure.ignore=true \
-            test 2>&1 | tee test-output.log &
-          TEST_PID=$!
-
-          # Wait for both and capture exit codes
-          wait $BUILD_PID
-          BUILD_EXIT=$?
-          wait $TEST_PID
-          TEST_EXIT=$?
-
-          echo "build_exit_code=$BUILD_EXIT" >> "$GITHUB_OUTPUT"
+            clean test package 2>&1 | tee build-test-output.log
+          TEST_EXIT=${PIPESTATUS[0]}
           echo "test_exit_code=$TEST_EXIT" >> "$GITHUB_OUTPUT"
-
-          # Debug: list surefire report locations
-          echo "=== Surefire report locations ==="
-          find . -name "surefire-reports" -type d 2>/dev/null | head -20
-          find . -name "TEST-*.xml" 2>/dev/null | head -20
-
-          # Fail if either build OR tests failed
-          if [ $BUILD_EXIT -ne 0 ] || [ $TEST_EXIT -ne 0 ]; then
-            exit 1
-          fi
+          exit $TEST_EXIT
 
       - name: Extract test results & generate visual summary
         if: always()
@@ -307,7 +283,6 @@ jobs:
         if: always()
         run: |
           STATUS="${{ job.status }}"
-          BUILD_EXIT="${{ steps.build-and-test.outputs.build_exit_code }}"
           TEST_EXIT="${{ steps.build-and-test.outputs.test_exit_code }}"
           PASSED="${{ steps.test-report.outputs.passed }}"
           FAILED="${{ steps.test-report.outputs.failed }}"
@@ -321,11 +296,10 @@ jobs:
               echo "# ✅ Build & Tests Passed"
             else
               echo "# ❌ Build Failed"
-              if [ "$BUILD_EXIT" != "0" ]; then
-                echo "**Reason:** Build/Compilation failed"
-              fi
               if [ "$TEST_EXIT" != "0" ]; then
                 echo "**Reason:** Tests failed"
+              else
+                echo "**Reason:** Build/Compilation failed"
               fi
             fi
             echo ""
