@@ -25,12 +25,12 @@ jobs:
       jar_filename: ${{ steps.version.outputs.jar_filename }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
 
       - name: Set up JDK 25 (Temurin)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v4.5.0
         with:
           java-version: '25'
           distribution: 'temurin'
@@ -41,7 +41,7 @@ jobs:
           printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
 
       - name: Cache Maven repository
-        uses: actions/cache@v4
+        uses: actions/cache@v4.0.2
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -67,7 +67,7 @@ jobs:
           echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
       - name: Cache dynmap/BlockProt artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v4.0.2
         with:
           path: |
             ~/.m2/repository/us/dynmap/dynmap-api
@@ -97,19 +97,19 @@ jobs:
       JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
 
       - name: Set up JDK 25 (Temurin)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v4.5.0
         with:
           java-version: '25'
           distribution: 'temurin'
           cache: 'maven'
 
       - name: Restore Maven cache
-        uses: actions/cache@v4
+        uses: actions/cache@v4.0.2
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -117,7 +117,7 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Restore target cache
-        uses: actions/cache@v4
+        uses: actions/cache@v4.0.2
         with:
           path: core/target
           key: ${{ runner.os }}-target-${{ hashFiles('**/pom.xml') }}
@@ -133,7 +133,7 @@ jobs:
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} -DskipTests package
 
       - name: Upload target directory (for test job)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: target-${{ github.run_id }}
           path: core/target
@@ -142,7 +142,7 @@ jobs:
 
       - name: Upload JAR artifact
         id: upload-shop-jar
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: ${{ env.JAR_FILENAME }}
           path: '**/target/Shop-*.jar'
@@ -160,19 +160,19 @@ jobs:
       JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
 
       - name: Set up JDK 25 (Temurin)
-        uses: actions/setup-java@v6.0.1
+        uses: actions/setup-java@v4.5.0
         with:
           java-version: '25'
           distribution: 'temurin'
           cache: 'maven'
 
       - name: Restore Maven cache
-        uses: actions/cache@v6.1.0
+        uses: actions/cache@v4.0.2
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -180,7 +180,7 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Download target directory from build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.1.8
         with:
           name: target-${{ github.run_id }}
           path: core/target
@@ -202,7 +202,7 @@ jobs:
 
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: surefire-reports-${{ github.run_id }}
           path: core/target/surefire-reports
@@ -220,13 +220,13 @@ jobs:
       JAR_FILENAME: ${{ needs.setup.outputs.jar_filename }}
     steps:
       - name: Download JAR artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.1.8
         with:
           name: ${{ needs.setup.outputs.jar_filename }}
           path: .
 
       - name: Download test reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.1.8
         with:
           name: surefire-reports-${{ github.run_id }}
           path: core/target/surefire-reports
@@ -418,7 +418,7 @@ jobs:
 
       - name: Upload JAR to GitHub Release (tag pushes only)
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2.1.1
         with:
           files: 'shop-*.jar'
           generate_release_notes: true
@@ -433,7 +433,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
 
