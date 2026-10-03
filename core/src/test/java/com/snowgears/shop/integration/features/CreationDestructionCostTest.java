@@ -31,7 +31,10 @@ public class CreationDestructionCostTest extends BaseMockBukkitTest {
         PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
 
-        // Setup economy
+        // setupEconomy() only mocks Vault; the test config uses ITEM currency, where
+        // createShop() charges the creation cost out of the player's own inventory.
+        // Fund the player so the charge succeeds.
+        giveCurrency(player, 1000);
         setupEconomy();
 
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 10, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
@@ -66,6 +69,7 @@ public class CreationDestructionCostTest extends BaseMockBukkitTest {
         PlayerMock player = addStubbedPlayer("TestPlayer");
         player.setOp(true);
 
+        giveCurrency(player, 1000);
         setupEconomy();
 
         AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), player, world, 12, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");

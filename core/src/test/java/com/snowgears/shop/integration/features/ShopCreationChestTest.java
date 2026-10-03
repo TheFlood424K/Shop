@@ -169,6 +169,12 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         world.getBlockAt(chestLoc.clone().add(0, 0, -1)).setType(Material.AIR);
         stubCalculateBlockFaceForSign(BlockFace.NORTH);
 
+        // The timeout task is scheduled initTimeout seconds out, and its duration is read while
+        // handling the click. The shared test config disables it (shopInitTimeout: 0), so
+        // this test opts back in before the event, not after.
+        getPlugin().getConfig().set("debug.shopInitTimeout", 30);
+        setPluginField("debug_shopInitTimeout", 30);
+
         // Start creation by sneaking and left-clicking the chest with an item in hand
         player.setSneaking(true);
         ItemStack item = new ItemStack(Material.DIRT);
@@ -186,10 +192,7 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         // Drain initial creation messages
         while (player.nextMessage() != null) {}
 
-        // The timeout task is scheduled initTimeout seconds out. The shared test config
-        // disables it (shopInitTimeout: 0), so this test opts back in explicitly.
-        getPlugin().getConfig().set("debug.shopInitTimeout", 30);
-        setPluginField("debug_shopInitTimeout", 30);
+        // Advance past the scheduled timeout (30s) so its task runs.
         server.getScheduler().performTicks(30 * 20 + 20);
         server.getScheduler().waitAsyncTasksFinished();
 
