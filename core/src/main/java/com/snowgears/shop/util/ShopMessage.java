@@ -204,7 +204,7 @@ public class ShopMessage {
     // Placeholder registry
     // -----------------------------------------------------------------------
 
-    public static void registerPlaceholder(String placeholder, Function<PlaceholderContext, Component> valueFunction) {
+    public static void registerPlaceholder(String placeholder, Function<PlaceholderContext, Object> valueFunction) {
         placeholders.put(placeholder.toLowerCase(), valueFunction);
     }
 
@@ -636,7 +636,8 @@ public class ShopMessage {
         registerPlaceholder("[stock color]", context -> {
             if (context.getShop() != null) {
                 int stock = context.getShop().isAdmin() ? Integer.MAX_VALUE : context.getShop().getStock();
-                return stock > 0 ? Component.text(stockColorInStock) : Component.text(stockColorOutOfStock);
+                String colorCode = stock > 0 ? stockColorInStock : stockColorOutOfStock;
+                return componentFromLegacy(colorCode);
             }
             return null;
         });
