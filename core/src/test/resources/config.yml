@@ -456,6 +456,8 @@ debug:
    transactionDebugLogs: false
    # (default: 5000) The cooldown in milliseconds for how long a player must wait between creating new shop creation processes
    shopCreateCooldown: 5000
+   # (default: 30) Initialization timeout in seconds (0 = disabled). Time before uninitialized shop is deleted.
+   shopInitTimeout: 0
    # (default: false) Set ALL shops to be saved when the server starts up, right after they are loaded from the file.
    #                  Can be helpful if you have very old nbt data or items that are incompatible in player files.
    # Note: MAKE BACKUP BEFORE USING THIS!
