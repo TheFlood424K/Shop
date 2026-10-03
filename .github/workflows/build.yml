@@ -37,16 +37,19 @@ jobs:
         run: |
           printf '<?xml version="1.0" encoding="UTF-8"?>\n<toolchains>\n  <toolchain>\n    <type>jdk</type>\n    <provides>\n      <version>25</version>\n      <vendor>any</vendor>\n    </provides>\n    <configuration>\n      <jdkHome>%s</jdkHome>\n    </configuration>\n  </toolchain>\n</toolchains>\n' "$JAVA_HOME" > ~/.m2/toolchains.xml
 
-      - name: Cache Spigot build outputs & Maven artifacts
+      - name: Cache Maven repository
         uses: actions/cache@v6.1.0
         with:
-          path: |
-            ./SpigotBuildTools
-            ~/.m2/repository/org/spigotmc
-            ~/.m2/repository/org/bukkit
-            ~/.m2/repository/us/dynmap/dynmap-api
-            ~/.m2/repository/com/github/spnda/BlockProt
-          key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile', 'scripts/install-dynmap-api.sh', 'scripts/install-blockprot-api.sh') }}
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Cache Spigot build outputs
+        uses: actions/cache@v6.1.0
+        with:
+          path: ./SpigotBuildTools
+          key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
           restore-keys: |
             ${{ runner.os }}-spigot-
 
