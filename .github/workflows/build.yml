@@ -125,6 +125,15 @@ jobs:
                           report_dir = candidate
                           break
 
+          # DEBUG: Print all found surefire dirs and files
+          print("=== DEBUG: All surefire-reports directories ===", file=sys.stderr)
+          for root_dir, dirs, files in os.walk("."):
+              if "surefire-reports" in dirs:
+                  print(f"  Found dir: {os.path.join(root_dir, 'surefire-reports')}", file=sys.stderr)
+          print("=== DEBUG: All TEST-*.xml files ===", file=sys.stderr)
+          for f in glob.glob("**/TEST-*.xml", recursive=True):
+              print(f"  Found file: {f}", file=sys.stderr)
+
           print(f"Using report directory: {report_dir}", file=sys.stderr)
 
           # Aggregate totals - count from testcase elements directly for accuracy
