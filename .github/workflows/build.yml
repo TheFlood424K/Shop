@@ -199,8 +199,19 @@ jobs:
                           elif skipped_elem is not None:
                               skipped += 1
                               total += 1
-                              # Extract skip reason from skipped element
-                              skip_msg = skipped_elem.get("message", "Skipped (no reason given)")
+                              # Extract skip reason from skipped element - try multiple sources
+                              skip_msg = skipped_elem.get("message", "")
+                              if not skip_msg:
+                                  # Try to get text content
+                                  skip_msg = (skipped_elem.text or "").strip()
+                              if not skip_msg:
+                                  # Try child elements
+                                  for child in skipped_elem:
+                                      if child.text:
+                                          skip_msg = child.text.strip()
+                                          break
+                              if not skip_msg:
+                                  skip_msg = "Skipped (no reason given)"
                               skip_msg = skip_msg.replace("|", "\\|")
                               failures_detail.append((classname, method, skip_msg, "⏭️ SKIP"))
                           else:
@@ -233,8 +244,22 @@ jobs:
           if remaining < 0:
               remaining = 0
 
-          # Build emoji progress bar
-          bar = "🟩" * filled + "🟥" * failed_filled + "🟨" * skipped_filled + "⬜" * remaining
+          # Build HTML color-coded progress bar (shorter: 12 segments)
+          bar_len = 12
+          filled = int(bar_len * passed / total) if total > 0 else 0
+          failed_filled = int(bar_len * failed / total) if total > 0 else 0
+          skipped_filled = int(bar_len * skipped / total) if total > 0 else 0
+          remaining = bar_len - filled - failed_filled - skipped_filled
+          if remaining < 0:
+              remaining = 0
+
+          # Build HTML progress bar with inline styles
+          bar_parts = []
+          bar_parts.append(f'<span style="color:#2ecc71;">{"█" * filled}</span>')
+          bar_parts.append(f'<span style="color:#e74c3c;">{"█" * failed_filled}</span>')
+          bar_parts.append(f'<span style="color:#f39c12;">{"█" * skipped_filled}</span>')
+          bar_parts.append(f'<span style="color:#95a5a6;">{"█" * remaining}</span>')
+          bar = "".join(bar_parts)
 
           lines = []
           lines.append("## 🧪 Test Results")
@@ -245,11 +270,11 @@ jobs:
           if total > 0:
               lines.append("| Status | Count | Percentage |")
               lines.append("|--------|-------|------------|")
-              lines.append(f"| 🟩 Passed | **{passed}** | {passed/total*100:.1f}% |")
+              lines.append(f"| <span style=\"color:#2ecc71;\">●</span> Passed | **{passed}** | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| 🟥 Failed | **{failed}** | {failed/total*100:.1f}% |")
+                  lines.append(f"| <span style=\"color:#e74c3c;\">●</span> Failed | **{failed}** | {failed/total*100:.1f}% |")
               if skipped > 0:
-                  lines.append(f"| 🟨 Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
+                  lines.append(f"| <span style=\"color:#f39c12;\">●</span> Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
               lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
 
