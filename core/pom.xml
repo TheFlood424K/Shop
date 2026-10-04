@@ -354,7 +354,12 @@
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
-                    <testFailureIgnore>true</testFailureIgnore>
+                    <!-- Tests must fail the build when they fail. This was true until
+                         2026-10-03, and it hid 50 failures + 5 errors behind a green
+                         check: CI reported success while the suite was broken.
+                         Left on "so the build still produces a JAR". The suite is green
+                         now, so it is off again — keep it off. -->
+                    <testFailureIgnore>false</testFailureIgnore>
                     <argLine>-Dnet.bytebuddy.experimental -Dnet.bytebuddy.dont-enable-optional-strict-floating-point=true -Dmockito.inline.mockmaker=true</argLine>
                 </configuration>
             </plugin>

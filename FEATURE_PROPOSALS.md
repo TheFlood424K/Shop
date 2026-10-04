@@ -1,6 +1,6 @@
 # Shop Plugin - New Feature Proposals
 
-Based on analysis of the codebase (Shop v1.x), here are 3 feature proposals that align with the existing architecture.
+Based on analysis of the codebase (Shop v1.13.5). Reviewed 2026-10-03: none of the three proposals below have been started.
 
 ---
 

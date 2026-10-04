@@ -3,14 +3,25 @@ target
 .idea
 .DS_Store
 dependency-reduced-pom.xml
-SpigotBuildTools
+/SpigotBuildTools/
 */node_modules
 .vscode/settings.json
 scripts/diff-cover.html
 scripts/diff-cover.md
 /.m2
-/build/maven-repo
 CLAUDE.md
 
 # Claude Code local agent scratch: worktrees and agent state are per-machine
 .claude/worktrees/
+
+# One-off local agent runs (see tools/Invoke-LocalCodingAgent.ps1)
+/.local-agent/
+
+# Orphaned extract of MockBukkit, which the project consumes as a test dependency
+/org/
+
+# Local developer tooling for a machine-local OpenAI-compatible endpoint
+/tools/
+
+# Ephemeral captured surefire output
+test_output.txt

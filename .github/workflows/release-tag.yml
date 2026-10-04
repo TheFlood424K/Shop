@@ -10,16 +10,17 @@ on:
         description: 'Release version (e.g. 1.14.0). Do not include the "v" prefix.'
         required: true
         type: string
-      prerelease:
-        description: 'Mark as pre-release?'
-        required: false
-        default: false
-        type: boolean
+      # NOTE: there used to be a `prerelease` input here. It was never read by anything —
+      # build.yml runs on the tag push and has no access to this workflow's inputs — so it
+      # was a no-op control. Mark a pre-release on the resulting GitHub Release instead.
 
 jobs:
   tag:
     name: Tag Release
     runs-on: ubuntu-latest
+    # A full clone plus two network pushes. GitHub's default job timeout is 6h, which
+    # would hold a runner for hours on a hung push.
+    timeout-minutes: 10
     permissions:
       contents: write
 
@@ -50,7 +51,6 @@ jobs:
       - name: Commit and tag
         run: |
           VERSION="${{ inputs.version }}"
-          PRERELEASE="${{ inputs.prerelease }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pom.xml
@@ -58,11 +58,13 @@ jobs:
           git tag "v${VERSION}"
           git push origin HEAD:main
           git push origin "v${VERSION}"
-          echo "Tagged and pushed v${VERSION} — build.yml release flow will now run."
+          echo "Tagged and pushed v${VERSION}."
 
-      - name: Trigger build workflow
-        if: github.event.inputs.prerelease == 'false'
-        run: |
-          gh workflow run build.yml --ref "v${{ inputs.version }}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # build.yml is triggered by 'push: tags: [v*]', so pushing the tag above already starts
+  # the release build. This workflow used to also dispatch build.yml by hand, which queued a
+  # second, redundant build — and passed a TAG to `gh workflow run --ref`, which expects a
+  # branch name, so it could never have resolved correctly anyway.
+  #
+  # The `prerelease` input is intentionally not forwarded: build.yml has no way to read a
+  # workflow_dispatch input from a tag-push run, so passing it was a no-op. Marking a
+  # pre-release is done on the resulting GitHub Release.

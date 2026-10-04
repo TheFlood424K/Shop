@@ -8,10 +8,18 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Read-only by default. Jobs that need to write (the tag-push release, the
-# dependency snapshot) opt in explicitly with their own `permissions:` block.
+# Read-only by default. The only job that needs write access is the tag-push
+# release, which opts in with its own `permissions:` block.
 permissions:
   contents: read
+
+# Without this, every new push to a PR branch queues another ~30 min run while
+# the superseded one keeps burning a runner and can report stale results against
+# the PR. Grouping per-ref lets PR runs self-cancel. main/tag runs are left
+# alone so a release in progress is never cancelled by a later commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-test:
@@ -19,11 +27,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # contents: write is required by softprops/action-gh-release below, which
-    # creates the GitHub Release for tag pushes. The job does not comment on
-    # PRs or open issues, so it needs no pull-requests/issues/checks write.
+    # Read-only. This job runs on every PR and every main-branch push; the only
+    # step needing write access (creating the GitHub Release) lives in the
+    # separate publish-release job below, which is tag-gated and holds
+    # contents: write. Every other run therefore needs no write scope at all.
     permissions:
-      contents: write
+      contents: read
+
+    # Exposed so publish-release can name the artifact it downloads.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout repository
@@ -53,9 +66,9 @@ jobs:
           NEW_VERSION="${CURRENT_VERSION}-${COMMIT_HASH}"
 
           echo "VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
-          echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
+          echo "JAR_FILENAME=Shop-${NEW_VERSION}.jar" >> "$GITHUB_ENV"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "jar_filename=shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
+          echo "jar_filename=Shop-${NEW_VERSION}.jar" >> "$GITHUB_OUTPUT"
 
       - name: Build & Test (single Maven invocation)
         id: build
@@ -65,10 +78,8 @@ jobs:
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
             -Dmaven.compiler.fork=false \
-            -Dparallel=methods -DthreadCount=2 \
             -DforkCount=2 -DreuseForks=true \
             -DfailIfNoTests=false \
-            -Dmaven.test.failure.ignore=true \
             clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}
           end_time=$(date +%s)
@@ -86,12 +97,10 @@ jobs:
             echo "jar_found=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Exit 0 if JAR was produced (build succeeded), else exit test code
-          if [ -n "$JAR_PATH" ]; then
-            exit 0
-          else
-            exit $TEST_EXIT
-          fi
+          # Exit on Maven's own status, never on JAR presence. A JAR is an artifact of a
+          # previous phase, not proof the whole invocation succeeded, so keying the step's
+          # status to it can only ever turn a red build green.
+          exit $TEST_EXIT
 
       - name: Generate test summary
         if: always()
@@ -172,45 +181,64 @@ jobs:
           bar = "█" * filled + "▓" * failed_filled + "░" * skipped_filled + "·" * remaining
 
           lines = []
-          lines.append("## 🧪 Test Results")
-          lines.append("")
-          lines.append(f"**Overall:** `{bar}` {pct}% ({passed}/{total} passed)")
-          lines.append("")
-
-          if total > 0:
-              lines.append("| Status | Count | Percentage |")
-              lines.append("|--------|-------|------------|")
-              lines.append(f"| ✅ Passed | **{passed}** | {passed/total*100:.1f}% |")
-              if failed > 0:
-                  lines.append(f"| ❌ Failed | **{failed}** | {failed/total*100:.1f}% |")
-              if skipped > 0:
-                  lines.append(f"| ⏭️ Skipped | **{skipped}** | {skipped/total*100:.1f}% |")
-              lines.append(f"| **Total** | **{total}** | 100% |")
+          # total == 0 means no surefire reports were produced at all — the build failed
+          # before or during compilation. "0 of 0 passed" would read as a clean run, which
+          # is the opposite of what happened.
+          if total == 0:
+              lines.append("## Tests did not run")
               lines.append("")
-
-          # Add build timing info if available
-          build_time = os.environ.get("BUILD_TIME", "")
-          if build_time:
-              lines.append(f"**Build Time:** {build_time}s")
+              lines.append("<sub>No surefire reports were produced — the build did not reach the test phase.</sub>")
+              lines.append("")
+          # A clean run gets one line. The bar and the breakdown table only appear
+          # when there is something to break down — on an all-green run they just
+          # restate the sentence above them.
+          elif failed == 0 and skipped == 0:
+              lines.append(f"## {passed} of {total} passed")
+              lines.append("")
+          else:
+              headline = f"## {passed} of {total} passed · {failed} failed"
+              if skipped > 0:
+                  headline += f" · {skipped} skipped"
+              lines.append(headline)
+              lines.append("")
+              lines.append(f"`{bar}`")
+              lines.append("")
+              lines.append("| Result | Count | Share |")
+              lines.append("|:-------|------:|------:|")
+              lines.append(f"| Passed | {passed} | {passed/total*100:.1f}% |")
+              if failed > 0:
+                  lines.append(f"| **Failed** | **{failed}** | {failed/total*100:.1f}% |")
+              if skipped > 0:
+                  lines.append(f"| Skipped | {skipped} | {skipped/total*100:.1f}% |")
+              lines.append("")
+              lines.append("<sub>`█` passed · `▓` failed · `░` skipped · `·` not run</sub>")
               lines.append("")
 
           if all_details:
-              lines.append("### 📋 Test Details (Failures & Skips)")
+              lines.append("<details>")
+              lines.append(f"<summary><b>{len(all_details)} failing or skipped "
+                           f"{'test' if len(all_details) == 1 else 'tests'}</b></summary>")
               lines.append("")
-              lines.append("| Class | Method | Status | Message |")
-              lines.append("|-------|--------|--------|---------|")
 
               class_groups = defaultdict(list)
               for classname, method, msg, status in all_details:
                   class_groups[classname].append((method, msg, status))
 
-              for classname, methods in class_groups.items():
+              current_class = None
+              for classname in sorted(class_groups):
+                  methods = class_groups[classname]
+                  short = classname.rsplit(".", 1)[-1]
+                  lines.append(f"**{short}**")
+                  lines.append("")
                   for method, msg, status in methods:
-                      # Escape pipe characters and newlines for markdown table
-                      msg_escaped = msg.replace('\n', '<br>').replace('|', '\\|')
-                      status_emoji = "❌" if status == "FAIL" else ("💥" if status == "ERROR" else "⏭️")
-                      lines.append(f"| {classname} | {method} | {status_emoji} {status} | {msg_escaped} |")
-
+                      # Escape pipes so they don't break out of the indented block
+                      msg = msg.replace("|", "\\|")
+                      mark = "✗" if status in ("FAIL", "ERROR") else "⤼"
+                      lines.append(f"- {mark} `{method}`")
+                      lines.append("")
+                      lines.append(f"  <sub>{msg}</sub>")
+                      lines.append("")
+              lines.append("</details>")
               lines.append("")
 
           with open("test-summary.md", "w") as f:
@@ -240,94 +268,123 @@ jobs:
             # Determine status based on build success (JAR produced) and test results
             # JAR_FOUND = true means build succeeded (compilation passed, artifact produced)
             if [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" = "0" ]; then
-              echo "# ✅ Build & Tests Passed"
+              echo "# ✅ Passed"
             elif [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" != "0" ]; then
-              echo "# ⚠️ Build Passed, Tests Failed"
+              echo "# ⚠️ Tests failed"
               echo ""
-              echo "> Artifact was produced successfully but some tests failed."
+              echo "The JAR was produced, but some tests did not pass."
             else
-              echo "# ❌ Build Failed"
+              echo "# ❌ Build failed"
               echo ""
-              echo "> No artifact was produced. Check compilation or test failures below."
+              echo "No JAR was produced — the build did not get far enough to package one."
               if [ -f "build-test-output.log" ]; then
                 echo ""
-                echo "### 🔍 Build Errors (last 50 lines)"
+                echo "<details><summary>Compiler output</summary>"
                 echo ""
                 echo '```'
                 tail -n 50 build-test-output.log | grep -E "(ERROR|FAILURE|error:|cannot find symbol)" | head -n 20 || tail -n 20 build-test-output.log
                 echo '```'
+                echo ""
+                echo "</details>"
               fi
             fi
             echo ""
-            echo "**Version:** ${{ env.VERSION }}"
-            echo "**Commit:** ${{ github.sha }}"
-            echo "**Branch:** ${{ github.ref_name }}"
-            echo ""
-
+            # Metadata as a single muted line rather than a table: four short fields
+            # do not need gridlines, and this keeps the vertical space for the results.
+            # <sub> wraps plain text; backticks inside it are rendered literally, so code
+            # spans stay outside and only the surrounding prose is muted.
+            META="<sub>version</sub> \`${{ env.VERSION }}\` · <sub>commit</sub> [\`${GITHUB_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})"
             if [ -n "$BUILD_TIME" ]; then
-              echo "**Build Time:** ${BUILD_TIME}s"
-              echo ""
+              echo "$META · <sub>${{ github.ref_name }} · ${BUILD_TIME}</sub>"
+            else
+              echo "$META · <sub>${{ github.ref_name }}</sub>"
             fi
+            echo ""
 
             if [ -f "test-summary.md" ]; then
               cat test-summary.md
+              # The generator's last line has no trailing blank line, and a "---" divider
+              # directly under a heading is read as a setext underline rather than a
+              # horizontal rule. Guarantee the blank line before anything appended.
+              echo ""
             else
-              echo "## 🧪 Test Results"
+              echo "## Tests"
               echo ""
-              echo "No test results available."
-              echo ""
-            fi
-
-            # Always show artifact if build succeeded (JAR was produced)
-            if [ "$JAR_FOUND" = "true" ] && [ -n "$JAR_PATH" ]; then
-              echo "## 📦 Artifacts"
-              echo ""
-              echo "⬇️ [${{ env.JAR_FILENAME }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+              echo "No test results were produced."
               echo ""
             fi
 
-            echo "---"
-            echo "**Workflow:** [${{ github.workflow }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              echo "**PR:** #${{ github.event.number }}"
-            fi
+            # Download instructions are appended after the upload step, which knows
+            # whether the artifact actually landed — see "Add artifact link" below.
           } > build-summary.md
           cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload JAR to GitHub Release (tag pushes only)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: Upload JAR as a workflow artifact
+        # Runs for every push and PR, not just tags, so a build can be downloaded and
+        # inspected without waiting for a release. Without this, PR and main-branch runs
+        # produced a JAR that nothing could download — the job summary linked to a bare
+        # run page instead.
+        if: always() && steps.build.outputs.jar_found == 'true'
+        uses: actions/upload-artifact@v7
+        id: upload_jar
         with:
-          files: 'shop-*.jar'
-          generate_release_notes: true
+          name: shop-${{ steps.version.outputs.version }}
+          path: ${{ steps.build.outputs.jar_path }}
+          if-no-files-found: error
+          retention-days: 30
 
-  dependency-submission:
-    name: Dependency Submission
+      - name: Add artifact link to the job summary
+        # Appended after the upload so it can state whether the artifact is actually
+        # there. GitHub has no direct file URL for run artifacts — they are only ever
+        # served as a zip from the run page's Artifacts section — so the honest thing to
+        # do is link that section and name the artifact, rather than a link that looks
+        # like a file download and isn't.
+        if: always() && steps.build.outputs.jar_found == 'true'
+        run: |
+          if [ "${{ steps.upload_jar.outcome }}" = "success" ]; then
+            {
+              echo "---"
+              echo ""
+              echo "\`${{ env.JAR_FILENAME }}\` <sub>is attached to this run as \`shop-${{ steps.version.outputs.version }}\` — [download it](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts). GitHub serves artifacts as a zip, so the JAR needs extracting from it.</sub>"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "---"
+              echo ""
+              echo "<sub>Artifact upload did not succeed (\`${{ steps.upload_jar.outcome }}\`). The JAR is at \`${{ steps.build.outputs.jar_path }}\` in the runner workspace.</sub>"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # Creating the GitHub Release needs contents: write. Keeping it in its own
+  # tag-gated job means build-and-test never has to run with write scope, so
+  # every PR and main-branch run executes read-only.
+  publish-release:
+    name: Publish Release
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          # Shallow clone is sufficient: the dependency action reads the POMs,
-          # not the commit history.
           fetch-depth: 1
 
-      # Identical build environment to build-and-test — see the action for why.
-      - name: Set up build environment
-        uses: ./.github/actions/setup-build-env
-
-      # The action resolves dependencies itself via depgraph-maven-plugin, so
-      # there is no separate dependency:tree step. Multi-module support (core,
-      # dist) is built in as of v5. No -Drevision is passed: the POM declares
-      # <revision> in <properties>, so Maven resolves ${revision} on its own.
-      - name: Submit dependency snapshot
-        uses: advanced-security/maven-dependency-submission-action@v6.0.1
+      - name: Download built JAR
+        uses: actions/download-artifact@v8
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          maven-args: -B -nsu -ntp
+          name: shop-${{ needs.build-and-test.outputs.version }}
+
+      - name: Attach JAR to the GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          # dist/pom.xml sets <finalName>Shop-${project.version}</finalName> — capital S.
+          # This glob used to be lowercase 'shop-*.jar', which matches nothing on a
+          # case-sensitive Linux runner, so releases were shipping with no JAR attached.
+          files: 'Shop-*.jar'
+          fail_on_unmatched_files: true
+          generate_release_notes: true

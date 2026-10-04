@@ -29,7 +29,7 @@ Each uses `dataSource.getConnection()` from HikariCP pool → connection acquisi
 
 **Files:** 
 - `ShopHandler.java` lines 52-70 (`playersWithActiveShopDisplays`, `playersActiveShopDisplayTag`)
-- `AbstractDisplay.java` lines 30-38, 626-660 (`playersSeeingDisplay`, `playersSeeingTags`)
+- `display/AbstractDisplay.java` lines 32-33, 694 (`playersSeeingDisplay`, `playersSeeingTags`)
 
 **Problem:** O(players × nearby_shops) memory growth:
 - `ShopHandler.playersWithActiveShopDisplays`: `ConcurrentHashMap<UUID, HashSet<Location>>` — one entry per player per visible shop
@@ -47,7 +47,7 @@ Each uses `dataSource.getConnection()` from HikariCP pool → connection acquisi
 
 ---
 
-### 3. **CPU: Repeated Inventory Iteration in `calculateStock()` (High Impact)**
+### 3. **CPU: Repeated Inventory Iteration in `calculateStock()` [FIXED — c966ab6]**
 
 **Files:** 
 - `AbstractShop.java` lines 221-243 (`calculateStock`)
@@ -94,10 +94,10 @@ Each uses `dataSource.getConnection()` from HikariCP pool → connection acquisi
 ### 5. **Chunk Loading: Sync Block Access in Async Contexts (Medium-High Impact)**
 
 **Files:**
-- `AbstractShop.load()` line 163: `signLocation.getBlock()` — loads chunk synchronously
-- `AbstractShop.getInventory()` line 328: `chestLocation.getBlock().getState()` — loads chunk
-- `AbstractDisplay.getItemDropLocation()` line 442: `shop.getChestLocation().getBlock().getType()` — loads chunk
-- `ShopListener.onChunkLoad()` line 413: `processUnloadedShopsInChunk()` → `shop.load()` for each shop
+- `AbstractShop.load()` line 170: `signLocation.getBlock()` — loads chunk synchronously
+- `AbstractShop.getInventory()` line 402: `chestLocation.getBlock().getState()` — loads chunk
+- `display/AbstractDisplay.getItemDropLocation()` line 495: `shop.getChestLocation().getBlock().getType()` — loads chunk
+- `ShopListener.onChunkLoad()` line 412: `processUnloadedShopsInChunk()` → `shop.load()` for each shop
 
 **Problem:** Folia region threads / async tasks calling `.getBlock()` triggers synchronous chunk loading, blocking the region thread. `onChunkLoad` processes all unloaded shops in chunk sequentially.
 
@@ -114,7 +114,7 @@ Each uses `dataSource.getConnection()` from HikariCP pool → connection acquisi
 
 ### 6. **Network/IO: Sign Updates Broadcast to All Nearby Players (Medium Impact)**
 
-**Files:** `AbstractShop.java` lines 617-680 (`updateSign`)
+**Files:** `AbstractShop.java:700-760 (`updateSign`)
 
 **Problem:** `signBlock.update(true)` sends `BlockChange` packet to **all players in chunk radius** (default 10 chunks = 320×320 blocks). Called on:
 - Every stock change (`updateStock()` → `updateSign(true)`)
@@ -133,9 +133,9 @@ Each uses `dataSource.getConnection()` from HikariCP pool → connection acquisi
 
 ---
 
-### 7. **Concurrency: CopyOnWriteArrayList for Shop Indices (Medium Impact)**
+### 7. **Concurrency: CopyOnWriteArrayList for Shop Indices [FIXED — c966ab6]**
 
-**Files:** `ShopHandler.java` lines 360-366 (`getShopLocations`)
+**Files:** `ShopHandler.java:349-355 (`getShopLocations`)
 
 **Problem:** `playerShops` and `chunkShops` use `CopyOnWriteArrayList` — **full array copy on every add/remove**. Called from:
 - `addShop()` (every shop creation)
@@ -183,11 +183,11 @@ Each uses `dataSource.getConnection()` from HikariCP pool → connection acquisi
 |---|--------|----------|--------|--------|------|
 | 1 | Dual DB writes per transaction | Database | Medium | High | Low |
 | 2 | Display entity per-player tracking | Memory | Medium | High | Medium |
-| 3 | Repeated inventory iteration | CPU | Low | High | Low |
+| 3 | Repeated inventory iteration | CPU | Low | High | Low (SHIPPED) |
 | 4 | Deep ItemStack comparison | CPU | Medium | High | Medium |
 | 5 | Sync chunk loading in async | Chunk/IO | Medium | Medium-High | Medium |
 | 6 | Sign update broadcast packets | Network | Low | Medium | Low |
-| 7 | CopyOnWriteArrayList indices | Concurrency | Low | Medium | Low |
+| 7 | CopyOnWriteArrayList indices | Concurrency | Low | Medium | Low (SHIPPED) |
 | 8 | Price/location string formatting | CPU | Low | Medium | Low |
 
 ---
@@ -197,9 +197,3 @@ Each uses `dataSource.getConnection()` from HikariCP pool → connection acquisi
 1. **Quick wins (1-2 days):** #3 (incremental stock), #7 (ConcurrentHashMap indices), #8 (price caching)
 2. **Core fixes (3-5 days):** #4 (comparison keys), #1 (batched DB), #6 (sign throttling)
 3. **Architecture (1-2 weeks):** #2 (display tracking redesign), #5 (async chunk loading)
-
----
-
-## New Feature Suggestion: **Incremental Stock Tracking**
-
-Add `InventoryChangeListener` that hooks into `InventoryClickEvent`, `InventoryDragEvent`, `HopperInventorySearchEvent` to invalidate per-shop stock cache only when that specific chest is modified externally. This enables true O(1) `getStock()` reads and eliminates the need for periodic `updateStock()` polling entirely.
