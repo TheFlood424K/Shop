@@ -592,6 +592,10 @@ public class Shop extends JavaPlugin {
         getServer().getPluginManager().registerEvents(guiListener, this);
         getServer().getPluginManager().registerEvents(spearAttackListener, this);
 
+        // After logHandler is constructed: /tx reads from it, and registering earlier would hand
+        // the command a null handler.
+        TransactionCommandHandler.register(this);
+
         //only define different listener hooks if the plugins are present on the server
         if (getServer().getPluginManager().getPlugin("WorldGuard") != null) {
             if (worldGuardExists) {

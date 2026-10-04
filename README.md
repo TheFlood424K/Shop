@@ -35,7 +35,7 @@ Built with **ease of use** as the top priority, Shop feels like a native Minecra
 | **Containers** | Chests, Trapped chests, Barrels, Copper chests, All 17 Shulker boxes |
 | **Integrations** | WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, ARM, PlotSquared, DynMap, BlueMap |
 | **Admin Tools** | Admin shops, Item list restrictions, Build limits, Offline notifications |
-| **Developer** | 6 public events, 188-test suite, Java 25, Folia compatible |
+| **Developer** | 6 public events, 251-test suite, Java 25, Folia compatible |
 
 ---
 
@@ -280,16 +280,16 @@ cd core && mvn test
 
 ## 🧪 Test Suite
 
-**188 tests** covering all functionality:
+**251 tests** covering all functionality:
 
 | Package | Tests | Coverage |
 |---------|-------|----------|
+| `handler` | 57 | Command registration, `/transactions` privacy boundary, shop handling, JDBC/URL correctness, head-icon cache |
 | `integration.features` | 53 | Cross-component workflows: destroy, save, click matrix, missing blocks, chunk loading, creation costs |
 | `listener` | 46 | Damage/interaction listeners, spear attacks, misc listeners, fork-audit regressions |
-| `shop` | 26 | AbstractShop, all shop types (Sell, Buy, Combo, Barter, Gamble), inventory/stock |
-| `handler` | 23 | Command registration, transactions, shop handling, race conditions |
+| `util` | 38 | Shop creation utils, experience currency, region anchors, fork-audit regressions |
+| `shop` | 34 | AbstractShop, all shop types (Sell, Buy, Combo, Barter, Gamble), stock counting, inventory/stock |
 | `PluginLoadIntegrationTest` | 18 | Plugin loading, handlers, config, hooks, displays, commands |
-| `util` | 17 | Shop creation utils, general utility helpers, fork-audit regressions |
 | `display` | 5 | Display creation, types, tags, sign updates |
 
 Counts are from the surefire reports for `mvn -pl core -am test`.
@@ -343,7 +343,7 @@ This fork is **438 commits ahead** of upstream `master`.
 - **Sign-Post Shop Support** — Standing signs work for using and cycling existing shops (creation is wall-sign only)
 - **Sign-Post Display Cycling** — Display cycling works with sign-post shops
 - **Stock Cache Invalidation** — Real-time stock refresh when a shop container changes
-- **Comprehensive Test Suite** — 188 tests covering all shop types, transactions, displays
+- **Comprehensive Test Suite** — 251 tests covering all shop types, transactions, displays
 - **Java 25 Support** — Full compatibility with Java 25
 - **Folia Support** — Thread-safe display removal via FoliaLib scheduler
 - **PhoenixCrates Font Stripping** — Strips custom font NBT before SNBT round-trip
@@ -428,7 +428,7 @@ worse than a red one because it is trusted:
   `-Dmaven.test.failure.ignore=true`.
 - **Surefire 3.6.0 discovers zero tests on the Linux runner.** It prints `Tests run: 0` and exits 0, so
   six PRs merged against an empty suite — including the ones that fixed the 50 failures above. The
-  same version runs all 188 tests on a Windows dev machine with an identical command, so this was
+  same version runs all 251 tests on a Windows dev machine with an identical command, so this was
   invisible locally. See [issue #39](https://github.com/TheFlood424K/Shop/issues/39).
 
 A third instance of the same genre, and the reason CI now validates the Dependabot config: **Dependabot
@@ -496,7 +496,7 @@ The following improvements were cherry-picked from the [Izopropyl/Shop](https://
 
 Pull requests are welcome! Please ensure:
 
-1. **All 188 tests pass** (`mvn test`)
+1. **All 251 tests pass** (`mvn test`)
 2. Code follows existing style and patterns
 3. New features include appropriate test coverage
 4. JavaDoc added for new public APIs
