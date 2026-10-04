@@ -280,16 +280,16 @@ cd core && mvn test
 
 ## 🧪 Test Suite
 
-**183 tests** covering all functionality:
+**188 tests** covering all functionality:
 
 | Package | Tests | Coverage |
 |---------|-------|----------|
 | `integration.features` | 53 | Cross-component workflows: destroy, save, click matrix, missing blocks, chunk loading, creation costs |
-| `listener` | 44 | Damage/interaction listeners, spear attacks, misc listeners |
+| `listener` | 46 | Damage/interaction listeners, spear attacks, misc listeners, fork-audit regressions |
 | `shop` | 26 | AbstractShop, all shop types (Sell, Buy, Combo, Barter, Gamble), inventory/stock |
 | `handler` | 23 | Command registration, transactions, shop handling, race conditions |
 | `PluginLoadIntegrationTest` | 18 | Plugin loading, handlers, config, hooks, displays, commands |
-| `util` | 14 | Shop creation utils, general utility helpers |
+| `util` | 17 | Shop creation utils, general utility helpers, fork-audit regressions |
 | `display` | 5 | Display creation, types, tags, sign updates |
 
 Counts are from the surefire reports for `mvn -pl core -am test`.
@@ -308,12 +308,12 @@ cd core && mvn test
 | Adventure API | 5.2.0 |
 | FoliaLib | 0.4.4 (shaded) |
 | IntellectualSites BOM | 1.56 |
-| WorldGuard | 7.0.18 |
+| WorldGuard | 7.0.19 |
 | Towny | 0.103.2.7 |
 | GriefPrevention | 18.0.0 |
 | HikariCP | 7.1.0 |
 | MariaDB | 3.5.10 |
-| H2 | 2.3.232 |
+| H2 | 2.5.252 |
 | Gson | 2.14.0 |
 | fastutil | 8.5.19 |
 | JUnit | 6.1.3 |
@@ -348,6 +348,46 @@ This fork is **326+ commits ahead** of upstream `master`.
 - Stock updating issues (STOCK_UNAVAILABLE sentinel, partial sales)
 - BlueMap boot timer cleanup
 
+### 💸 Economy and Transaction Correctness
+
+These change what a player actually experiences. Credit belongs to the developers whose patches were
+ported — see [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the per-commit attribution.
+
+- **Rejected Vault deposits no longer pay out in experience.** A `depositPlayer` call that Vault refused
+  used to fall through to the EXPERIENCE branch, paying the buyer in the wrong currency for a
+  transaction Vault had already declined — a double payout. *(AlexanderYW, `49eb321`)*
+- **Shop ownership is compared by UUID, never by name.** Minecraft names are not unique, so three call
+  sites that matched on name would let any player with a matching name act as the owner.
+- **"Bought 0 Items for -1 Currency"** (upstream [#48](https://github.com/snowgears/Shop/issues/48)) —
+  when a buyer could not afford a full sale, the price negotiator returned early without assigning a
+  price, so the caller read a stale `-1`.
+
+### 🖥️ Folia
+
+- **Clicking a shop in the GUI to teleport no longer throws on Folia.** `plugin.yml` declares
+  `folia-supported: true`, but that call site used the blocking `Player.teleport` directly instead of
+  routing through FoliaLib, so it threw on a region thread. Now deferred to the entity's region.
+  *(upstream [#46](https://github.com/snowgears/Shop/issues/46))*
+
+### 🪧 Signs and Messages
+
+- **Initialising a shop with a left-click no longer destroys the sign.** A single left-click fires
+  `PlayerInteractEvent` then `BlockBreakEvent`; the interact half did not cancel the event, so the
+  break half destroyed the sign just created. *(Snewmy `954d3f5`, tetralinear `c02f8c2c`)*
+- **Deleted and timed-out signs no longer rewrite themselves to placeholder text.**
+- **`[stock color]` and `[shop]` placeholders** are no longer broken or unregistered.
+- **Shop creation prompts are no longer silently dropped mid-creation** — shop types reached the message
+  lookup in three different shapes and two of them matched nothing, so no message was sent.
+- **Transaction error messages are reachable again.** A failed purchase used to tell the player nothing.
+
+### 🧮 Utility Fixes
+
+- `pushLocationInDirection` used wrong deltas for EAST, SOUTH and WEST *(AlexanderYW, Snewmy)*
+- `getLoreString` returned a `List.toString()` — e.g. `[§aline, §bsecond]` — instead of joined lines
+- `InventoryUtils.removeItem` null-dereferenced the argument before its own null guard *(AlexanderYW `9fb5611`)*
+- The log handler no longer NPEs on startup when the configured log type is null *(SamsSide `4b8a522`)*
+- Malformed UUIDs in player settings and experience files are handled instead of throwing
+
 ### ⚡ Performance Optimizations
 - **Stock Calculation Caching** — 5-second TTL, 95% fewer inventory scans
 - **Display Packet Batching** — 1-tick batching, 80% network reduction
@@ -356,12 +396,39 @@ This fork is **326+ commits ahead** of upstream `master`.
 - **Thread-Safe Shop Indices** — O(1) add/remove operations
 
 ### 🏗️ Build & CI Improvements
-- Maven Shade Plugin 3.6.2 with ASM 9.9.1 for Java 25
-- Java 25 bytecode with ASM override to 9.7.1
+- Maven Shade Plugin 3.6.2, whose bundled ASM 9.9.1 natively supports Java 25 bytecode
+- Java 25 bytecode with no ASM override needed
 - Dependency exclusion (net/kyori, provided-scope from shaded jar)
 - GitHub Actions: faster caches, parallel test execution
 - Automated release changelogs
 - Uncompressed JAR artifact upload
+
+### 🛡️ CI That Can't Report a False Pass
+
+Two failure modes in this project's history produced **green checks that verified nothing**, which is
+worse than a red one because it is trusted:
+
+- **`testFailureIgnore` was `true` for most of the project's life**, hiding 50 failures and 5 errors
+  behind a passing check. It is now `false`, and the CI command line no longer passes
+  `-Dmaven.test.failure.ignore=true`.
+- **Surefire 3.6.0 discovers zero tests on the Linux runner.** It prints `Tests run: 0` and exits 0, so
+  six PRs merged against an empty suite — including the ones that fixed the 50 failures above. The
+  same version runs all 188 tests on a Windows dev machine with an identical command, so this was
+  invisible locally. See [issue #39](https://github.com/TheFlood424K/Shop/issues/39).
+
+Current guards:
+
+| Guard | Prevents |
+|---|---|
+| `testFailureIgnore` is `false` | Failing tests being reported as a pass |
+| Build **fails** when zero tests are discovered | An empty suite being reported as a pass |
+| Summary shows "No tests ran" as its own state | An empty suite being labelled "Passed" |
+| `maven-surefire-plugin` pinned to 3.5.3 | The 3.6.0 discovery regression returning |
+| Surefire excluded from Dependabot's `maven-minor-patch` group | The pin being reverted by an automated bump |
+| `dependabot.yml` validated against its JSON schema on every CI run | One bad key silently disabling every dependency update |
+
+**If a CI summary reads "Tests did not run" or "No tests ran", the build verified nothing** — regardless
+of the green tick next to it.
 
 ---
 
