@@ -32,15 +32,17 @@
 
              Two things had to change for 3.6.0 to be safe here, and both are load-
              bearing:
-               1. The custom <includes> block was removed (see the plugin config
-                  below). Its single "**/*Test.java" pattern made surefire translate a
-                  source-shaped pattern into the .class names it scans — the one
-                  discovery step that changed behaviour between these versions. The
-                  defaults already match this suite, so nothing is lost.
+               1. The <includes> patterns lost their ".java" suffix (see the plugin
+                  config below). This is a workaround for an upstream bug,
+                  apache/maven-surefire#3465, not a style preference — 3.6.0 mangles
+                  include patterns and then matches the mangled form as a class name.
                2. build.yml no longer passes -DfailIfNoTests=false, and an "Enforce test
                   outcome" step now actually fails the job on an empty suite. The old
                   guard computed test_exit_code=1 for exactly this case but no step
-                  consumed it, so it was correct and inert.
+                  consumed it, so it was correct and inert. Note that the flag cannot
+                  simply be flipped to true instead: the dist module has no tests by
+                  design, and true fails it outright. The check has to judge core's
+                  reports, not the reactor as a whole.
 
              A local run is not proof either way: 3.6.0 runs all 188 tests on Windows
              with an identical command, and has always done so. Only the runner's log
@@ -406,23 +408,48 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${surefire.version}</version>
                 <configuration>
-                    <!-- No <includes> here on purpose. The previous value was a single
-                         <include>**/*Test.java</include>, which forces surefire to
-                         translate a source-shaped pattern into the .class names it
-                         actually scans. That translation is the one discovery step
-                         whose behaviour changed between 3.5.3 and 3.6.0: on the Linux
-                         runner 3.6.0 selected the JUnit Platform provider, printed
-                         "Tests run: 0" and exited 0 without ever naming a test class,
-                         while 3.5.3 ran all 188. Surefire's built-in defaults already
-                         match **/*Test.java, **/Test*.java and **/*Tests.java, so
-                         dropping the override removes the fragile step instead of
-                         replacing it with another guess. -->
+                    <!-- No ".java" in these patterns, deliberately.
+                         Surefire 3.6.0 has a bug (apache/maven-surefire#3465): since the
+                         unified-provider rewrite it re-applies <includes> a second time
+                         INSIDE the forked JVM, as a JUnit Platform ClassNameFilter. Before
+                         matching, it strips ".java" out of every pattern with a global
+                         substring replace, then compares what is left against a DOTTED
+                         class name rather than a class-file path. So "**/*Test.java"
+                         degrades to "**/*Test", which matches no dotted name at all, and
+                         classes the directory scanner had already selected are dropped
+                         again inside the fork.
+
+                         The symptom is silent and total: provider auto-detected, no
+                         "Running <class>" line, "Tests run: 0", exit 0, BUILD SUCCESS.
+                         Fixed upstream by PR #3466 (delegates to the same TestListResolver
+                         the scanner uses), but that is targeted at 3.6.1, which is NOT
+                         released — Central still lists 3.6.0 as <latest>. Dropping the
+                         <includes> block entirely does not help either: surefire's
+                         built-in defaults are still ".java" patterns and hit the same
+                         bug, which run 37215007114 confirmed on this branch.
+
+                         Writing the patterns without the extension sidesteps the
+                         mangling, because there is nothing for it to strip. Surefire's
+                         own scanner still resolves them against the compiled
+                         target/test-classes. Re-add the ".java" suffix only once 3.6.1
+                         ships and #3466 is in the release. -->
                     <!-- Tests must fail the build when they fail. This was true until
                          2026-10-03, and it hid 50 failures + 5 errors behind a green
                          check: CI reported success while the suite was broken.
                          Left on "so the build still produces a JAR". The suite is green
                          now, so it is off again — keep it off. -->
                     <testFailureIgnore>false</testFailureIgnore>
+                    <!-- Patterns intentionally carry no ".java" suffix — see the
+                         apache/maven-surefire#3465 note above. Surefire matches
+                         includes against compiled .class files, so dropping the
+                         extension costs nothing and is what keeps 3.6.0 from
+                         silently discovering zero tests. -->
+                    <includes>
+                        <include>**/*Test</include>
+                        <include>**/Test*</include>
+                        <include>**/*Tests</include>
+                        <include>**/*TestCase</include>
+                    </includes>
                     <argLine>-Dnet.bytebuddy.experimental -Dnet.bytebuddy.dont-enable-optional-strict-floating-point=true -Dmockito.inline.mockmaker=true</argLine>
                 </configuration>
             </plugin>

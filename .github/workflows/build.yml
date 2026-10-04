@@ -83,11 +83,12 @@ jobs:
         run: |
           set +e
           start_time=$(date +%s)
-          # No -DfailIfNoTests=false. Surefire exits 0 when it discovers no tests, and
-          # that flag makes "the suite silently vanished" indistinguishable from a
-          # green run — which is how six PRs merged against an empty suite after the
-          # surefire 3.6.0 bump. Surefire's own default is to fail when the includes
-          # match nothing, which is the behaviour this project wants.
+          # No -DfailIfNoTests flag. Surefire's default for it is false, so an empty
+          # suite exits 0 — but setting it true is not an option here either: the
+          # dist module has no tests by design, and true fails it outright
+          # ("No tests to run!"). The per-module guard has to live in the
+          # Enforce test outcome step below, which judges the core module's
+          # reports rather than trusting a reactor-wide flag.
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
             -Dmaven.compiler.fork=false \
