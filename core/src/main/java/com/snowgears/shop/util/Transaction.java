@@ -278,18 +278,9 @@ public class Transaction {
             return this.setError(TransactionError.NONE);
         }
 
-        // Update incremental stock counter for non-gamble shops
-        if (!shop.isAdmin()) {
-            // For SELL shops: player buys from shop, stock decreases
-            // For BUY shops: player sells to shop, stock increases
-            // For COMBO shops: depends on which side
-            if (shop.getType() == ShopType.SELL || (shop.getType() == ShopType.COMBO && this.transactionType == ShopType.SELL)) {
-                shop.adjustStock(-this.amountBeingSold); // Stock decreases when shop sells
-            } else if (shop.getType() == ShopType.BUY || (shop.getType() == ShopType.COMBO && this.transactionType == ShopType.BUY)) {
-                shop.adjustStock(this.amountBeingSold); // Stock increases when shop buys
-            }
-        }
-
+        // Recompute stock from the inventory. This is the authoritative update: an incremental
+        // counter cannot stand in for it, because it would have to account for every way a chest
+        // can change (hoppers, player edits, other plugins) to stay correct.
         shop.updateStock();
 
         // Successful!
