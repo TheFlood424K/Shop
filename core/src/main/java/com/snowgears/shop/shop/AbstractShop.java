@@ -905,8 +905,13 @@ public abstract class AbstractShop {
         }
 
         Location safe = findSafeTeleportLocation(preferred);
-        player.teleport(safe);
-        Shop.getPlugin().getShopListener().addTeleportCooldown(player);
+        // Teleporting is main-thread-only. plugin.yml declares folia-supported: true, and this
+        // call site was reached directly from the GUI click handler, so on a region thread it
+        // throws. Route it through FoliaLib like every other Folia-sensitive path here.
+        Shop.getPlugin().getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
+            player.teleport(safe);
+            Shop.getPlugin().getShopListener().addTeleportCooldown(player);
+        }, 1L);
     }
 
     public void printSalesInfo(Player player) {
