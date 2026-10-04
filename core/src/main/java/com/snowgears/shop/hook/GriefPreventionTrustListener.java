@@ -131,6 +131,36 @@ public class GriefPreventionTrustListener implements Listener {
     }
 
     /**
+     * Whether the player could <em>build</em> at the location — as opposed to
+     * {@link #canPlayerBuildAt}, which also accepts container trust.
+     *
+     * <p>Container trust lets someone open and take items from a chest; it does not let them
+     * destroy the block. For shop destruction that distinction matters, so this method ignores
+     * {@code allowContainers} and consults build rights alone.
+     *
+     * <p>Fails open for the same reason {@link #canPlayerBuildAt} does: a GP lookup failure must
+     * not break shop cleanup. The caller uses this to warn, not to block, so failing open loses
+     * at worst a log line.
+     */
+    public static boolean canPlayerBuildAtStrictly(Player player, Location location) {
+        try {
+            GriefPrevention gp = GriefPrevention.instance;
+            if (gp == null) return true;
+
+            Claim claim = gp.dataStore.getClaimAt(location, false, null);
+            if (claim == null) return true;
+
+            if (claim.getOwnerID() != null && claim.getOwnerID().equals(player.getUniqueId())) {
+                return true;
+            }
+
+            return claim.allowBuild(player, Material.AIR) == null;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
      * Fires at LOW priority — before GriefPrevention (NORMAL, ignoreCancelled=true).
      *
      * <p>If the right-clicked block is a shop chest inside a GP claim, pre-cancel

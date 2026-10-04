@@ -93,12 +93,23 @@ public class ShopCreationUtil {
         // Previously each check overwrote canCreateShopInRegion, meaning a later check that
         // returned true (e.g. GriefPrevention failing-open because GP isn't installed) would
         // silently erase a deny that an earlier check (e.g. WorldGuard) had already set.
+        //
+        // A shop occupies two blocks - a sign and a container. The sign goes on whichever adjacent
+        // wall face has room, so the candidate sign blocks are the chest's horizontal neighbours.
+        // Regions are volumetric, so a chest and its sign can sit either side of a WorldGuard or
+        // Towny boundary. Checking only the chest let a shop straddle that boundary, while every
+        // other region check in the plugin (ShopListener, TransactionHandler, MiscListener) uses
+        // the sign as the anchor.
         boolean canCreateShopInRegion = true;
 
         // WorldGuard region check (optional hook)
         try {
             if(plugin.worldGuardExists()) {
                 canCreateShopInRegion &= WorldGuardHook.canCreateShop(player, chest.getLocation());
+                // The sign is placed on whichever adjacent wall face has room, so the candidate
+                // sign blocks are every horizontal neighbour of the chest. A shop whose chest is
+                // allowed but every possible sign position is denied cannot be created anywhere.
+                canCreateShopInRegion &= WorldGuardHook.canCreateShopOnAnyNeighbour(player, chest);
             }
         } catch (NoClassDefFoundError e) {
             //tried to hook world guard but it was not registered
@@ -109,6 +120,7 @@ public class ShopCreationUtil {
         try {
             if(plugin.hookTowny()) {
                 canCreateShopInRegion &= TownyHook.canCreateShop(player, chest.getLocation());
+                canCreateShopInRegion &= TownyHook.canCreateShopOnAnyNeighbour(player, chest);
             }
         } catch (NoClassDefFoundError e) {
             //tried to hook towny but it was not registered
@@ -193,7 +205,12 @@ public class ShopCreationUtil {
                 }
             }
 
-            // Only wall signs are supported. Sign posts are not supported.
+            // Creation is wall-sign only, deliberately. A standing sign has to be reliably associated
+            // with the container it belongs to, and "the block below" is ambiguous once another
+            // shop is placed in between — the association is what identifies a shop, so getting it
+            // wrong is worse than declining to create one. Interaction with existing sign-post
+            // shops is supported and is not restricted by this guard; see the sign checks in
+            // ShopListener, which accept WALL_SIGNS and STANDING_SIGNS alike.
             if (!(signBlock.getBlockData() instanceof WallSign)) {
                 return null;
             }
