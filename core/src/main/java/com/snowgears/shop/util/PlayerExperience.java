@@ -75,6 +75,24 @@ public class PlayerExperience {
             }
             int experience = config.getInt("player.experience");
 
+            if (experience < 0) {
+                // Repair balances written by a version whose removal had no floor. Left as-is
+                // this value is permanent: getExperience() feeds affordability checks and message
+                // rendering, and nothing else would ever raise it back to zero.
+                Shop.getPlugin().getLogger().warning("Negative stored experience ("
+                        + experience + ") for " + uuid + " — clamping to 0.");
+                experience = 0;
+                try {
+                    config.set("player.experience", 0);
+                    config.save(playerDataFile);
+                } catch (java.io.IOException e) {
+                    // The in-memory clamp above still holds for this read; failing to persist it
+                    // only means the warning repeats next time.
+                    Shop.getPlugin().getLogger().warning("Could not persist experience repair for "
+                            + uuid + ": " + e.getMessage());
+                }
+            }
+
             PlayerExperience data = new PlayerExperience(uuid, experience);
             return data;
         }
@@ -113,7 +131,11 @@ public class PlayerExperience {
     }
 
     public void removeExperienceAmount(int amount) {
-        experience = experience - amount;
+        // Clamp at zero. The online path in EconomyUtils.removeFunds cannot go negative —
+        // setTotalExperience recomputes level and exp, which floors at level 0 — so clamping
+        // here makes the two paths agree. Without it an offline player paying a cost can be
+        // driven to a negative stored balance that persists to disk.
+        experience = Math.max(0, experience - amount);
         saveToFile();
     }
 
