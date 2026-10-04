@@ -459,4 +459,15 @@ class TransactionCommandSelfOnlyTest {
         }
         return names;
     }
+
+    // --- what this file deliberately leaves uncovered --------------------------------------------
+    //
+    // getShopTransactions is never called against a real database. It runs the query off-thread and
+    // hops the callback back through runNextTick, and the owner_uuid predicate it binds is asserted
+    // by reading LogHandler's SQL rather than by running it — DbSetupIndexTest already proves that
+    // SQL runs against the indexed schema, so a second end-to-end path would duplicate that at the
+    // cost of a slower, more brittle test. What is left genuinely unverified is that the owner_uuid
+    // binding cannot be widened by a future edit *inside* getShopTransactions itself: nothing here
+    // or in TransactionCommandSubjectTest would notice if a new OR-ed predicate were appended to that
+    // WHERE clause. Pinning it needs a populated transaction table, which no test currently builds.
 }
