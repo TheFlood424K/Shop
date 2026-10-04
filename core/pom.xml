@@ -36,7 +36,7 @@
              cannot reintroduce the failure silently. build.yml additionally fails the
              build when total == 0, so the next such regression is caught even if this
              pin is removed. -->
-        <surefire.version>3.5.3</surefire.version>
+        <surefire.version>3.6.0</surefire.version>
     </properties>
 
     <!-- core module info -->
