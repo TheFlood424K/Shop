@@ -143,7 +143,7 @@ public class EconomyUtils {
                 return (stock >= amount);
             case EXPERIENCE:
                 int exp = getExperience(player);
-                return (exp > amount);
+                return (exp >= amount);
             default:
                 return false;
         }
