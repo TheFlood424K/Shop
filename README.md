@@ -363,7 +363,7 @@ This fork is **438 commits ahead** of upstream `master`.
 ### 💸 Economy and Transaction Correctness
 
 These change what a player actually experiences. Credit belongs to the developers whose patches were
-ported — see [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the per-commit attribution.
+ported; each bullet names the fork and commit it came from.
 
 - **Rejected Vault deposits no longer pay out in experience.** A `depositPlayer` call that Vault refused
   used to fall through to the EXPERIENCE branch, paying the buyer in the wrong currency for a
