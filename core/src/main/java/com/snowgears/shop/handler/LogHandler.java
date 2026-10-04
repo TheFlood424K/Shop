@@ -71,6 +71,25 @@ public class LogHandler {
         plugin.getLogger().helpful("Offline Purchase Notifications are Enabled!");
     }
 
+    /**
+     * Builds the MySQL JDBC URL from the configured connection properties.
+     *
+     * <p>The first property opens the query string and every one after it is joined with '&amp;'.
+     * Prefixing each with '?' instead builds {@code jdbc:mysql://host/db?a=b?c=d}, which the driver
+     * rejects — and because the failure surfaces as a bare connection error rather than a config
+     * error, a server owner sees an unexplained startup failure. One property happens to work by
+     * accident, which is why this went unnoticed.
+     */
+    static String buildMySqlJdbcUrl(String serverName, int port, String databaseName, List<String> connectionProperties) {
+        StringBuilder jdbcURL = new StringBuilder("jdbc:mysql://").append(serverName).append(":").append(port).append("/").append(databaseName);
+        char separator = '?';
+        for (String property : connectionProperties) {
+            jdbcURL.append(separator).append(property);
+            separator = '&';
+        }
+        return jdbcURL.toString();
+    }
+
     public void startup(YamlConfiguration shopConfig){
         String type = shopConfig.getString("logging.type");
         String serverName = shopConfig.getString("logging.serverName");
@@ -91,11 +110,7 @@ public class LogHandler {
 
         if (type.equalsIgnoreCase("MYSQL")) {
             dataSource = new HikariDataSource();
-            String jdbcURL = "jdbc:mysql://"+serverName+":"+port+"/"+databaseName;
-            for(String property : connectionProperties){
-                jdbcURL += "?"+property;
-            }
-            dataSource.setJdbcUrl(jdbcURL);
+            dataSource.setJdbcUrl(buildMySqlJdbcUrl(serverName, port, databaseName, connectionProperties));
             dataSource.setUsername(username);
             dataSource.setPassword(password);
             dataSource.setLeakDetectionThreshold(10000);
