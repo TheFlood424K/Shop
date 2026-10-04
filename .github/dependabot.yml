@@ -41,7 +41,7 @@ updates:
         update-types:
           - minor
           - patch
-        exclude-dependencies:
+        exclude-patterns:
           - "org.apache.maven.plugins:maven-surefire-plugin"
       maven-security:
         applies-to: security-updates
