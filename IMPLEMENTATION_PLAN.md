@@ -13,7 +13,9 @@
 | **Top 3 Optimizations** | #3 Incremental Stock, #7 Shop Indices, #8 Price/Location Caching | Lowest effort/risk, highest combined impact (~80% CPU allocation reduction on hot paths) |
 | **New Feature** | **Shop Templates & Blueprints** | S–M complexity, Low risk, immediate value for both admins & players, leverages existing creation flow |
 
-**Status (2026-10-03)**: #3 Incremental Stock — SHIPPED in c966ab6. #7 Shop Indices — SHIPPED in c966ab6. #8 Price/Location Caching — NOT STARTED. Shop Templates (PART 2) — NOT IMPLEMENTED.
+**Status (audited 2026-10-04)**: #3 Incremental Stock — code shipped in `c966ab6` but **never wired**, zero
+callers of `getCachedStock()` (#43). #7 Shop Indices — genuinely shipped in `c966ab6`. #8
+Price/Location Caching — NOT STARTED. Shop Templates (PART 2) — NOT IMPLEMENTED.
 
 ---
 
@@ -237,7 +239,14 @@ public String getCleanLocation(boolean includeWorld) {
 
 ## PART 2: New Feature — Shop Templates & Blueprints System [PROPOSED — NOT IMPLEMENTED]
 
-**Reference**: FEATURE_PROPOSALS.md §1 | Complexity: **S–M** | Risk: **Low**
+**Reference**: [`FEATURE_PROPOSALS.md`](FEATURE_PROPOSALS.md) §1 | Complexity: **S–M** | Risk: **Low**
+
+**This is the canonical spec.** Proposal 1 was specified in both documents with a conflicting storage
+design; this one is the more detailed of the two and won. `FEATURE_PROPOSALS.md` §1 has been corrected
+to point here. That file also carries two further proposals this plan does **not** adopt: Dynamic
+Supply-Demand Pricing (§2) and Cross-Server Shop Network (§3). §3's complexity estimate is
+optimistic — `ShopHandler` and `TransactionHandler` are concrete classes with no interface seam, so
+there is nothing to swap.
 
 ---
 
