@@ -181,14 +181,22 @@ jobs:
           bar = "█" * filled + "▓" * failed_filled + "░" * skipped_filled + "·" * remaining
 
           lines = []
+          # total == 0 means no surefire reports were produced at all — the build failed
+          # before or during compilation. "0 of 0 passed" would read as a clean run, which
+          # is the opposite of what happened.
+          if total == 0:
+              lines.append("## Tests did not run")
+              lines.append("")
+              lines.append("<sub>No surefire reports were produced — the build did not reach the test phase.</sub>")
+              lines.append("")
           # A clean run gets one line. The bar and the breakdown table only appear
           # when there is something to break down — on an all-green run they just
           # restate the sentence above them.
-          if failed == 0 and skipped == 0:
-              lines.append(f"### {passed} of {total} passed")
+          elif failed == 0 and skipped == 0:
+              lines.append(f"## {passed} of {total} passed")
               lines.append("")
           else:
-              headline = f"### {passed} of {total} passed · {failed} failed"
+              headline = f"## {passed} of {total} passed · {failed} failed"
               if skipped > 0:
                   headline += f" · {skipped} skipped"
               lines.append(headline)
@@ -295,8 +303,12 @@ jobs:
 
             if [ -f "test-summary.md" ]; then
               cat test-summary.md
+              # The generator's last line has no trailing blank line, and a "---" divider
+              # directly under a heading is read as a setext underline rather than a
+              # horizontal rule. Guarantee the blank line before anything appended.
+              echo ""
             else
-              echo "### Tests"
+              echo "## Tests"
               echo ""
               echo "No test results were produced."
               echo ""
