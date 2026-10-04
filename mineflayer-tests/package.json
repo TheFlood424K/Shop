@@ -9,7 +9,7 @@
   "author": "Sky Young",
   "license": "UNLICENSED",
   "dependencies": {
-    "mineflayer": "^4.26.0",
+    "mineflayer": "^4.39.0",
     "mineflayer-pathfinder": "^2.4.5"
   }
 }
