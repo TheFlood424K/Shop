@@ -297,6 +297,16 @@ public class EconomyUtils {
     }
 
     public static void setTotalExperience(Player player, int amount) {
+        // Player.setTotalExperience() rejects negative totals, and the quadratic solve below
+        // produces one for any amount <= 0 because no branch matches. An over-draw therefore
+        // reached giveExp() with a negative remainder and threw. Zero experience is level 0 by
+        // definition, so clamping is both correct and the intended result of spending a balance.
+        if (amount <= 0) {
+            player.setLevel(0);
+            player.setExp(0f);
+            return;
+        }
+
         int level = 0;
         int xp = 0;
         float a = 0;
