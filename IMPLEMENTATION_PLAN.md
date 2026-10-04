@@ -575,7 +575,17 @@ was missed. On Folia it throws on the region thread.
 Fix: `plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> player.teleport(safe), 1L)`,
 matching the pattern used elsewhere. **Highest value-to-risk item in this plan.**
 
-### B3. `[Bug] Shops spam console with HTTP 429` — upstream #29 — inherited verbatim
+### B3. `[Bug] Shops spam console with HTTP 429` — upstream #29 — **DOES NOT APPLY, no change made**
+
+Checked both trees before acting. Our `ShopGuiHandler.reloadPlayerHeadIcon` resolves a head via
+`SkullMeta.setOwningPlayer(offlinePlayer)` — a Bukkit call, not a direct Mojang session/profile
+request. `grep` finds no `getProfile` / `completeCachedProfiles` / `getPlayerProfile` / `OnlineProfile`
+anywhere in `core/src/main`, and the same is true of upstream `master`. The upstream report describes a
+code path this fork does not have, so there is nothing to guard here. Recorded rather than "fixed".
+
+Original entry follows for context:
+
+#### Original B3 entry
 
 Head prefetch ignores `enableGUI`, so every head-icon render hits Mojang's API regardless of whether the
 GUI is enabled.
@@ -657,6 +667,8 @@ Open alert, patched in 11.1.1. Test-harness only, not shipped in the plugin. Han
 | A4 four small guards | `5863625` | removeItem null-deref, lore join, 2x UUID parse, LogHandler NPE |
 | C2 three BOM pins | `99acf0d` | clears the HIGH plexus-utils advisory; nothing shaded |
 | A2 event cancel on init | `4557288` | see caveat below |
+| B1 stale price (upstream #48) | `143771f` | zero-quantity case now sets fields explicitly |
+| B3 HTTP 429 (upstream #29) | — | **does not apply**, no change made |
 
 **A2 caveat worth recording.** `CreativeSelectionListener.onPreShopSignClick` *already* cancelled
 uninitialised sign clicks — but only when `allowCreativeSelection` is enabled. With it off,
