@@ -289,6 +289,11 @@ public class ShopListener implements Listener {
         // single call is now consolidated here.
         plugin.getFoliaLib().getScheduler().runLater(() -> {
             PlayerNameCache.cacheName(event.getPlayer().getUniqueId(), event.getPlayer().getName());
+            // A head cached while this player was offline may be a placeholder, and their skin may
+            // have changed while away. Dropping it here rebuilds on next render. Added to this
+            // existing handler rather than a second @EventHandler for PlayerJoinEvent — the Bug 12
+            // comment above records why a duplicate handler was a bug.
+            plugin.getGuiHandler().invalidatePlayerHead(event.getPlayer().getUniqueId());
         }, 5);
 
         //delete all shops from players that have not played in X amount of hours (if configured)

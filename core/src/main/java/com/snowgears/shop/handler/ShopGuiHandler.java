@@ -8,6 +8,7 @@ import com.snowgears.shop.util.PlayerSettings;
 import com.snowgears.shop.util.ShopMessage;
 import com.snowgears.shop.util.UtilMethods;
 import net.md_5.bungee.api.ChatColor;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -21,6 +22,7 @@ import org.bukkit.persistence.PersistentDataType;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class ShopGuiHandler {
@@ -49,7 +51,23 @@ public class ShopGuiHandler {
     private HashMap<GuiIcon, ItemStack> guiIcons = new HashMap<>();
     private HashMap<GuiTitle, String> guiWindowTitles = new HashMap<>();
 
-    private HashMap<UUID, ItemStack> playerHeads = new HashMap<>();
+    /**
+     * Cached owner head icons, keyed by owner UUID.
+     *
+     * <p>Only the <em>skull</em> is cached — never the formatted display name or lore. Those embed
+     * shop-specific placeholders such as the shop count, so caching them would freeze a value that
+     * changes as the owner creates and destroys shops. Formatting happens per render instead.
+     *
+     * <p>Entries expire so a head resolved while the owner was offline (yielding a placeholder skull)
+     * is retried later, and so a player who changes their skin is eventually picked up. Explicit
+     * invalidation on join handles the same problem immediately rather than after the TTL.
+     */
+    private final ConcurrentHashMap<UUID, CachedHead> playerHeads = new ConcurrentHashMap<>();
+
+    private static final long HEAD_CACHE_TTL_MILLIS = 5 * 60 * 1000L;
+
+    /** A cached skull and the time it stops being considered fresh. */
+    private record CachedHead(ItemStack skull, long expiresAt) {}
 
     public ShopGuiHandler(Shop instance){
         plugin = instance;
@@ -82,37 +100,17 @@ public class ShopGuiHandler {
             return;
 
         UUID playerUUID = shop.getOwnerUUID();
-        OfflinePlayer offlinePlayer = shop.getOwner();
-        ItemStack playerHead = playerHeads.get(playerUUID);
-        ItemMeta itemMeta;
-        ItemStack placeHolderIcon;
-        if(playerHead == null) {
-            //playerUUID is the fake admin UUID
-            if(playerUUID.equals(plugin.getShopHandler().getAdminUUID())) {
-                playerHead = Shop.getPlugin().getGuiHandler().getIcon(GuiIcon.ALL_ADMIN_ICON, playerUUID, null).clone();
-                itemMeta = playerHead.getItemMeta();
-            }
-            else{
-                playerHead = new ItemStack(Material.PLAYER_HEAD);
-                itemMeta = playerHead.getItemMeta();
+        boolean isAdminShop = playerUUID.equals(plugin.getShopHandler().getAdminUUID());
 
-                if (offlinePlayer != null && offlinePlayer.getName() != null)
-                    ((SkullMeta)itemMeta).setOwningPlayer(offlinePlayer);
-            }
+        // The skull is the only part worth caching; name and lore are rebuilt below on every call
+        // because they embed per-shop placeholders.
+        ItemStack playerHead = resolveHead(playerUUID, isAdminShop);
 
-        }
-        else{
-            itemMeta =  playerHead.getItemMeta();
-        }
+        ItemStack placeHolderIcon = Shop.getPlugin().getGuiHandler()
+                .getIcon(isAdminShop ? GuiIcon.ALL_ADMIN_ICON : GuiIcon.ALL_PLAYER_ICON, playerUUID, null);
 
-        if(playerUUID.equals(plugin.getShopHandler().getAdminUUID())) {
-            //get the placeholder icon with all of the unformatted fields
-            placeHolderIcon = Shop.getPlugin().getGuiHandler().getIcon(GuiIcon.ALL_ADMIN_ICON, playerUUID, null);
-        }
-        else {
-            //get the placeholder icon with all of the unformatted fields
-            placeHolderIcon = Shop.getPlugin().getGuiHandler().getIcon(GuiIcon.ALL_PLAYER_ICON, playerUUID, null);
-        }
+        ItemStack rendered = playerHead.clone();
+        ItemMeta itemMeta = rendered.getItemMeta();
 
         String name = ShopMessage.formatMessage(placeHolderIcon.getItemMeta().getDisplayName(), shop);
         if (name == null || name.isEmpty()) {
@@ -131,21 +129,64 @@ public class ShopGuiHandler {
         PersistentDataContainer container = itemMeta.getPersistentDataContainer();
         container.set(Shop.getPlugin().getPlayerUUIDNameSpacedKey(), PersistentDataType.STRING, playerUUID.toString());
 
-        playerHead.setItemMeta(itemMeta);
+        rendered.setItemMeta(itemMeta);
+        playerHeads.put(playerUUID, new CachedHead(rendered, System.currentTimeMillis() + HEAD_CACHE_TTL_MILLIS));
+    }
 
-        playerHeads.put(playerUUID, playerHead);
+    /**
+     * Returns a fresh clone of the cached skull, rebuilding it when absent or expired.
+     *
+     * <p>Resolution prefers the online player, because {@code Bukkit.getOfflinePlayer} can touch the
+     * profile cache and block. Offline lookups therefore only happen once per TTL window.
+     */
+    private ItemStack resolveHead(UUID playerUUID, boolean isAdminShop) {
+        CachedHead cached = playerHeads.get(playerUUID);
+        if (cached != null && cached.expiresAt() > System.currentTimeMillis()) {
+            return cached.skull().clone();
+        }
+
+        ItemStack skull;
+        if (isAdminShop) {
+            skull = plugin.getGuiHandler().getIcon(GuiIcon.ALL_ADMIN_ICON, playerUUID, null).clone();
+        } else {
+            skull = new ItemStack(Material.PLAYER_HEAD);
+            OfflinePlayer owner = Bukkit.getPlayer(playerUUID) != null
+                    ? Bukkit.getPlayer(playerUUID)
+                    : Bukkit.getOfflinePlayer(playerUUID);
+            if (owner != null && owner.getName() != null) {
+                ((SkullMeta) skull.getItemMeta()).setOwningPlayer(owner);
+            }
+        }
+        return skull;
+    }
+
+    /**
+     * Drops a cached head so the next render rebuilds it.
+     *
+     * <p>Called when an owner joins — their head is resolvable and their skin may have changed — and
+     * when their last shop is removed, which bounds the cache to the set of current owners.
+     */
+    public void invalidatePlayerHead(UUID playerUUID) {
+        if (playerUUID != null) {
+            playerHeads.remove(playerUUID);
+        }
     }
 
     public ItemStack getPlayerHeadIcon(UUID playerUUID){
-        if(playerHeads.containsKey(playerUUID))
-            return playerHeads.get(playerUUID);
+        CachedHead cached = playerHeads.get(playerUUID);
+        if(cached != null && cached.expiresAt() > System.currentTimeMillis())
+            return cached.skull().clone();
         return new ItemStack(Material.AIR);
     }
 
     public ArrayList<ItemStack> getShopOwnerHeads(){
-        return playerHeads.values().stream().collect(
-                Collectors.toCollection(ArrayList::new)
-        );
+        List<ItemStack> heads = new ArrayList<>();
+        for (CachedHead cached : playerHeads.values()) {
+            if (cached.expiresAt() > System.currentTimeMillis()) {
+                heads.add(cached.skull().clone());
+            }
+        }
+        return new ArrayList<>(heads);
     }
 
     public GuiIcon getIconFromOption(Player player, PlayerSettings.Option option){

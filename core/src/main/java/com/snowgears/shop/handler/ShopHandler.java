@@ -246,6 +246,13 @@ public class ShopHandler {
                 changed = true;
             }
 
+            // Evict the owner's cached head once their last shop is gone, so the GUI cache stays
+            // bounded by the number of current owners rather than growing with every player who has
+            // ever owned a shop.
+            if (playerShops.get(shop.getOwnerUUID()) == null) {
+                plugin.getGuiHandler().invalidatePlayerHead(shop.getOwnerUUID());
+            }
+
             if (changed) {
                 Shop.getPlugin().getLogger().debug("Removed Shop internally from ShopHandler: " + shop);
                 // Immediate force save if there were any changes since we deleted a shop
