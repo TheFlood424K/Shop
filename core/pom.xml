@@ -18,24 +18,37 @@
         <paper.version>26.2.build.129-stable</paper.version>
         <!-- Adventure version matching paper-api 26.2 -->
         <adventure.version>5.2.0</adventure.version>
-        <!-- PINNED. Do not bump without a CI run that reports a non-zero test count.
-             3.6.0 discovers ZERO tests on the Linux GitHub runner: surefire prints
-             "Tests run: 0, Failures: 0" and exits 0, so the build looks green. Six PRs
-             merged that way (issue #39), including the ones that fixed 50 test failures.
-             The same 3.6.0 runs all 188 tests locally on Windows with an identical
-             command, so the failure is specific to the runner, not to this tree.
+        <!-- Do not bump without reading the CI log's "Tests run:" line, not just its
+             green tick. 3.6.0 once discovered ZERO tests on the Linux runner: surefire
+             printed "Tests run: 0" and exited 0, so the build looked green and six PRs
+             merged that way (issue #39), including the ones fixing 50 test failures.
 
-             3.5.3 is the last version confirmed to discover the suite in CI (run
-             50e3965: 183 tests). 3.6.0 rewrote the provider architecture — all frameworks
-             now route through one surefire-junit-platform provider and the legacy
-             junit3/4/47/testng providers were removed — which is the most likely cause,
-             though a four-variant probe failed twice on its own plumbing before it could
-             confirm it. That is why this is a pin rather than a diagnosed fix.
+             What the logs actually showed, compared run-for-run on the same commit:
+               3.5.3  provider selected, then 26 "Running <class>" lines, 188 tests
+               3.6.0  provider selected, then no "Running" line at all, 0 tests
+             The same 33 test sources compiled in both, and the same
+             JUnitPlatformProvider was auto-detected in both — so this was test
+             *selection*, not a fork that failed to start and not a missing engine.
 
-             Dependabot's maven-minor-patch group excludes this artifact so a grouped bump
-             cannot reintroduce the failure silently. build.yml additionally fails the
-             build when total == 0, so the next such regression is caught even if this
-             pin is removed. -->
+             Two things had to change for 3.6.0 to be safe here, and both are load-
+             bearing:
+               1. The custom <includes> block was removed (see the plugin config
+                  below). Its single "**/*Test.java" pattern made surefire translate a
+                  source-shaped pattern into the .class names it scans — the one
+                  discovery step that changed behaviour between these versions. The
+                  defaults already match this suite, so nothing is lost.
+               2. build.yml no longer passes -DfailIfNoTests=false, and an "Enforce test
+                  outcome" step now actually fails the job on an empty suite. The old
+                  guard computed test_exit_code=1 for exactly this case but no step
+                  consumed it, so it was correct and inert.
+
+             A local run is not proof either way: 3.6.0 runs all 188 tests on Windows
+             with an identical command, and has always done so. Only the runner's log
+             can confirm a version bump. That asymmetry is why the guard in (2) matters
+             more than any pin — it makes the failure loud instead of silent.
+
+             Dependabot's maven-minor-patch group still excludes this artifact, but the
+             exclusion is now belt-and-braces rather than the only defence. -->
         <surefire.version>3.6.0</surefire.version>
     </properties>
 
@@ -393,9 +406,17 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${surefire.version}</version>
                 <configuration>
-                    <includes>
-                        <include>**/*Test.java</include>
-                    </includes>
+                    <!-- No <includes> here on purpose. The previous value was a single
+                         <include>**/*Test.java</include>, which forces surefire to
+                         translate a source-shaped pattern into the .class names it
+                         actually scans. That translation is the one discovery step
+                         whose behaviour changed between 3.5.3 and 3.6.0: on the Linux
+                         runner 3.6.0 selected the JUnit Platform provider, printed
+                         "Tests run: 0" and exited 0 without ever naming a test class,
+                         while 3.5.3 ran all 188. Surefire's built-in defaults already
+                         match **/*Test.java, **/Test*.java and **/*Tests.java, so
+                         dropping the override removes the fragile step instead of
+                         replacing it with another guess. -->
                     <!-- Tests must fail the build when they fail. This was true until
                          2026-10-03, and it hid 50 failures + 5 errors behind a green
                          check: CI reported success while the suite was broken.

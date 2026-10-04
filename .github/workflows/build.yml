@@ -83,11 +83,15 @@ jobs:
         run: |
           set +e
           start_time=$(date +%s)
+          # No -DfailIfNoTests=false. Surefire exits 0 when it discovers no tests, and
+          # that flag makes "the suite silently vanished" indistinguishable from a
+          # green run — which is how six PRs merged against an empty suite after the
+          # surefire 3.6.0 bump. Surefire's own default is to fail when the includes
+          # match nothing, which is the behaviour this project wants.
           mvn -B -nsu -ntp -T 1C -Drevision=${{ env.VERSION }} \
             -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
             -Dmaven.compiler.fork=false \
             -DforkCount=2 -DreuseForks=true \
-            -DfailIfNoTests=false \
             clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}
           end_time=$(date +%s)
@@ -356,6 +360,49 @@ jobs:
           path: ${{ steps.build.outputs.jar_path }}
           if-no-files-found: error
           retention-days: 30
+
+      # The test-report step computes test_exit_code=1 when it discovers zero tests,
+      # but nothing consumed that value: every later step is `if: always()`, so the
+      # job still reported success. That is the whole reason an empty suite could
+      # merge six times over — the guard was correct and inert. This step is what
+      # actually fails the run.
+      #
+      # It runs after the summary steps so the human-readable explanation is written
+      # before the job goes red, and it deliberately re-raises the build's own exit
+      # code rather than inventing one: if `mvn` already failed, that failure is the
+      # interesting one and reporting "zero tests" instead would bury it.
+      - name: Enforce test outcome
+        if: always()
+        run: |
+          BUILD_EXIT="${{ steps.build.outputs.test_exit_code }}"
+          REPORT_EXIT="${{ steps.test-report.outputs.test_exit_code }}"
+
+          # The report step could not run at all (build died before the test phase),
+          # so there is no report to judge. The build step's own status is the verdict.
+          if [ -z "$REPORT_EXIT" ]; then
+            echo "No test report was produced; deferring to the build step (exit ${BUILD_EXIT})."
+            exit "${BUILD_EXIT:-1}"
+          fi
+
+          if [ "$BUILD_EXIT" != "0" ]; then
+            echo "::error::Maven exited ${BUILD_EXIT}. See the 'Build & Test' step."
+            exit "$BUILD_EXIT"
+          fi
+
+          if [ "$REPORT_EXIT" != "0" ]; then
+            TOTAL="${{ steps.test-report.outputs.total }}"
+            FAILED="${{ steps.test-report.outputs.failed }}"
+            if [ "${TOTAL:-0}" -eq 0 ]; then
+              echo "::error::Zero tests were discovered. Surefire can exit 0 when its" \
+                   "includes match nothing, so a broken discovery configuration is" \
+                   "indistinguishable from a passing build. This run verified nothing."
+            else
+              echo "::error::${FAILED} of ${TOTAL} tests failed."
+            fi
+            exit 1
+          fi
+
+          echo "All ${{ steps.test-report.outputs.total }} tests passed."
 
       - name: Add artifact link to the job summary
         # Appended after the upload so it can state whether the artifact is actually
