@@ -13,7 +13,9 @@
 | **Top 3 Optimizations** | #3 Incremental Stock, #7 Shop Indices, #8 Price/Location Caching | Lowest effort/risk, highest combined impact (~80% CPU allocation reduction on hot paths) |
 | **New Feature** | **Shop Templates & Blueprints** | S–M complexity, Low risk, immediate value for both admins & players, leverages existing creation flow |
 
-**Status (2026-10-03)**: #3 Incremental Stock — SHIPPED in c966ab6. #7 Shop Indices — SHIPPED in c966ab6. #8 Price/Location Caching — NOT STARTED. Shop Templates (PART 2) — NOT IMPLEMENTED.
+**Status (audited 2026-10-04)**: #3 Incremental Stock — code shipped in `c966ab6` but **never wired**, zero
+callers of `getCachedStock()` (#43). #7 Shop Indices — genuinely shipped in `c966ab6`. #8
+Price/Location Caching — NOT STARTED. Shop Templates (PART 2) — NOT IMPLEMENTED.
 
 ---
 
@@ -21,7 +23,16 @@
 
 ---
 
-### OPTIMIZATION 1: Incremental Stock Tracking (Eliminate Full Inventory Scans) [SHIPPED — c966ab6]
+### OPTIMIZATION 1: Incremental Stock Tracking (Eliminate Full Inventory Scans) [PARTIALLY SHIPPED — `c966ab6`, NOT WIRED]
+
+> **The `[FIXED]` marker on this item was wrong until 2026-10-04 and has been audited.** The supporting
+> code shipped in `c966ab6` and is correct — `stockCounter`, `stockDirty`, `getCachedStock()`,
+> `adjustStock()`, `markStockDirty()` all exist, and `adjustStock()` is called from `Transaction.java`.
+> But **`getCachedStock()` has zero callers**: not in `core/src/main`, not in `core/src/test`. All five
+> production consumers call `getStock()`, which returns the raw field and triggers the full scan. The
+> 80–90% CPU reduction is therefore **zero in practice**. Tracked as
+> [#43](https://github.com/TheFlood424K/Shop/issues/43). `PERFORMANCE_ANALYSIS.md` §3's `[FIXED]`
+> marker is corrected by the same issue.
 
 **Reference**: PERFORMANCE_ANALYSIS.md §3 | `AbstractShop.java:237` | `InventoryUtils.java:139`
 
@@ -228,7 +239,14 @@ public String getCleanLocation(boolean includeWorld) {
 
 ## PART 2: New Feature — Shop Templates & Blueprints System [PROPOSED — NOT IMPLEMENTED]
 
-**Reference**: FEATURE_PROPOSALS.md §1 | Complexity: **S–M** | Risk: **Low**
+**Reference**: [`FEATURE_PROPOSALS.md`](FEATURE_PROPOSALS.md) §1 | Complexity: **S–M** | Risk: **Low**
+
+**This is the canonical spec.** Proposal 1 was specified in both documents with a conflicting storage
+design; this one is the more detailed of the two and won. `FEATURE_PROPOSALS.md` §1 has been corrected
+to point here. That file also carries two further proposals this plan does **not** adopt: Dynamic
+Supply-Demand Pricing (§2) and Cross-Server Shop Network (§3). §3's complexity estimate is
+optimistic — `ShopHandler` and `TransactionHandler` are concrete classes with no interface seam, so
+there is nothing to swap.
 
 ---
 
@@ -320,7 +338,7 @@ core/src/main/java/com/snowgears/shop/template/
 ### Phase 1: Quick Wins (1-2 days)
 | Order | Task | Est. Effort | Status |
 |-------|------|-------------|--------|
-| 1 | **DONE** — Incremental stock tracking (PERF #3) | 6-8 hrs | SHIPPED c966ab6 |
+| 1 | **PARTIAL** — Incremental stock tracking (PERF #3) | 6-8 hrs | code shipped `c966ab6`, **never wired** — issue #43 |
 | 2 | **DONE** — Shop indices to ConcurrentLinkedQueue (PERF #7) | 3-4 hrs | SHIPPED c966ab6 |
 | 3 | **TODO** — Price/location caching (PERF #8) | 4-6 hrs | |
 
@@ -500,18 +518,23 @@ compounded offset. Add `break` to all four cases.
 
 ### A4. Small correctness guards
 
-| Fix | Location | Credit | Problem |
-|---|---|---|---|
-| `getLoreString()` returns `List.toString()` | `UtilMethods.java:533-537` | Snewmy `954d3f5` | Multi-line lore renders `[a, b]`; 7 call sites in `ShopMessage` |
-| `PlayerSettings.loadFromFile` NPE | `PlayerSettings.java:132` | SamsSide/CraftedShop `0dde2e2` | Unguarded `UUID.fromString` on a hand-edited YAML bricks that player's GUI |
-| `LogHandler.startup` NPE | `LogHandler.java:75,83` | SamsSide/CraftedShop `4b8a522` | `type.equalsIgnoreCase(...)` on a raw read; missing key kills plugin load in `onEnable` |
-| `InventoryUtils.removeItem` deref before null check | `InventoryUtils.java:23-27` | AlexanderYW `9fb5611` | `itemStack.getAmount()` on line 24 runs **before** the `itemStack == null` test on line 26 |
-| `PlayerExperience.loadFromFile` NPE | `PlayerExperience.java:66` | AlexanderYW `a9eb8dc` | Same unguarded `UUID.fromString` |
-| EXPERIENCE exact-balance purchase rejected | — | AlexanderYW `c8d5f02` | `exp > amount` rejects an exact-balance purchase |
-| MySQL JDBC URL `?a=b?c=d` | — | AlexanderYW `a9eb8dc` | `jdbcURL += "?" + property` per property |
+Five of these seven shipped in `5863625`. The last two are **still open** — the table previously had no
+status column, so an unfixed row read the same as a fixed one. Both are player- or operator-facing and
+are filed as issues rather than left implied.
 
-All Low risk, XS effort. The `InventoryUtils.removeItem` one is the sharpest — a null-deref before the
-guard meant to catch it.
+| Fix | Location | Credit | Status | Problem |
+|---|---|---|---|---|
+| `getLoreString()` returns `List.toString()` | `UtilMethods.java:533-537` | Snewmy `954d3f5` | ✅ `5863625` | Multi-line lore renders `[a, b]`; 7 call sites in `ShopMessage` |
+| `PlayerSettings.loadFromFile` NPE | `PlayerSettings.java:132` | SamsSide/CraftedShop `0dde2e2` | ✅ `5863625` | Unguarded `UUID.fromString` on a hand-edited YAML bricks that player's GUI |
+| `LogHandler.startup` NPE | `LogHandler.java:75,83` | SamsSide/CraftedShop `4b8a522` | ✅ `5863625` | `type.equalsIgnoreCase(...)` on a raw read; missing key kills plugin load in `onEnable` |
+| `InventoryUtils.removeItem` deref before null check | `InventoryUtils.java:23-27` | AlexanderYW `9fb5611` | ✅ `5863625` | `itemStack.getAmount()` on line 24 runs **before** the `itemStack == null` test on line 26 |
+| `PlayerExperience.loadFromFile` NPE | `PlayerExperience.java:66` | AlexanderYW `a9eb8dc` | ✅ `5863625` | Same unguarded `UUID.fromString` |
+| EXPERIENCE exact-balance purchase rejected | `EconomyUtils.java:146` | AlexanderYW `c8d5f02` | ❌ **OPEN** | `exp > amount` rejects an exact-balance purchase; VAULT and ITEM both use `>=` |
+| MySQL JDBC URL `?a=b?c=d` | `LogHandler.java:95-97` | AlexanderYW `a9eb8dc` | ❌ **OPEN** | `jdbcURL += "?" + property` per property; needs `&` |
+
+The `InventoryUtils.removeItem` one was the sharpest of the shipped five — a null-deref before the guard
+meant to catch it. Of the two open ones, the EXPERIENCE one is player-facing and a one-character fix:
+a player whose experience is exactly the shop price is told they cannot afford it.
 
 ### A5. Dead `/transactions` command — **Izopropyl/Shop `f743628`, `d22ea59`, `3d600ad`, `16d5f7a`**
 
@@ -664,11 +687,30 @@ Open alert, patched in 11.1.1. Test-harness only, not shipped in the plugin. Han
 | B2 Folia teleport | `5863625` | `runAtEntityLater`, matching ShopHandler/AbstractDisplay |
 | A1 addFunds double-pay | `5863625` | `return false` after a rejected Vault deposit |
 | A3 pushLocationInDirection | `5863625` | `break` in all four cases |
-| A4 four small guards | `5863625` | removeItem null-deref, lore join, 2x UUID parse, LogHandler NPE |
+| A4 five small guards | `5863625` | removeItem null-deref, lore join, 2x UUID parse, LogHandler NPE — **two of seven still open, #44** |
 | C2 three BOM pins | `99acf0d` | clears the HIGH plexus-utils advisory; nothing shaded |
 | A2 event cancel on init | `4557288` | see caveat below |
 | B1 stale price (upstream #48) | `143771f` | zero-quantity case now sets fields explicitly |
 | B3 HTTP 429 (upstream #29) | — | **does not apply**, no change made |
+| D1 surefire 3.5.3 pin + zero-test guard | `4dcb89a` | CI verified running 188 tests; was 0 |
+| D2 dependabot schema fix + CI validator | `fa86933`, `723db66` | whole config was inert over one bad key |
+| Docs corrections across four files | `2bb8a75`, `3240289`, `987f6d6`, `eca202c` | false markers retracted, contradictions resolved |
+
+## Open items, tracked as issues
+
+| Item | Issue | Blocked on |
+|---|---|---|
+| A4 `exp > amount` + JDBC `?`/`&` | [#44](https://github.com/TheFlood424K/Shop/issues/44) | nothing — both mechanical |
+| PERF #3 dead optimization | [#43](https://github.com/TheFlood424K/Shop/issues/43) | nothing — decide per call site; needs tests |
+| A9 `shop_action` indexes | [#41](https://github.com/TheFlood424K/Shop/issues/41) | nothing for indexes; retention is a policy call |
+| A8 region checks test the chest | [#42](https://github.com/TheFlood424K/Shop/issues/42) | partly — GriefPrevention scope |
+| A5 `/transactions` dead command | [#47](https://github.com/TheFlood424K/Shop/issues/47) | **permissions decision on owner selector** |
+| Head icons never invalidate | [#45](https://github.com/TheFlood424K/Shop/issues/45) | nothing — pick a policy |
+| Sign-post create/use split | [#46](https://github.com/TheFlood424K/Shop/issues/46) | **design decision** |
+| B4 missing `LICENSE` | [#40](https://github.com/TheFlood424K/Shop/issues/40) | **copyright holder** |
+| A6 OfflinePlayer throttling | — | design-first |
+| A7 GriefPrevention claim safety | — | design-first |
+| PERF #8 price/location caching | — | nothing — confirmed unstarted, 4–6 hrs |
 
 **A2 caveat worth recording.** `CreativeSelectionListener.onPreShopSignClick` *already* cancelled
 uninitialised sign clicks — but only when `allowCreativeSelection` is enabled. With it off,
@@ -679,15 +721,20 @@ flag; without doing so the test passes whether or not the fix exists, which it i
 
 ## Execution order
 
-1. **B2** — Folia teleport. Smallest change, clearest bug, highest value.
-2. **C2** — three pins. Clears the HIGH alert. Verify the tree before and after.
-3. **A1** — double payout. Needs a test first.
-4. **A2** — event cancel. Needs a regression test.
-5. **A3**, **A4** — mechanical guards.
-6. **B1**, **B3** — upstream bugs.
-7. **A9** indexes, then retention.
-8. **A5** `/transactions` command — needs the permissions decision.
-9. **A6**, **A7**, **A8** — design-first items.
+1. ~~**B2** — Folia teleport. Smallest change, clearest bug, highest value.~~ **done** `5863625`
+2. ~~**C2** — three pins. Clears the HIGH alert.~~ **done** `99acf0d`
+3. ~~**A1** — double payout.~~ **done** `5863625`
+4. ~~**A2** — event cancel.~~ **done** `4557288`
+5. ~~**A3**~~ **done** `5863625`. **A4** — five of seven guards done `5863625`; the last two are
+   [#44](https://github.com/TheFlood424K/Shop/issues/44) and need nothing.
+6. ~~**B1**~~ **done** `143771f`. ~~**B3**~~ **does not apply**.
+7. **#44** — the two open A4 guards. Mechanical, player-facing, do these first.
+8. **#41** — `shop_action` indexes. Cheapest genuine win; unblocks `/transactions` from being slow.
+9. **#43** — wire the stock cache. The largest correctness-of-claim gap; needs tests.
+10. **#45** — head icon invalidation. Small, self-contained.
+11. **#42**, **#46** — region-check anchor, sign-post split. Both need a decision before code.
+12. **#47** — `/transactions`. Needs the permissions decision first.
+13. **A6**, **A7**, **PERF #8** — design-first or self-contained.
 
 ---
 

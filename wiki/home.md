@@ -71,8 +71,8 @@ Players can then interact with the shop by right-clicking the sign.
 
 ## Requirements
 
-- **Paper 26.2+** (Paper 26.2.build.111-stable recommended, which is Minecraft 1.21.8)
-- Java 21+ (Java 25 supported)
+- **Paper 26.2+** (Paper 26.2.build.129-stable recommended)
+- Java 25+ (the plugin is compiled to Java 25 bytecode; earlier runtimes will not load it)
 - Vault (for economy currency)
 - Optional: WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, AdvancedRegionMarket, PlotSquared, DynMap, BlueMap
 

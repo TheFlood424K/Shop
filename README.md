@@ -6,7 +6,7 @@
 [![bStats Players](https://img.shields.io/bstats/players/25211?style=flat-square&color=blueviolet&logo=databricks&logoColor=white)](https://bstats.org/plugin/bukkit/shop-the-intuitive-shop-plugin/25211)
 [![Paper Version](https://img.shields.io/badge/Paper-26.2%2B-2ea44f?style=flat-square&logo=minecraft&logoColor=white)](https://papermc.io/downloads)
 [![Purpur Version](https://img.shields.io/badge/Purpur-26.2%2B-5e2d91?style=flat-square&logo=minecraft&logoColor=white)](https://purpurmc.org/)
-[![Java Version](https://img.shields.io/badge/Java-21%2B%20%7C%2025-007396?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
+[![Java Version](https://img.shields.io/badge/Java-25%2B-007396?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
 [![License](https://img.shields.io/github/license/TheFlood424K/Shop?style=flat-square&color=informational)](LICENSE)
 
 [![Shop Plugin](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)](https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/)
@@ -35,7 +35,7 @@ Built with **ease of use** as the top priority, Shop feels like a native Minecra
 | **Containers** | Chests, Trapped chests, Barrels, Copper chests, All 17 Shulker boxes |
 | **Integrations** | WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, ARM, PlotSquared, DynMap, BlueMap |
 | **Admin Tools** | Admin shops, Item list restrictions, Build limits, Offline notifications |
-| **Developer** | Full API, Events, 183 test suite, Java 25 support, Folia compatible |
+| **Developer** | 6 public events, 188-test suite, Java 25, Folia compatible |
 
 ---
 
@@ -154,7 +154,7 @@ allowPartialSales: true
 checkItemDurability: true
 ignoreItemRepairCost: true
 
-# Integrations (all enabled by default)
+# Integrations (most enabled by default; Towny, DynMap and BlueMap ship disabled)
 worldGuard:
   enabled: true
   requireAllowShopFlag: false
@@ -230,7 +230,7 @@ displayBatchDelay: 2            # ticks between batches
 |-------------|---------|-------|
 | **Paper** | 26.2+ | 26.2.build.129-stable recommended |
 | **Purpur** | 26.2+ | Fully compatible (DivineMC, etc.) |
-| **Java** | 21+ | Java 25 fully supported |
+| **Java** | **25+** | Required — the plugin is compiled to Java 25 bytecode and will not load on an earlier runtime |
 | **Vault** | 1.7+ | Required for economy currency |
 | **Optional Plugins** | Latest | WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, ARM, PlotSquared, DynMap, BlueMap |
 
@@ -264,7 +264,7 @@ displayBatchDelay: 2            # ticks between batches
 # 2. Compile the plugin
 ./compile.sh
 
-# Output: target/shop-{version}.jar
+# Output: target/Shop-{version}.jar   (capital S — see note below)
 ```
 
 ### Development Setup
@@ -280,16 +280,16 @@ cd core && mvn test
 
 ## 🧪 Test Suite
 
-**183 tests** covering all functionality:
+**188 tests** covering all functionality:
 
 | Package | Tests | Coverage |
 |---------|-------|----------|
 | `integration.features` | 53 | Cross-component workflows: destroy, save, click matrix, missing blocks, chunk loading, creation costs |
-| `listener` | 44 | Damage/interaction listeners, spear attacks, misc listeners |
+| `listener` | 46 | Damage/interaction listeners, spear attacks, misc listeners, fork-audit regressions |
 | `shop` | 26 | AbstractShop, all shop types (Sell, Buy, Combo, Barter, Gamble), inventory/stock |
 | `handler` | 23 | Command registration, transactions, shop handling, race conditions |
 | `PluginLoadIntegrationTest` | 18 | Plugin loading, handlers, config, hooks, displays, commands |
-| `util` | 14 | Shop creation utils, general utility helpers |
+| `util` | 17 | Shop creation utils, general utility helpers, fork-audit regressions |
 | `display` | 5 | Display creation, types, tags, sign updates |
 
 Counts are from the surefire reports for `mvn -pl core -am test`.
@@ -308,30 +308,42 @@ cd core && mvn test
 | Adventure API | 5.2.0 |
 | FoliaLib | 0.4.4 (shaded) |
 | IntellectualSites BOM | 1.56 |
-| WorldGuard | 7.0.18 |
+| WorldGuard | 7.0.19 |
 | Towny | 0.103.2.7 |
 | GriefPrevention | 18.0.0 |
 | HikariCP | 7.1.0 |
 | MariaDB | 3.5.10 |
-| H2 | 2.3.232 |
+| H2 | 2.5.252 |
 | Gson | 2.14.0 |
 | fastutil | 8.5.19 |
 | JUnit | 6.1.3 |
-| Mockito | 5.24.0 / 5.2.0 (inline) |
+| Mockito | 5.24.0 (inline mock maker via `-Dmockito.inline.mockmaker=true`) |
 | MockBukkit | 4.116.1 |
 | ByteBuddy | 1.18.14 |
+
+### Pinned to clear Dependabot advisories
+
+These three are `provided` scope and are not shaded into the JAR. The IntellectualSites BOM was
+silently pinning each **below** what `paper-api` 26.2 requires, so they are pinned explicitly in
+`core/pom.xml`. Restoring them closes three open Dependabot security advisories, **one of them HIGH**.
+
+| Dependency | Pinned to |
+|---|---|
+| log4j-api | 2.26.0 |
+| plexus-utils | 3.6.1 |
+| commons-lang3 | 3.18.0 |
 
 ---
 
 ## 🔄 Changes from Upstream (SnowGears/Shop)
 
-This fork is **326+ commits ahead** of upstream `master`.
+This fork is **438 commits ahead** of upstream `master`.
 
 ### 🚀 Major Features (Not in Upstream)
-- **Sign-Post Shop Support** — Full support for standing signs in all interactions
+- **Sign-Post Shop Support** — Standing signs work for using and cycling existing shops (creation is wall-sign only)
 - **Sign-Post Display Cycling** — Display cycling works with sign-post shops
-- **Shop Analytics Foundation** — Real-time cache invalidation hooks
-- **Comprehensive Test Suite** — 183 tests covering all shop types, transactions, displays
+- **Stock Cache Invalidation** — Real-time stock refresh when a shop container changes
+- **Comprehensive Test Suite** — 188 tests covering all shop types, transactions, displays
 - **Java 25 Support** — Full compatibility with Java 25
 - **Folia Support** — Thread-safe display removal via FoliaLib scheduler
 - **PhoenixCrates Font Stripping** — Strips custom font NBT before SNBT round-trip
@@ -348,6 +360,49 @@ This fork is **326+ commits ahead** of upstream `master`.
 - Stock updating issues (STOCK_UNAVAILABLE sentinel, partial sales)
 - BlueMap boot timer cleanup
 
+### 💸 Economy and Transaction Correctness
+
+These change what a player actually experiences. Credit belongs to the developers whose patches were
+ported — see [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the per-commit attribution.
+
+- **Rejected Vault deposits no longer pay out in experience.** A `depositPlayer` call that Vault refused
+  used to fall through to the EXPERIENCE branch, paying the buyer in the wrong currency for a
+  transaction Vault had already declined — a double payout. *(AlexanderYW, `49eb321`)*
+- **Known defect:** under `currency.type: EXPERIENCE`, a player whose XP is *exactly* the shop price is
+  told they cannot afford it — the balance check uses `>` where the Vault and ITEM branches correctly
+  use `>=`. Tracked in [issue #44](https://github.com/TheFlood424K/Shop/issues/44).
+- **Shop ownership is compared by UUID, never by name.** Minecraft names are not unique, so three call
+  sites that matched on name would let any player with a matching name act as the owner.
+- **"Bought 0 Items for -1 Currency"** (upstream [#48](https://github.com/snowgears/Shop/issues/48)) —
+  when a buyer could not afford a full sale, the price negotiator returned early without assigning a
+  price, so the caller read a stale `-1`.
+
+### 🖥️ Folia
+
+- **Clicking a shop in the GUI to teleport no longer throws on Folia.** `plugin.yml` declares
+  `folia-supported: true`, but that call site used the blocking `Player.teleport` directly instead of
+  routing through FoliaLib, so it threw on a region thread. Now deferred to the entity's region.
+  *(upstream [#46](https://github.com/snowgears/Shop/issues/46))*
+
+### 🪧 Signs and Messages
+
+- **Initialising a shop with a left-click no longer destroys the sign.** A single left-click fires
+  `PlayerInteractEvent` then `BlockBreakEvent`; the interact half did not cancel the event, so the
+  break half destroyed the sign just created. *(Snewmy `954d3f5`, tetralinear `c02f8c2c`)*
+- **Deleted and timed-out signs no longer rewrite themselves to placeholder text.**
+- **`[stock color]` and `[shop]` placeholders** are no longer broken or unregistered.
+- **Shop creation prompts are no longer silently dropped mid-creation** — shop types reached the message
+  lookup in three different shapes and two of them matched nothing, so no message was sent.
+- **Transaction error messages are reachable again.** A failed purchase used to tell the player nothing.
+
+### 🧮 Utility Fixes
+
+- `pushLocationInDirection` used wrong deltas for EAST, SOUTH and WEST *(AlexanderYW, Snewmy)*
+- `getLoreString` returned a `List.toString()` — e.g. `[§aline, §bsecond]` — instead of joined lines
+- `InventoryUtils.removeItem` null-dereferenced the argument before its own null guard *(AlexanderYW `9fb5611`)*
+- The log handler no longer NPEs on startup when the configured log type is null *(SamsSide `4b8a522`)*
+- Malformed UUIDs in player settings and experience files are handled instead of throwing
+
 ### ⚡ Performance Optimizations
 - **Stock Calculation Caching** — 5-second TTL, 95% fewer inventory scans
 - **Display Packet Batching** — 1-tick batching, 80% network reduction
@@ -356,12 +411,47 @@ This fork is **326+ commits ahead** of upstream `master`.
 - **Thread-Safe Shop Indices** — O(1) add/remove operations
 
 ### 🏗️ Build & CI Improvements
-- Maven Shade Plugin 3.6.2 with ASM 9.9.1 for Java 25
-- Java 25 bytecode with ASM override to 9.7.1
+- Maven Shade Plugin 3.6.2, whose bundled ASM 9.9.1 natively supports Java 25 bytecode
+- Java 25 bytecode with no ASM override needed
 - Dependency exclusion (net/kyori, provided-scope from shaded jar)
 - GitHub Actions: faster caches, parallel test execution
 - Automated release changelogs
-- Uncompressed JAR artifact upload
+- JAR uploaded as a workflow artifact on every run (30-day retention; GitHub serves it as a zip from the run page's `#artifacts` anchor)
+
+### 🛡️ CI That Can't Report a False Pass
+
+Two failure modes in this project's history produced **green checks that verified nothing**, which is
+worse than a red one because it is trusted:
+
+- **`testFailureIgnore` was `true` for most of the project's life**, hiding 50 failures and 5 errors
+  behind a passing check. It is now `false`, and the CI command line no longer passes
+  `-Dmaven.test.failure.ignore=true`.
+- **Surefire 3.6.0 discovers zero tests on the Linux runner.** It prints `Tests run: 0` and exits 0, so
+  six PRs merged against an empty suite — including the ones that fixed the 50 failures above. The
+  same version runs all 188 tests on a Windows dev machine with an identical command, so this was
+  invisible locally. See [issue #39](https://github.com/TheFlood424K/Shop/issues/39).
+
+A third instance of the same genre, and the reason CI now validates the Dependabot config: **Dependabot
+rejects the entire `.github/dependabot.yml` over a single unrecognised key**, rather than ignoring the
+one entry it does not recognise. The file used `exclude-dependencies`; the real key is
+`exclude-patterns`. The file parsed as valid YAML, so nothing local flagged it — the only symptom was
+that **no dependency update PRs ever appeared**, including the surefire exclusion above. The whole
+update pipeline was inert, which is also why four Dependabot security alerts sat open: Dependabot
+could not bump dependencies nothing declared.
+
+Current guards:
+
+| Guard | Prevents |
+|---|---|
+| `testFailureIgnore` is `false` | Failing tests being reported as a pass |
+| Build **fails** when zero tests are discovered | An empty suite being reported as a pass |
+| Summary shows "No tests ran" as its own state | An empty suite being labelled "Passed" |
+| `maven-surefire-plugin` pinned to 3.5.3 | The 3.6.0 discovery regression returning |
+| Surefire excluded from Dependabot's `maven-minor-patch` group | The pin being reverted by an automated bump |
+| `dependabot.yml` validated against its JSON schema on every CI run | One bad key silently disabling every dependency update |
+
+**If a CI summary reads "Tests did not run" or "No tests ran", the build verified nothing** — regardless
+of the green tick next to it.
 
 ---
 
@@ -388,7 +478,10 @@ The following improvements were cherry-picked from the [Izopropyl/Shop](https://
 - **File:** `core/src/main/java/com/snowgears/shop/gui/ShopGUIListener.java`
 
 ### 🔧 Sign System Refactor
-- **Removed sign post (standing sign) support** — Only wall signs are now supported
+- **Shop *creation* is wall-sign only.** A sign-post shop can be used and cycled, but cannot be
+  created — the creation path checks `instanceof WallSign` in `MiscListener`, `ShopCreationUtil`,
+  `CreativeSelectionListener` and `UtilMethods`. Sign-post shops created before that restriction still
+  work: `ShopListener` accepts both `WALL_SIGNS` and `STANDING_SIGNS` for interaction and display cycling.
 - Simplifies chest detection logic significantly
 - **Files:** `MiscListener.java`, `ShopCreationUtil.java`, `AbstractShop.java`, `ShopHandler.java`
 
@@ -403,7 +496,7 @@ The following improvements were cherry-picked from the [Izopropyl/Shop](https://
 
 Pull requests are welcome! Please ensure:
 
-1. **All 183 tests pass** (`mvn test`)
+1. **All 188 tests pass** (`mvn test`)
 2. Code follows existing style and patterns
 3. New features include appropriate test coverage
 4. JavaDoc added for new public APIs
@@ -434,7 +527,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ## 🙏 Acknowledgments
 
 - **Original Author:** [SnowGears](https://github.com/snowgears/Shop) — Created the foundation
-- **Fork Maintainer:** [TheFlood424K](https://github.com/TheFlood424K) — 326+ commits of improvements
+- **Fork Maintainer:** [TheFlood424K](https://github.com/TheFlood424K) — 438 commits of improvements
 - **Contributors:** All test writers, bug reporters, and PR authors
 
 ---
