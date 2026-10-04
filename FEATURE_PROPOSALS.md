@@ -1,6 +1,24 @@
 # Shop Plugin - New Feature Proposals
 
-Based on analysis of the codebase (Shop v1.13.5). Reviewed 2026-10-03: none of the three proposals below have been started.
+Based on analysis of the codebase (Shop v1.13.5). Re-verified 2026-10-04: none of the three proposals
+below have been started. A case-insensitive grep for `ShopTemplate|TemplateManager|DynamicPricing|
+PriceScalingConfig|NetworkShop|NetworkDisplay|proxy.enabled` across `core/src/main` returns nothing, and
+`config.yml` has no `templates:` or `defaultTemplates:` key.
+
+> **Note on Proposal 1 (Shop Templates).** This is specified **twice** — here and as
+> [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) PART 2, which is the more detailed spec and is the
+> canonical version. Where the two disagreed on storage (this file said `defaultTemplates:` in
+> `config.yml`; the plan said `templates/<playerUUID>/<name>.yml` on disk), the plan's file-based design
+> won, because a player-owned template library does not belong in a config file that admins hand-edit.
+> `defaultTemplates:` remains as the admin-preset entry point in both. This summary has been corrected
+> to match.
+
+> **Note on Proposal 3 (Cross-Server).** Its "Complexity: L — isolates behind handler interfaces"
+> rationale rests on a false premise, verified 2026-10-04: `ShopHandler.java:44` and
+> `TransactionHandler.java:19` are **concrete classes**, not interfaces, and neither implements one.
+> There is no seam to swap. `LogHandler` likewise has exactly three hardcoded branches
+> (`MYSQL`/`MARIADB`/`H2`) with no pluggable persistence abstraction, so "extend for Redis" means a
+> fourth path or a rewrite. Treat the L estimate as optimistic and re-scope before starting.
 
 ---
 
