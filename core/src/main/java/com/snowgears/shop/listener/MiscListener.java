@@ -308,11 +308,22 @@ public class MiscListener implements Listener {
         final boolean handIsEmpty = itemInHand.getType() == Material.AIR;
 
         if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
-            handleShopLeftClick(player, event.getClickedBlock(), itemInHand, event.getBlockFace());
+            handleShopLeftClick(player, event.getClickedBlock(), itemInHand, event.getBlockFace(), event);
         }
     }
 
     public void handleShopLeftClick(Player player, Block clicked, ItemStack itemInHand, BlockFace blockFace) {
+        handleShopLeftClick(player, clicked, itemInHand, blockFace, null);
+    }
+
+    /**
+     * @param event the originating interact event, when there is one. A single left-click fires
+     *              PlayerInteractEvent and then BlockBreakEvent, so without cancelling the
+     *              interact the sign we just initialised is destroyed by the break half of the
+     *              same click. Null for callers with no event (spear attacks).
+     */
+    public void handleShopLeftClick(Player player, Block clicked, ItemStack itemInHand, BlockFace blockFace,
+                                     PlayerInteractEvent event) {
         if (clicked.getBlockData() instanceof WallSign) {
 
             if(!plugin.getAllowCreationMethodSign())
@@ -335,6 +346,10 @@ public class MiscListener implements Listener {
                 initializedShop = plugin.getShopCreationUtil().initializeShop(shop, player, itemInHand, null);
 
             if(initializedShop){
+                // Stop the BlockBreakEvent that follows this click from destroying the sign we
+                // just initialised.
+                if (event != null)
+                    event.setCancelled(true);
                 plugin.getShopCreationUtil().sendCreationSuccess(player, shop);
                 plugin.getLogHandler().logAction(player, shop, ShopActionType.INIT);
             }
