@@ -5,6 +5,8 @@ import com.snowgears.shop.Shop;
 import java.lang.reflect.Method;
 import java.util.logging.Level;
 import org.bukkit.Bukkit;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -277,6 +279,31 @@ public class WorldGuardHook {
 
         private Internal() {}
     }
+
+    /**
+     * Returns true when the shop's sign could legally be placed on at least one face adjacent to
+     * the chest.
+     *
+     * <p>A shop is a sign plus a container, and the sign goes on whichever wall face beside the
+     * chest has room. Regions are volumetric, so a chest and its sign can fall either side of a
+     * WorldGuard boundary — checking the chest alone let a shop straddle one. At least one candidate
+     * sign position must be allowed, otherwise no face would produce a legal shop.
+     */
+    public static boolean canCreateShopOnAnyNeighbour(Player player, Block chest) {
+        Shop plugin = Shop.getPlugin();
+        if (plugin == null || !plugin.isWorldGuardIntegrationEnabled()) return true;
+        if (!plugin.worldGuardExists()) return true;
+        if (player.isOp() || (plugin.usePerms() && player.hasPermission("shop.operator"))) return true;
+        for (BlockFace face : SIGN_FACES) {
+            if (canCreateShop(player, chest.getRelative(face).getLocation())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final BlockFace[] SIGN_FACES =
+            {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
 
     public static boolean canCreateShop(Player player, Location location) {
         Shop plugin = Shop.getPlugin();

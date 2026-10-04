@@ -4,6 +4,7 @@ import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.AbstractDisplay;
 import com.snowgears.shop.event.PlayerDestroyShopEvent;
 import com.snowgears.shop.event.PlayerResizeShopEvent;
+import com.snowgears.shop.hook.GriefPreventionTrustListener;
 import com.snowgears.shop.hook.WorldGuardHook;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ShopType;
@@ -667,6 +668,19 @@ public class MiscListener implements Listener {
                     event.setCancelled(true);
                     ShopMessage.sendMessage("permission", "destroy", player, shop);
                     return;
+                }
+
+                // Warn when the owner's claim no longer grants them build rights at this shop.
+                // Deliberately a warning, not a block: a shop inside someone else's claim is a
+                // legitimate configuration, and a player who lost claim access must still be able
+                // to remove their own shop. Container trust does not count here — it permits opening
+                // the chest, not deleting it.
+                if (plugin.isGriefPreventionTrustIntegrationEnabled()
+                        && !GriefPreventionTrustListener.canPlayerBuildAtStrictly(player, shop.getChestLocation())) {
+                    plugin.getLogger().warning("Player " + player.getName() + " (" + player.getUniqueId()
+                            + ") destroyed shop " + shop.getSignLocation()
+                            + " but GriefPrevention denies them build rights there."
+                            + " The shop may have been built before a claim transfer or resize.");
                 }
 
                 //if players must pay to create shops, remove money first
