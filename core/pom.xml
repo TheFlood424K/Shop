@@ -97,6 +97,29 @@
                 <scope>import</scope>
             </dependency>
 
+            <!-- The BOM above declares its own dependencyManagement, which silently pins
+                 these three BELOW what paper-api 26.2 needs. Restoring the versions paper-api
+                 expects clears three open Dependabot advisories, one of them HIGH.
+                 Same hazard the net.kyori pins below already work around, but the BOM did not
+                 previously reach these.
+                 All three resolve to `provided` scope, none is imported by our source, and
+                 none is shaded into the JAR. See IMPLEMENTATION_PLAN.md §C2. -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-api</artifactId>
+                <version>2.26.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-utils</artifactId>
+                <version>3.6.1</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.18.0</version>
+            </dependency>
+
             <!-- Pin Adventure to 5.2.0 (matches paper-api 26.2) — overrides
                  whatever the IntellectualSites BOM declares for net.kyori. -->
             <dependency>
