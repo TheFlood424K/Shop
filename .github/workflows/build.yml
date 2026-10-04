@@ -47,6 +47,14 @@ jobs:
           # clone is enough and is much faster.
           fetch-depth: 1
 
+      # Dependabot rejects the WHOLE config file over a single unrecognised key, and
+      # the symptom is silence rather than an error — a typo disabled every update in
+      # this repository without anything failing. This runs before the build so a
+      # broken config is caught here instead of being discovered weeks later by the
+      # absence of PRs. Cheap: no JDK setup needed beyond what the runner already has.
+      - name: Validate dependabot config
+        run: python3 scripts/validate-dependabot.py
+
       # JDK 25, the toolchains.xml shim, Maven caching, and the Dynmap/BlockProt
       # jars all live in this shared action (see the comment in it for why).
       - name: Set up build environment
