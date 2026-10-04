@@ -687,11 +687,30 @@ Open alert, patched in 11.1.1. Test-harness only, not shipped in the plugin. Han
 | B2 Folia teleport | `5863625` | `runAtEntityLater`, matching ShopHandler/AbstractDisplay |
 | A1 addFunds double-pay | `5863625` | `return false` after a rejected Vault deposit |
 | A3 pushLocationInDirection | `5863625` | `break` in all four cases |
-| A4 four small guards | `5863625` | removeItem null-deref, lore join, 2x UUID parse, LogHandler NPE |
+| A4 five small guards | `5863625` | removeItem null-deref, lore join, 2x UUID parse, LogHandler NPE — **two of seven still open, #44** |
 | C2 three BOM pins | `99acf0d` | clears the HIGH plexus-utils advisory; nothing shaded |
 | A2 event cancel on init | `4557288` | see caveat below |
 | B1 stale price (upstream #48) | `143771f` | zero-quantity case now sets fields explicitly |
 | B3 HTTP 429 (upstream #29) | — | **does not apply**, no change made |
+| D1 surefire 3.5.3 pin + zero-test guard | `4dcb89a` | CI verified running 188 tests; was 0 |
+| D2 dependabot schema fix + CI validator | `fa86933`, `723db66` | whole config was inert over one bad key |
+| Docs corrections across four files | `2bb8a75`, `3240289`, `987f6d6`, `eca202c` | false markers retracted, contradictions resolved |
+
+## Open items, tracked as issues
+
+| Item | Issue | Blocked on |
+|---|---|---|
+| A4 `exp > amount` + JDBC `?`/`&` | [#44](https://github.com/TheFlood424K/Shop/issues/44) | nothing — both mechanical |
+| PERF #3 dead optimization | [#43](https://github.com/TheFlood424K/Shop/issues/43) | nothing — decide per call site; needs tests |
+| A9 `shop_action` indexes | [#41](https://github.com/TheFlood424K/Shop/issues/41) | nothing for indexes; retention is a policy call |
+| A8 region checks test the chest | [#42](https://github.com/TheFlood424K/Shop/issues/42) | partly — GriefPrevention scope |
+| A5 `/transactions` dead command | [#47](https://github.com/TheFlood424K/Shop/issues/47) | **permissions decision on owner selector** |
+| Head icons never invalidate | [#45](https://github.com/TheFlood424K/Shop/issues/45) | nothing — pick a policy |
+| Sign-post create/use split | [#46](https://github.com/TheFlood424K/Shop/issues/46) | **design decision** |
+| B4 missing `LICENSE` | [#40](https://github.com/TheFlood424K/Shop/issues/40) | **copyright holder** |
+| A6 OfflinePlayer throttling | — | design-first |
+| A7 GriefPrevention claim safety | — | design-first |
+| PERF #8 price/location caching | — | nothing — confirmed unstarted, 4–6 hrs |
 
 **A2 caveat worth recording.** `CreativeSelectionListener.onPreShopSignClick` *already* cancelled
 uninitialised sign clicks — but only when `allowCreativeSelection` is enabled. With it off,
@@ -702,15 +721,20 @@ flag; without doing so the test passes whether or not the fix exists, which it i
 
 ## Execution order
 
-1. **B2** — Folia teleport. Smallest change, clearest bug, highest value.
-2. **C2** — three pins. Clears the HIGH alert. Verify the tree before and after.
-3. **A1** — double payout. Needs a test first.
-4. **A2** — event cancel. Needs a regression test.
-5. **A3**, **A4** — mechanical guards.
-6. **B1**, **B3** — upstream bugs.
-7. **A9** indexes, then retention.
-8. **A5** `/transactions` command — needs the permissions decision.
-9. **A6**, **A7**, **A8** — design-first items.
+1. ~~**B2** — Folia teleport. Smallest change, clearest bug, highest value.~~ **done** `5863625`
+2. ~~**C2** — three pins. Clears the HIGH alert.~~ **done** `99acf0d`
+3. ~~**A1** — double payout.~~ **done** `5863625`
+4. ~~**A2** — event cancel.~~ **done** `4557288`
+5. ~~**A3**~~ **done** `5863625`. **A4** — five of seven guards done `5863625`; the last two are
+   [#44](https://github.com/TheFlood424K/Shop/issues/44) and need nothing.
+6. ~~**B1**~~ **done** `143771f`. ~~**B3**~~ **does not apply**.
+7. **#44** — the two open A4 guards. Mechanical, player-facing, do these first.
+8. **#41** — `shop_action` indexes. Cheapest genuine win; unblocks `/transactions` from being slow.
+9. **#43** — wire the stock cache. The largest correctness-of-claim gap; needs tests.
+10. **#45** — head icon invalidation. Small, self-contained.
+11. **#42**, **#46** — region-check anchor, sign-post split. Both need a decision before code.
+12. **#47** — `/transactions`. Needs the permissions decision first.
+13. **A6**, **A7**, **PERF #8** — design-first or self-contained.
 
 ---
 
