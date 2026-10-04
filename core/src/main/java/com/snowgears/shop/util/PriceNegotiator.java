@@ -359,6 +359,15 @@ public class PriceNegotiator {
     private void handleNoPartialSales(double maxPurchasableQuantity, double itemsPerPrice, double pricePerItem) {
         // Multiple Quantity of original amount sales code (for full stack sales)
         double quantityPerOriginalAmount = originalAmountBeingSold / itemsPerPrice;
+        // If the player cannot afford even one multiple of the shop's amount, the division below
+        // is by zero or floors to zero. Say so explicitly rather than leaving the fields at
+        // whatever they held before — the caller reads them back as the negotiated result, and
+        // a stale value here is what produced "bought 0 items for -1 currency".
+        if (quantityPerOriginalAmount <= 0 || maxPurchasableQuantity < quantityPerOriginalAmount) {
+            this.amountBeingSold = 0;
+            this.price = 0;
+            return;
+        }
         // Force the quantity to be a multiple of our original amount when performing multiple sales
         int roundedQuantity = (int) (Math.floor(maxPurchasableQuantity / quantityPerOriginalAmount) * quantityPerOriginalAmount);
 
