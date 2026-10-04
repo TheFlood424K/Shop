@@ -645,6 +645,26 @@ Open alert, patched in 11.1.1. Test-harness only, not shipped in the plugin. Han
 
 ---
 
+## Status
+
+**Shipped** (branch `orchestrate/upstream-forks-and-issues`, 188 tests green):
+
+| Item | Commit | Notes |
+|---|---|---|
+| B2 Folia teleport | `5863625` | `runAtEntityLater`, matching ShopHandler/AbstractDisplay |
+| A1 addFunds double-pay | `5863625` | `return false` after a rejected Vault deposit |
+| A3 pushLocationInDirection | `5863625` | `break` in all four cases |
+| A4 four small guards | `5863625` | removeItem null-deref, lore join, 2x UUID parse, LogHandler NPE |
+| C2 three BOM pins | `99acf0d` | clears the HIGH plexus-utils advisory; nothing shaded |
+| A2 event cancel on init | `4557288` | see caveat below |
+
+**A2 caveat worth recording.** `CreativeSelectionListener.onPreShopSignClick` *already* cancelled
+uninitialised sign clicks — but only when `allowCreativeSelection` is enabled. With it off,
+`MiscListener` was the only thing stopping the destruction. The regression test therefore disables that
+flag; without doing so the test passes whether or not the fix exists, which it initially did.
+
+---
+
 ## Execution order
 
 1. **B2** — Folia teleport. Smallest change, clearest bug, highest value.
