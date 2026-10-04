@@ -12,10 +12,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Issue #44: the EXPERIENCE branch compared with {@code exp > amount} while VAULT and ITEM both
  * compared with {@code >=}, so a player holding exactly the required amount was told they could not
- * afford it. The purchase path itself never reached this method — it compares
- * {@code getAvailableFunds() < price} in {@link com.snowgears.shop.util.TransactionParty#deductFunds} —
- * so this defect only surfaced on the creation, destruction and teleport costs, which all call
- * {@code hasSufficientFunds} directly.
+ * afford it.
+ *
+ * <p>Scope: the only production callers of {@code hasSufficientFunds} are the creation, destruction
+ * and teleport costs. A shop purchase never reaches this method — {@link TransactionParty#deductFunds}
+ * gates on {@code getAvailableFunds() < paymentAmount}, which already has correct {@code >=}
+ * semantics — so the defect hit cost-charging paths only, not the buy/sell flow itself.
  */
 class EconomyUtilsTest extends BaseMockBukkitTest {
 
