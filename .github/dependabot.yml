@@ -30,11 +30,19 @@ updates:
       prefix: "build(deps)"
     groups:
       # One PR for routine bumps rather than a dozen single-dependency PRs.
+      #
+      # surefire is excluded on purpose. 3.6.0 discovers ZERO tests on the Linux CI
+      # runner — surefire reports "Tests run: 0" and exits 0, so six PRs merged green
+      # on an empty suite (issue #39). The same version runs all 188 tests locally, so
+      # this only shows up on CI. It is pinned to 3.5.3 in core/pom.xml; do not let a
+      # grouped bump reintroduce it without a CI run that shows a non-zero test count.
       maven-minor-patch:
         applies-to: version-updates
         update-types:
           - minor
           - patch
+        exclude-dependencies:
+          - "org.apache.maven.plugins:maven-surefire-plugin"
       maven-security:
         applies-to: security-updates
         dependency-type: production

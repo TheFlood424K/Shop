@@ -241,6 +241,9 @@ public class EconomyUtils {
                 EconomyResponse response = Shop.getPlugin().getEconomy().depositPlayer(player, amount);
                 if (response.transactionSuccess())
                     return true;
+                // A rejected deposit must NOT fall through to EXPERIENCE — that pays the player
+                // in the wrong currency for a transaction Vault already refused.
+                return false;
             case EXPERIENCE:
                 Player onlinePlayer = player.getPlayer();
                 if (onlinePlayer != null) {

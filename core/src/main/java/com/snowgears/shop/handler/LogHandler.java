@@ -80,7 +80,9 @@ public class LogHandler {
         String password = shopConfig.getString("logging.password");
         List<String> connectionProperties = shopConfig.getStringList("logging.properties");
 
-        if(type.equalsIgnoreCase("OFF")) {
+        // A missing "logging.type" key used to NPE here, inside onEnable, which took the whole
+        // plugin down rather than just disabling logging.
+        if (type == null || type.equalsIgnoreCase("OFF")) {
             this.enabled = false;
             return;
         }

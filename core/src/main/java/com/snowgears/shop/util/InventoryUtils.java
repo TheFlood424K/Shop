@@ -21,10 +21,10 @@ public class InventoryUtils {
     //removes itemstack from inventory
     //returns the amount of items it could not remove
     public static int removeItem(Inventory inventory, ItemStack itemStack) {
-        if(inventory == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
-            return itemStack.getAmount();
-        if (itemStack == null || itemStack.getAmount() <= 0)
+        if(inventory == null || itemStack == null || itemStack.getAmount() <= 0)
             return 0;
+        if(itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
+            return itemStack.getAmount();
 
         ItemStack[] contents = inventory.getContents();
         int amount = itemStack.getAmount();

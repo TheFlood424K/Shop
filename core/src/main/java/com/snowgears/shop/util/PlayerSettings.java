@@ -129,7 +129,17 @@ public class PlayerSettings {
 
             YamlConfiguration config = YamlConfiguration.loadConfiguration(playerSettingsFile);
 
-            UUID uuid = UUID.fromString(config.getString("player.UUID"));
+            // A truncated or hand-edited settings file makes fromString throw, which would
+            // otherwise propagate out of the GUI click handler. Treat it as "no saved settings".
+            String storedUuid = config.getString("player.UUID");
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(storedUuid);
+            } catch (IllegalArgumentException | NullPointerException corrupt) {
+                Shop.getPlugin().getLogger().warning("Corrupt player settings for " + playerUUID
+                        + " (bad UUID '" + storedUuid + "') — falling back to defaults.");
+                return null;
+            }
             HashMap<Option, ShopGuiHandler.GuiIcon> optionsMap = new HashMap<>();
 
             for(Option option : Option.values()){

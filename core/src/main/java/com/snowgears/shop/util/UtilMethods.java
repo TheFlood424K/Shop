@@ -469,12 +469,16 @@ public class UtilMethods {
         switch (direction){
             case NORTH:
                 location = location.add(-add, 0, -add);
+                break;
             case EAST:
                 location = location.add(add, 0, -add);
+                break;
             case SOUTH:
                 location = location.add(add, 0, add);
+                break;
             case WEST:
                 location = location.add(-add, 0, 0);
+                break;
         }
         return location;
     }
@@ -531,9 +535,10 @@ public class UtilMethods {
     }
 
     public static String getLoreString(ItemStack is){
-        if(is.getItemMeta() == null || is.getItemMeta().getLore() == null || is.getItemMeta().getLore().isEmpty())
+        if(is == null || is.getItemMeta() == null || is.getItemMeta().getLore() == null || is.getItemMeta().getLore().isEmpty())
             return "";
-        return is.getItemMeta().getLore().toString();
+        // Join with newlines. List.toString() renders multi-line lore as "[a, b]".
+        return String.join("\n", is.getItemMeta().getLore());
     }
 
     /**

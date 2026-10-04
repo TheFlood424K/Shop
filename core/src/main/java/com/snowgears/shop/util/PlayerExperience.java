@@ -63,7 +63,16 @@ public class PlayerExperience {
 
             YamlConfiguration config = YamlConfiguration.loadConfiguration(playerDataFile);
 
-            UUID uuid = UUID.fromString(config.getString("player.UUID"));
+            // Same shape as PlayerSettings: a corrupt file must not throw out of the caller.
+            String storedUuid = config.getString("player.UUID");
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(storedUuid);
+            } catch (IllegalArgumentException | NullPointerException corrupt) {
+                Shop.getPlugin().getLogger().warning("Corrupt experience data (bad UUID '"
+                        + storedUuid + "') — treating as no saved experience.");
+                return null;
+            }
             int experience = config.getInt("player.experience");
 
             PlayerExperience data = new PlayerExperience(uuid, experience);
