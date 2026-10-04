@@ -6,7 +6,7 @@
 [![bStats Players](https://img.shields.io/bstats/players/25211?style=flat-square&color=blueviolet&logo=databricks&logoColor=white)](https://bstats.org/plugin/bukkit/shop-the-intuitive-shop-plugin/25211)
 [![Paper Version](https://img.shields.io/badge/Paper-26.2%2B-2ea44f?style=flat-square&logo=minecraft&logoColor=white)](https://papermc.io/downloads)
 [![Purpur Version](https://img.shields.io/badge/Purpur-26.2%2B-5e2d91?style=flat-square&logo=minecraft&logoColor=white)](https://purpurmc.org/)
-[![Java Version](https://img.shields.io/badge/Java-21%2B%20%7C%2025-007396?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
+[![Java Version](https://img.shields.io/badge/Java-25%2B-007396?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
 [![License](https://img.shields.io/github/license/TheFlood424K/Shop?style=flat-square&color=informational)](LICENSE)
 
 [![Shop Plugin](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)](https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/)
@@ -35,7 +35,7 @@ Built with **ease of use** as the top priority, Shop feels like a native Minecra
 | **Containers** | Chests, Trapped chests, Barrels, Copper chests, All 17 Shulker boxes |
 | **Integrations** | WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, ARM, PlotSquared, DynMap, BlueMap |
 | **Admin Tools** | Admin shops, Item list restrictions, Build limits, Offline notifications |
-| **Developer** | Full API, Events, 183 test suite, Java 25 support, Folia compatible |
+| **Developer** | 6 public events, 188-test suite, Java 25, Folia compatible |
 
 ---
 
@@ -154,7 +154,7 @@ allowPartialSales: true
 checkItemDurability: true
 ignoreItemRepairCost: true
 
-# Integrations (all enabled by default)
+# Integrations (most enabled by default; Towny, DynMap and BlueMap ship disabled)
 worldGuard:
   enabled: true
   requireAllowShopFlag: false
@@ -230,7 +230,7 @@ displayBatchDelay: 2            # ticks between batches
 |-------------|---------|-------|
 | **Paper** | 26.2+ | 26.2.build.129-stable recommended |
 | **Purpur** | 26.2+ | Fully compatible (DivineMC, etc.) |
-| **Java** | 21+ | Java 25 fully supported |
+| **Java** | **25+** | Required — the plugin is compiled to Java 25 bytecode and will not load on an earlier runtime |
 | **Vault** | 1.7+ | Required for economy currency |
 | **Optional Plugins** | Latest | WorldGuard, Towny, LWC, GriefPrevention, BlockProt, Bolt, BentoBox, ARM, PlotSquared, DynMap, BlueMap |
 
@@ -264,7 +264,7 @@ displayBatchDelay: 2            # ticks between batches
 # 2. Compile the plugin
 ./compile.sh
 
-# Output: target/shop-{version}.jar
+# Output: target/Shop-{version}.jar   (capital S — see note below)
 ```
 
 ### Development Setup
@@ -317,21 +317,33 @@ cd core && mvn test
 | Gson | 2.14.0 |
 | fastutil | 8.5.19 |
 | JUnit | 6.1.3 |
-| Mockito | 5.24.0 / 5.2.0 (inline) |
+| Mockito | 5.24.0 (inline mock maker via `-Dmockito.inline.mockmaker=true`) |
 | MockBukkit | 4.116.1 |
 | ByteBuddy | 1.18.14 |
+
+### Pinned to clear Dependabot advisories
+
+These three are `provided` scope and are not shaded into the JAR. The IntellectualSites BOM was
+silently pinning each **below** what `paper-api` 26.2 requires, so they are pinned explicitly in
+`core/pom.xml`. Restoring them closes three open Dependabot security advisories, **one of them HIGH**.
+
+| Dependency | Pinned to |
+|---|---|
+| log4j-api | 2.26.0 |
+| plexus-utils | 3.6.1 |
+| commons-lang3 | 3.18.0 |
 
 ---
 
 ## 🔄 Changes from Upstream (SnowGears/Shop)
 
-This fork is **326+ commits ahead** of upstream `master`.
+This fork is **438 commits ahead** of upstream `master`.
 
 ### 🚀 Major Features (Not in Upstream)
-- **Sign-Post Shop Support** — Full support for standing signs in all interactions
+- **Sign-Post Shop Support** — Standing signs work for using and cycling existing shops (creation is wall-sign only)
 - **Sign-Post Display Cycling** — Display cycling works with sign-post shops
-- **Shop Analytics Foundation** — Real-time cache invalidation hooks
-- **Comprehensive Test Suite** — 183 tests covering all shop types, transactions, displays
+- **Stock Cache Invalidation** — Real-time stock refresh when a shop container changes
+- **Comprehensive Test Suite** — 188 tests covering all shop types, transactions, displays
 - **Java 25 Support** — Full compatibility with Java 25
 - **Folia Support** — Thread-safe display removal via FoliaLib scheduler
 - **PhoenixCrates Font Stripping** — Strips custom font NBT before SNBT round-trip
@@ -356,6 +368,9 @@ ported — see [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the per-co
 - **Rejected Vault deposits no longer pay out in experience.** A `depositPlayer` call that Vault refused
   used to fall through to the EXPERIENCE branch, paying the buyer in the wrong currency for a
   transaction Vault had already declined — a double payout. *(AlexanderYW, `49eb321`)*
+- **Known defect:** under `currency.type: EXPERIENCE`, a player whose XP is *exactly* the shop price is
+  told they cannot afford it — the balance check uses `>` where the Vault and ITEM branches correctly
+  use `>=`. Tracked in [issue #44](https://github.com/TheFlood424K/Shop/issues/44).
 - **Shop ownership is compared by UUID, never by name.** Minecraft names are not unique, so three call
   sites that matched on name would let any player with a matching name act as the owner.
 - **"Bought 0 Items for -1 Currency"** (upstream [#48](https://github.com/snowgears/Shop/issues/48)) —
@@ -401,7 +416,7 @@ ported — see [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the per-co
 - Dependency exclusion (net/kyori, provided-scope from shaded jar)
 - GitHub Actions: faster caches, parallel test execution
 - Automated release changelogs
-- Uncompressed JAR artifact upload
+- JAR uploaded as a workflow artifact on every run (30-day retention; GitHub serves it as a zip from the run page's `#artifacts` anchor)
 
 ### 🛡️ CI That Can't Report a False Pass
 
@@ -415,6 +430,14 @@ worse than a red one because it is trusted:
   six PRs merged against an empty suite — including the ones that fixed the 50 failures above. The
   same version runs all 188 tests on a Windows dev machine with an identical command, so this was
   invisible locally. See [issue #39](https://github.com/TheFlood424K/Shop/issues/39).
+
+A third instance of the same genre, and the reason CI now validates the Dependabot config: **Dependabot
+rejects the entire `.github/dependabot.yml` over a single unrecognised key**, rather than ignoring the
+one entry it does not recognise. The file used `exclude-dependencies`; the real key is
+`exclude-patterns`. The file parsed as valid YAML, so nothing local flagged it — the only symptom was
+that **no dependency update PRs ever appeared**, including the surefire exclusion above. The whole
+update pipeline was inert, which is also why four Dependabot security alerts sat open: Dependabot
+could not bump dependencies nothing declared.
 
 Current guards:
 
@@ -455,7 +478,10 @@ The following improvements were cherry-picked from the [Izopropyl/Shop](https://
 - **File:** `core/src/main/java/com/snowgears/shop/gui/ShopGUIListener.java`
 
 ### 🔧 Sign System Refactor
-- **Removed sign post (standing sign) support** — Only wall signs are now supported
+- **Shop *creation* is wall-sign only.** A sign-post shop can be used and cycled, but cannot be
+  created — the creation path checks `instanceof WallSign` in `MiscListener`, `ShopCreationUtil`,
+  `CreativeSelectionListener` and `UtilMethods`. Sign-post shops created before that restriction still
+  work: `ShopListener` accepts both `WALL_SIGNS` and `STANDING_SIGNS` for interaction and display cycling.
 - Simplifies chest detection logic significantly
 - **Files:** `MiscListener.java`, `ShopCreationUtil.java`, `AbstractShop.java`, `ShopHandler.java`
 
@@ -470,7 +496,7 @@ The following improvements were cherry-picked from the [Izopropyl/Shop](https://
 
 Pull requests are welcome! Please ensure:
 
-1. **All 183 tests pass** (`mvn test`)
+1. **All 188 tests pass** (`mvn test`)
 2. Code follows existing style and patterns
 3. New features include appropriate test coverage
 4. JavaDoc added for new public APIs
@@ -501,7 +527,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ## 🙏 Acknowledgments
 
 - **Original Author:** [SnowGears](https://github.com/snowgears/Shop) — Created the foundation
-- **Fork Maintainer:** [TheFlood424K](https://github.com/TheFlood424K) — 326+ commits of improvements
+- **Fork Maintainer:** [TheFlood424K](https://github.com/TheFlood424K) — 438 commits of improvements
 - **Contributors:** All test writers, bug reporters, and PR authors
 
 ---

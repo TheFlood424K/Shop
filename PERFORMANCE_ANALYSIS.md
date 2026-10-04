@@ -1,5 +1,21 @@
 # Shop Plugin Performance Optimization Analysis
 
+> **Status note (audited 2026-10-04).** Every target below was re-checked against the current tree.
+> Two changes came out of it:
+>
+> - **#3 was marked `[FIXED]` but was not.** The code shipped in `c966ab6` and is never called — see the
+>   correction at that heading and [issue #43](https://github.com/TheFlood424K/Shop/issues/43).
+> - **#7's `[FIXED]` marker is accurate.** `ShopHandler` genuinely uses `ConcurrentHashMap` /
+>   `ConcurrentLinkedQueue`, with no `CopyOnWriteArrayList` remaining.
+>
+> The "Estimated Impact" percentages throughout are **estimates, not measurements** — there is no
+> benchmark in this repository. #1's dual-write behaviour and #2's per-player display tracking are the
+> two largest remaining wins and are both unstarted. Line numbers have drifted by roughly 30 lines
+> since this was written; the file paths and method names are the reliable references.
+>
+> #3 and #4 compound: because the stock cache is unwired, every stock read still performs the full
+> 27–54 slot scan, and each of those slots runs the deep comparison #4 describes.
+
 ## Prioritized Optimization Targets (5-8)
 
 ---
@@ -47,7 +63,13 @@ Each uses `dataSource.getConnection()` from HikariCP pool → connection acquisi
 
 ---
 
-### 3. **CPU: Repeated Inventory Iteration in `calculateStock()` [FIXED — c966ab6]**
+### 3. **CPU: Repeated Inventory Iteration in `calculateStock()` [PARTIALLY FIXED — `c966ab6`, NEVER WIRED]**
+
+> **Correction (2026-10-04).** This was marked `[FIXED]`. The supporting code shipped and is correct,
+> but **`AbstractShop.getCachedStock()` has zero callers** in `core/src/main` and `core/src/test` — all
+> five production consumers call `getStock()`, which returns the raw field and triggers the full scan.
+> The 80–90% CPU reduction estimated below is **zero in practice**. See
+> [issue #43](https://github.com/TheFlood424K/Shop/issues/43).
 
 **Files:** 
 - `AbstractShop.java` lines 221-243 (`calculateStock`)
@@ -183,7 +205,7 @@ Each uses `dataSource.getConnection()` from HikariCP pool → connection acquisi
 |---|--------|----------|--------|--------|------|
 | 1 | Dual DB writes per transaction | Database | Medium | High | Low |
 | 2 | Display entity per-player tracking | Memory | Medium | High | Medium |
-| 3 | Repeated inventory iteration | CPU | Low | High | Low (SHIPPED) |
+| 3 | Repeated inventory iteration | CPU | Low | High | Low (code shipped, **never wired** — #43) |
 | 4 | Deep ItemStack comparison | CPU | Medium | High | Medium |
 | 5 | Sync chunk loading in async | Chunk/IO | Medium | Medium-High | Medium |
 | 6 | Sign update broadcast packets | Network | Low | Medium | Low |

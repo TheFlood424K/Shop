@@ -21,7 +21,16 @@
 
 ---
 
-### OPTIMIZATION 1: Incremental Stock Tracking (Eliminate Full Inventory Scans) [SHIPPED — c966ab6]
+### OPTIMIZATION 1: Incremental Stock Tracking (Eliminate Full Inventory Scans) [PARTIALLY SHIPPED — `c966ab6`, NOT WIRED]
+
+> **The `[FIXED]` marker on this item was wrong until 2026-10-04 and has been audited.** The supporting
+> code shipped in `c966ab6` and is correct — `stockCounter`, `stockDirty`, `getCachedStock()`,
+> `adjustStock()`, `markStockDirty()` all exist, and `adjustStock()` is called from `Transaction.java`.
+> But **`getCachedStock()` has zero callers**: not in `core/src/main`, not in `core/src/test`. All five
+> production consumers call `getStock()`, which returns the raw field and triggers the full scan. The
+> 80–90% CPU reduction is therefore **zero in practice**. Tracked as
+> [#43](https://github.com/TheFlood424K/Shop/issues/43). `PERFORMANCE_ANALYSIS.md` §3's `[FIXED]`
+> marker is corrected by the same issue.
 
 **Reference**: PERFORMANCE_ANALYSIS.md §3 | `AbstractShop.java:237` | `InventoryUtils.java:139`
 
@@ -320,7 +329,7 @@ core/src/main/java/com/snowgears/shop/template/
 ### Phase 1: Quick Wins (1-2 days)
 | Order | Task | Est. Effort | Status |
 |-------|------|-------------|--------|
-| 1 | **DONE** — Incremental stock tracking (PERF #3) | 6-8 hrs | SHIPPED c966ab6 |
+| 1 | **PARTIAL** — Incremental stock tracking (PERF #3) | 6-8 hrs | code shipped `c966ab6`, **never wired** — issue #43 |
 | 2 | **DONE** — Shop indices to ConcurrentLinkedQueue (PERF #7) | 3-4 hrs | SHIPPED c966ab6 |
 | 3 | **TODO** — Price/location caching (PERF #8) | 4-6 hrs | |
 
@@ -500,18 +509,23 @@ compounded offset. Add `break` to all four cases.
 
 ### A4. Small correctness guards
 
-| Fix | Location | Credit | Problem |
-|---|---|---|---|
-| `getLoreString()` returns `List.toString()` | `UtilMethods.java:533-537` | Snewmy `954d3f5` | Multi-line lore renders `[a, b]`; 7 call sites in `ShopMessage` |
-| `PlayerSettings.loadFromFile` NPE | `PlayerSettings.java:132` | SamsSide/CraftedShop `0dde2e2` | Unguarded `UUID.fromString` on a hand-edited YAML bricks that player's GUI |
-| `LogHandler.startup` NPE | `LogHandler.java:75,83` | SamsSide/CraftedShop `4b8a522` | `type.equalsIgnoreCase(...)` on a raw read; missing key kills plugin load in `onEnable` |
-| `InventoryUtils.removeItem` deref before null check | `InventoryUtils.java:23-27` | AlexanderYW `9fb5611` | `itemStack.getAmount()` on line 24 runs **before** the `itemStack == null` test on line 26 |
-| `PlayerExperience.loadFromFile` NPE | `PlayerExperience.java:66` | AlexanderYW `a9eb8dc` | Same unguarded `UUID.fromString` |
-| EXPERIENCE exact-balance purchase rejected | — | AlexanderYW `c8d5f02` | `exp > amount` rejects an exact-balance purchase |
-| MySQL JDBC URL `?a=b?c=d` | — | AlexanderYW `a9eb8dc` | `jdbcURL += "?" + property` per property |
+Five of these seven shipped in `5863625`. The last two are **still open** — the table previously had no
+status column, so an unfixed row read the same as a fixed one. Both are player- or operator-facing and
+are filed as issues rather than left implied.
 
-All Low risk, XS effort. The `InventoryUtils.removeItem` one is the sharpest — a null-deref before the
-guard meant to catch it.
+| Fix | Location | Credit | Status | Problem |
+|---|---|---|---|---|
+| `getLoreString()` returns `List.toString()` | `UtilMethods.java:533-537` | Snewmy `954d3f5` | ✅ `5863625` | Multi-line lore renders `[a, b]`; 7 call sites in `ShopMessage` |
+| `PlayerSettings.loadFromFile` NPE | `PlayerSettings.java:132` | SamsSide/CraftedShop `0dde2e2` | ✅ `5863625` | Unguarded `UUID.fromString` on a hand-edited YAML bricks that player's GUI |
+| `LogHandler.startup` NPE | `LogHandler.java:75,83` | SamsSide/CraftedShop `4b8a522` | ✅ `5863625` | `type.equalsIgnoreCase(...)` on a raw read; missing key kills plugin load in `onEnable` |
+| `InventoryUtils.removeItem` deref before null check | `InventoryUtils.java:23-27` | AlexanderYW `9fb5611` | ✅ `5863625` | `itemStack.getAmount()` on line 24 runs **before** the `itemStack == null` test on line 26 |
+| `PlayerExperience.loadFromFile` NPE | `PlayerExperience.java:66` | AlexanderYW `a9eb8dc` | ✅ `5863625` | Same unguarded `UUID.fromString` |
+| EXPERIENCE exact-balance purchase rejected | `EconomyUtils.java:146` | AlexanderYW `c8d5f02` | ❌ **OPEN** | `exp > amount` rejects an exact-balance purchase; VAULT and ITEM both use `>=` |
+| MySQL JDBC URL `?a=b?c=d` | `LogHandler.java:95-97` | AlexanderYW `a9eb8dc` | ❌ **OPEN** | `jdbcURL += "?" + property` per property; needs `&` |
+
+The `InventoryUtils.removeItem` one was the sharpest of the shipped five — a null-deref before the guard
+meant to catch it. Of the two open ones, the EXPERIENCE one is player-facing and a one-character fix:
+a player whose experience is exactly the shop price is told they cannot afford it.
 
 ### A5. Dead `/transactions` command — **Izopropyl/Shop `f743628`, `d22ea59`, `3d600ad`, `16d5f7a`**
 
