@@ -283,13 +283,14 @@ jobs:
             echo ""
             # Metadata as a single muted line rather than a table: four short fields
             # do not need gridlines, and this keeps the vertical space for the results.
-            META="\`<sub>\`${{ env.VERSION }}\` · [\`${GITHUB_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}) · ${{ github.ref_name }}"
+            # <sub> wraps plain text; backticks inside it are rendered literally, so code
+            # spans stay outside and only the surrounding prose is muted.
+            META="<sub>version</sub> \`${{ env.VERSION }}\` · <sub>commit</sub> [\`${GITHUB_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})"
             if [ -n "$BUILD_TIME" ]; then
-              META="$META · ${BUILD_TIME}s\`</sub>"
+              echo "$META · <sub>${{ github.ref_name }} · ${BUILD_TIME}</sub>"
             else
-              META="$META\`</sub>"
+              echo "$META · <sub>${{ github.ref_name }}</sub>"
             fi
-            echo "$META"
             echo ""
 
             if [ -f "test-summary.md" ]; then
@@ -332,14 +333,14 @@ jobs:
             {
               echo "---"
               echo ""
-              echo "\`<sub>\`${{ env.JAR_FILENAME }}\` is attached to this run as **\`shop-${{ steps.version.outputs.version }}\`** — [download it](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts). GitHub serves artifacts as a zip, so the JAR needs extracting from it.</sub>\`"
+              echo "\`${{ env.JAR_FILENAME }}\` <sub>is attached to this run as \`shop-${{ steps.version.outputs.version }}\` — [download it](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts). GitHub serves artifacts as a zip, so the JAR needs extracting from it.</sub>"
               echo ""
             } >> "$GITHUB_STEP_SUMMARY"
           else
             {
               echo "---"
               echo ""
-              echo "\`<sub>Artifact upload did not succeed (\`${{ steps.upload_jar.outcome }}\`). The JAR is at \`${{ steps.build.outputs.jar_path }}\` in the runner workspace.</sub>\`"
+              echo "<sub>Artifact upload did not succeed (\`${{ steps.upload_jar.outcome }}\`). The JAR is at \`${{ steps.build.outputs.jar_path }}\` in the runner workspace.</sub>"
               echo ""
             } >> "$GITHUB_STEP_SUMMARY"
           fi
