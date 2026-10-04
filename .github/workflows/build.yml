@@ -181,45 +181,56 @@ jobs:
           bar = "█" * filled + "▓" * failed_filled + "░" * skipped_filled + "·" * remaining
 
           lines = []
-          lines.append("## 🧪 Test Results")
-          lines.append("")
-          lines.append(f"**{passed} of {total} passed** ({pct}%)")
-          lines.append("")
-          lines.append(f"`{bar}`")
-          lines.append("")
-
-          if total > 0:
-              lines.append("| | Count | Share |")
-              lines.append("|---|------:|------:|")
+          # A clean run gets one line. The bar and the breakdown table only appear
+          # when there is something to break down — on an all-green run they just
+          # restate the sentence above them.
+          if failed == 0 and skipped == 0:
+              lines.append(f"### {passed} of {total} passed")
+              lines.append("")
+          else:
+              headline = f"### {passed} of {total} passed · {failed} failed"
+              if skipped > 0:
+                  headline += f" · {skipped} skipped"
+              lines.append(headline)
+              lines.append("")
+              lines.append(f"`{bar}`")
+              lines.append("")
+              lines.append("| Result | Count | Share |")
+              lines.append("|:-------|------:|------:|")
               lines.append(f"| Passed | {passed} | {passed/total*100:.1f}% |")
               if failed > 0:
-                  lines.append(f"| Failed | {failed} | {failed/total*100:.1f}% |")
+                  lines.append(f"| **Failed** | **{failed}** | {failed/total*100:.1f}% |")
               if skipped > 0:
                   lines.append(f"| Skipped | {skipped} | {skipped/total*100:.1f}% |")
-              lines.append(f"| **Total** | **{total}** | 100% |")
               lines.append("")
-
-          if failed > 0 or skipped > 0:
-              lines.append("Legend: `█` passed · `▓` failed · `░` skipped · `·` not run")
+              lines.append("<sub>`█` passed · `▓` failed · `░` skipped · `·` not run</sub>")
               lines.append("")
 
           if all_details:
-              lines.append("### 📋 Test Details (Failures & Skips)")
+              lines.append("<details>")
+              lines.append(f"<summary><b>{len(all_details)} failing or skipped "
+                           f"{'test' if len(all_details) == 1 else 'tests'}</b></summary>")
               lines.append("")
-              lines.append("| Class | Method | Status | Message |")
-              lines.append("|-------|--------|--------|---------|")
 
               class_groups = defaultdict(list)
               for classname, method, msg, status in all_details:
                   class_groups[classname].append((method, msg, status))
 
-              for classname, methods in class_groups.items():
+              current_class = None
+              for classname in sorted(class_groups):
+                  methods = class_groups[classname]
+                  short = classname.rsplit(".", 1)[-1]
+                  lines.append(f"**{short}**")
+                  lines.append("")
                   for method, msg, status in methods:
-                      # Escape pipe characters and newlines for markdown table
-                      msg_escaped = msg.replace('\n', '<br>').replace('|', '\\|')
-                      status_emoji = "❌" if status == "FAIL" else ("💥" if status == "ERROR" else "⏭️")
-                      lines.append(f"| {classname} | {method} | {status_emoji} {status} | {msg_escaped} |")
-
+                      # Escape pipes so they don't break out of the indented block
+                      msg = msg.replace("|", "\\|")
+                      mark = "✗" if status in ("FAIL", "ERROR") else "⤼"
+                      lines.append(f"- {mark} `{method}`")
+                      lines.append("")
+                      lines.append(f"  <sub>{msg}</sub>")
+                      lines.append("")
+              lines.append("</details>")
               lines.append("")
 
           with open("test-summary.md", "w") as f:
@@ -249,57 +260,49 @@ jobs:
             # Determine status based on build success (JAR produced) and test results
             # JAR_FOUND = true means build succeeded (compilation passed, artifact produced)
             if [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" = "0" ]; then
-              echo "# ✅ Build & Tests Passed"
+              echo "# ✅ Passed"
             elif [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" != "0" ]; then
-              echo "# ⚠️ Build Passed, Tests Failed"
+              echo "# ⚠️ Tests failed"
               echo ""
-              echo "> Artifact was produced successfully but some tests failed."
+              echo "The JAR was produced, but some tests did not pass."
             else
-              echo "# ❌ Build Failed"
+              echo "# ❌ Build failed"
               echo ""
-              echo "> No artifact was produced. Check compilation or test failures below."
+              echo "No JAR was produced — the build did not get far enough to package one."
               if [ -f "build-test-output.log" ]; then
                 echo ""
-                echo "### 🔍 Build Errors (last 50 lines)"
+                echo "<details><summary>Compiler output</summary>"
                 echo ""
                 echo '```'
                 tail -n 50 build-test-output.log | grep -E "(ERROR|FAILURE|error:|cannot find symbol)" | head -n 20 || tail -n 20 build-test-output.log
                 echo '```'
+                echo ""
+                echo "</details>"
               fi
             fi
             echo ""
-            echo "| | |"
-            echo "|---|---|"
-            echo "| **Version** | \`${{ env.VERSION }}\` |"
-            echo "| **Commit** | [\`${{ github.sha }}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}) |"
-            echo "| **Branch** | \`${{ github.ref_name }}\` |"
+            # Metadata as a single muted line rather than a table: four short fields
+            # do not need gridlines, and this keeps the vertical space for the results.
+            META="\`<sub>\`${{ env.VERSION }}\` · [\`${GITHUB_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}) · ${{ github.ref_name }}"
             if [ -n "$BUILD_TIME" ]; then
-              echo "| **Build time** | ${BUILD_TIME}s |"
+              META="$META · ${BUILD_TIME}s\`</sub>"
+            else
+              META="$META\`</sub>"
             fi
+            echo "$META"
             echo ""
 
             if [ -f "test-summary.md" ]; then
               cat test-summary.md
             else
-              echo "## 🧪 Test Results"
+              echo "### Tests"
               echo ""
-              echo "No test results available."
+              echo "No test results were produced."
               echo ""
             fi
 
             # Download instructions are appended after the upload step, which knows
             # whether the artifact actually landed — see "Add artifact link" below.
-            if [ "$JAR_FOUND" = "true" ] && [ -n "$JAR_PATH" ]; then
-              echo "---"
-              echo ""
-            fi
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-              echo "[View this run on GitHub](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) · [PR #${{ github.event.number }}](https://github.com/${{ github.repository }}/pull/${{ github.event.number }})"
-              echo ""
-            else
-              echo "[View this run on GitHub](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-              echo ""
-            fi
           } > build-summary.md
           cat build-summary.md >> "$GITHUB_STEP_SUMMARY"
 
@@ -327,19 +330,17 @@ jobs:
         run: |
           if [ "${{ steps.upload_jar.outcome }}" = "success" ]; then
             {
+              echo "---"
               echo ""
-              echo "### 📦 JAR"
+              echo "\`<sub>\`${{ env.JAR_FILENAME }}\` is attached to this run as **\`shop-${{ steps.version.outputs.version }}\`** — [download it](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts). GitHub serves artifacts as a zip, so the JAR needs extracting from it.</sub>\`"
               echo ""
-              echo "\`${{ env.JAR_FILENAME }}\` (version \`${{ steps.version.outputs.version }}\`) uploaded as artifact **\`shop-${{ steps.version.outputs.version }}\`**."
-              echo ""
-              echo "[Download it from this run's Artifacts section](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts) — GitHub serves artifacts as a zip, so extract the JAR from it."
             } >> "$GITHUB_STEP_SUMMARY"
           else
             {
+              echo "---"
               echo ""
-              echo "### 📦 JAR"
+              echo "\`<sub>Artifact upload did not succeed (\`${{ steps.upload_jar.outcome }}\`). The JAR is at \`${{ steps.build.outputs.jar_path }}\` in the runner workspace.</sub>\`"
               echo ""
-              echo "Artifact upload did not succeed (\`${{ steps.upload_jar.outcome }}\`). The built JAR is at \`${{ steps.build.outputs.jar_path }}\` inside the runner workspace."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
