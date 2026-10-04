@@ -23,3 +23,20 @@ CREATE TABLE IF NOT EXISTS shop_action
     transaction_id INTEGER,
     FOREIGN KEY (transaction_id) REFERENCES shop_transaction(id)
 );
+
+-- shop_action had no indexes at all, so every query against it full-scanned a table that only
+-- ever grows. The column order below matches the queries in LogHandler:
+--   * owner history  — WHERE owner_uuid=? AND ts > ? ORDER BY ts DESC
+--   * filtered log   — WHERE owner_uuid=? AND player_action=? AND ts BETWEEN ? AND ?
+--   * customer view  — adds AND player_uuid=?
+-- Leading with owner_uuid serves the first two directly and lets the composite satisfy the
+-- ORDER BY without a separate sort. transaction_id is indexed for the join to shop_transaction.
+--
+-- IF NOT EXISTS is verified against H2 2.1.214 (the plugin's default embedded database) as well
+-- as SQLite and MariaDB.
+--
+-- initDb() splits this file on the statement separator, so prose in these comments must never
+-- contain one. DbSetupIndexTest executes this file to catch that.
+CREATE INDEX IF NOT EXISTS idx_shop_action_owner_ts ON shop_action(owner_uuid, ts);
+CREATE INDEX IF NOT EXISTS idx_shop_action_transaction ON shop_action(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_shop_action_player_ts ON shop_action(player_uuid, ts);
