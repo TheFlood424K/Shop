@@ -87,3 +87,45 @@ creationMethod:
 
 allowCreativeSelection: true # This will allow players to use the limited creative selection tool to choose shop items
 ```
+---
+
+# Transaction History
+
+`/transactions` (alias `/tx`) shows **your own** sales and purchases at your shops.
+
+The command only ever reports the transactions of whoever ran it. There is no selector for another
+player — browsing someone else's history is not a permission you can be granted, because the
+argument to do it does not exist.
+
+**Requires database logging.** With `logging.type: 'OFF'` the command reports no transactions; that
+means the log is switched off, not that you have no sales.
+
+## Selectors
+
+Selectors combine freely, in any order:
+
+| Selector | Meaning | Example |
+|----------|---------|---------|
+| `t:<time>` | Time frame (default `24h`) | `t:3d`, `t:1h`, `t:30m`, `t:90s` |
+| `a:<type>` | Filter by shop type | `a:sell`, `a:buy` |
+| `i:<items>` | Only these items | `i:stone,dirt` |
+| `e:<items>` | Everything except these | `e:stone` |
+| `u:<name>` | Only this customer | `u:Steve` |
+| `s:<sort>` | Sort order | `s:value`, `s:purchases`, `s:quantity`, `s:all` |
+
+## Examples
+
+```
+/tx                        last 24 hours, everything
+/tx t:7d a:buy             your purchases over the last week
+/tx top s:value            your biggest earners by total value
+/tx i:stone s:quantity     only stone, most units first
+/tx page 2                 the next page of the last result
+/tx #verbose t:1h          every transaction, without grouping repeats
+```
+
+Consecutive sales of the same item at the same shop are grouped into one line with a count. Add
+`#verbose` to list them individually.
+
+`top` ranks your shops by earnings. It does not support `a:barter`, since barter trades have no
+common currency to rank by.

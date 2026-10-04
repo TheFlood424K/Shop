@@ -64,3 +64,8 @@ permissions:
     shop.operator:
         description: Allows access to operator actions like setting currency, setting the gamble item, reloading configs, creating gamble/admin shops, etc.
         default: op
+
+commands:
+    transactions:
+        aliases:
+            - tx
