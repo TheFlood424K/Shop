@@ -691,15 +691,80 @@ flag; without doing so the test passes whether or not the fix exists, which it i
 
 ---
 
+## PART D — CI zero-test regression (found 2026-10-04, after Part B shipped)
+
+**The most serious defect found in this audit, and it was hiding in plain sight.**
+
+CI reported `BUILD SUCCESS` while running **zero tests** from `7ab3685` through `c9537fc`. Six PRs
+merged green against an empty suite — including the two that fixed the 50 test failures in Part B. A
+green check that verified nothing is worse than a red one, because it is trusted.
+
+| commit | surefire | tests run in CI |
+|---|---|---|
+| `50e3965` | 3.5.3 | 183 (50 failing) |
+| `e13f0d8` | 3.5.3 | 183 ✅ |
+| `daf5231` | 3.5.3 | 183 ✅ |
+| `7ab3685` | **3.6.0** | **0** |
+| `c9537fc` | 3.6.0 | 0 |
+
+The trigger is Dependabot PR #35, which bumped `maven-surefire-plugin` 3.5.3 → 3.6.0 inside the
+`maven-minor-patch` group. **Surefire 3.6.0 runs all 188 tests locally on Windows** with an identical
+command, toolchain JDK and fork settings. The failure is specific to the Linux runner, which is why it
+was invisible from a development machine and why the PR that caused it was itself green.
+
+`-DfailIfNoTests=false` is on the CI command line, but it was there for the 183-test runs too, so it
+is not the cause. It is what turns a discovery failure into a *silent* pass rather than a red build.
+
+**Cause not confirmed.** Surefire 3.6.0 rewrote its provider architecture — every framework now
+routes through a single `surefire-junit-platform` provider and the legacy `junit3/4/47/testng`
+providers were removed — and its release notes list *"Discover tests in a fork when a toolchain JDK is
+used"* (#3444). CI combines a toolchain JDK with `-DforkCount=2`, which fits. Fits is not verified.
+
+**Why it is a pin and not a fix.** A four-variant probe matrix (3.6.0 control, 3.6.0 no-fork, 3.5.4,
+3.6.0 `.class` include) consumed three CI runs and produced no data on surefire at all:
+
+1. Run 1 — two matrix rows passed an *empty* `-D` value. An empty `-D` does not fall back to the pom
+   default; Maven treats it as set-to-empty, blanking `<version>${surefire.version}</version>` and
+   rejecting the POM. My local check missed this because I always supplied a value.
+2. Run 2 — `-Dsurefire.version=""` again, while `matrix.include.name` interpolated correctly from the
+   same matrix. Abandoned the matrix-key approach rather than keep spending runs on it.
+3. Run 3 — rejected by GitHub as an invalid workflow file, before any job started.
+
+Every one of those was harness failure, not signal. Recorded here so the next person does not repeat
+them, and so the absence of a confirmed cause is visible rather than implied.
+
+**Fix shipped** (`4dcb89a`):
+
+- `surefire.version` pinned to **3.5.3** in `core/pom.xml`, the last version confirmed to discover
+  the suite on the runner.
+- `maven-surefire-plugin` **excluded from Dependabot's `maven-minor-patch` group**, so the grouped
+  bump that caused this cannot land again silently.
+- `build.yml` **fails when `total == 0`**. Surefire exits 0 in that case, so counting only discovered
+  tests cannot distinguish "all green" from "nothing ran".
+- The job summary gains a **"No tests ran"** state instead of calling an empty suite "Passed".
+
+Verified: 188 tests locally on 3.5.3; the three summary states each executed rather than reasoned
+about. Tracked as issue #39.
+
+---
+
 ## Open questions
 
-1. **GitHub issues are disabled on TheFlood424K/Shop.** B1–B4 need somewhere to live. Enable issues, or
-   file upstream with a fork note?
-2. **Which license?** `LICENSE` is missing while README asserts MIT (B4).
-3. **Should `/transactions` include an operator-only owner selector?** Izopropyl's `d22ea59` restricts
+1. **Which license?** `LICENSE` is missing while README asserts MIT. Tracked as issue #40; the choice
+   is the copyright holder's, not a patch decision.
+2. **Should `/transactions` include an operator-only owner selector?** Izopropyl's `d22ea59` restricts
    browsing to other players' logs. A permissions decision, not a port detail.
-4. **Is `destroyShopRequiresSneak` staying `false`?** If yes, A2's cancel is load-bearing and tetralinear's
+3. **Is `destroyShopRequiresSneak` staying `false`?** If yes, A2's cancel is load-bearing and tetralinear's
    guard is worth adopting too.
+4. **Should surefire 3.6.0 be diagnosed properly?** The pin is safe and the guard means a future
+   regression is caught, but the underlying runner-specific 3.6.0 discovery failure is unexplained.
+   Worth a working local Linux environment (container or a self-hosted runner) that this machine
+   currently does not have — no Docker, no WSL.
+
+*Resolved:* GitHub issues are now enabled on TheFlood424K/Shop. B1 and B2 were reported upstream with
+full diagnoses (snowgears/Shop #48, #46). B3 was closed upstream and does not apply here —
+`PlayerNameCache` is the upstream fix, and there is no Mojang profile call in either tree. B4 became
+issue #40.
 
 ---
 
