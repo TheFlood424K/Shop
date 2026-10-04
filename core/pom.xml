@@ -18,6 +18,25 @@
         <paper.version>26.2.build.129-stable</paper.version>
         <!-- Adventure version matching paper-api 26.2 -->
         <adventure.version>5.2.0</adventure.version>
+        <!-- PINNED. Do not bump without a CI run that reports a non-zero test count.
+             3.6.0 discovers ZERO tests on the Linux GitHub runner: surefire prints
+             "Tests run: 0, Failures: 0" and exits 0, so the build looks green. Six PRs
+             merged that way (issue #39), including the ones that fixed 50 test failures.
+             The same 3.6.0 runs all 188 tests locally on Windows with an identical
+             command, so the failure is specific to the runner, not to this tree.
+
+             3.5.3 is the last version confirmed to discover the suite in CI (run
+             50e3965: 183 tests). 3.6.0 rewrote the provider architecture — all frameworks
+             now route through one surefire-junit-platform provider and the legacy
+             junit3/4/47/testng providers were removed — which is the most likely cause,
+             though a four-variant probe failed twice on its own plumbing before it could
+             confirm it. That is why this is a pin rather than a diagnosed fix.
+
+             Dependabot's maven-minor-patch group excludes this artifact so a grouped bump
+             cannot reintroduce the failure silently. build.yml additionally fails the
+             build when total == 0, so the next such regression is caught even if this
+             pin is removed. -->
+        <surefire.version>3.5.3</surefire.version>
     </properties>
 
     <!-- core module info -->
@@ -372,7 +391,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.6.0</version>
+                <version>${surefire.version}</version>
                 <configuration>
                     <includes>
                         <include>**/*Test.java</include>

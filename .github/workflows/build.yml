@@ -249,7 +249,12 @@ jobs:
               f.write(f"failed={failed}\n")
               f.write(f"skipped={skipped}\n")
               f.write(f"total={total}\n")
-              f.write(f"test_exit_code={1 if failed > 0 else 0}\n")
+              # total == 0 is a failure, not a pass. Surefire reports "Tests run: 0"
+              # and exits 0 when it discovers nothing — which is what happened for six
+              # merged PRs after the surefire 3.6.0 bump, every one of them green.
+              # Counting only discovered tests cannot distinguish "all green" from
+              # "nothing ran", so an empty suite has to fail here instead.
+              f.write(f"test_exit_code={1 if (failed > 0 or total == 0) else 0}\n")
 
           print("\n".join(lines))
           PYEOF
@@ -263,11 +268,22 @@ jobs:
           JAR_PATH="${{ steps.build.outputs.jar_path }}"
           JAR_FOUND="${{ steps.build.outputs.jar_found }}"
           BUILD_TIME="${{ steps.build.outputs.build_time }}"
+          TOTAL_TESTS="${{ steps.test-report.outputs.total }}"
 
           {
             # Determine status based on build success (JAR produced) and test results
             # JAR_FOUND = true means build succeeded (compilation passed, artifact produced)
-            if [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" = "0" ]; then
+            # An empty suite is reported as its own state: the JAR is real, but nothing
+            # was verified, so calling that "Passed" is the exact lie this workflow used
+            # to tell for six merged PRs.
+            if [ "$JAR_FOUND" = "true" ] && [ "${TOTAL_TESTS:-0}" -eq 0 ]; then
+              echo "# ❌ No tests ran"
+              echo ""
+              echo "The JAR was produced, but **zero tests were discovered** — so nothing was verified."
+              echo ""
+              echo "This is not a pass. Surefire exits 0 when it finds no tests, so a broken"
+              echo "discovery configuration looks identical to a green build."
+            elif [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" = "0" ]; then
               echo "# ✅ Passed"
             elif [ "$JAR_FOUND" = "true" ] && [ "$TEST_EXIT" != "0" ]; then
               echo "# ⚠️ Tests failed"
