@@ -1110,6 +1110,10 @@ public class ShopHandler {
     }
 
     private void loadShops(){
+        // Shops loaded off-thread whose display type still needs applying. Populated by the async
+        // pass, drained on the main thread below.
+        Map<AbstractShop, DisplayType> pendingDisplayTypes = new java.util.concurrent.ConcurrentHashMap<>();
+
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             File fileDirectory = new File(plugin.getDataFolder(), "Data");
             if (!fileDirectory.exists()) return;
@@ -1229,10 +1233,13 @@ public class ShopHandler {
                         //    can look it up.
                         addShop(shop);
 
-                        // 3. Set display type — setType() calls AbstractDisplay.getShop()
-                        //    (a map lookup) which now resolves non-null, AND getItemStack()
-                        //    is also non-null so display logic has a complete shop.
-                        if (displayType != null) shop.getDisplay().setType(displayType, true);
+                        // 3. Defer the display type. setType(…, checkDisplayBlock=true) reads the
+                        //    block above the chest, which is a synchronous block access — illegal
+                        //    from this async thread on Folia, and a forced chunk load otherwise. The
+                        //    shop is fully initialised here, so deferring loses nothing: the
+                        //    main-thread pass below applies it with getShop() and getItemStack()
+                        //    already resolving.
+                        if (displayType != null) pendingDisplayTypes.put(shop, displayType);
 
                         shopsLoaded++;
 
@@ -1248,6 +1255,31 @@ public class ShopHandler {
             }
 
             plugin.getLogger().info("Finished loading shops. Loaded " + totalShopsLoaded + " shops from " + totalFilesLoaded + " files. Skipped " + totalFilesSkipped + " files.");
+
+            // Apply the deferred display types here, back on the thread that called loadShops().
+            // Each is dispatched to its own shop's region so the block read stays legal on Folia.
+            for (Map.Entry<AbstractShop, DisplayType> entry : pendingDisplayTypes.entrySet()) {
+                AbstractShop deferredShop = entry.getKey();
+                // getChestLocation() is only populated by load(), which the save path skips, so a
+                // freshly deserialised shop has none. The sign location is always present and sits in
+                // the same region as the chest — close enough to own the block read, and the only
+                // handle available at this point.
+                Location anchor = deferredShop.getChestLocation() != null
+                        ? deferredShop.getChestLocation()
+                        : deferredShop.getSignLocation();
+                if (anchor == null) {
+                    continue;
+                }
+                plugin.getFoliaLib().getScheduler().runAtLocation(anchor, regionTask -> {
+                    try {
+                        deferredShop.getDisplay().setType(entry.getValue(), true);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Could not apply display type for shop "
+                                + deferredShop.getSignLocation() + ": " + e.getMessage());
+                    }
+                });
+            }
+            pendingDisplayTypes.clear();
         });
     }
 
