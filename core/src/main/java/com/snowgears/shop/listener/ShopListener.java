@@ -33,12 +33,13 @@ import com.tcoded.folialib.wrapper.task.WrappedTask;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ShopListener implements Listener {
 
     private Shop plugin;
-    private HashMap<UUID, OfflineTransactions> transactionsWhileOffline = new HashMap<>();
-    private HashMap<UUID, Long> playerLastShopTeleport = new HashMap<>();
+    private final Map<UUID, OfflineTransactions> transactionsWhileOffline = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> playerLastShopTeleport = new ConcurrentHashMap<>();
 
     public ShopListener(Shop instance) {
         plugin = instance;
@@ -334,7 +335,7 @@ public class ShopListener implements Listener {
                         if (offlineTransactions != null && !offlineTransactions.isCalculating()) {
                             //only display the message if some transactions happened while they were offline
                             if(offlineTransactions.getNumTransactions() > 0) {
-                                List<String> messageList = ShopMessage.getUnformattedMessageList("offline", "summary");
+                                List<String> messageList = ShopMessage.getUnformattedMessageList("transaction", "OFFLINE_TRANSACTIONS_NOTIFICATION.summary");
                                 for (String message : messageList) {
                                     ShopMessage.sendMessage(message, player, offlineTransactions);
                                 }

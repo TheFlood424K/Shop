@@ -55,17 +55,15 @@ public class LogHandler {
         try {
             testDataSource();
         } catch (SQLException e){
-            e.printStackTrace();
+            plugin.getLogger().log(Level.WARNING, "Error establishing connection to defined database. Logging will not be used.", e);
             enabled = false;
-            plugin.getLogger().log(Level.WARNING, "Error establishing connection to defined database. Logging will not be used.");
             return;
         }
         try {
             initDb();
         } catch (SQLException e){
-            e.printStackTrace();
+            plugin.getLogger().log(Level.WARNING, "Error initializing tables in database. Logging will not be used.", e);
             enabled = false;
-            plugin.getLogger().log(Level.WARNING, "Error initializing tables in database. Logging will not be used.");
             return;
         }
         plugin.getLogger().notice("Shop Database Logging initialized successfully!");
@@ -535,11 +533,17 @@ public class LogHandler {
         // it is located in the resources.
         String setup;
         try (InputStream in = plugin.getResource("dbsetup.sql")) {
+            if (in == null) {
+                // getResource returns null when the resource is absent — a shaded jar that dropped it,
+                // or a packaging mistake. Treated as a failure below rather than a NullPointerException.
+                throw new SQLException("dbsetup.sql was not found in the plugin jar");
+            }
             setup = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining("\n")); // Legacy way
         } catch (IOException e) {
-            e.printStackTrace();
-            plugin.getLogger().log(Level.WARNING,"Could not read db setup file.");
-            return;
+            // Rethrow so the constructor's catch(SQLException) sets enabled=false and reports the
+            // failure. Returning normally here left enabled true, so the constructor went on to log
+            // "Shop Database Logging initialized successfully!" with no tables in existence.
+            throw new SQLException("Could not read db setup file.", e);
         }
         // Mariadb can only handle a single query per statement. We need to split at ;.
         String[] queries = setup.split(";");

@@ -223,26 +223,32 @@ public class InventoryUtils {
 
         // Check if we are ignoring item durability, if so, reset the durability of both items and continue with later checks
         if (!Shop.getPlugin().checkItemDurability()) {
-            Damageable is1Damagable = (Damageable) itemStack1.getItemMeta();
-            is1Damagable.setDamage(0);
-
-            Damageable is2Damagable = (Damageable) itemStack2.getItemMeta();
-            is2Damagable.setDamage(0);
-
-            itemStack1.setItemMeta(is1Damagable);
-            itemStack2.setItemMeta(is2Damagable);
+            // An item whose meta is not Damageable (dirt, wheat, stone) has no durability to reset.
+            // The instanceof also covers the null getItemMeta() that AIR and some legacy materials
+            // return, which would otherwise NPE on the set call.
+            if (itemStack1.getItemMeta() instanceof Damageable is1Damagable) {
+                is1Damagable.setDamage(0);
+                itemStack1.setItemMeta(is1Damagable);
+            }
+            if (itemStack2.getItemMeta() instanceof Damageable is2Damagable) {
+                is2Damagable.setDamage(0);
+                itemStack2.setItemMeta(is2Damagable);
+            }
         }
 
-        // Check if we are ignoring item durability, if so, reset the durability of both items and continue with later checks
+        // Check if we are ignoring item repair cost, if so, reset it on both items.
+        // ignoreItemRepairCost defaults to true, so this branch runs on every comparison on a
+        // default install; casting unconditionally threw ClassCastException on any item that is not
+        // repairable, and this is the item-identity primitive for stock counting and shop creation.
         if (Shop.getPlugin().ignoreItemRepairCost()) {
-            Repairable item1Cost = (Repairable) itemStack1.getItemMeta();
-            item1Cost.setRepairCost(0);
-
-            Repairable item2Cost = (Repairable) itemStack2.getItemMeta();
-            item2Cost.setRepairCost(0);
-
-            itemStack1.setItemMeta(item1Cost);
-            itemStack2.setItemMeta(item2Cost);
+            if (itemStack1.getItemMeta() instanceof Repairable item1Cost) {
+                item1Cost.setRepairCost(0);
+                itemStack1.setItemMeta(item1Cost);
+            }
+            if (itemStack2.getItemMeta() instanceof Repairable item2Cost) {
+                item2Cost.setRepairCost(0);
+                itemStack2.setItemMeta(item2Cost);
+            }
         }
 
         ItemMeta i1Meta = itemStack1.getItemMeta();
