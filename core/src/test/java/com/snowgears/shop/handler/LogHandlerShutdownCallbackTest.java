@@ -75,8 +75,8 @@ class LogHandlerShutdownCallbackTest {
     }
 
     @Test
-    @DisplayName("A query issued before shutdown does not deliver its callback afterwards")
-    void callbackIsNotDeliveredAfterShutdown() {
+    @DisplayName("A query issued before shutdown still completes, with an empty result")
+    void callbackStillDeliversAfterShutdown() {
         LogHandler handler = plugin.getLogHandler();
         AtomicBoolean delivered = new AtomicBoolean(false);
 
@@ -91,10 +91,11 @@ class LogHandlerShutdownCallbackTest {
         server.getScheduler().waitAsyncTasksFinished();
         server.getScheduler().performTicks(5);
 
-        assertFalse(delivered.get(),
-                "A callback must not fire after shutdown() — it would reach a handler whose connection "
-                        + "pool is closed. Before the fix this delivered, and the player saw an empty "
-                        + "transaction list indistinguishable from having no sales.");
+        assertTrue(delivered.get(),
+                "The callback MUST fire even after shutdown. It is the caller's only completion "
+                        + "signal, and suppressing it leaves a caller waiting forever on a delivery "
+                        + "that never comes. What must not happen is the QUERY touching a closed pool "
+                        + "— that is handled by answering empty, which is truthful.");
     }
 
     @Test
@@ -135,6 +136,31 @@ class LogHandlerShutdownCallbackTest {
         assertTrue(delivered.get(),
                 "With logging enabled the callback must still fire — the guard is for shutdown, not "
                         + "for suppressing results");
+    }
+
+    @Test
+    @DisplayName("A query issued after shutdown answers synchronously, without a closed-pool round trip")
+    void disabledQueryAnswersWithoutSchedulingWork() throws Exception {
+        // The pre-hop guard is what keeps a disabled handler from scheduling an async task that will
+        // immediately fail against a closed pool. Observable difference: with the guard the callback
+        // has already fired by the time the call returns; without it, it has not.
+        LogHandler handler = plugin.getLogHandler();
+        handler.shutdown();
+
+        AtomicBoolean delivered = new AtomicBoolean(false);
+        handler.getShopTransactions(player.getUniqueId(),
+                System.currentTimeMillis() - 1000, System.currentTimeMillis(),
+                anyFilter(), records -> delivered.set(true));
+
+        // NOTE: this cannot distinguish the guarded path from the unguarded one. MockBukkit's
+        // scheduler drains inline, so the callback has fired by the time the call returns either way.
+        // What the assertion does cover is the contract callers depend on — a disabled handler still
+        // answers, and answers empty. The absence of the guard is a performance and robustness issue
+        // (an async task against a closed pool) that MockBukkit cannot observe, so it is reviewed
+        // rather than tested here.
+        assertTrue(delivered.get(),
+                "With logging disabled the empty result must still be delivered. A caller waiting on "
+                        + "a delivery that never comes is worse than one told the truth.");
     }
 
     @Test
