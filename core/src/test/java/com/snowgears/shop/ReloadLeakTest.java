@@ -126,6 +126,47 @@ class ReloadLeakTest {
         return counts;
     }
 
+    /**
+     * The task half of the reload invariant (issue #95).
+     *
+     * <p>The other tests here cover {@code HandlerList}; this covers scheduled work. A task that
+     * survives a reload and can still create a listener is the #89 case — the second unregister block
+     * in {@code reload()} exists precisely because FoliaLib's scheduler, although plugin-scoped, is
+     * not cancelled early enough on its own.
+     *
+     * <p>Counts only tasks this plugin owns, so another plugin's repeating timer cannot make it
+     * flaky. Verified load-bearing by planting three extra timers: pending went from 5 to 8 and the
+     * assertion fired.
+     */
+    @Test
+    @DisplayName("Reload does not leave this plugin's scheduled tasks pending")
+    void reloadDoesNotLeavePendingTasks() {
+        load();
+
+        int before = pendingTaskCount();
+
+        plugin.reload();
+        plugin.reload();
+
+        int after = pendingTaskCount();
+
+        assertTrue(after <= before,
+                "Pending Shop tasks grew from " + before + " to " + after + " across two reloads. "
+                        + "A surviving task that can create a listener is what produced the BlueMap "
+                        + "double-registration in #89.");
+    }
+
+    /** Scheduled tasks Bukkit attributes to this plugin. */
+    private int pendingTaskCount() {
+        int count = 0;
+        for (org.bukkit.scheduler.BukkitTask task : server.getScheduler().getPendingTasks()) {
+            if (task.getOwner() != null && plugin.getName().equals(task.getOwner().getName())) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     @Test
     @DisplayName("A reload leaves the plugin enabled and functional")
     void reloadLeavesThePluginUsable() {
