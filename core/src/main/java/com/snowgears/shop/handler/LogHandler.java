@@ -470,7 +470,11 @@ public class LogHandler {
                     "WHERE owner_uuid=? AND player_action=? AND ts >= ? AND ts <= ?");
             if (customerUUIDFilter != null) query.append(" AND player_uuid=?");
             if (filter.getAction() != null) query.append(" AND t_type=?");
-            query.append(" ORDER BY ts DESC;");
+            // Bounded: shop_action has no retention policy yet (see issue #41), so this table only
+            // grows, and the window is player-controlled — t:90d is a valid selector. Without a cap
+            // this reads every matching row into memory, decoding a base64 ItemStack per row, and
+            // ORDER BY forces the database to sort the whole matching set before returning row one.
+            query.append(" ORDER BY ts DESC LIMIT ?;");
 
             try (
                 Connection conn = dataSource.getConnection();
@@ -483,6 +487,7 @@ public class LogHandler {
                 stmt.setTimestamp(i++, new Timestamp(endTime));
                 if (customerUUIDFilter != null) stmt.setString(i++, customerUUIDFilter.toString());
                 if (filter.getAction() != null) stmt.setString(i++, filter.getAction().name());
+                stmt.setInt(i++, MAX_TRANSACTION_ROWS);
                 ResultSet resultSet = stmt.executeQuery();
 
                 while (resultSet.next()) {
@@ -515,6 +520,16 @@ public class LogHandler {
             plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(transactions));
         });
     }
+
+    /**
+     * Upper bound on rows returned by {@link #getShopTransactions}.
+     *
+     * <p>The command paginates at ten per page, so this is far more than any single page needs; it
+     * exists to stop an unbounded read, not to shape the display. Chosen to be generous enough that a
+     * busy shop's recent history is fully covered — the alternative, an unbounded query against a
+     * table with no retention policy, degrades without limit.
+     */
+    private static final int MAX_TRANSACTION_ROWS = 2000;
 
     private void initDb() throws SQLException {
         // first lets read our setup file.
