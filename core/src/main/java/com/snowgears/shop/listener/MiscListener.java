@@ -847,7 +847,10 @@ public class MiscListener implements Listener {
             if(shop != null){
                 //if it is a shop chest, don't allow it to be broken unless its by the owner or someone with permission
                 Player player = event.getPlayer();
-                if(!(shop.getOwnerUUID().equals(player.getUniqueId()) || player.isOp() || (plugin.usePerms() && player.hasPermission("shop.operator")))){
+                // shop.destroy.other is consulted here as it is on the sign, chest and owner-destroy paths.
+                // Omitting it meant a moderator granted that node by a region-trust plugin was refused
+                // here, while the same player could remove the shop through any other block.
+                if(!(shop.getOwnerUUID().equals(player.getUniqueId()) || player.isOp() || (plugin.usePerms() && (player.hasPermission("shop.operator") || player.hasPermission("shop.destroy.other"))))){
                     event.setCancelled(true);
                 }
             }
