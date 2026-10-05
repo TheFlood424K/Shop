@@ -54,7 +54,7 @@ public class BlockProtTrustListener implements Listener {
         // If this chest already has a BlockProt owner and it's not this player, deny
         if (handler.isProtected() && !handler.isOwner(event.getPlayer().getUniqueId())) {
             event.setCancelled(true);
-            ShopMessage.sendMessage("interactionIssue", "createOtherPlayer", event.getPlayer(), event.getShop());
+            ShopMessage.sendMessage("interaction_issue", "createOtherPlayer", event.getPlayer(), event.getShop());
         }
     }
 }

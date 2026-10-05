@@ -74,21 +74,21 @@ public class CreativeSelectionListener implements Listener {
                 String message = null;
                 if (!player.getUniqueId().equals(shop.getOwnerUUID())) {
                     if((!plugin.usePerms() && !player.isOp()) || (plugin.usePerms() && !player.hasPermission("shop.operator"))) {
-                        ShopMessage.sendMessage("interactionIssue", "initialize", player, shop);
+                        ShopMessage.sendMessage("interaction_issue", "initialize", player, shop);
                         shop.sendEffects(false, player);
                         event.setCancelled(true);
                         return;
                     }
                 }
                 if (shop.getType() == ShopType.BARTER && shop.getItemStack() == null) {
-                    ShopMessage.sendMessage("interactionIssue", "noItem", player, shop);
+                    ShopMessage.sendMessage("interaction_issue", "noItem", player, shop);
                     event.setCancelled(true);
                     return;
                 }
 
                 if (player.getInventory().getItemInMainHand().getType() == Material.AIR) {
                     if (shop.getType() == ShopType.SELL) {
-                        ShopMessage.sendMessage("interactionIssue", "noItem", player, shop);
+                        ShopMessage.sendMessage("interaction_issue", "noItem", player, shop);
                     } else {
                         if ((shop.getType() == ShopType.BARTER && shop.getItemStack() != null && shop.getSecondaryItemStack() == null)
                                 || shop.getType() == ShopType.BUY || shop.getType() == ShopType.COMBO) {
