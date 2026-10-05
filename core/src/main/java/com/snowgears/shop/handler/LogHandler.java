@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.sql.*;
+import javax.sql.DataSource;
 import java.util.*;
 import java.util.Date;
 import java.util.function.Consumer;
@@ -28,7 +29,7 @@ import java.util.stream.Collectors;
 public class LogHandler {
 
     private Shop plugin;
-    private HikariDataSource dataSource;
+    private DataSource dataSource;
     /** Read from the async query thread and written by shutdown() on the main thread. */
     private volatile boolean enabled;
 
@@ -108,14 +109,18 @@ public class LogHandler {
         plugin.getLogger().debug("Starting Database (" + type + ") connection to track purchases and Shop actions!");
 
         if (type.equalsIgnoreCase("MYSQL")) {
-            dataSource = new HikariDataSource();
-            dataSource.setJdbcUrl(buildMySqlJdbcUrl(serverName, port, databaseName, connectionProperties));
-            dataSource.setUsername(username);
-            dataSource.setPassword(password);
-            dataSource.setLeakDetectionThreshold(10000);
-            dataSource.setMaximumPoolSize(10);
-            dataSource.setMaxLifetime(600000);
-            dataSource.setPoolName("MYSQL");
+            // Configured concretely rather than through newDataSource(): this branch uses
+            // Hikari-specific setters that DataSource does not expose. A test substituting a pool
+            // targets the MARIADB/FILE paths, which go through the factory.
+            HikariDataSource mysql = new HikariDataSource();
+            mysql.setJdbcUrl(buildMySqlJdbcUrl(serverName, port, databaseName, connectionProperties));
+            mysql.setUsername(username);
+            mysql.setPassword(password);
+            mysql.setLeakDetectionThreshold(10000);
+            mysql.setMaximumPoolSize(10);
+            mysql.setMaxLifetime(600000);
+            mysql.setPoolName("MYSQL");
+            dataSource = mysql;
         } else if (type.equalsIgnoreCase("MARIADB")) {
             HikariConfig config = new HikariConfig();
             config.setDataSourceClassName("org.mariadb.jdbc.MariaDbDataSource");
@@ -128,19 +133,18 @@ public class LogHandler {
             config.setMaximumPoolSize(10);
             config.setMaxLifetime(600000);
             config.setPoolName("MARIADB");
-            dataSource = new HikariDataSource(config);
+            dataSource = newDataSource(config);
         } else if (type.equalsIgnoreCase("FILE")) {
             HikariConfig config = new HikariConfig();
             config.setDriverClassName("org.h2.Driver");
-            String jdbcURL = "jdbc:h2:" + plugin.getDataFolder().getAbsolutePath() + "/data/" + databaseName + ";MODE=MySQL";
-            config.setJdbcUrl(jdbcURL);
+            config.setJdbcUrl(h2UrlFor(databaseName));
             config.setUsername(username != null ? username : "sa");
             config.setPassword(password != null ? password : "");
             config.setLeakDetectionThreshold(10000);
             config.setMaximumPoolSize(10);
             config.setMaxLifetime(600000);
             config.setPoolName("FILE");
-            dataSource = new HikariDataSource(config);
+            dataSource = newDataSource(config);
         } else {
             plugin.getLogger().log(Level.WARNING, "Unsupported database type! Please check your `config.yml` file! type: " + type);
             this.enabled = false;
@@ -149,13 +153,68 @@ public class LogHandler {
         this.enabled = true;
     }
 
+    /**
+     * The JDBC URL for the embedded H2 database.
+     *
+     * <p>Split out so a test can substitute a per-test in-memory database. The default writes a file
+     * under the plugin's data folder, and that file is shared state between test methods: a row
+     * written by one test is still there for the next, so assertions on database contents become
+     * order-dependent — and the pool holds the file open, which defeats the recursive delete the
+     * test base performs between tests. See issue #124.
+     */
+    protected String h2UrlFor(String databaseName) {
+        // A test may pin an isolated in-memory database; see BaseMockBukkitTest#useIsolatedDatabase.
+        // Read as a system property because the handler is constructed during plugin load, before any
+        // test can reach the instance to call a setter.
+        String override = System.getProperty("shop.test.h2.url");
+        if (override != null && !override.isEmpty()) {
+            return override;
+        }
+        return "jdbc:h2:" + plugin.getDataFolder().getAbsolutePath() + "/data/" + databaseName + ";MODE=MySQL";
+    }
+
+    /**
+     * Creates the connection pool.
+     *
+     * <p>Exists so a test can supply its own {@link DataSource} — see
+     * {@link #setDataSourceForTesting}. Pool construction is otherwise inline in {@link #startup},
+     * which leaves no seam for testing the behaviour that actually depends on pooling: whether a
+     * rollback on a borrowed connection discards another caller's in-flight work. See issue #122.
+     */
+    protected DataSource newDataSource() {
+        return new HikariDataSource();
+    }
+
+    protected DataSource newDataSource(HikariConfig config) {
+        return new HikariDataSource(config);
+    }
+
+    /**
+     * Replaces the connection pool, for tests only.
+     *
+     * <p>The caller owns the lifecycle of the supplied pool: {@link #shutdown()} will close it.
+     */
+    protected void setDataSourceForTesting(DataSource replacement) {
+        this.dataSource = replacement;
+        this.enabled = replacement != null;
+    }
+
     public void shutdown() {
         // Flipped before the pool closes so an in-flight query sees it at its next hop and declines
         // to schedule its callback. Without this, shutdown landing between runAsync and runNextTick
         // delivers into a handler whose connection pool is already gone.
         this.enabled = false;
         if (dataSource != null) {
-            dataSource.close();
+            // DataSource has no close(); only HikariDataSource does. Close the pool when it is one —
+            // a test-supplied pool that implements AutoCloseable is closed the same way.
+            if (dataSource instanceof AutoCloseable closeable) {
+                try {
+                    closeable.close();
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING,
+                            "Could not close the database connection pool.", e);
+                }
+            }
         }
     }
 
@@ -225,15 +284,23 @@ public class LogHandler {
 
         if(!enabled) return;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
-            // Log the Transaction that occured
+            // One connection for the whole transaction. The two inserts used to each open their own
+            // try-with-resources, which is two pool acquisitions per purchase — the pool is capped at
+            // ten and every concurrent purchase pays for it. Holding one connection also makes the
+            // transaction_id write atomic with the row that references it: if the action insert fails,
+            // the transaction row rolls back instead of leaving an orphaned id.
+            // See issue #54.
             int transactionID = 0;
-            // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (
                 Connection conn = dataSource.getConnection();
                 PreparedStatement logTxStmt = conn.prepareStatement(
                         "INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) VALUES(?, ?, ?, ?, ?);",
                         Statement.RETURN_GENERATED_KEYS);
+                PreparedStatement actionStmt = conn.prepareStatement(
+                        "INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, transaction_id, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
             ) {
+                conn.setAutoCommit(false);
+
                 logTxStmt.setString(1, transactionType.toString().toUpperCase());
                 logTxStmt.setDouble(2, price);
                 logTxStmt.setInt(3, amount);
@@ -246,22 +313,9 @@ public class LogHandler {
                 ResultSet txRS = logTxStmt.getGeneratedKeys();
                 txRS.next();
                 transactionID = txRS.getInt(1);
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
-                e.printStackTrace();
-            } catch (Exception e) {
-                plugin.getLogger().log(Level.WARNING,"Error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
-                e.printStackTrace();
-            }
 
-            // Log the action that occured
-            if (transactionID == 0) return; // Last query failed, so skip this one!
-            // Connect to datasource & create statement in "try" to handle automatically closing the connection!
-            try (
-                Connection conn = dataSource.getConnection();
-                PreparedStatement actionStmt = conn.prepareStatement(
-                        "INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, transaction_id, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
-            ) {
+                // Log the action that occured
+                if (transactionID == 0) return; // Last query failed, so skip this one!
                 actionStmt.setTimestamp(1, new Timestamp(new Date().getTime()));
                 actionStmt.setString(2, player.getUniqueId().toString());
                 if(shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()))
@@ -278,8 +332,13 @@ public class LogHandler {
                 actionStmt.setInt(9, shop.getSignLocation().getBlockY());
                 actionStmt.setInt(10, shop.getSignLocation().getBlockZ());
                 actionStmt.execute();
+
+                conn.commit();
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
+                e.printStackTrace();
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING,"Error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
                 e.printStackTrace();
             }
         });
@@ -452,21 +511,37 @@ public class LogHandler {
             return;
         }
 
+        // Shutdown before the async hop even starts: answer empty without touching the pool. The
+        // callback still fires — it is the caller's only completion signal — so this is a fast,
+        // truthful answer rather than a silent one.
+        if (!enabled) {
+            callback.accept(Collections.emptyList());
+            return;
+        }
+
+        // A null filter means "no narrowing", which is what a caller passing nothing means. Left
+        // as-is it NPEs on the first getCustomerName() inside the async task, which surfaces as an
+        // AsyncTaskException at unmock rather than at the call. Bound to a new local because the
+        // parameter is captured by the lambda below and so cannot be reassigned.
+        final TransactionLookupFilter effectiveFilter =
+                filter != null ? filter : new TransactionLookupFilter(null, null, null, null);
+
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             List<PlayerTransactionRecord> transactions = new ArrayList<>();
+
+            // A shutdown landing after this point closes the pool under the query. That is caught
+            // below and answered empty; the callback fires either way.
 
             // Resolve the u: selector to a UUID off the main thread, since it may require a Mojang lookup for
             // a name that isn't already cached locally.
             UUID customerUUIDFilter = null;
-            if (filter.getCustomerName() != null) {
-                OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(filter.getCustomerName());
+            if (effectiveFilter.getCustomerName() != null) {
+                OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(effectiveFilter.getCustomerName());
                 if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline()) {
                     // Nobody by that name has ever played, so there can be no matching transactions.
-                    // Deliver only if the handler is still live. A shutdown between the async hop
-                    // and this one would otherwise invoke the callback against a closed pool.
-                    if (enabled) {
-                        plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(Collections.emptyList()));
-                    }
+                    // Deliver unconditionally: this path touches no connection, and suppressing the
+                    // callback would leave the caller with no completion signal at all.
+                    plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(Collections.emptyList()));
                     return;
                 }
                 customerUUIDFilter = offlinePlayer.getUniqueId();
@@ -476,7 +551,7 @@ public class LogHandler {
                     "SELECT * FROM shop_action JOIN shop_transaction ON shop_action.transaction_id = shop_transaction.id " +
                     "WHERE owner_uuid=? AND player_action=? AND ts >= ? AND ts <= ?");
             if (customerUUIDFilter != null) query.append(" AND player_uuid=?");
-            if (filter.getAction() != null) query.append(" AND t_type=?");
+            if (effectiveFilter.getAction() != null) query.append(" AND t_type=?");
             // Bounded: shop_action has no retention policy yet (see issue #41), so this table only
             // grows, and the window is player-controlled — t:90d is a valid selector. Without a cap
             // this reads every matching row into memory, decoding a base64 ItemStack per row, and
@@ -493,7 +568,7 @@ public class LogHandler {
                 stmt.setTimestamp(i++, new Timestamp(startTime));
                 stmt.setTimestamp(i++, new Timestamp(endTime));
                 if (customerUUIDFilter != null) stmt.setString(i++, customerUUIDFilter.toString());
-                if (filter.getAction() != null) stmt.setString(i++, filter.getAction().name());
+                if (effectiveFilter.getAction() != null) stmt.setString(i++, effectiveFilter.getAction().name());
                 stmt.setInt(i++, MAX_TRANSACTION_ROWS);
                 ResultSet resultSet = stmt.executeQuery();
 
@@ -507,7 +582,7 @@ public class LogHandler {
 
                     // i:/e: can't be pushed into SQL (items are stored as opaque base64 blobs), so filter here.
                     // The item is already being decoded regardless, to build the display line, so this costs nothing extra.
-                    if (!filter.matchesItem(item)) continue;
+                    if (!effectiveFilter.matchesItem(item)) continue;
 
                     UUID customerUUID = UUID.fromString(resultSet.getString("player_uuid"));
 
@@ -524,11 +599,11 @@ public class LogHandler {
                 e.printStackTrace();
             }
 
-            // Same guard as the early-exit path above: after shutdown() the pool is closed, so the
-            // callback would be talking to a torn-down handler.
-            if (enabled) {
-                plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(transactions));
-            }
+            // Always deliver. The pool is closed if shutdown() ran, so the query either succeeded
+            // before that or produced nothing — but suppressing the callback would leave the caller
+            // with no completion signal, and a caller waiting on a delivery is worse than one told
+            // the truth.
+            plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(transactions));
         });
     }
 
