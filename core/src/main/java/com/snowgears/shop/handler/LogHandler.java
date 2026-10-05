@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.sql.*;
+import javax.sql.DataSource;
 import java.util.*;
 import java.util.Date;
 import java.util.function.Consumer;
@@ -28,7 +29,7 @@ import java.util.stream.Collectors;
 public class LogHandler {
 
     private Shop plugin;
-    private HikariDataSource dataSource;
+    private DataSource dataSource;
     /** Read from the async query thread and written by shutdown() on the main thread. */
     private volatile boolean enabled;
 
@@ -108,14 +109,18 @@ public class LogHandler {
         plugin.getLogger().debug("Starting Database (" + type + ") connection to track purchases and Shop actions!");
 
         if (type.equalsIgnoreCase("MYSQL")) {
-            dataSource = new HikariDataSource();
-            dataSource.setJdbcUrl(buildMySqlJdbcUrl(serverName, port, databaseName, connectionProperties));
-            dataSource.setUsername(username);
-            dataSource.setPassword(password);
-            dataSource.setLeakDetectionThreshold(10000);
-            dataSource.setMaximumPoolSize(10);
-            dataSource.setMaxLifetime(600000);
-            dataSource.setPoolName("MYSQL");
+            // Configured concretely rather than through newDataSource(): this branch uses
+            // Hikari-specific setters that DataSource does not expose. A test substituting a pool
+            // targets the MARIADB/FILE paths, which go through the factory.
+            HikariDataSource mysql = new HikariDataSource();
+            mysql.setJdbcUrl(buildMySqlJdbcUrl(serverName, port, databaseName, connectionProperties));
+            mysql.setUsername(username);
+            mysql.setPassword(password);
+            mysql.setLeakDetectionThreshold(10000);
+            mysql.setMaximumPoolSize(10);
+            mysql.setMaxLifetime(600000);
+            mysql.setPoolName("MYSQL");
+            dataSource = mysql;
         } else if (type.equalsIgnoreCase("MARIADB")) {
             HikariConfig config = new HikariConfig();
             config.setDataSourceClassName("org.mariadb.jdbc.MariaDbDataSource");
@@ -128,7 +133,7 @@ public class LogHandler {
             config.setMaximumPoolSize(10);
             config.setMaxLifetime(600000);
             config.setPoolName("MARIADB");
-            dataSource = new HikariDataSource(config);
+            dataSource = newDataSource(config);
         } else if (type.equalsIgnoreCase("FILE")) {
             HikariConfig config = new HikariConfig();
             config.setDriverClassName("org.h2.Driver");
@@ -140,7 +145,7 @@ public class LogHandler {
             config.setMaximumPoolSize(10);
             config.setMaxLifetime(600000);
             config.setPoolName("FILE");
-            dataSource = new HikariDataSource(config);
+            dataSource = newDataSource(config);
         } else {
             plugin.getLogger().log(Level.WARNING, "Unsupported database type! Please check your `config.yml` file! type: " + type);
             this.enabled = false;
@@ -149,13 +154,48 @@ public class LogHandler {
         this.enabled = true;
     }
 
+    /**
+     * Creates the connection pool.
+     *
+     * <p>Exists so a test can supply its own {@link DataSource} — see
+     * {@link #setDataSourceForTesting}. Pool construction is otherwise inline in {@link #startup},
+     * which leaves no seam for testing the behaviour that actually depends on pooling: whether a
+     * rollback on a borrowed connection discards another caller's in-flight work. See issue #122.
+     */
+    protected DataSource newDataSource() {
+        return new HikariDataSource();
+    }
+
+    protected DataSource newDataSource(HikariConfig config) {
+        return new HikariDataSource(config);
+    }
+
+    /**
+     * Replaces the connection pool, for tests only.
+     *
+     * <p>The caller owns the lifecycle of the supplied pool: {@link #shutdown()} will close it.
+     */
+    protected void setDataSourceForTesting(DataSource replacement) {
+        this.dataSource = replacement;
+        this.enabled = replacement != null;
+    }
+
     public void shutdown() {
         // Flipped before the pool closes so an in-flight query sees it at its next hop and declines
         // to schedule its callback. Without this, shutdown landing between runAsync and runNextTick
         // delivers into a handler whose connection pool is already gone.
         this.enabled = false;
         if (dataSource != null) {
-            dataSource.close();
+            // DataSource has no close(); only HikariDataSource does. Close the pool when it is one —
+            // a test-supplied pool that implements AutoCloseable is closed the same way.
+            if (dataSource instanceof AutoCloseable closeable) {
+                try {
+                    closeable.close();
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING,
+                            "Could not close the database connection pool.", e);
+                }
+            }
         }
     }
 
