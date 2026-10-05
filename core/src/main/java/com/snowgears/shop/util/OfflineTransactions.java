@@ -15,7 +15,9 @@ public class OfflineTransactions {
 
     private UUID playerUUID;
     private long lastPlayed;
-    private boolean isCalculating;
+    /** Written off-thread before an async calculation, polled from a main-thread task. Volatile so the
+     *  poller is guaranteed to observe the transition; see issue #83. */
+    private volatile boolean isCalculating;
     private int numTransactions;
     private double totalProfit;
     private double totalSpent;
