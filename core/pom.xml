@@ -131,7 +131,12 @@
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
-                <version>3.6.1</version>
+                <version>4.1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-xml</artifactId>
+                <version>3.1.0</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>
@@ -188,6 +193,26 @@
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>${paper.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- plexus-utils 4.x moved org.codehaus.plexus.util.xml out into this
+             separate artifact. Paper's LibraryLoader builds an aether
+             RepositorySystem on plugin load, and the Maven runtime it uses
+             still calls the 3.x XML API; with only plexus-utils 4.1.0 the
+             service lookup fails silently and plugin load dies with an NPE
+             from LibraryLoader.<init>. Declared explicitly (not just managed)
+             because dependencyManagement supplies a version but adds no jar.
+
+             3.1.0 rather than 4.x: the 4.x line depends on org.apache.maven:maven-xml,
+             which paper-api does not put on the plugin classpath. 3.1.0 carries the
+             same classes in the same package with no extra dependency.
+             Version is locked in dependencyManagement above.
+
+             PlexusXmlOnClasspathTest fails with this cause if either half goes. -->
+        <dependency>
+            <groupId>org.codehaus.plexus</groupId>
+            <artifactId>plexus-xml</artifactId>
             <scope>provided</scope>
         </dependency>
 
