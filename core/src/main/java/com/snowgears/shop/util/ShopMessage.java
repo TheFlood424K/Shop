@@ -974,7 +974,7 @@ public class ShopMessage {
                         lines.add(normalSection.getString(String.valueOf(i), ""));
                     }
                     shopSignTextMap.put(key, lines.toArray(new String[0]));
-                    System.out.println("[DEBUG loadSignTextFromConfig] Loaded " + key + " normal: " + java.util.Arrays.toString(lines.toArray()));
+                    Shop.getPlugin().getLogger().fine(() -> "[DEBUG loadSignTextFromConfig] Loaded " + key + " normal: " + java.util.Arrays.toString(lines.toArray()));
                 }
             } else {
                 // Flat structure with line1, line2, etc. or numeric keys
