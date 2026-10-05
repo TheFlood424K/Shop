@@ -452,8 +452,19 @@ public class LogHandler {
             return;
         }
 
+        // Shutdown before the async hop even starts: answer empty without touching the pool. The
+        // callback still fires — it is the caller's only completion signal — so this is a fast,
+        // truthful answer rather than a silent one.
+        if (!enabled) {
+            callback.accept(Collections.emptyList());
+            return;
+        }
+
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             List<PlayerTransactionRecord> transactions = new ArrayList<>();
+
+            // A shutdown landing after this point closes the pool under the query. That is caught
+            // below and answered empty; the callback fires either way.
 
             // Resolve the u: selector to a UUID off the main thread, since it may require a Mojang lookup for
             // a name that isn't already cached locally.
@@ -462,11 +473,9 @@ public class LogHandler {
                 OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(filter.getCustomerName());
                 if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline()) {
                     // Nobody by that name has ever played, so there can be no matching transactions.
-                    // Deliver only if the handler is still live. A shutdown between the async hop
-                    // and this one would otherwise invoke the callback against a closed pool.
-                    if (enabled) {
-                        plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(Collections.emptyList()));
-                    }
+                    // Deliver unconditionally: this path touches no connection, and suppressing the
+                    // callback would leave the caller with no completion signal at all.
+                    plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(Collections.emptyList()));
                     return;
                 }
                 customerUUIDFilter = offlinePlayer.getUniqueId();
@@ -524,11 +533,11 @@ public class LogHandler {
                 e.printStackTrace();
             }
 
-            // Same guard as the early-exit path above: after shutdown() the pool is closed, so the
-            // callback would be talking to a torn-down handler.
-            if (enabled) {
-                plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(transactions));
-            }
+            // Always deliver. The pool is closed if shutdown() ran, so the query either succeeded
+            // before that or produced nothing — but suppressing the callback would leave the caller
+            // with no completion signal, and a caller waiting on a delivery is worse than one told
+            // the truth.
+            plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(transactions));
         });
     }
 
