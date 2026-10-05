@@ -137,8 +137,7 @@ public class LogHandler {
         } else if (type.equalsIgnoreCase("FILE")) {
             HikariConfig config = new HikariConfig();
             config.setDriverClassName("org.h2.Driver");
-            String jdbcURL = "jdbc:h2:" + plugin.getDataFolder().getAbsolutePath() + "/data/" + databaseName + ";MODE=MySQL";
-            config.setJdbcUrl(jdbcURL);
+            config.setJdbcUrl(h2UrlFor(databaseName));
             config.setUsername(username != null ? username : "sa");
             config.setPassword(password != null ? password : "");
             config.setLeakDetectionThreshold(10000);
@@ -152,6 +151,26 @@ public class LogHandler {
             return;
         }
         this.enabled = true;
+    }
+
+    /**
+     * The JDBC URL for the embedded H2 database.
+     *
+     * <p>Split out so a test can substitute a per-test in-memory database. The default writes a file
+     * under the plugin's data folder, and that file is shared state between test methods: a row
+     * written by one test is still there for the next, so assertions on database contents become
+     * order-dependent — and the pool holds the file open, which defeats the recursive delete the
+     * test base performs between tests. See issue #124.
+     */
+    protected String h2UrlFor(String databaseName) {
+        // A test may pin an isolated in-memory database; see BaseMockBukkitTest#useIsolatedDatabase.
+        // Read as a system property because the handler is constructed during plugin load, before any
+        // test can reach the instance to call a setter.
+        String override = System.getProperty("shop.test.h2.url");
+        if (override != null && !override.isEmpty()) {
+            return override;
+        }
+        return "jdbc:h2:" + plugin.getDataFolder().getAbsolutePath() + "/data/" + databaseName + ";MODE=MySQL";
     }
 
     /**
@@ -500,6 +519,13 @@ public class LogHandler {
             return;
         }
 
+        // A null filter means "no narrowing", which is what a caller passing nothing means. Left
+        // as-is it NPEs on the first getCustomerName() inside the async task, which surfaces as an
+        // AsyncTaskException at unmock rather than at the call. Bound to a new local because the
+        // parameter is captured by the lambda below and so cannot be reassigned.
+        final TransactionLookupFilter effectiveFilter =
+                filter != null ? filter : new TransactionLookupFilter(null, null, null, null);
+
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             List<PlayerTransactionRecord> transactions = new ArrayList<>();
 
@@ -509,8 +535,8 @@ public class LogHandler {
             // Resolve the u: selector to a UUID off the main thread, since it may require a Mojang lookup for
             // a name that isn't already cached locally.
             UUID customerUUIDFilter = null;
-            if (filter.getCustomerName() != null) {
-                OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(filter.getCustomerName());
+            if (effectiveFilter.getCustomerName() != null) {
+                OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(effectiveFilter.getCustomerName());
                 if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline()) {
                     // Nobody by that name has ever played, so there can be no matching transactions.
                     // Deliver unconditionally: this path touches no connection, and suppressing the
@@ -525,7 +551,7 @@ public class LogHandler {
                     "SELECT * FROM shop_action JOIN shop_transaction ON shop_action.transaction_id = shop_transaction.id " +
                     "WHERE owner_uuid=? AND player_action=? AND ts >= ? AND ts <= ?");
             if (customerUUIDFilter != null) query.append(" AND player_uuid=?");
-            if (filter.getAction() != null) query.append(" AND t_type=?");
+            if (effectiveFilter.getAction() != null) query.append(" AND t_type=?");
             // Bounded: shop_action has no retention policy yet (see issue #41), so this table only
             // grows, and the window is player-controlled — t:90d is a valid selector. Without a cap
             // this reads every matching row into memory, decoding a base64 ItemStack per row, and
@@ -542,7 +568,7 @@ public class LogHandler {
                 stmt.setTimestamp(i++, new Timestamp(startTime));
                 stmt.setTimestamp(i++, new Timestamp(endTime));
                 if (customerUUIDFilter != null) stmt.setString(i++, customerUUIDFilter.toString());
-                if (filter.getAction() != null) stmt.setString(i++, filter.getAction().name());
+                if (effectiveFilter.getAction() != null) stmt.setString(i++, effectiveFilter.getAction().name());
                 stmt.setInt(i++, MAX_TRANSACTION_ROWS);
                 ResultSet resultSet = stmt.executeQuery();
 
@@ -556,7 +582,7 @@ public class LogHandler {
 
                     // i:/e: can't be pushed into SQL (items are stored as opaque base64 blobs), so filter here.
                     // The item is already being decoded regardless, to build the display line, so this costs nothing extra.
-                    if (!filter.matchesItem(item)) continue;
+                    if (!effectiveFilter.matchesItem(item)) continue;
 
                     UUID customerUUID = UUID.fromString(resultSet.getString("player_uuid"));
 
