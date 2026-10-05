@@ -35,13 +35,14 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class MiscListener implements Listener {
 
     public Shop plugin;
-    private HashMap<UUID, ShopCreationProcess> playerChatCreationSteps = new HashMap<>();
-    private HashMap<UUID, Long> lastChatCreation = new HashMap<>();
+    private final Map<UUID, ShopCreationProcess> playerChatCreationSteps = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastChatCreation = new ConcurrentHashMap<>();
 
     /** The four cardinal faces used for sign-direction snapping and sign placement. */
     private static final BlockFace[] CARDINAL_FACES = {
