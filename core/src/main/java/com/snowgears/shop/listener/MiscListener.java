@@ -196,7 +196,14 @@ public class MiscListener implements Listener {
                 //give player a limited amount of time to finish creating the shop until it is deleted
                 int initTimeout = plugin.getDebug_shopInitTimeout();
                 if (initTimeout > 0) {
-                    plugin.getFoliaLib().getScheduler().runLater(() -> {
+                    // Dispatch to the sign's own region. runLater is the GLOBAL scheduler, and the
+                    // sign sits at an arbitrary world location owned by some other region, so the
+                    // block writes below were an illegal cross-region access on Folia. Every other
+                    // sign mutation in AbstractShop already uses runAtLocationLater for this reason;
+                    // this path duplicated the operation without the guard. The Location is captured
+                    // here because dereferencing the Block on another thread is the same problem.
+                    final Location signLocation = b.getLocation();
+                    plugin.getFoliaLib().getScheduler().runAtLocationLater(signLocation, task -> {
                         //the shop has still not been initialized with an item from a player
                         if (!shop.isInitialized()) {
                             shop.delete();
@@ -204,8 +211,9 @@ public class MiscListener implements Listener {
                             // (sign-line rewrite + cancelShopCreationProcess) must fire for ALL sign
                             // types including freestanding sign-post shops, not only wall signs.
                             String[] lines = ShopMessage.getSignLines("timeout", shop);
-                            if (b.getBlockData() instanceof WallSign) {
-                                Sign sign = (Sign) b.getState();
+                            Block timeoutSignBlock = signLocation.getBlock();
+                            if (timeoutSignBlock.getBlockData() instanceof WallSign) {
+                                Sign sign = (Sign) timeoutSignBlock.getState();
                                 sign.setLine(0, lines[0]);
                                 sign.setLine(1, lines[1]);
                                 sign.setLine(2, lines[2]);
