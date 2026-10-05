@@ -29,7 +29,8 @@ public class LogHandler {
 
     private Shop plugin;
     private HikariDataSource dataSource;
-    private boolean enabled;
+    /** Read from the async query thread and written by shutdown() on the main thread. */
+    private volatile boolean enabled;
 
     public LogHandler(Shop plugin, YamlConfiguration shopConfig){
         this.plugin = plugin;
@@ -149,6 +150,10 @@ public class LogHandler {
     }
 
     public void shutdown() {
+        // Flipped before the pool closes so an in-flight query sees it at its next hop and declines
+        // to schedule its callback. Without this, shutdown landing between runAsync and runNextTick
+        // delivers into a handler whose connection pool is already gone.
+        this.enabled = false;
         if (dataSource != null) {
             dataSource.close();
         }
@@ -457,7 +462,11 @@ public class LogHandler {
                 OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(filter.getCustomerName());
                 if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline()) {
                     // Nobody by that name has ever played, so there can be no matching transactions.
-                    plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(Collections.emptyList()));
+                    // Deliver only if the handler is still live. A shutdown between the async hop
+                    // and this one would otherwise invoke the callback against a closed pool.
+                    if (enabled) {
+                        plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(Collections.emptyList()));
+                    }
                     return;
                 }
                 customerUUIDFilter = offlinePlayer.getUniqueId();
@@ -510,7 +519,11 @@ public class LogHandler {
                 e.printStackTrace();
             }
 
-            plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(transactions));
+            // Same guard as the early-exit path above: after shutdown() the pool is closed, so the
+            // callback would be talking to a torn-down handler.
+            if (enabled) {
+                plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(transactions));
+            }
         });
     }
 
