@@ -83,8 +83,28 @@ public class PlayerData {
 
             YamlConfiguration config = YamlConfiguration.loadConfiguration(playerDataFile);
 
-            UUID uuid = UUID.fromString(config.getString("player.UUID"));
-            GameMode gamemode = GameMode.valueOf(config.getString("player.gamemode"));
+            // Same contract as PlayerExperience.loadFromFile, one package over: a corrupt or
+            // half-written file must not throw out of the caller. Both call sites here treat a null
+            // return as "nothing to restore", so returning null is the correct failure signal.
+            String storedUuid = config.getString("player.UUID");
+            String storedGamemode = config.getString("player.gamemode");
+            if (storedUuid == null || storedGamemode == null) {
+                Shop.getPlugin().getLogger().warning("Incomplete creative-selection data for "
+                        + player.getUniqueId() + " — discarding.");
+                return null;
+            }
+
+            UUID uuid;
+            GameMode gamemode;
+            try {
+                uuid = UUID.fromString(storedUuid);
+                gamemode = GameMode.valueOf(storedGamemode);
+            } catch (IllegalArgumentException corrupt) {
+                Shop.getPlugin().getLogger().warning("Corrupt creative-selection data (uuid '"
+                        + storedUuid + "', gamemode '" + storedGamemode + "') — discarding.");
+                return null;
+            }
+
             Location signLoc = locationFromString(config.getString("player.shopSignLocation"));
             boolean allowFlight = config.getBoolean("player.allowFlight");
             boolean isFlying = config.getBoolean("player.isFlying");

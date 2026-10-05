@@ -913,6 +913,15 @@ public class Shop extends JavaPlugin {
         if (logHandler != null) logHandler.shutdown();
         if (metrics != null) metrics.shutdown();
 
+        // Cancel the BlueMap boot poller before anything else: it can create and register a listener,
+        // so it must not be able to run once teardown has begun. Without this a reload during the
+        // boot window leaves the old poller running alongside the new one, and both register a
+        // listener while only the newest field value can ever be unregistered.
+        if (bluemapBootTimer != null) {
+            bluemapBootTimer.cancel();
+            bluemapBootTimer = null;
+        }
+
         this.getLogger().info("Disabled Shop " + this.getDescription().getVersion());
     }
 
@@ -932,6 +941,9 @@ public class Shop extends JavaPlugin {
         HandlerList.unregisterAll(miscListener);
         HandlerList.unregisterAll(creativeSelectionListener);
         HandlerList.unregisterAll(guiListener);
+        // Registered in onEnable alongside the five above; omitting it leaked one live handler per
+        // reload, because overwriting the field does not unregister the previous instance.
+        HandlerList.unregisterAll(spearAttackListener);
         if(lwcHookListener != null){
             HandlerList.unregisterAll(lwcHookListener);
         }

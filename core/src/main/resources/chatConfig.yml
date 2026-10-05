@@ -255,6 +255,7 @@ permission:
    create: "&cYou are not authorized to create [shop type] shops."
    destroy: "&cYou are not authorized to destroy your own shops."
    destroyOther: "&cYou are not authorized to destroy other players shops."
+   adminShop: "&cYou are not authorized to create admin shops, so this was created as a normal shop."
    openOther: "&cYou are not authorized to open other players shops."
    buildLimit: "&cYou have already reached your build limit of [user amount]/[build limit] shops."
 

@@ -22,21 +22,34 @@ public class DisplayPacketBatcher {
 
     public void queuePacket(Player player, Runnable packetSender) {
         UUID playerId = player.getUniqueId();
-        pendingPackets.computeIfAbsent(playerId, k -> new ArrayList<>())
-            .add(new Packet(playerId, packetSender));
+        // The map is concurrent; the list it hands back is not. computeIfAbsent gives every caller for
+        // the same player the *same* ArrayList, so two threads then .add() to it unguarded and one
+        // write can be lost when the backing array is swapped during growth. Synchronising on the list
+        // makes the add and the size check one operation, so the MAX_PACKETS_PER_BATCH backstop is
+        // measured against a list that is not being mutated underneath it.
+        List<Packet> queue = pendingPackets.computeIfAbsent(playerId, k -> new ArrayList<>());
+        synchronized (queue) {
+            queue.add(new Packet(playerId, packetSender));
 
-        // Flush if batch is full
-        if (pendingPackets.get(playerId).size() >= MAX_PACKETS_PER_BATCH) {
-            flushPlayer(playerId);
+            // Flush if batch is full. flushPlayer removes the entry from the map and drains it, so it
+            // is safe to call while holding the lock: only one caller wins the remove.
+            if (queue.size() >= MAX_PACKETS_PER_BATCH) {
+                flushPlayer(playerId);
+            }
         }
     }
 
     public void flushAll() {
         long now = System.currentTimeMillis();
-        if (now - lastFlush.get() < BATCH_WINDOW_TICKS * 50) {
+        // Read once and compare against that same value. Reading lastFlush.get() separately for the
+        // guard and again inside the CAS is not a lost-update — the CAS still fails if another thread
+        // won — but it means the window check and the claim are decided on two different reads, so
+        // two threads can both pass the guard and both flush.
+        long previous = lastFlush.get();
+        if (now - previous < BATCH_WINDOW_TICKS * 50L) {
             return; // Not time yet
         }
-        if (lastFlush.compareAndSet(lastFlush.get(), now)) {
+        if (lastFlush.compareAndSet(previous, now)) {
             for (UUID playerId : new ArrayList<>(pendingPackets.keySet())) {
                 flushPlayer(playerId);
             }
@@ -48,7 +61,15 @@ public class DisplayPacketBatcher {
         if (packets == null || packets.isEmpty()) return;
 
         Player player = Shop.getPlugin().getServer().getPlayer(playerId);
-        if (player == null || !player.isOnline()) return;
+        if (player == null || !player.isOnline()) {
+            // The queue has already been removed from the map at this point, so returning here
+            // discards every packet in it. A player who logs out between queueing and flushing — or
+            // simply is not online when the batch drains — silently loses their display updates.
+            // Nothing is done with them, but they must not vanish without a trace either.
+            Shop.getPlugin().getLogger().fine("Dropping " + packets.size()
+                    + " display packet(s) for " + playerId + ": player not online.");
+            return;
+        }
 
         // Execute all packets for this player in one go
         for (Packet packet : packets) {

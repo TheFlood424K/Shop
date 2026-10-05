@@ -55,6 +55,14 @@ public class ShopMessage {
             "(.{1})";
 
     private static HashMap<String, String> messageMap = new HashMap<>();
+
+    /**
+     * List-valued config entries, which {@link #messageMap} cannot hold since it is a
+     * {@code Map<String, String>}.
+     *
+     * <p>Kept separate rather than widening messageMap so every existing caller is unaffected.
+     */
+    private static HashMap<String, List<String>> listMessageMap = new HashMap<>();
     // chatConfig.yml sections that nest a per-shop-type block (SELL:, BUY:, ...). A lookup that
     // arrives keyed only by the shop type has to search each of these, in this order.
     private static final String[] SHOP_TYPE_SECTIONS = {
@@ -907,6 +915,7 @@ public class ShopMessage {
 
     private static void loadMessagesFromConfig() {
         messageMap.clear();
+        listMessageMap.clear();
         if (chatConfig == null) return;
         for (String key : chatConfig.getKeys(false)) {
             loadSectionMessages(key, chatConfig.getConfigurationSection(key));
@@ -920,9 +929,27 @@ public class ShopMessage {
             Object value = section.get(subKey);
             if (value instanceof String) {
                 messageMap.put(fullPath, (String) value);
+            } else if (value instanceof java.util.List) {
+                // YAML lists were dropped here with no diagnostic, so every list-backed message
+                // resolved to null and rendered as an empty chat line — the same silent failure as a
+                // misspelled key. Several shipped config sections are lists (offline.summary,
+                // creativeSelection.enter and .prompt).
+                List<String> lines = new ArrayList<>();
+                for (Object entry : (java.util.List<?>) value) {
+                    if (entry != null) {
+                        lines.add(String.valueOf(entry));
+                    }
+                }
+                listMessageMap.put(fullPath, lines);
             } else if (value instanceof org.bukkit.configuration.ConfigurationSection) {
                 // Recursively load nested sections
                 loadSectionMessages(fullPath, (org.bukkit.configuration.ConfigurationSection) value);
+            } else {
+                // A type nothing here understands is a config error worth naming, rather than
+                // disappearing the way lists used to.
+                Shop.getPlugin().getLogger().warning("Message config key '" + fullPath
+                        + "' has an unsupported value type (" + value.getClass().getSimpleName()
+                        + "); it will not be loaded.");
             }
         }
     }
@@ -1074,6 +1101,13 @@ public class ShopMessage {
                 result.add(entry.getValue());
             }
         }
+        // Include list-valued entries under the same prefix; they are stored separately and would
+        // otherwise be invisible to this prefix scan.
+        for (Map.Entry<String, List<String>> entry : listMessageMap.entrySet()) {
+            if (entry.getKey().startsWith(key + ".") || entry.getKey().equals(key)) {
+                result.addAll(entry.getValue());
+            }
+        }
         return result;
     }
 
@@ -1081,6 +1115,13 @@ public class ShopMessage {
      * Compat overload: returns a list of unformatted messages for a key+subkey pair.
      */
     public static List<String> getUnformattedMessageList(String key, String subkey) {
+        // List-valued entries live in their own map; messageMap is Map<String, String> and cannot
+        // hold them. Check here first so a multi-line message is not flattened to a single lookup
+        // that misses and returns nothing.
+        List<String> listed = listMessageMap.get(key + "." + subkey);
+        if (listed != null && !listed.isEmpty()) {
+            return new ArrayList<>(listed);
+        }
         List<String> result = new ArrayList<>();
         String value = getUnformattedMessage(key, subkey);
         if (value != null && !value.isEmpty()) result.add(value);
