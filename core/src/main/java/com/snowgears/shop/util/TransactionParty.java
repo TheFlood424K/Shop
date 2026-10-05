@@ -114,9 +114,8 @@ public class TransactionParty {
      * Receive a payment and add it to the party's wallet/inventory.
      *
      * @return true if the full payment was deposited successfully; false if any
-     *         item-currency overflow could not be inserted (chest still full).
-     *         Always returns true for virtual-currency (Vault) payments because
-     *         Vault deposits cannot partially fail.
+     *         item-currency overflow could not be inserted (chest still full),
+     *         or the economy provider refused the Vault deposit.
      */
     public boolean depositFunds(double paymentAmount) {
         // If we are an admin, then we don't deposit any funds
@@ -133,9 +132,11 @@ public class TransactionParty {
             return leftover == 0;
         }
 
-        // We are being paid using our normal currency (Vault — cannot partially fail)
-        EconomyUtils.addFunds(party, this.inventory, paymentAmount);
-        return true;
+        // Vault deposits are not unconditionally successful: depositPlayer returns a failed response
+        // for an ordinary reason such as a balance cap, a bank limit, or a provider-side failure.
+        // addFunds reports that as false, so the result must be propagated — discarding it reports a
+        // sale as paid out when the seller received nothing.
+        return EconomyUtils.addFunds(party, this.inventory, paymentAmount);
     }
 
     // Make a payment for a purchase

@@ -107,7 +107,19 @@ public class EconomyUtils {
 
         int unadded = 0;
         if (blocksToAdd > 0) {
-            unadded += InventoryUtils.addItem(inventory, new ItemStack(blockForm, blocksToAdd)) * ratio;
+            // Split across stacks: a single ItemStack above the material's max stack size is not a
+            // quantity any inventory can hold, and the server's handling of one is undefined.
+            int perStack = blockForm.getMaxStackSize();
+            int remaining = blocksToAdd;
+            while (remaining > 0) {
+                int chunk = Math.min(remaining, perStack);
+                int leftover = InventoryUtils.addItem(inventory, new ItemStack(blockForm, chunk));
+                if (leftover > 0) {
+                    unadded += leftover * ratio;
+                    break;
+                }
+                remaining -= chunk;
+            }
         }
         if (singularsToAdd > 0) {
             ItemStack singularStack = singular.clone();
@@ -116,10 +128,9 @@ public class EconomyUtils {
         }
 
         if (unadded > 0) {
-            // Roll back the portion we couldn't deposit
-            ItemStack rollback = singular.clone();
-            rollback.setAmount(unadded);
-            InventoryUtils.removeItem(inventory, rollback);
+            // Report the shortfall and stop. Do NOT remove anything from `inventory`: that is the
+            // destination the payment was being placed into, so removing from it destroys stock the
+            // seller already held. Nothing was placed beyond what fit, so there is nothing to undo.
             return false;
         }
         return true;

@@ -265,7 +265,15 @@ public class Transaction {
             this.buyer.depositItem(itemSold);
         } else {
             // Player seller — original order: pay seller, then transfer item.
-            this.seller.depositFunds(this.price);
+            // The result matters: a Vault deposit can be refused (balance cap, bank limit, provider
+            // failure), and addFunds reports that as false. Discarding it completes a sale the seller
+            // was never paid for — goods gone, money retained by the buyer.
+            if (!this.seller.depositFunds(this.price)) {
+                // Refund the buyer and leave the shop's stock untouched. Nothing has moved yet, so
+                // this is a clean reversal rather than the partial rollback the chest path needs.
+                this.buyer.depositFunds(this.price);
+                return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP);
+            }
             this.seller.deductItem(itemSold);
             this.buyer.depositItem(itemSold);
         }
