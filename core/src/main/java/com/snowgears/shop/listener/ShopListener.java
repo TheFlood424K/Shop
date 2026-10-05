@@ -335,7 +335,7 @@ public class ShopListener implements Listener {
                         if (offlineTransactions != null && !offlineTransactions.isCalculating()) {
                             //only display the message if some transactions happened while they were offline
                             if(offlineTransactions.getNumTransactions() > 0) {
-                                List<String> messageList = ShopMessage.getUnformattedMessageList("offline", "summary");
+                                List<String> messageList = ShopMessage.getUnformattedMessageList("transaction", "OFFLINE_TRANSACTIONS_NOTIFICATION.summary");
                                 for (String message : messageList) {
                                     ShopMessage.sendMessage(message, player, offlineTransactions);
                                 }
