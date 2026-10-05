@@ -131,9 +131,18 @@ public abstract class BaseMockBukkitTest {
 
     @AfterEach
     public void tearDownServer() {
+        // Drain BEFORE disabling. plugin.onDisable() calls LogHandler.shutdown(), which closes the
+        // Hikari pool; any async task still holding a connection then fails against a closed proxy
+        // ("Cannot invoke Connection.prepareStatement because this.delegate is null"), and MockBukkit
+        // surfaces that as a teardown AsyncTaskException.
+        //
+        // This surfaced only on the Linux runner. Windows tolerated the ordering because the file
+        // lock on the .mv.db made the timing different, not because it was correct.
+        server.getScheduler().waitAsyncTasksFinished();
+        server.getScheduler().performTicks(1);
+
         // Must disable, otherwise shutdown is slow at test end
         plugin.onDisable();
-        server.getScheduler().waitAsyncTasksFinished();
 
         // Clean up data folder after test
         cleanDataFolder();
