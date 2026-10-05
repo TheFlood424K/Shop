@@ -59,6 +59,13 @@ public abstract class BaseMockBukkitTest {
         cleanDataFolder();
 
         server = MockBukkit.mock();
+        // Each test gets its own in-memory H2 database, named for the test so two classes running
+        // concurrently cannot collide. Without this the embedded database is a FILE under the data
+        // folder, shared across test methods: a row written by one test is still present for the
+        // next, which makes database assertions order-dependent. The file is also held open by the
+        // pool, so the recursive delete below silently fails to remove it. See issue #124.
+        final String testDbName = "test-" + java.util.UUID.randomUUID();
+        useIsolatedDatabase(testDbName);
         plugin = MockBukkit.load(Shop.class);
 
         // Copy config files from test resources to plugin data folder so ShopMessage can load them
@@ -150,8 +157,29 @@ public abstract class BaseMockBukkitTest {
         // Unmock the server to cleanup after ourselves
         MockBukkit.unmock();
 
+        // Clear the per-test database override so a later test that does not set one does not
+        // silently inherit this test's in-memory database.
+        System.clearProperty("shop.test.h2.url");
+
         server = null;
         plugin = null;
+    }
+
+    /**
+     * Points the plugin's log handler at an in-memory H2 database unique to this test.
+     *
+     * <p>The handler is constructed during plugin load, so the URL has to be in place before
+     * {@code MockBukkit.load}. That means overriding the factory on the class the plugin will build —
+     * which {@code Shop} instantiates itself, so this works by pre-seeding a system property the
+     * overridden factory reads.
+     *
+     * <p>{@code DB_CLOSE_DELAY=-1} keeps the in-memory database alive while the pool holds a
+     * connection; without it H2 drops the database when the last connection closes and the second
+     * query in a test fails to find its own table.
+     */
+    private void useIsolatedDatabase(String testDbName) {
+        System.setProperty("shop.test.h2.url",
+                "jdbc:h2:mem:" + testDbName + ";MODE=MySQL;DB_CLOSE_DELAY=-1");
     }
 
     private void cleanDataFolder() {
