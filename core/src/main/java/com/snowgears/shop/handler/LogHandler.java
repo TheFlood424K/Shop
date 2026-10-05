@@ -284,15 +284,23 @@ public class LogHandler {
 
         if(!enabled) return;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
-            // Log the Transaction that occured
+            // One connection for the whole transaction. The two inserts used to each open their own
+            // try-with-resources, which is two pool acquisitions per purchase — the pool is capped at
+            // ten and every concurrent purchase pays for it. Holding one connection also makes the
+            // transaction_id write atomic with the row that references it: if the action insert fails,
+            // the transaction row rolls back instead of leaving an orphaned id.
+            // See issue #54.
             int transactionID = 0;
-            // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (
                 Connection conn = dataSource.getConnection();
                 PreparedStatement logTxStmt = conn.prepareStatement(
                         "INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) VALUES(?, ?, ?, ?, ?);",
                         Statement.RETURN_GENERATED_KEYS);
+                PreparedStatement actionStmt = conn.prepareStatement(
+                        "INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, transaction_id, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
             ) {
+                conn.setAutoCommit(false);
+
                 logTxStmt.setString(1, transactionType.toString().toUpperCase());
                 logTxStmt.setDouble(2, price);
                 logTxStmt.setInt(3, amount);
@@ -305,22 +313,9 @@ public class LogHandler {
                 ResultSet txRS = logTxStmt.getGeneratedKeys();
                 txRS.next();
                 transactionID = txRS.getInt(1);
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
-                e.printStackTrace();
-            } catch (Exception e) {
-                plugin.getLogger().log(Level.WARNING,"Error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
-                e.printStackTrace();
-            }
 
-            // Log the action that occured
-            if (transactionID == 0) return; // Last query failed, so skip this one!
-            // Connect to datasource & create statement in "try" to handle automatically closing the connection!
-            try (
-                Connection conn = dataSource.getConnection();
-                PreparedStatement actionStmt = conn.prepareStatement(
-                        "INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, transaction_id, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
-            ) {
+                // Log the action that occured
+                if (transactionID == 0) return; // Last query failed, so skip this one!
                 actionStmt.setTimestamp(1, new Timestamp(new Date().getTime()));
                 actionStmt.setString(2, player.getUniqueId().toString());
                 if(shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()))
@@ -337,8 +332,13 @@ public class LogHandler {
                 actionStmt.setInt(9, shop.getSignLocation().getBlockY());
                 actionStmt.setInt(10, shop.getSignLocation().getBlockZ());
                 actionStmt.execute();
+
+                conn.commit();
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
+                e.printStackTrace();
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING,"Error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
                 e.printStackTrace();
             }
         });
