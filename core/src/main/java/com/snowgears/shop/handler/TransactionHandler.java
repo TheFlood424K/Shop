@@ -29,7 +29,7 @@ public class TransactionHandler {
         Player player = event.getPlayer();
 
         if(shop.isPerformingTransaction()) {
-            ShopMessage.sendMessage("interactionIssue", "useShopAlreadyInUse", player, shop);
+            ShopMessage.sendMessage("interaction_issue", "useShopAlreadyInUse", player, shop);
             event.setCancelled(true);
             return;
         }
@@ -41,7 +41,7 @@ public class TransactionHandler {
 
         //check that player can use the shop if it is in a WorldGuard region
         if(!canUseShopInRegion){
-            ShopMessage.sendMessage("interactionIssue", "regionRestriction", player, shop);
+            ShopMessage.sendMessage("interaction_issue", "regionRestriction", player, shop);
             event.setCancelled(true);
             return;
         }
@@ -93,7 +93,7 @@ public class TransactionHandler {
                 executeTransactionSequence(player, shop, shop.getType(), fullStackOrder);
             }
         } else {
-            ShopMessage.sendMessage("interactionIssue", "useOwnShop", player, shop);
+            ShopMessage.sendMessage("interaction_issue", "useOwnShop", player, shop);
             shop.sendEffects(false, player);
         }
         event.setCancelled(true);

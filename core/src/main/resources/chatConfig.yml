@@ -200,6 +200,10 @@ interaction_issue:
    regionRestriction: "&cYou do not have permission to do that in this region."
    itemListDeny: "&cShops on this server are denied from listing this item"
    createHitChestTimeout: "&7The shop you started to create at [location] has timed out."
+   initialize: "&cYou may not initialize another player's shop with an item."
+   noItem: "&cYou must be holding the item you want to sell."
+   shulkerBoxConflict: "&cA shulker box cannot be sold from inside a shulker box."
+   line3: "&cThe price must be a valid number."
    createOtherPlayer: "&cYou are not allowed to create a shop on this chest."
 
 description:
@@ -264,6 +268,8 @@ hover:
       - '&7[owner]'
 
 creativeSelection:
+   disabled: "&cCreative shop selection is disabled on this server."
+   noCommands: "&cYou cannot use commands while in creative shop selection mode."
    enter:
       - "&6Open your inventory and select the item you want to receive."
       - "&eTo select the item, pick it up and drop it outside of the inventory window."

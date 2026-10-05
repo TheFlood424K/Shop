@@ -67,7 +67,7 @@ public class BoltTrustListener implements Listener {
             if (protection != null && !event.getPlayer().isOp() && protection.getOwner() != null && !protection.getOwner().equals(event.getPlayer().getUniqueId())) {
                 event.setCancelled(true);
                 // Reuse the same message key as LWC hook for consistency
-                ShopMessage.sendMessage("interactionIssue", "createOtherPlayer", event.getPlayer(), event.getShop());
+                ShopMessage.sendMessage("interaction_issue", "createOtherPlayer", event.getPlayer(), event.getShop());
             }
         } catch (Exception e) {
             // Fail open: do not block shop creation if Bolt throws, but log at debug level if available

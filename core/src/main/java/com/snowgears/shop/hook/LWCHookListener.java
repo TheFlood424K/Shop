@@ -51,7 +51,7 @@ public class LWCHookListener implements Listener {
                 //if the owner of the existing LWC protection is NOT the player creating the shop
                 if(!event.getPlayer().isOp() && !protection.getBukkitOwner().getUniqueId().equals(event.getPlayer().getUniqueId())) {
                     event.setCancelled(true);
-                    ShopMessage.sendMessage("interactionIssue", "createOtherPlayer", event.getPlayer(), event.getShop());
+                    ShopMessage.sendMessage("interaction_issue", "createOtherPlayer", event.getPlayer(), event.getShop());
                 }
             }
         }
