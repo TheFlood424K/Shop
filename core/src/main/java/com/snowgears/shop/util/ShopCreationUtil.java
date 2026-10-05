@@ -151,6 +151,17 @@ public class ShopCreationUtil {
         String playerMessage = null;
         if(type == null)
             type = ShopType.SELL;
+
+        // The admin flag arrives from the player's own creation input (see getShopIsAdmin), so it is a
+        // request, not a fact. Honour it only for a player entitled to it, and coerce rather than
+        // refuse: the rest of creation proceeds normally and the player keeps their shop.
+        boolean mayBeOperator = (!plugin.usePerms() && player.isOp())
+                || (plugin.usePerms() && player.hasPermission("shop.operator"));
+        if (isAdmin && !mayBeOperator) {
+            isAdmin = false;
+            ShopMessage.sendMessage("permission", "adminShop", player, null);
+        }
+
         final AbstractShop shop = AbstractShop.create(signBlock.getLocation(), player.getUniqueId(), pricePair.getPrice(), pricePair.getPriceCombo(), amount, isAdmin, type, signDirection);
         shop.setFakeSign(isFakeSign);
 
@@ -162,7 +173,7 @@ public class ShopCreationUtil {
         if (type == ShopType.GAMBLE) {
             isAdmin = true;
             shop.setAdmin(true);
-            if ((plugin.usePerms() && !player.hasPermission("shop.operator")) || (!plugin.usePerms() && !player.isOp())) {
+            if (!mayBeOperator) {
                 playerMessage = ShopMessage.getUnformattedMessage("permission", "create");
             }
         }
@@ -175,16 +186,18 @@ public class ShopCreationUtil {
             }
         }
 
-        if (player.isOp() || (plugin.usePerms() && player.hasPermission("shop.operator"))) {
+        if (mayBeOperator) {
             playerMessage = null;
         }
 
-        //prevent players (even if they are OP) from creating a shop on a double chest with another player
+        // Prevent creating a shop on a double chest that already belongs to someone else. This runs
+        // AFTER the operator clear above so it is the last writer — the comment on this check says it
+        // applies "even if they are OP", and that only holds because of the ordering. The admin
+        // exemption was removed deliberately: admin status is a property of a shop, not a licence to
+        // take over another player's chest.
         AbstractShop existingShop = plugin.getShopHandler().getShopByChest(chestBlock);
-        if (existingShop != null && !existingShop.isAdmin()) {
-            if (!existingShop.getOwnerUUID().equals(player.getUniqueId())) {
-                playerMessage = ShopMessage.getUnformattedMessage("interaction_issue", "createOtherPlayer");
-            }
+        if (existingShop != null && !existingShop.getOwnerUUID().equals(player.getUniqueId())) {
+            playerMessage = ShopMessage.getUnformattedMessage("interaction_issue", "createOtherPlayer");
         }
 
         if (playerMessage != null) {
@@ -556,9 +569,19 @@ public class ShopCreationUtil {
         return new PricePair(price, priceCombo);
     }
 
+    /**
+     * Whether the player's creation line asks for an admin shop.
+     *
+     * <p>Substring matching, consistent with {@link #getShopType(String)} and every other
+     * creation-word lookup in this class. A stricter rule here would reject a line the type parser
+     * happily accepts, which is a worse failure than the one it prevents.
+     *
+     * <p>This only decides whether the request is <em>made</em>. {@link #createShop} checks whether it
+     * is <em>allowed</em>, so a true return here is not by itself a bypass — and that separation is
+     * what makes the substring rule tolerable.
+     */
     public boolean getShopIsAdmin(String input){
-        if (input.toLowerCase().contains(ShopMessage.getCreationWord("ADMIN")))
-            return true;
-        return false;
+        if (input == null) return false;
+        return input.toLowerCase().contains(ShopMessage.getCreationWord("ADMIN"));
     }
 }
