@@ -16,6 +16,7 @@
 - **Multiple Currency Options:** Change currency to a custom item, virtual currency (Vault), or experience points
 - **Multiple Shop Creation Methods:** Fill out a sign or hit a chest with an item
 - **No Commands Required:** Create shops without needing complex commands
+- **Transaction History:** `/transactions` (alias `/tx`) shows a player their own sales and purchases, filterable by time, shop type, item and customer
 - **Item Support:** Easily handles items with custom display names, descriptions, and enchantments
 - **Admin Shops:** Create shops that don't need to be stocked
 - **Display Options:** Change between different types of displays (item floating, glass case, large item, item frame)
@@ -56,7 +57,7 @@ Players can then interact with the shop by right-clicking the sign.
 
 ## Documentation
 
-- **Player Instructions**: [Player-Instructions](Player-Instructions)
+- **Player Instructions**: [Player-Instructions](Player-Instructions) — shop creation, and the `/transactions` history command
 - **Trust Players (v1.11+)**: [Trust-Players](Trust-Players)
 - **Configuration (config.yml)**: [Configuration-(config.yml)](Configuration-(config.yml))
 - **Permissions**: [Permissions](Permissions)
