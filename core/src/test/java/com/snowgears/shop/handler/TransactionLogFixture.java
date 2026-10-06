@@ -101,14 +101,21 @@ class TransactionLogFixture extends BaseMockBukkitTest {
     /**
      * Pumps ticks until the in-flight work settles.
      *
-     * <p>The query is double-hopped, so a single {@code performTicks(2)} is not enough — and when it
-     * is not enough the result is an empty list rather than a failure, which is how a broken fixture
-     * masquerades as "no sales recorded".
+     * <p>The query is double-hopped ({@code runAsync} then {@code runNextTick}), so a single
+     * {@code performTicks(2)} is not enough — and when it is not enough the result is an empty list
+     * rather than a failure, which is how a broken fixture masquerades as "no sales recorded".
+     *
+     * <p>MockBukkit's {@code waitAsyncTasksFinished()} processes scheduled tasks <em>before</em>
+     * waiting for the async pool, but does not pump ticks <em>during</em> the wait. When an async
+     * task completes and schedules a {@code runNextTick} callback, that callback lands in the
+     * scheduler queue for the next tick, but the main thread is asleep in the pool wait loop.
+     * We therefore pump ticks both before and after the wait, with enough iterations to cover
+     * load-induced delays on busy CI runners.
      */
     protected void drain() {
-        for (int i = 0; i < 30; i++) {
+        for (int i = 0; i < 60; i++) {
             getServer().getScheduler().waitAsyncTasksFinished();
-            getServer().getScheduler().performTicks(1);
+            getServer().getScheduler().performTicks(5);
         }
     }
 

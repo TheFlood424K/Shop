@@ -142,9 +142,13 @@ class LogHandlerQueryBoundTest {
 
     /** Pumps ticks until {@code target} is set, or the budget runs out. */
     private boolean waitFor(AtomicReference<List<PlayerTransactionRecord>> target, int maxTicks) {
-        for (int i = 0; i < maxTicks; i++) {
+        // The query is double-hopped (runAsync then runNextTick), so a single waitAsyncTasksFinished
+        // + performTicks(1) is not enough — and when it is not enough the result is a silent timeout.
+        // Pump more aggressively to cover load-induced delays on busy runners.
+        int iterations = Math.max(maxTicks, 60);
+        for (int i = 0; i < iterations; i++) {
             server.getScheduler().waitAsyncTasksFinished();
-            server.getScheduler().performTicks(1);
+            server.getScheduler().performTicks(5);
             if (target.get() != null) {
                 return true;
             }
