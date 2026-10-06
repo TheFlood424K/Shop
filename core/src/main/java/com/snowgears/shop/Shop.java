@@ -484,14 +484,17 @@ public class Shop extends JavaPlugin {
         try {
             YamlConfiguration gambleItemConfig = YamlConfiguration.loadConfiguration(gambleDisplayFile);
             gambleDisplayItem = gambleItemConfig.getItemStack("GAMBLE_DISPLAY");
-        } catch (IllegalArgumentException e) {
-            this.getLogger().severe("Error loading gamble display item from file: " + gambleDisplayFile.getAbsolutePath());
-            gambleDisplayItem = new ItemStack(Material.DIAMOND);
-        } catch (Exception e) {
-            this.getLogger().warning("Error loading gamble display item from file: " + gambleDisplayFile.getAbsolutePath());
-            gambleDisplayItem = new ItemStack(Material.DIAMOND);
-        } catch (Error e) {
-            this.getLogger().warning("Error loading gamble display item from file: " + gambleDisplayFile.getAbsolutePath());
+        } catch (Throwable e) {
+            // A deserialization failure here used to abort onEnable outright. The shipped
+            // GAMBLE_DISPLAY.yml includes a skull-owner with a uniqueId AND a populated
+            // properties map (textures), but a missing or corrupted file — or a future
+            // MockBukkit regression — could leave properties absent, causing
+            // PlayerProfileMock.deserialize to NPE. That NPE propagated up through onEnable,
+            // so the plugin never finished loading and every query scheduled against it
+            // silently never delivered — the callback is the only completion signal, and
+            // without a live plugin there is no one to run it. Catch Throwable for maximum
+            // robustness and fall back to a diamond.
+            this.getLogger().log(java.util.logging.Level.WARNING, "Error loading gamble display item from file: " + gambleDisplayFile.getAbsolutePath(), e);
             gambleDisplayItem = new ItemStack(Material.DIAMOND);
         }
 

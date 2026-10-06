@@ -45,6 +45,16 @@ class LogHandlerQueryBoundTest {
 
     private Shop plugin;
 
+    /** How many wait-and-pump cycles waitFor() performs. Chosen large enough that the
+     *  double-hopped query (runAsync + runNextTick) reliably delivers even on busy CI
+     *  runners, where MockBukkit's waitAsyncTasksFinished() does not pump ticks during
+     *  its pool-wait loop. */
+    private static final int WAIT_ITERATIONS = 120;
+
+    /** Ticks pumped per waitFor() iteration after the async pool is observed idle. Ten
+     *  is enough to flush any runNextTick callbacks scheduled by the just-completed task. */
+    private static final int TICKS_PER_WAIT = 10;
+
     @BeforeEach
     void setUp() {
         plugin = MockBukkit.loadSimple(Shop.class);
@@ -142,9 +152,13 @@ class LogHandlerQueryBoundTest {
 
     /** Pumps ticks until {@code target} is set, or the budget runs out. */
     private boolean waitFor(AtomicReference<List<PlayerTransactionRecord>> target, int maxTicks) {
-        for (int i = 0; i < maxTicks; i++) {
+        // The query is double-hopped (runAsync then runNextTick), so a single waitAsyncTasksFinished
+        // + performTicks(1) is not enough — and when it is not enough the result is a silent timeout.
+        // Pump more aggressively to cover load-induced delays on busy runners.
+        // Use WAIT_ITERATIONS as the cap (caller's maxTicks is ignored; the constant is the real budget).
+        for (int i = 0; i < WAIT_ITERATIONS; i++) {
             server.getScheduler().waitAsyncTasksFinished();
-            server.getScheduler().performTicks(1);
+            server.getScheduler().performTicks(TICKS_PER_WAIT);
             if (target.get() != null) {
                 return true;
             }
