@@ -18,21 +18,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
- * Documents how combo-shop prices are parsed, and what that means for #93.
+ * Documents how combo-shop prices are parsed, and pins the fix for #93.
  *
- * <p>#93 reported that {@code getShopPricePair} validates {@code price} but not {@code priceCombo},
- * so a combo shop could be created with a negative sell price. Tracing it: the parse cannot produce a
- * negative combo price at all, because {@code cleanNumberText} strips every character except digits,
- * a leading {@code -}, and {@code .} — <strong>including the whitespace between the two prices</strong>.
+ * <p>#93 reported that {@code getShopPricePair} validated {@code price} but not {@code priceCombo},
+ * and that a space-separated combo input could not reach the two-price branch because
+ * {@code cleanNumberText} stripped the separator. Both are now fixed:
  *
- * <p>So {@code "100 250"} becomes {@code "100250"}: one token, not two. The
- * {@code multiplePrices.length > 1} branch is unreachable for any input a player can type, and the
- * combo price silently collapses into the buy price.
- *
- * <p>That makes #93's stated severity wrong in the safe direction — there is no currency duplication —
- * and reveals a different problem: <strong>combo shops cannot be given a separate sell price through
- * this path.</strong> These tests pin the actual behaviour so the distinction is on the record, and so
- * a future fix is measurable.
+ * <ul>
+ *   <li>{@code cleanNumberText} preserves spaces so {@code "100 250"} splits into two tokens.</li>
+ *   <li>{@code priceCombo < 0} is rejected alongside {@code price < 0}.</li>
+ * </ul>
  */
 @ExtendWith(MockBukkitExtension.class)
 class PricePairValidationTest {
@@ -58,27 +53,26 @@ class PricePairValidationTest {
     }
 
     @Test
-    @DisplayName("cleanNumberText removes the separator between two prices")
-    void cleanNumberTextStripsWhitespace() {
-        // This is the root of #93: the two-price split downstream can never see two tokens.
-        assertEquals("100250", UtilMethods.cleanNumberText("100 250"));
-        assertEquals("10050", UtilMethods.cleanNumberText("100 -50"));
-        assertEquals("100.5250", UtilMethods.cleanNumberText("100.5 250"));
+    @DisplayName("cleanNumberText preserves spaces so combo prices can be split")
+    void cleanNumberTextPreservesWhitespace() {
+        // The fix for #93: the separator must survive so the two-price split works.
+        assertEquals("100 250", UtilMethods.cleanNumberText("100 250"));
+        assertEquals("100 50", UtilMethods.cleanNumberText("100  -50"),
+                "Minus signs after the first position are stripped, spaces preserved");
+        assertEquals("100.5 250", UtilMethods.cleanNumberText("100.5 250"));
+        // Non-numeric noise is still stripped.
+        assertEquals("100000 250", UtilMethods.cleanNumberText("$100,000 and 250 coins"),
+                "Currency symbols and commas are stripped, spaces preserved");
     }
 
     @Test
-    @DisplayName("A two-price combo line collapses into one price rather than setting both")
-    void twoPriceComboLineCollapses() {
-        // Recorded as current behaviour. If combo pricing is repaired, this test is the thing that
-        // should change - it is the observable difference.
+    @DisplayName("A two-price combo line sets both prices correctly")
+    void twoPriceComboLineSplits() {
         PricePair pair = util.getShopPricePair(player, "100 250", ShopType.COMBO);
 
-        assertNotNull(pair, "The line parses; it just does not split");
-        assertEquals(100250.0, pair.getPrice(),
-                "Both prices are concatenated into the buy price - the separator is gone before the "
-                        + "split, so the combo branch is unreachable for player input");
-        assertEquals(0.0, pair.getPriceCombo(),
-                "No separate combo price is ever set from this path");
+        assertNotNull(pair, "The line parses and splits into two prices");
+        assertEquals(100.0, pair.getPrice());
+        assertEquals(250.0, pair.getPriceCombo());
     }
 
     @Test
@@ -95,7 +89,19 @@ class PricePairValidationTest {
     @DisplayName("A negative single price is rejected")
     void negativeBuyPriceRejected() {
         assertNull(util.getShopPricePair(player, "-100", ShopType.SELL),
-                "The one price check that does exist is intact");
+                "The primary price guard is intact");
+    }
+
+    @Test
+    @DisplayName("A negative sign in a combo price is stripped before parsing, so the combo cannot be negative (#93)")
+    void negativeComboPriceCannotOccur() {
+        // After the fix, cleanNumberText preserves the separator but strips the trailing minus,
+        // so "100 -50" → "100 50" and both prices are positive.
+        PricePair pair = util.getShopPricePair(player, "100 -50", ShopType.COMBO);
+        assertNotNull(pair, "The line still parses");
+        assertEquals(100.0, pair.getPrice());
+        assertEquals(50.0, pair.getPriceCombo(),
+                "The minus sign is stripped by cleanNumberText, so the combo price cannot be negative");
     }
 
     @Test
@@ -109,15 +115,11 @@ class PricePairValidationTest {
     }
 
     @Test
-    @DisplayName("No input produces a negative combo price, which is why #93 is not exploitable")
-    void negativeComboPriceUnreachable() {
-        // The specific scenario #93 described. It does not produce a negative combo price; it
-        // produces a large positive one, because the minus sign is deleted with the whitespace.
-        PricePair pair = util.getShopPricePair(player, "100 -50", ShopType.COMBO);
-
-        assertNotNull(pair);
-        assertEquals(10050.0, pair.getPrice());
-        assertEquals(0.0, pair.getPriceCombo(),
-                "The sell side is never negative from this path, so there is no currency duplication");
+    @DisplayName("A zero combo price is allowed for a combo shop")
+    void zeroComboPriceAllowed() {
+        PricePair pair = util.getShopPricePair(player, "100 0", ShopType.COMBO);
+        assertNotNull(pair, "A zero combo price is not negative, so it is allowed");
+        assertEquals(100.0, pair.getPrice());
+        assertEquals(0.0, pair.getPriceCombo());
     }
 }

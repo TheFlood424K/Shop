@@ -566,6 +566,12 @@ public class ShopCreationUtil {
             ShopMessage.sendMessage("interaction_issue", "line3", player, null);
             return null;
         }
+        // priceCombo was never validated independently — a negative combo price would silently
+        // pass through even though the primary price guard catches it (#93).
+        if (priceCombo < 0) {
+            ShopMessage.sendMessage("interaction_issue", "line3", player, null);
+            return null;
+        }
         return new PricePair(price, priceCombo);
     }
 

@@ -215,11 +215,15 @@ public class UtilMethods {
      * Strips non-numeric characters from a price/number string and returns it clean.
      * E.g. "$1,234.56" -> "1234.56"
      * Preserves leading minus sign for negative number detection.
+     * Preserves spaces so that multi-price input (e.g. "100 250" for combo shops) can
+     * be split downstream; see ShopCreationUtil#getShopPricePair.
      */
     public static String cleanNumberText(String text) {
         if (text == null) return "0";
-        // Preserve leading minus sign, remove all other non-numeric chars except decimal point
-        String cleaned = text.replaceAll("[^0-9.-]", "");
+        // Preserve spaces, leading minus sign, and decimal points; strip everything else.
+        String cleaned = text.replaceAll("[^0-9 .-]", "");
+        // Collapse runs of spaces and trim leading/trailing.
+        cleaned = cleaned.replaceAll(" +", " ").trim();
         // Remove any minus signs that aren't at the start
         if (cleaned.length() > 1) {
             cleaned = cleaned.charAt(0) + cleaned.substring(1).replace("-", "");
