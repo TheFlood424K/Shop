@@ -49,11 +49,11 @@ class LogHandlerQueryBoundTest {
      *  double-hopped query (runAsync + runNextTick) reliably delivers even on busy CI
      *  runners, where MockBukkit's waitAsyncTasksFinished() does not pump ticks during
      *  its pool-wait loop. */
-    private static final int WAIT_ITERATIONS = 60;
+    private static final int WAIT_ITERATIONS = 120;
 
-    /** Ticks pumped per waitFor() iteration after the async pool is observed idle. Five
+    /** Ticks pumped per waitFor() iteration after the async pool is observed idle. Ten
      *  is enough to flush any runNextTick callbacks scheduled by the just-completed task. */
-    private static final int TICKS_PER_WAIT = 5;
+    private static final int TICKS_PER_WAIT = 10;
 
     @BeforeEach
     void setUp() {

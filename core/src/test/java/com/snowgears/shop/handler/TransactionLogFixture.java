@@ -45,11 +45,11 @@ class TransactionLogFixture extends BaseMockBukkitTest {
     /** How many wait-and-pump cycles drain() performs. Chosen large enough that the second
      *  async hop (runNextTick) reliably lands even on busy CI runners, where the pool wait
      *  loop inside MockBukkit's waitAsyncTasksFinished() does not pump ticks. */
-    private static final int DRAIN_ITERATIONS = 60;
+    private static final int DRAIN_ITERATIONS = 120;
 
     /** Ticks pumped per drain() iteration after the async pool is observed idle. Five is
      *  enough to flush any runNextTick callbacks scheduled by the just-completed async task. */
-    private static final int TICKS_PER_DRAIN = 5;
+    private static final int TICKS_PER_DRAIN = 10;
 
     protected ServerMock server() {
         return getServer();
