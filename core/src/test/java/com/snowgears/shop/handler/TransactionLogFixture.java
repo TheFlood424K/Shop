@@ -42,6 +42,15 @@ class TransactionLogFixture extends BaseMockBukkitTest {
     /** Counts completed work units so {@link #drain()} knows when the hops have finished. */
     private final AtomicInteger completed = new AtomicInteger();
 
+    /** How many wait-and-pump cycles drain() performs. Chosen large enough that the second
+     *  async hop (runNextTick) reliably lands even on busy CI runners, where the pool wait
+     *  loop inside MockBukkit's waitAsyncTasksFinished() does not pump ticks. */
+    private static final int DRAIN_ITERATIONS = 60;
+
+    /** Ticks pumped per drain() iteration after the async pool is observed idle. Five is
+     *  enough to flush any runNextTick callbacks scheduled by the just-completed async task. */
+    private static final int TICKS_PER_DRAIN = 5;
+
     protected ServerMock server() {
         return getServer();
     }
@@ -113,9 +122,9 @@ class TransactionLogFixture extends BaseMockBukkitTest {
      * load-induced delays on busy CI runners.
      */
     protected void drain() {
-        for (int i = 0; i < 60; i++) {
+        for (int i = 0; i < DRAIN_ITERATIONS; i++) {
             getServer().getScheduler().waitAsyncTasksFinished();
-            getServer().getScheduler().performTicks(5);
+            getServer().getScheduler().performTicks(TICKS_PER_DRAIN);
         }
     }
 
