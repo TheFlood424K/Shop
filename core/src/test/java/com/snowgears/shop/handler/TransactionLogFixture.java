@@ -47,7 +47,7 @@ class TransactionLogFixture extends BaseMockBukkitTest {
      *  loop inside MockBukkit's waitAsyncTasksFinished() does not pump ticks. */
     private static final int DRAIN_ITERATIONS = 120;
 
-    /** Ticks pumped per drain() iteration after the async pool is observed idle. Five is
+    /** Ticks pumped per drain() iteration after the async pool is observed idle. Ten is
      *  enough to flush any runNextTick callbacks scheduled by the just-completed async task. */
     private static final int TICKS_PER_DRAIN = 10;
 
