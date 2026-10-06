@@ -123,6 +123,10 @@ class TransactionLogFixture extends BaseMockBukkitTest {
      */
     protected void drain() {
         for (int i = 0; i < DRAIN_ITERATIONS; i++) {
+            // waitAsyncTasksFinished drains the current batch of async work and may take
+            // up to executorTimeout (60s). After it returns the pool is idle but any
+            // runNextTick callbacks scheduled by the just-finished tasks are queued for
+            // the next tick — pump ticks so they fire.
             getServer().getScheduler().waitAsyncTasksFinished();
             getServer().getScheduler().performTicks(TICKS_PER_DRAIN);
         }
