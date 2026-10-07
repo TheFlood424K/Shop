@@ -150,13 +150,17 @@ class LogHandlerQueryBoundTest {
         }
     }
 
-    /** Pumps ticks until {@code target} is set, or the budget runs out. */
+    /** Pumps ticks until {@code target} is set, or the caller's budget runs out. */
     private boolean waitFor(AtomicReference<List<PlayerTransactionRecord>> target, int maxTicks) {
         // The query is double-hopped (runAsync then runNextTick), so a single waitAsyncTasksFinished
         // + performTicks(1) is not enough — and when it is not enough the result is a silent timeout.
         // Pump more aggressively to cover load-induced delays on busy runners.
-        // Use WAIT_ITERATIONS as the cap (caller's maxTicks is ignored; the constant is the real budget).
-        for (int i = 0; i < WAIT_ITERATIONS; i++) {
+        //
+        // The caller's maxTicks is the completion bound it asked for: a query that answers only
+        // after that budget is up is a query the caller would not consider done. Honour it so the
+        // tests actually check the bound their callers request, rather than a fixed generous cap.
+        int budget = maxTicks > 0 ? maxTicks : WAIT_ITERATIONS;
+        for (int i = 0; i < budget; i++) {
             server.getScheduler().waitAsyncTasksFinished();
             server.getScheduler().performTicks(TICKS_PER_WAIT);
             if (target.get() != null) {

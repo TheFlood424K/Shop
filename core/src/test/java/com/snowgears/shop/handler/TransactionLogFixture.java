@@ -39,17 +39,26 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 class TransactionLogFixture extends BaseMockBukkitTest {
 
-    /** Counts completed work units so {@link #drain()} knows when the hops have finished. */
+    /** Counts work units started by {@link #seedSales} so {@link #drain()} can tell when the
+     *  tracked work has actually settled rather than guessing a fixed iteration count. */
     private final AtomicInteger completed = new AtomicInteger();
 
-    /** How many wait-and-pump cycles drain() performs. Chosen large enough that the second
-     *  async hop (runNextTick) reliably lands even on busy CI runners, where the pool wait
-     *  loop inside MockBukkit's waitAsyncTasksFinished() does not pump ticks. */
+    /** How many wait-and-pump cycles drain() performs when the work has not yet settled.
+     *  Chosen large enough that the second async hop (runNextTick) reliably lands even on busy
+     *  CI runners, where the pool wait loop inside MockBukkit's waitAsyncTasksFinished() does
+     *  not pump ticks. */
     private static final int DRAIN_ITERATIONS = 120;
 
     /** Ticks pumped per drain() iteration after the async pool is observed idle. Ten is
      *  enough to flush any runNextTick callbacks scheduled by the just-completed async task. */
     private static final int TICKS_PER_DRAIN = 10;
+
+    /**
+     *  Consecutive drain() iterations in which the async pool reports no outstanding work.
+     *  Once this many run back-to-back, the tracked work has settled and draining stops —
+     *  rather than running the full DRAIN_ITERATIONS every time. See issue #125.
+     */
+    private static final int IDLE_RUNS_TO_SETTLE = 3;
 
     protected ServerMock server() {
         return getServer();
@@ -122,6 +131,7 @@ class TransactionLogFixture extends BaseMockBukkitTest {
      * load-induced delays on busy CI runners.
      */
     protected void drain() {
+        int idle = 0;
         for (int i = 0; i < DRAIN_ITERATIONS; i++) {
             // waitAsyncTasksFinished drains the current batch of async work and may take
             // up to executorTimeout (60s). After it returns the pool is idle but any
@@ -129,6 +139,18 @@ class TransactionLogFixture extends BaseMockBukkitTest {
             // the next tick — pump ticks so they fire.
             getServer().getScheduler().waitAsyncTasksFinished();
             getServer().getScheduler().performTicks(TICKS_PER_DRAIN);
+
+            // Stop once the tracked work has settled, instead of running all 120 cycles
+            // every time. The tracked work is the fixture's own seedSales/getShopTransactions
+            // calls; unrelated scheduled work (display batches, timers) is not part of it.
+            // See issue #125.
+            if (completed.get() == 0) {
+                if (++idle >= IDLE_RUNS_TO_SETTLE) {
+                    return;
+                }
+            } else {
+                idle = 0;
+            }
         }
     }
 

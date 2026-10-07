@@ -264,7 +264,7 @@ displayBatchDelay: 2            # ticks between batches
 # 2. Compile the plugin
 ./compile.sh
 
-# Output: target/Shop-{version}.jar   (capital S — see note below)
+# Output: dist/target/Shop-{version}.jar   (capital S — see note below)
 ```
 
 ### Development Setup

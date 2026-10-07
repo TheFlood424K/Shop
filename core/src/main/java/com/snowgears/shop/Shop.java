@@ -983,10 +983,10 @@ public class Shop extends JavaPlugin {
 
         plugin.getShopHandler().removeAllDisplays(null);
 
-        // Purge old shop_action rows before tearing down the connection pool so the
-        // cleanup runs against a live pool rather than a freshly-shut-down one.
-        if (logHandler != null) logHandler.purgeOldActions();
-
+        // Do NOT schedule the purge here. purgeOldActions() is async and onDisable() below cancels
+        // all FoliaLib tasks and closes the connection pool, so the purge would be cancelled or
+        // would run against a closed pool — a failed cleanup that achieves nothing. onEnable()
+        // schedules a fresh purge against the freshly-built pool instead. See issue #125.
         onDisable();
         onEnable();
     }

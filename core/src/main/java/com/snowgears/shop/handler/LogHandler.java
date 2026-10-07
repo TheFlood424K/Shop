@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 
 public class LogHandler {
 
@@ -199,6 +200,18 @@ public class LogHandler {
         this.enabled = replacement != null;
     }
 
+    /**
+     * Exposes the current pool to tests, for the read side of {@link #setDataSourceForTesting}.
+     *
+     * <p>Tests need to seed and count rows, and reaching the private {@code dataSource} field by
+     * name couples them to an implementation detail: a field rename breaks the tests even though
+     * the handler's behaviour is unchanged. This accessor is the seam; it is package-private so
+     * only the test package can use it.
+     */
+    DataSource getDataSourceForTesting() {
+        return dataSource;
+    }
+
     public void shutdown() {
         // Flipped before the pool closes so an in-flight query sees it at its next hop and declines
         // to schedule its callback. Without this, shutdown landing between runAsync and runNextTick
@@ -231,15 +244,37 @@ public class LogHandler {
         if (retentionDays <= 0) return;
 
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
-            String sql = "DELETE FROM shop_action WHERE ts < ?";
+            // Delete the action rows first, then the transactions that outlived them.
+            //
+            // shop_action.transaction_id references shop_transaction.id, so actions are the child
+            // table. Deleting transactions first — via a subquery that reads shop_action — is
+            // what the original purge did, and it is rejected by H2's foreign-key check: the
+            // constraint is enforced per deleted row, so deleting a transaction while its action
+            // still references it fails even though that action is about to be deleted by the
+            // same purge. Deleting children first is FK-safe on every database this runs on.
+            //
+            // shop_transaction has no timestamp of its own, so a transaction cannot be aged
+            // directly; it is reachable only through its action. Purging an action orphans its
+            // transaction, and the second statement removes every orphan — which is exactly the
+            // transactions whose actions were just purged. NOT EXISTS is used rather than NOT IN
+            // because shop_action.transaction_id is NULL for non-transaction actions (CLICK,
+            // INIT, DESTROY), and NOT IN with a NULL in the subquery matches nothing.
+            //
+            // Purging actions alone left every transaction row behind, so shop_transaction kept
+            // growing without bound despite the retention setting. See issue #41.
+            Timestamp cutoff = new Timestamp(
+                    Calendar.getInstance().getTimeInMillis() - TimeUnit.DAYS.toMillis(retentionDays));
+            String actionSql = "DELETE FROM shop_action WHERE ts < ?";
+            String txSql = "DELETE FROM shop_transaction WHERE NOT EXISTS "
+                    + "(SELECT 1 FROM shop_action WHERE shop_action.transaction_id = shop_transaction.id)";
             try (Connection conn = dataSource.getConnection();
-                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-                Calendar cal = Calendar.getInstance();
-                cal.add(Calendar.DAY_OF_YEAR, -retentionDays);
-                stmt.setTimestamp(1, new Timestamp(cal.getTimeInMillis()));
-                int deleted = stmt.executeUpdate();
-                plugin.getLogger().notice("Purged " + deleted + " shop_action rows older than "
-                        + retentionDays + " days.");
+                 PreparedStatement actionStmt = conn.prepareStatement(actionSql);
+                 PreparedStatement txStmt = conn.prepareStatement(txSql)) {
+                actionStmt.setTimestamp(1, cutoff);
+                int actionDeleted = actionStmt.executeUpdate();
+                int txDeleted = txStmt.executeUpdate();
+                plugin.getLogger().notice("Purged " + actionDeleted + " shop_action and "
+                        + txDeleted + " shop_transaction rows older than " + retentionDays + " days.");
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING,
                         "Could not purge old shop_action rows.", e);

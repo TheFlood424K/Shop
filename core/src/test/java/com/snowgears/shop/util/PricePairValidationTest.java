@@ -53,16 +53,17 @@ class PricePairValidationTest {
     }
 
     @Test
-    @DisplayName("cleanNumberText preserves spaces so combo prices can be split")
-    void cleanNumberTextPreservesWhitespace() {
-        // The fix for #93: the separator must survive so the two-price split works.
-        assertEquals("100 250", UtilMethods.cleanNumberText("100 250"));
-        assertEquals("100 50", UtilMethods.cleanNumberText("100  -50"),
-                "Minus signs after the first position are stripped, spaces preserved");
-        assertEquals("100.5 250", UtilMethods.cleanNumberText("100.5 250"));
+    @DisplayName("priceToken collapses spaces in a single price")
+    void priceTokenCollapsesSpaces() {
+        // The price cleaner must collapse spaces, not preserve them: a price written as
+        // "10 000" is ten thousand, not two tokens. Combo prices are split by getShopPricePair
+        // before each token is cleaned, so the separator never reaches this method. See issue #125.
+        assertEquals("10000", UtilMethods.priceToken("10 000"));
+        assertEquals("100", UtilMethods.priceToken("100"));
+        assertEquals("100.5", UtilMethods.priceToken("100.5"));
         // Non-numeric noise is still stripped.
-        assertEquals("100000 250", UtilMethods.cleanNumberText("$100,000 and 250 coins"),
-                "Currency symbols and commas are stripped, spaces preserved");
+        assertEquals("100000", UtilMethods.priceToken("$100,000"),
+                "Currency symbols and commas are stripped");
     }
 
     @Test
@@ -121,5 +122,84 @@ class PricePairValidationTest {
         assertNotNull(pair, "A zero combo price is not negative, so it is allowed");
         assertEquals(100.0, pair.getPrice());
         assertEquals(0.0, pair.getPriceCombo());
+    }
+
+    // --- VAULT currency (the multiplier path) ---
+
+    /**
+     * Switches the test instance to VAULT currency. The default test config is ITEM, where the
+     * multiplier path is dead code, so these cases only exercise the VAULT branch. This test
+     * class does not extend {@code BaseMockBukkTest}, so the switch is done by reflection.
+     */
+    private void useVaultCurrency() throws Exception {
+        java.lang.reflect.Field f = Shop.class.getDeclaredField("currencyType");
+        f.setAccessible(true);
+        f.set(plugin, com.snowgears.shop.util.CurrencyType.VAULT);
+
+        java.lang.reflect.Field econ = Shop.class.getDeclaredField("econ");
+        econ.setAccessible(true);
+        net.milkbowl.vault.economy.Economy mocked = org.mockito.Mockito.mock(net.milkbowl.vault.economy.Economy.class);
+        org.mockito.Mockito.when(mocked.getBalance(org.mockito.Mockito.any(org.bukkit.OfflinePlayer.class)))
+                .thenReturn(10_000.0);
+        org.mockito.Mockito.when(mocked.withdrawPlayer(org.mockito.Mockito.any(org.bukkit.OfflinePlayer.class),
+                org.mockito.Mockito.anyDouble()))
+                .thenAnswer(inv -> new net.milkbowl.vault.economy.EconomyResponse(
+                        inv.getArgument(1), 10_000.0,
+                        net.milkbowl.vault.economy.EconomyResponse.ResponseType.SUCCESS, "ok"));
+        org.mockito.Mockito.when(mocked.depositPlayer(org.mockito.Mockito.any(org.bukkit.OfflinePlayer.class),
+                org.mockito.Mockito.anyDouble()))
+                .thenAnswer(inv -> new net.milkbowl.vault.economy.EconomyResponse(
+                        inv.getArgument(1), 10_000.0,
+                        net.milkbowl.vault.economy.EconomyResponse.ResponseType.SUCCESS, "ok"));
+        econ.set(plugin, mocked);
+    }
+
+    @Test
+    @DisplayName("A single price with an internal space is ten thousand, not ten")
+    void spacedSinglePriceIsTenThousand() throws Exception {
+        useVaultCurrency();
+
+        // Issue #125: priceToken now collapses spaces, so "10 000" is one token of 10,000.
+        // Previously it split into "10" and "000" and the shop was created at 10.
+        PricePair pair = util.getShopPricePair(player, "10 000", ShopType.SELL);
+        assertNotNull(pair, "The line parses");
+        assertEquals(10_000.0, pair.getPrice(),
+                "A single price with an internal space is one number");
+        assertEquals(0.0, pair.getPriceCombo());
+    }
+
+    @Test
+    @DisplayName("A combo price is not multiplied by its own digits")
+    void comboPriceNotSelfMultiplied() throws Exception {
+        useVaultCurrency();
+
+        // Issue #125: getMultiplyValue used to strip every digit, so "100 250" multiplied each
+        // price by 100250. The multiplier is now read from an explicit xN marker only.
+        PricePair pair = util.getShopPricePair(player, "100 250", ShopType.COMBO);
+        assertNotNull(pair, "The line parses");
+        assertEquals(100.0, pair.getPrice());
+        assertEquals(250.0, pair.getPriceCombo());
+    }
+
+    @Test
+    @DisplayName("An explicit xN multiplier still scales the price")
+    void explicitMultiplierStillWorks() throws Exception {
+        useVaultCurrency();
+
+        PricePair pair = util.getShopPricePair(player, "100x2", ShopType.SELL);
+        assertNotNull(pair, "The line parses");
+        assertEquals(200.0, pair.getPrice(),
+                "An explicit x2 multiplier scales the price to 200");
+    }
+
+    @Test
+    @DisplayName("getMultiplyValue ignores a bare price but honours an xN marker")
+    void getMultiplyValueIgnoresBarePrice() {
+        assertEquals(1, UtilMethods.getMultiplyValue("100"),
+                "A bare price has no multiplier");
+        assertEquals(4, UtilMethods.getMultiplyValue("x4"),
+                "An x4 marker yields 4");
+        assertEquals(2, UtilMethods.getMultiplyValue("100x2"),
+                "An x2 marker following the price yields 2");
     }
 }
