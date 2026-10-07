@@ -460,6 +460,14 @@ public class ShopCreationUtil {
         return input.contains("/");
     }
 
+    /**
+     * Splits an explicitly slash-separated combo into two raw price tokens.
+     * Whitespace around the separator is allowed, but neither price may contain whitespace.
+     *
+     * @param input the raw sign price line
+     * @return the primary and secondary tokens, with multiplier markers preserved
+     * @throws NumberFormatException if there is not exactly one slash and two nonempty tokens
+     */
     private static String[] comboPriceTokens(String input) {
         String[] sides = input.trim().split("/", -1);
         if (sides.length != 2 || sides[0].isBlank() || sides[1].isBlank())
@@ -470,6 +478,14 @@ public class ShopCreationUtil {
         return tokens;
     }
 
+    /**
+     * Cleans a single sign price while rejecting a minus sign in any later whitespace token.
+     * This prevents cleaning from hiding a negative secondary price without a slash separator.
+     *
+     * @param input the raw single-price line, optionally containing grouping spaces
+     * @return the cleaned numeric token
+     * @throws NumberFormatException if a token after the first contains a minus sign
+     */
     private static String singlePriceToken(String input) {
         // Do not let priceToken erase a negative second value in an unseparated combo.
         String[] tokens = input.trim().split("\\s+");
@@ -480,6 +496,15 @@ public class ShopCreationUtil {
         return UtilMethods.priceToken(input);
     }
 
+    /**
+     * Parses the primary chat price using the configured currency's numeric format.
+     * Negative prices and zero prices for non-gamble shops are rejected with a player message.
+     *
+     * @param player the player to notify about invalid input
+     * @param input the raw chat price
+     * @param shopType the shop type used to decide whether zero is allowed
+     * @return the parsed price, or {@code -1} when parsing or price validation fails
+     */
     public double getShopPrice(Player player, String input, ShopType shopType){
         double price = 0;
         if (plugin.getCurrencyType() == CurrencyType.VAULT) {
@@ -517,6 +542,15 @@ public class ShopCreationUtil {
         return price;
     }
 
+    /**
+     * Parses the secondary chat price using the configured currency's numeric format.
+     * This step reports malformed numbers but does not validate the parsed price's sign.
+     *
+     * @param player the player to notify about malformed input
+     * @param input the raw secondary chat price
+     * @param shopType the requested shop type; currently unused by this parsing step
+     * @return the parsed secondary price, or {@code -1} when numeric parsing fails
+     */
     public double getShopPriceCombo(Player player, String input, ShopType shopType){
         double priceCombo = 0;
         if (plugin.getCurrencyType() == CurrencyType.VAULT) {
@@ -546,6 +580,18 @@ public class ShopCreationUtil {
         return priceCombo;
     }
 
+    /**
+     * Parses a sign line as one price or two prices separated by a slash.
+     * Spaces group a single price. In Vault mode, a multiplier on the first token scales both
+     * prices; item currency requires whole numbers. Negative prices and a zero primary barter
+     * price are rejected, with a message sent to the player.
+     *
+     * @param player the player to notify about invalid input
+     * @param input the raw sign price line
+     * @param shopType the shop type used to validate the primary price
+     * @return the price pair, with a zero secondary price for single input, or {@code null}
+     *         when parsing or price validation fails
+     */
     public PricePair getShopPricePair(Player player, String input, ShopType shopType){
         double price = 0;
         double priceCombo = 0;

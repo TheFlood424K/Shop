@@ -141,6 +141,7 @@ class LogHandlerQueryBoundTest {
         }
     }
 
+    /** Verifies that a callback beyond the remaining tick budget is delivered only by a later wait. */
     @Test
     void waitForHonorsPartialTickBudget() {
         AtomicReference<List<PlayerTransactionRecord>> result = new AtomicReference<>();
@@ -149,6 +150,7 @@ class LogHandlerQueryBoundTest {
         assertTrue(waitFor(result, 1), "The next tick delivers the pending callback");
     }
 
+    /** Verifies that a zero-tick wait leaves the scheduled callback pending. */
     @Test
     void waitForHonorsZeroTickBudget() {
         AtomicReference<List<PlayerTransactionRecord>> result = new AtomicReference<>();

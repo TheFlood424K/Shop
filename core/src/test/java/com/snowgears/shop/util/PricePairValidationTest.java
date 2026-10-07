@@ -43,6 +43,7 @@ class PricePairValidationTest {
         MockBukkit.unmock();
     }
 
+    /** Verifies that price cleaning removes grouping spaces and currency decoration while retaining decimals. */
     @Test
     @DisplayName("priceToken collapses spaces in a single price")
     void priceTokenCollapsesSpaces() {
@@ -57,6 +58,7 @@ class PricePairValidationTest {
                 "Currency symbols and commas are stripped");
     }
 
+    /** Verifies that a slash-separated combo preserves distinct primary and secondary prices. */
     @Test
     @DisplayName("A two-price combo line sets both prices correctly")
     void twoPriceComboLineSplits() {
@@ -77,6 +79,7 @@ class PricePairValidationTest {
         assertEquals(0.0, pair.getPriceCombo());
     }
 
+    /** Verifies that a negative primary price is rejected for a selling shop. */
     @Test
     @DisplayName("A negative single price is rejected")
     void negativeBuyPriceRejected() {
@@ -94,6 +97,7 @@ class PricePairValidationTest {
         assertEquals(0.0, sell.getPrice());
     }
 
+    /** Verifies that a combo can have a zero secondary price and a positive primary price. */
     @Test
     @DisplayName("A zero combo price is allowed for a combo shop")
     void zeroComboPriceAllowed() {
@@ -103,6 +107,12 @@ class PricePairValidationTest {
         assertEquals(0.0, pair.getPriceCombo());
     }
 
+    /**
+     * Verifies that space-grouped digits form one primary price in both currency modes.
+     *
+     * @param currency the currency mode under test
+     * @throws Exception if the fixture currency cannot be configured
+     */
     @ParameterizedTest
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void groupedPricesAreSinglePrices(CurrencyType currency) throws Exception {
@@ -115,6 +125,12 @@ class PricePairValidationTest {
         }
     }
 
+    /**
+     * Verifies that spaces and tabs around a slash do not alter the two combo prices.
+     *
+     * @param currency the currency mode under test
+     * @throws Exception if the fixture currency cannot be configured
+     */
     @ParameterizedTest
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void comboWhitespaceIsNormalized(CurrencyType currency) throws Exception {
@@ -127,6 +143,12 @@ class PricePairValidationTest {
         }
     }
 
+    /**
+     * Verifies rejection of negative prices, missing combo sides, and extra price tokens.
+     *
+     * @param currency the currency mode under test
+     * @throws Exception if the fixture currency cannot be configured
+     */
     @ParameterizedTest
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void malformedAndNegativeCombosAreRejected(CurrencyType currency) throws Exception {
@@ -138,6 +160,11 @@ class PricePairValidationTest {
         }
     }
 
+    /**
+     * Verifies that a multiplier on the first Vault combo token scales both decimal prices.
+     *
+     * @throws Exception if the Vault fixture cannot be configured
+     */
     @Test
     void vaultComboMultiplierScalesBothPrices() throws Exception {
         useVaultCurrency();
@@ -147,6 +174,12 @@ class PricePairValidationTest {
         assertEquals(501, pair.getPriceCombo());
     }
 
+    /**
+     * Selects a currency mode on the test plugin through its private currency field.
+     *
+     * @param currency the mode to use for subsequent parsing
+     * @throws Exception if reflective access to the fixture field fails
+     */
     private void useCurrency(CurrencyType currency) throws Exception {
         java.lang.reflect.Field field = Shop.class.getDeclaredField("currencyType");
         field.setAccessible(true);
@@ -183,6 +216,11 @@ class PricePairValidationTest {
         econ.set(plugin, mocked);
     }
 
+    /**
+     * Verifies that a grouped Vault sign price is parsed as ten thousand with no secondary price.
+     *
+     * @throws Exception if the Vault fixture cannot be configured
+     */
     @Test
     @DisplayName("A single price with an internal space is ten thousand, not ten")
     void spacedSinglePriceIsTenThousand() throws Exception {
@@ -197,6 +235,11 @@ class PricePairValidationTest {
         assertEquals(0.0, pair.getPriceCombo());
     }
 
+    /**
+     * Verifies that bare Vault combo prices are not interpreted as their own multipliers.
+     *
+     * @throws Exception if the Vault fixture cannot be configured
+     */
     @Test
     @DisplayName("A combo price is not multiplied by its own digits")
     void comboPriceNotSelfMultiplied() throws Exception {
@@ -210,6 +253,11 @@ class PricePairValidationTest {
         assertEquals(250.0, pair.getPriceCombo());
     }
 
+    /**
+     * Verifies that an explicit multiplier scales a single Vault sign price.
+     *
+     * @throws Exception if the Vault fixture cannot be configured
+     */
     @Test
     @DisplayName("An explicit xN multiplier still scales the price")
     void explicitMultiplierStillWorks() throws Exception {
@@ -221,6 +269,7 @@ class PricePairValidationTest {
                 "An explicit x2 multiplier scales the price to 200");
     }
 
+    /** Verifies that only explicit multiplier markers contribute a multiplier, including after a price. */
     @Test
     @DisplayName("getMultiplyValue ignores a bare price but honours an xN marker")
     void getMultiplyValueIgnoresBarePrice() {

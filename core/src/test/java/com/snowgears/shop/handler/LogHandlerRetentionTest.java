@@ -34,17 +34,20 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
     private Shop plugin;
     private LogHandler logHandler;
 
+    /** Uses the plugin and isolated database initialized by the shared MockBukkit fixture. */
     @BeforeEach
     void setUp() throws Exception {
         plugin = getPlugin();
         logHandler = plugin.getLogHandler();
     }
 
+    /** Leaves scheduler draining and server cleanup to the shared fixture teardown. */
     @AfterEach
     void tearDown() {
         // BaseMockBukkitTest.tearDownServer() already drains the scheduler and unmocks.
     }
 
+    /** Verifies that completed retention cleanup deletes actions older than the configured window. */
     @Test
     @DisplayName("purgeOldActions removes rows older than the retention window")
     void purgeRemovesOldRows() throws Exception {
@@ -60,6 +63,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
                 "Rows older than the retention window should be deleted");
     }
 
+    /** Verifies that actions inside the retention window survive completed cleanup. */
     @Test
     @DisplayName("purgeOldActions keeps rows within the retention window")
     void purgeKeepsRecentRows() throws Exception {
@@ -74,6 +78,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
                 "Rows inside the retention window must survive the purge");
     }
 
+    /** Verifies that zero retention preserves both old actions and their transactions. */
     @Test
     @DisplayName("purgeOldActions is a no-op when retentionDays is zero")
     void purgeDisabledWhenRetentionZero() throws Exception {
@@ -90,17 +95,34 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
 
     // --- helpers ---
 
+    /**
+     * Sets and saves the retention policy used by the next purge.
+     *
+     * @param days the retention window in days; zero disables purging
+     */
     private void setRetentionDays(int days) {
         plugin.getConfig().set("logging.actionRetentionDays", days);
         plugin.saveConfig();
     }
 
+    /**
+     * Creates a timestamp by subtracting calendar days in UTC from the current time.
+     *
+     * @param days the number of days to subtract
+     * @return the timestamp used to age fixture rows
+     */
     private Timestamp makeTimestampDaysAgo(int days) {
         Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
         cal.add(Calendar.DAY_OF_YEAR, -days);
         return new Timestamp(cal.getTimeInMillis());
     }
 
+    /**
+     * Inserts a click action without an associated transaction into the isolated database.
+     *
+     * @param ts the action timestamp used for retention checks
+     * @throws SQLException if the fixture row cannot be inserted
+     */
     private void insertActionRow(Timestamp ts) throws SQLException {
         // The handler exposes getDataSourceForTesting for test injection; reuse it instead of
         // reaching for the private dataSource field by name. A field rename would otherwise
@@ -125,6 +147,12 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Counts all action rows remaining in the isolated database.
+     *
+     * @return the current action row count
+     * @throws Exception if the count query fails
+     */
     private int countActionRows() throws Exception {
         javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
 
@@ -141,6 +169,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         logHandler.purgeOldActionsAsync().get(5, TimeUnit.SECONDS);
     }
 
+    /** Verifies that cleanup deletes expired actions and the transactions they leave unreferenced. */
     @Test
     @DisplayName("purgeOldActions also deletes the matching shop_transaction rows")
     void purgeRemovesTransactionRows() throws Exception {
@@ -160,6 +189,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
                         + "row behind does not bound that table");
     }
 
+    /** Verifies that recent transactions and their referencing actions survive completed cleanup. */
     @Test
     @DisplayName("purgeOldActions keeps transaction rows inside the retention window")
     void purgeKeepsRecentTransactionRows() throws Exception {
@@ -175,6 +205,12 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
                 "A transaction row inside the window must survive alongside its action");
     }
 
+    /**
+     * Inserts a purchase transaction and a timestamped action referencing its generated ID.
+     *
+     * @param ts the timestamp that determines the linked action's retention age
+     * @throws SQLException if either insert fails or no transaction ID is generated
+     */
     private void insertTransactionRow(Timestamp ts) throws SQLException {
         javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
 
@@ -217,6 +253,12 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Counts all transaction rows remaining in the isolated database.
+     *
+     * @return the current transaction row count
+     * @throws Exception if the count query fails
+     */
     private int countTransactionRows() throws Exception {
         javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
 

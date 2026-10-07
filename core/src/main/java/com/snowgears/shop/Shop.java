@@ -225,6 +225,11 @@ public class Shop extends JavaPlugin {
         }
     }
 
+    /**
+     * Loads configuration, initializes handlers and integrations, and registers shop listeners.
+     *
+     * <p>Also schedules log retention cleanup against the newly initialized database pool.
+     */
     @Override
     public void onEnable() {
         plugin = this;
@@ -932,6 +937,10 @@ public class Shop extends JavaPlugin {
         this.getLogger().info("Disabled Shop " + this.getDescription().getVersion());
     }
 
+    /**
+     * Cancels scheduled work, unregisters listeners, and removes displays before restarting
+     * this plugin through its disable and enable lifecycle hooks.
+     */
     public void reload(){
         this.getLogger().info("Reloading Shop " + this.getDescription().getVersion());
 

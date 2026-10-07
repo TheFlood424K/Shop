@@ -213,6 +213,10 @@ public class LogHandler {
         return dataSource;
     }
 
+    /**
+     * Disables logging and query callbacks, then closes the data source when it is closeable.
+     * Failures while closing the data source are logged.
+     */
     public void shutdown() {
         // Flipped before the pool closes so an in-flight query sees it at its next hop and declines
         // to schedule its callback. Without this, shutdown landing between runAsync and runNextTick
