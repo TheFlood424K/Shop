@@ -445,9 +445,11 @@ public class ShopCreationUtil {
     }
 
     /**
-     * Parses a single cleaned price token, using {@code Double} for decimals and {@code Long} for
-     * whole numbers. The two parsers are kept separate because {@code Long.parseLong} rejects
-     * decimals and {@code Double.parseDouble} would silently accept a malformed value.
+     * Parses a cleaned price token as a double when it contains a decimal point, or as a
+     * signed long otherwise, returning the result as a double.
+     *
+     * @throws NumberFormatException if the token is invalid for the selected parser,
+     *         including a whole number outside the signed long range
      */
     private static double parsePriceToken(String token) {
         if (token.contains("."))
@@ -466,7 +468,8 @@ public class ShopCreationUtil {
      *
      * @param input the raw sign price line
      * @return the primary and secondary tokens, with multiplier markers preserved
-     * @throws NumberFormatException if there is not exactly one slash and two nonempty tokens
+     * @throws NumberFormatException if there is not exactly one slash and two nonempty tokens,
+     *         or either price contains internal whitespace
      */
     private static String[] comboPriceTokens(String input) {
         String[] sides = input.trim().split("/", -1);
@@ -585,12 +588,15 @@ public class ShopCreationUtil {
      * Spaces group a single price. In Vault mode, a multiplier on the first token scales both
      * prices; item currency requires whole numbers. Negative prices and a zero primary barter
      * price are rejected, with a message sent to the player.
+     * Whitespace is allowed around the slash, but not within either price of a pair.
+     * Multiplier markers on the secondary price or in item currency mode are ignored.
      *
      * @param player the player to notify about invalid input
      * @param input the raw sign price line
      * @param shopType the shop type used to validate the primary price
      * @return the price pair, with a zero secondary price for single input, or {@code null}
      *         when parsing or price validation fails
+     * @throws NullPointerException if {@code input} is null
      */
     public PricePair getShopPricePair(Player player, String input, ShopType shopType){
         double price = 0;

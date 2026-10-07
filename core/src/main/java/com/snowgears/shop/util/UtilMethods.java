@@ -216,12 +216,15 @@ public class UtilMethods {
      * E.g. "$1,234.56" -> "1234.56"
      * Preserves leading minus sign for negative number detection.
      *
-     * <p>Spaces are <em>preserved</em> here on purpose: this is the amount cleaner, and an amount
+     * <p>Internal ASCII spaces are <em>preserved</em>, with runs reduced to one space and outer
+     * spaces trimmed; other whitespace is removed. This cleans amounts and chat prices. An amount
      * typed with an internal space is invalid input that should be rejected. Collapsing the space
-     * would let "64 1" parse as 641. Prices use {@link #priceToken} instead, which collapses
+     * would let "64 1" parse as 641. Sign prices use {@link #priceToken} instead, which removes
      * spaces so a single price written as "10 000" is ten thousand, not two tokens. Combo prices
      * are split by {@link ShopCreationUtil#getShopPricePair} before each token is cleaned. See
      * issue #125.
+     *
+     * @return the cleaned text without numeric validation, or {@code "0"} for null input
      */
     public static String cleanNumberText(String text) {
         if (text == null) return "0";
@@ -241,14 +244,17 @@ public class UtilMethods {
      *
      * <p>Three things happen, in order:
      * <ol>
-     *   <li>A trailing {@code xN} multiplier marker is removed, so its digits are not merged into
-     *       the price. {@code "100x2"} is tokenised as {@code "100"}, not {@code "1002"}.</li>
-     *   <li>Internal spaces are collapsed, so a single price written as {@code "10 000"} stays one
+     *   <li>Every lowercase {@code x} followed by one or more ASCII digits is removed, wherever
+     *       it occurs. {@code "100x2"} becomes {@code "100"}, not {@code "1002"}.</li>
+     *   <li>Whitespace is removed, so a single price written as {@code "10 000"} stays one
      *       token of ten thousand rather than splitting into {@code "10"} and {@code "000"}.</li>
-     *   <li>Currency noise is stripped, leaving digits, a decimal point, and a leading minus.</li>
+     *   <li>Other non-numeric characters are stripped, retaining digits, decimal points, and
+     *       at most a leading minus sign.</li>
      * </ol>
      * Combo prices are split at an explicit slash by {@link ShopCreationUtil#getShopPricePair} before this
      * is called per token, so the separator never reaches it as one string.
+     *
+     * @return the cleaned text without numeric validation, or {@code "0"} for null input
      */
     public static String priceToken(String text) {
         if (text == null) return "0";
@@ -287,6 +293,9 @@ public class UtilMethods {
     /**
      * Returns the multiplier value for an item amount string.
      * E.g. "x4" -> 4, null/invalid -> 1.
+     * Uses the first lowercase {@code x} followed by ASCII digits anywhere in the input.
+     * Zero is accepted; null input, no match, or a value above {@link Integer#MAX_VALUE}
+     * returns 1 without propagating a numeric parsing error.
      *
      * <p>A multiplier is only meaningful when the input carries an explicit {@code xN} marker.
      * Stripping every digit from a plain price like {@code "100"} used to return 100, so every
