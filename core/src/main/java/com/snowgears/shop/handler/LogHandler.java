@@ -26,6 +26,7 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
 
 public class LogHandler {
 
@@ -239,10 +240,16 @@ public class LogHandler {
      * server admin who sets retention to 0 is choosing unbounded growth.
      */
     public void purgeOldActions() {
-        if (!enabled) return;
-        int retentionDays = plugin.getConfig().getInt("logging.actionRetentionDays", 90);
-        if (retentionDays <= 0) return;
+        purgeOldActionsAsync();
+    }
 
+    /** Completes after both tables have been purged, or immediately when purging is disabled. */
+    CompletableFuture<Void> purgeOldActionsAsync() {
+        if (!enabled) return CompletableFuture.completedFuture(null);
+        int retentionDays = plugin.getConfig().getInt("logging.actionRetentionDays", 90);
+        if (retentionDays <= 0) return CompletableFuture.completedFuture(null);
+
+        CompletableFuture<Void> completion = new CompletableFuture<>();
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Delete the action rows first, then the transactions that outlived them.
             //
@@ -278,8 +285,12 @@ public class LogHandler {
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING,
                         "Could not purge old shop_action rows.", e);
+                completion.completeExceptionally(e);
+                return;
             }
+            completion.complete(null);
         });
+        return completion;
     }
 
     public void logAction(Player player, AbstractShop shop, ShopActionType actionType) {

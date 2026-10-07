@@ -247,7 +247,7 @@ public class UtilMethods {
      *       token of ten thousand rather than splitting into {@code "10"} and {@code "000"}.</li>
      *   <li>Currency noise is stripped, leaving digits, a decimal point, and a leading minus.</li>
      * </ol>
-     * Combo prices are split on spaces by {@link ShopCreationUtil#getShopPricePair} before this
+     * Combo prices are split at an explicit slash by {@link ShopCreationUtil#getShopPricePair} before this
      * is called per token, so the separator never reaches it as one string.
      */
     public static String priceToken(String text) {

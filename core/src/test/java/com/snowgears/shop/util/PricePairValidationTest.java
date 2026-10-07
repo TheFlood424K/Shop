@@ -6,6 +6,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.MockBukkitExtension;
@@ -17,18 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-/**
- * Documents how combo-shop prices are parsed, and pins the fix for #93.
- *
- * <p>#93 reported that {@code getShopPricePair} validated {@code price} but not {@code priceCombo},
- * and that a space-separated combo input could not reach the two-price branch because
- * {@code cleanNumberText} stripped the separator. Both are now fixed:
- *
- * <ul>
- *   <li>{@code cleanNumberText} preserves spaces so {@code "100 250"} splits into two tokens.</li>
- *   <li>{@code priceCombo < 0} is rejected alongside {@code price < 0}.</li>
- * </ul>
- */
+/** Regression coverage for explicit combo separators, grouped prices, and negative prices. */
 @ExtendWith(MockBukkitExtension.class)
 class PricePairValidationTest {
 
@@ -69,7 +60,7 @@ class PricePairValidationTest {
     @Test
     @DisplayName("A two-price combo line sets both prices correctly")
     void twoPriceComboLineSplits() {
-        PricePair pair = util.getShopPricePair(player, "100 250", ShopType.COMBO);
+        PricePair pair = util.getShopPricePair(player, "100 / 250", ShopType.COMBO);
 
         assertNotNull(pair, "The line parses and splits into two prices");
         assertEquals(100.0, pair.getPrice());
@@ -94,18 +85,6 @@ class PricePairValidationTest {
     }
 
     @Test
-    @DisplayName("A negative sign in a combo price is stripped before parsing, so the combo cannot be negative (#93)")
-    void negativeComboPriceCannotOccur() {
-        // After the fix, cleanNumberText preserves the separator but strips the trailing minus,
-        // so "100 -50" → "100 50" and both prices are positive.
-        PricePair pair = util.getShopPricePair(player, "100 -50", ShopType.COMBO);
-        assertNotNull(pair, "The line still parses");
-        assertEquals(100.0, pair.getPrice());
-        assertEquals(50.0, pair.getPriceCombo(),
-                "The minus sign is stripped by cleanNumberText, so the combo price cannot be negative");
-    }
-
-    @Test
     @DisplayName("A zero price is refused for BARTER but allowed otherwise")
     void zeroPriceRulesUnchanged() {
         assertNull(util.getShopPricePair(player, "0", ShopType.BARTER));
@@ -118,10 +97,60 @@ class PricePairValidationTest {
     @Test
     @DisplayName("A zero combo price is allowed for a combo shop")
     void zeroComboPriceAllowed() {
-        PricePair pair = util.getShopPricePair(player, "100 0", ShopType.COMBO);
+        PricePair pair = util.getShopPricePair(player, "100 / 0", ShopType.COMBO);
         assertNotNull(pair, "A zero combo price is not negative, so it is allowed");
         assertEquals(100.0, pair.getPrice());
         assertEquals(0.0, pair.getPriceCombo());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void groupedPricesAreSinglePrices(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        for (String input : new String[]{"10 000", "10 500", "100 250", "1 234 567"}) {
+            PricePair pair = util.getShopPricePair(player, input, ShopType.COMBO);
+            assertNotNull(pair, input);
+            assertEquals(Double.parseDouble(input.replace(" ", "")), pair.getPrice(), input);
+            assertEquals(0, pair.getPriceCombo(), input);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void comboWhitespaceIsNormalized(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        for (String input : new String[]{"100/250", "  100   /   250  ", "\t100\t/\t250\t"}) {
+            PricePair pair = util.getShopPricePair(player, input, ShopType.COMBO);
+            assertNotNull(pair, input);
+            assertEquals(100, pair.getPrice(), input);
+            assertEquals(250, pair.getPriceCombo(), input);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void malformedAndNegativeCombosAreRejected(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        for (String input : new String[]{"100 -50", "100 / -50", "-100 / 50",
+                "100 / 250 300", "100 250 / 300", "100 / 250 / 300", "100 // 250",
+                "/100", "100/", "100 / 250 /"}) {
+            assertNull(util.getShopPricePair(player, input, ShopType.COMBO), input);
+        }
+    }
+
+    @Test
+    void vaultComboMultiplierScalesBothPrices() throws Exception {
+        useVaultCurrency();
+        PricePair pair = util.getShopPricePair(player, " 100.5x2 / 250.5 ", ShopType.COMBO);
+        assertNotNull(pair);
+        assertEquals(201, pair.getPrice());
+        assertEquals(501, pair.getPriceCombo());
+    }
+
+    private void useCurrency(CurrencyType currency) throws Exception {
+        java.lang.reflect.Field field = Shop.class.getDeclaredField("currencyType");
+        field.setAccessible(true);
+        field.set(plugin, currency);
     }
 
     // --- VAULT currency (the multiplier path) ---
@@ -175,7 +204,7 @@ class PricePairValidationTest {
 
         // Issue #125: getMultiplyValue used to strip every digit, so "100 250" multiplied each
         // price by 100250. The multiplier is now read from an explicit xN marker only.
-        PricePair pair = util.getShopPricePair(player, "100 250", ShopType.COMBO);
+        PricePair pair = util.getShopPricePair(player, "100 / 250", ShopType.COMBO);
         assertNotNull(pair, "The line parses");
         assertEquals(100.0, pair.getPrice());
         assertEquals(250.0, pair.getPriceCombo());

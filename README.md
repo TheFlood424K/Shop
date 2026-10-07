@@ -61,7 +61,7 @@ Built with **ease of use** as the top priority, Shop feels like a native Minecra
 sell
 ```
 1. Place a sign on a container
-2. Fill lines: `[Shop]`, amount, price, type (`buy`/`sell`/`barter`/`combo`)
+2. Fill lines: `[Shop]`, amount, price, type (`buy`/`sell`/`barter`/`combo`). Use `/` between combo prices (for example, `100 / 250`); spaces alone group a single price (`10 500`).
 3. Right-click the sign with the item to sell/buy
 4. **Done!**
 

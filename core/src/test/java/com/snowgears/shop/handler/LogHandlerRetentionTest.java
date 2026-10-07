@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.TimeZone;
-import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -54,8 +54,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         insertActionRow(makeTimestampDaysAgo(retentionDays + 1));
         insertActionRow(makeTimestampDaysAgo(retentionDays + 30));
 
-        logHandler.purgeOldActions();
-        waitForPurgeToFinish(0);
+        waitForPurgeToFinish();
 
         assertEquals(0, countActionRows(),
                 "Rows older than the retention window should be deleted");
@@ -69,8 +68,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         insertActionRow(makeTimestampDaysAgo(10));
         insertActionRow(makeTimestampDaysAgo(30));
 
-        logHandler.purgeOldActions();
-        waitForPurgeToFinish(2);
+        waitForPurgeToFinish();
 
         assertEquals(2, countActionRows(),
                 "Rows inside the retention window must survive the purge");
@@ -81,13 +79,13 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
     void purgeDisabledWhenRetentionZero() throws Exception {
         setRetentionDays(0);
 
-        insertActionRow(makeTimestampDaysAgo(400));
+        insertTransactionRow(makeTimestampDaysAgo(400));
 
-        logHandler.purgeOldActions();
-        waitForPurgeToFinish(1);
+        waitForPurgeToFinish();
 
         assertEquals(1, countActionRows(),
                 "A retention value of 0 disables purging entirely");
+        assertEquals(1, countTransactionRows());
     }
 
     // --- helpers ---
@@ -138,28 +136,9 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         }
     }
 
-    /**
-     * Waits for the async purge task to actually finish, rather than sleeping a fixed 500 ms and
-     * hoping. The purge is scheduled on the async pool, so wait for that pool to drain first; then
-     * pump ticks to flush any runNextTick callbacks. See issue #125.
-     */
-    private void waitForPurgeToFinish(int expectedActionRows) {
-        // Poll for the expected row count rather than draining a fixed number of times. FoliaLib
-        // submits the purge on its own executor, and on a busy runner the task can land after any
-        // given waitAsyncTasksFinished() returns — a fixed drain made these tests pass alone and
-        // fail in the parallel suite, the classic "sleep and hope" flake. Watching the count reach
-        // what the purge should leave behind is the only signal that it actually ran. See #125.
-        for (int i = 0; i < 40; i++) {
-            getServer().getScheduler().waitAsyncTasksFinished();
-            getServer().getScheduler().performTicks(1);
-            try {
-                if (countActionRows() == expectedActionRows) {
-                    return;
-                }
-            } catch (Exception e) {
-                // The pool may be momentarily unavailable mid-teardown; retry.
-            }
-        }
+    /** Wait for both deletion statements, including when neither changes a row count. */
+    private void waitForPurgeToFinish() throws Exception {
+        logHandler.purgeOldActionsAsync().get(5, TimeUnit.SECONDS);
     }
 
     @Test
@@ -172,8 +151,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         insertActionRow(makeTimestampDaysAgo(95));
         insertTransactionRow(makeTimestampDaysAgo(95));
 
-        logHandler.purgeOldActions();
-        waitForPurgeToFinish(0);
+        waitForPurgeToFinish();
 
         assertEquals(0, countActionRows(),
                 "The action row is deleted");
@@ -190,9 +168,9 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         insertActionRow(makeTimestampDaysAgo(10));
         insertTransactionRow(makeTimestampDaysAgo(10));
 
-        logHandler.purgeOldActions();
-        waitForPurgeToFinish(1);
+        waitForPurgeToFinish();
 
+        assertEquals(2, countActionRows());
         assertEquals(1, countTransactionRows(),
                 "A transaction row inside the window must survive alongside its action");
     }

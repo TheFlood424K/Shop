@@ -455,21 +455,29 @@ public class ShopCreationUtil {
         return Long.parseLong(token);
     }
 
-    /**
-     * Decides whether a space-separated line is a two-price combo or a single price typed with a
-     * thousands-separator space.
-     *
-     * <p>A combo has two real prices, e.g. {@code "100 250"}. A single price typed with a
-     * separator looks like {@code "10 000"}, and its second token is a group of zeros. The two
-     * are indistinguishable by token count alone, so the discriminator is the second token's
-     * leading digit: a group of zeros starts with {@code 0} and is longer than one character,
-     * while a real price never does (a combo price of zero is written as the single digit
-     * {@code "0"}). See issue #125.
-     */
-    private static boolean isComboLine(String[] tokens) {
-        if (tokens.length < 2) return false;
-        String second = tokens[1];
-        return !(second.length() > 1 && second.charAt(0) == '0');
+    /** A combo requires an explicit slash; whitespace alone groups a single price. */
+    private static boolean isComboLine(String input) {
+        return input.contains("/");
+    }
+
+    private static String[] comboPriceTokens(String input) {
+        String[] sides = input.trim().split("/", -1);
+        if (sides.length != 2 || sides[0].isBlank() || sides[1].isBlank())
+            throw new NumberFormatException("Expected two combo prices");
+        String[] tokens = input.replace('/', ' ').trim().split("\\s+");
+        if (tokens.length != 2)
+            throw new NumberFormatException("Expected two combo prices");
+        return tokens;
+    }
+
+    private static String singlePriceToken(String input) {
+        // Do not let priceToken erase a negative second value in an unseparated combo.
+        String[] tokens = input.trim().split("\\s+");
+        for (int i = 1; i < tokens.length; i++) {
+            if (tokens[i].contains("-"))
+                throw new NumberFormatException("Unexpected negative price");
+        }
+        return UtilMethods.priceToken(input);
     }
 
     public double getShopPrice(Player player, String input, ShopType shopType){
@@ -543,24 +551,13 @@ public class ShopCreationUtil {
         double priceCombo = 0;
         if (plugin.getCurrencyType() == CurrencyType.VAULT) {
             try {
-                // Split on spaces BEFORE cleaning, so a combo like "100 250" reaches the
-                // two-price branch at all. Each token is then cleaned independently, and the
-                // multiplier is read from the first token only — joining the two price tokens
-                // into one number (100250) and multiplying each price by that is how "100 250"
-                // became 10,025,000 and 25,062,500. See issue #125.
-                String[] multiplePrices = input.split(" ");
-                if (isComboLine(multiplePrices)) {
+                if (isComboLine(input)) {
+                    String[] multiplePrices = comboPriceTokens(input);
                     // Read the multiplier from the raw first token, not the cleaned one: the
                     // marker is stripped by priceToken, so reading it afterwards always returns 1.
                     double multiplyValue = UtilMethods.getMultiplyValue(multiplePrices[0]);
                     String priceToken = UtilMethods.priceToken(multiplePrices[0]);
                     String comboToken = UtilMethods.priceToken(multiplePrices[1]);
-
-                    // A leading minus on the combo token is a separator typo, not a price:
-                    // "100 -50" is 100 and 50. The primary price keeps its minus, so a genuine
-                    // "-100" single price is still rejected by the guard below. See issue #125.
-                    if (comboToken.startsWith("-"))
-                        comboToken = comboToken.substring(1);
 
                     price = parsePriceToken(priceToken);
                     priceCombo = parsePriceToken(comboToken);
@@ -570,7 +567,7 @@ public class ShopCreationUtil {
                     // Not a combo: a single price, possibly typed with a thousands-separator
                     // space ("10 000"). Collapse the spaces so it parses as one number rather
                     // than splitting into "10" and "000" and creating the shop at 10. See #125.
-                    String line3 = UtilMethods.priceToken(input);
+                    String line3 = singlePriceToken(input);
                     double multiplyValue = UtilMethods.getMultiplyValue(input);
                     price = parsePriceToken(line3);
                     price *= multiplyValue;
@@ -582,19 +579,14 @@ public class ShopCreationUtil {
             }
         } else {
             try {
-                String[] multiplePrices = input.split(" ");
-                if (isComboLine(multiplePrices)) {
+                if (isComboLine(input)) {
+                    String[] multiplePrices = comboPriceTokens(input);
                     String priceToken = UtilMethods.priceToken(multiplePrices[0]);
                     String comboToken = UtilMethods.priceToken(multiplePrices[1]);
-                    // A leading minus on the combo token is a separator typo, not a price:
-                    // "100 -50" is 100 and 50. The primary price keeps its minus, so a genuine
-                    // "-100" single price is still rejected by the guard below. See issue #125.
-                    if (comboToken.startsWith("-"))
-                        comboToken = comboToken.substring(1);
                     price = Long.parseLong(priceToken);
                     priceCombo = Long.parseLong(comboToken);
                 } else {
-                    price = Long.parseLong(UtilMethods.priceToken(input));
+                    price = Long.parseLong(singlePriceToken(input));
                 }
             } catch (NumberFormatException e) {
                 ShopMessage.sendMessage("interaction_issue", "createLine3", player, null);

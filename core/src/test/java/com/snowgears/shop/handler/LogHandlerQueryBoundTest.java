@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,16 +45,6 @@ class LogHandlerQueryBoundTest {
     private PlayerMock player;
 
     private Shop plugin;
-
-    /** How many wait-and-pump cycles waitFor() performs. Chosen large enough that the
-     *  double-hopped query (runAsync + runNextTick) reliably delivers even on busy CI
-     *  runners, where MockBukkit's waitAsyncTasksFinished() does not pump ticks during
-     *  its pool-wait loop. */
-    private static final int WAIT_ITERATIONS = 120;
-
-    /** Ticks pumped per waitFor() iteration after the async pool is observed idle. Ten
-     *  is enough to flush any runNextTick callbacks scheduled by the just-completed task. */
-    private static final int TICKS_PER_WAIT = 10;
 
     @BeforeEach
     void setUp() {
@@ -150,19 +141,34 @@ class LogHandlerQueryBoundTest {
         }
     }
 
+    @Test
+    void waitForHonorsPartialTickBudget() {
+        AtomicReference<List<PlayerTransactionRecord>> result = new AtomicReference<>();
+        server.getScheduler().runTaskLater(plugin, () -> result.set(List.of()), 4);
+        assertFalse(waitFor(result, 3), "A callback after the budget must not satisfy the wait");
+        assertTrue(waitFor(result, 1), "The next tick delivers the pending callback");
+    }
+
+    @Test
+    void waitForHonorsZeroTickBudget() {
+        AtomicReference<List<PlayerTransactionRecord>> result = new AtomicReference<>();
+        server.getScheduler().runTaskLater(plugin, () -> result.set(List.of()), 1);
+        assertFalse(waitFor(result, 0));
+        assertTrue(waitFor(result, 1));
+    }
+
     /** Pumps ticks until {@code target} is set, or the caller's budget runs out. */
     private boolean waitFor(AtomicReference<List<PlayerTransactionRecord>> target, int maxTicks) {
-        // The query is double-hopped (runAsync then runNextTick), so a single waitAsyncTasksFinished
-        // + performTicks(1) is not enough — and when it is not enough the result is a silent timeout.
-        // Pump more aggressively to cover load-induced delays on busy runners.
-        //
-        // The caller's maxTicks is the completion bound it asked for: a query that answers only
-        // after that budget is up is a query the caller would not consider done. Honour it so the
-        // tests actually check the bound their callers request, rather than a fixed generous cap.
-        int budget = maxTicks > 0 ? maxTicks : WAIT_ITERATIONS;
-        for (int i = 0; i < budget; i++) {
-            server.getScheduler().waitAsyncTasksFinished();
-            server.getScheduler().performTicks(TICKS_PER_WAIT);
+        for (int ticksConsumed = 0; ticksConsumed < maxTicks; ticksConsumed++) {
+            // Give async database work a real tick interval to enqueue its callback.
+            // waitAsyncTasksFinished() also pumps scheduled tasks and can exceed maxTicks.
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            server.getScheduler().performTicks(1);
             if (target.get() != null) {
                 return true;
             }
