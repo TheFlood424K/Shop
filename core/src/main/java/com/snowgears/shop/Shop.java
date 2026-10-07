@@ -588,6 +588,10 @@ public class Shop extends JavaPlugin {
         guiHandler.loadIconsAndTitles();
         logHandler = new LogHandler(plugin, config);
 
+        // Purge old shop_action rows on startup and reload so the log table does not grow
+        // without bound (issue #41).
+        logHandler.purgeOldActions();
+
         getServer().getPluginManager().registerEvents(displayListener, this);
         getServer().getPluginManager().registerEvents(shopListener, this);
         getServer().getPluginManager().registerEvents(miscListener, this);
@@ -978,6 +982,10 @@ public class Shop extends JavaPlugin {
         }
 
         plugin.getShopHandler().removeAllDisplays(null);
+
+        // Purge old shop_action rows before tearing down the connection pool so the
+        // cleanup runs against a live pool rather than a freshly-shut-down one.
+        if (logHandler != null) logHandler.purgeOldActions();
 
         onDisable();
         onEnable();

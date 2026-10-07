@@ -218,6 +218,35 @@ public class LogHandler {
         }
     }
 
+    /**
+     * Deletes rows from {@code shop_action} older than the configured retention window.
+     *
+     * <p>Runs on the async scheduler — it touches the database and does not need the main thread.
+     * A missing or zero config value disables purging entirely; this is deliberate, because a
+     * server admin who sets retention to 0 is choosing unbounded growth.
+     */
+    public void purgeOldActions() {
+        if (!enabled) return;
+        int retentionDays = plugin.getConfig().getInt("logging.actionRetentionDays", 90);
+        if (retentionDays <= 0) return;
+
+        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+            String sql = "DELETE FROM shop_action WHERE ts < ?";
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(sql)) {
+                Calendar cal = Calendar.getInstance();
+                cal.add(Calendar.DAY_OF_YEAR, -retentionDays);
+                stmt.setTimestamp(1, new Timestamp(cal.getTimeInMillis()));
+                int deleted = stmt.executeUpdate();
+                plugin.getLogger().notice("Purged " + deleted + " shop_action rows older than "
+                        + retentionDays + " days.");
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.WARNING,
+                        "Could not purge old shop_action rows.", e);
+            }
+        });
+    }
+
     public void logAction(Player player, AbstractShop shop, ShopActionType actionType) {
         if (actionType == ShopActionType.INIT) {
             plugin.getLogger().notice(
