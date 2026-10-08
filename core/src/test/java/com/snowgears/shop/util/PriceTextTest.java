@@ -52,6 +52,41 @@ class PriceTextTest {
         assertEquals(expected, UtilMethods.getMultiplyValue(input));
     }
 
+    /** The first explicit marker controls scaling, even when a later marker is valid. */
+    @ParameterizedTest
+    @CsvSource({
+            "100x2x3, 2",
+            "100x0x3, 0",
+            "100x2147483648x2, 1",
+            "100x0002, 2",
+            "100X2, 1",
+            "'100x 2', 1",
+            "100x+2, 1"
+    })
+    void multiplierSelectionDoesNotCombineMarkersOrAcceptMalformedMarkers(String input, int expected) {
+        assertEquals(expected, UtilMethods.getMultiplyValue(input));
+    }
+
+    /** Removing multiplier digits must preserve fractional precision and the leading sign. */
+    @ParameterizedTest
+    @CsvSource({
+            "'-0.125x2', '-0.125'",
+            "'100x2x3', '100'",
+            "'100x0002', '100'",
+            "'x2', ''",
+            "'x2147483648', ''"
+    })
+    void multiplierRemovalNeverSuppliesThePriceDigits(String input, String expected) {
+        assertEquals(expected, UtilMethods.priceToken(input));
+    }
+
+    /** Grouping whitespace in sign prices must never leave multiple numeric tokens. */
+    @ParameterizedTest
+    @ValueSource(strings = {"\t10\t500\t", "10\n500", "10\r\n500", "10\u00a0500"})
+    void signPricesRemoveWhitespaceGrouping(String input) {
+        assertEquals("10500", UtilMethods.priceToken(input));
+    }
+
     /** Verifies that missing or malformed multiplier markers leave the effective multiplier at one. */
     @ParameterizedTest
     @NullAndEmptySource
