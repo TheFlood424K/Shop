@@ -13,6 +13,10 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.snowgears.shop.util.UtilMethods;
 import org.bukkit.Material;
@@ -22,7 +26,7 @@ import org.bukkit.inventory.ItemStack;
  * Covers the shop_action retention policy added for issue #41.
  *
  * <p>{@code purgeOldActions} must delete rows older than the configured window, preserve
- * recent ones, and do nothing when the config value is missing or zero.
+ * recent ones, default to 90 days when missing, and do nothing for non-positive retention.
  *
  * <p>Extends {@link BaseMockBukkitTest}, which gives each test its own in-memory H2 database
  * named for the test. Without that isolation the default file-backed database is shared state:
@@ -91,6 +95,115 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(1, countActionRows(),
                 "A retention value of 0 disables purging entirely");
         assertEquals(1, countTransactionRows());
+    }
+
+    @Test
+    void purgeUsesConfiguredWindowAndIsIdempotent() throws Exception {
+        setRetentionDays(7);
+        Timestamp expired = makeTimestampDaysAgo(8);
+        Timestamp retained = makeTimestampDaysAgo(6);
+        insertActionRow(expired);
+        insertTransactionRow(expired);
+        insertActionRow(retained);
+        insertTransactionRow(retained);
+
+        waitForPurgeToFinish();
+
+        assertEquals(2, countActionRows());
+        assertEquals(1, countTransactionRows());
+        try (Connection conn = logHandler.getDataSourceForTesting().getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rows = stmt.executeQuery("SELECT ts FROM shop_action")) {
+            while (rows.next()) {
+                assertEquals(retained, rows.getTimestamp(1), "Only recent actions should remain");
+            }
+        }
+
+        waitForPurgeToFinish();
+        assertEquals(2, countActionRows(), "Repeated cleanup must preserve retained actions");
+        assertEquals(1, countTransactionRows());
+    }
+
+    @Test
+    void missingRetentionSettingUsesNinetyDayDefault() throws Exception {
+        plugin.getConfig().set("logging.actionRetentionDays", null);
+        insertTransactionRow(makeTimestampDaysAgo(91));
+        insertTransactionRow(makeTimestampDaysAgo(89));
+
+        waitForPurgeToFinish();
+
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+    }
+
+    @Test
+    void negativeRetentionDisablesCleanup() throws Exception {
+        setRetentionDays(-1);
+        insertActionRow(makeTimestampDaysAgo(400));
+        insertTransactionRow(makeTimestampDaysAgo(400));
+
+        waitForPurgeToFinish();
+
+        assertEquals(2, countActionRows());
+        assertEquals(1, countTransactionRows());
+    }
+
+    @Test
+    void maximumRetentionDoesNotOverflowAndDeleteRecentHistory() throws Exception {
+        setRetentionDays(Integer.MAX_VALUE);
+        insertTransactionRow(makeTimestampDaysAgo(400));
+
+        waitForPurgeToFinish();
+
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+    }
+
+    @Test
+    void purgeRemovesExistingOrphansEvenWhenNoActionsExpire() throws Exception {
+        setRetentionDays(90);
+        insertTransactionRow(makeTimestampDaysAgo(10));
+        try (Connection conn = logHandler.getDataSourceForTesting().getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("DELETE FROM shop_action");
+        }
+        insertActionRow(makeTimestampDaysAgo(10));
+        assertEquals(1, countTransactionRows(), "Fixture contains an orphan transaction");
+
+        waitForPurgeToFinish();
+
+        assertEquals(1, countActionRows(), "A non-transaction action must survive");
+        assertEquals(0, countTransactionRows(),
+                "A NULL transaction_id must not prevent removal of orphan transactions");
+    }
+
+    @Test
+    void disabledLoggingCompletesWithoutADatabase() throws Exception {
+        setRetentionDays(90);
+        javax.sql.DataSource original = logHandler.getDataSourceForTesting();
+        try {
+            logHandler.setDataSourceForTesting(null);
+            waitForPurgeToFinish();
+        } finally {
+            logHandler.setDataSourceForTesting(original);
+        }
+    }
+
+    @Test
+    void databaseFailureCompletesPurgeExceptionally() throws Exception {
+        setRetentionDays(90);
+        javax.sql.DataSource original = logHandler.getDataSourceForTesting();
+        javax.sql.DataSource failing = mock(javax.sql.DataSource.class);
+        SQLException failure = new SQLException("Synthetic connection failure");
+        when(failing.getConnection()).thenThrow(failure);
+        try {
+            logHandler.setDataSourceForTesting(failing);
+            java.util.concurrent.ExecutionException result = assertThrows(
+                    java.util.concurrent.ExecutionException.class, this::waitForPurgeToFinish);
+            assertSame(failure, result.getCause());
+        } finally {
+            logHandler.setDataSourceForTesting(original);
+        }
     }
 
     // --- helpers ---
@@ -214,10 +327,9 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
     private void insertTransactionRow(Timestamp ts) throws SQLException {
         javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
 
-        // Insert the transaction first and capture its generated id, then insert the action
-        // row referencing it. A purge deletes transaction rows through the action rows that
-        // point at them, so the two must be linked — an orphan transaction row has no action
-        // to delete it through and is correctly left behind.
+        // Insert the transaction first, then link its action using the generated id.
+        // The action timestamp determines retention; after expired actions are deleted,
+        // transactions with no remaining action references are removed as orphans.
         try (Connection conn = ds.getConnection();
              PreparedStatement txStmt = conn.prepareStatement(
                      "INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) "

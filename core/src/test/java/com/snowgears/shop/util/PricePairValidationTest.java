@@ -174,6 +174,89 @@ class PricePairValidationTest {
         assertEquals(501, pair.getPriceCombo());
     }
 
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void malformedNumericTokensAreRejectedInEitherComboPosition(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        for (String token : new String[]{"", "   ", "words", ".", "1.2.3", "9223372036854775808"}) {
+            assertNull(util.getShopPricePair(player, token + " / 20", ShopType.COMBO),
+                    "Invalid primary token: " + token);
+            assertNull(util.getShopPricePair(player, "20 / " + token, ShopType.COMBO),
+                    "Invalid secondary token: " + token);
+            assertNull(util.getShopPricePair(player, token, ShopType.SELL),
+                    "Invalid single token: " + token);
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void currencyDecorationsDoNotMergeComboPrices(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        PricePair pair = util.getShopPricePair(player, "$1,234 / $5,678", ShopType.COMBO);
+        assertNotNull(pair);
+        assertEquals(1234, pair.getPrice());
+        assertEquals(5678, pair.getPriceCombo());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void unseparatedNegativePricesCannotBeHiddenByCurrencyCleaning(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        for (String input : new String[]{"100 $-50", "100\t-50", "100 250 -1"}) {
+            assertNull(util.getShopPricePair(player, input, ShopType.COMBO), input);
+        }
+    }
+
+    @Test
+    void itemCurrencyRejectsFractionalPricesInEitherPosition() throws Exception {
+        useCurrency(CurrencyType.ITEM);
+        for (String input : new String[]{"0.5", "0.5 / 20", "20 / 0.5"}) {
+            assertNull(util.getShopPricePair(player, input, ShopType.COMBO), input);
+        }
+    }
+
+    @Test
+    void vaultAcceptsFractionalPricesAndRejectsNegativeFractions() throws Exception {
+        useCurrency(CurrencyType.VAULT);
+        PricePair pair = util.getShopPricePair(player, "0.125 / 0.5", ShopType.COMBO);
+        assertNotNull(pair);
+        assertEquals(0.125, pair.getPrice());
+        assertEquals(0.5, pair.getPriceCombo());
+        assertNull(util.getShopPricePair(player, "-0.125 / 0.5", ShopType.COMBO));
+        assertNull(util.getShopPricePair(player, "0.125 / -0.5", ShopType.COMBO));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void chatPricesRejectGroupingSpacesInBothSteps(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        for (String input : new String[]{"10 000", "10   500", "1.2.3", "words"}) {
+            assertEquals(-1, util.getShopPrice(player, input, ShopType.COMBO), input);
+            assertEquals(-1, util.getShopPriceCombo(player, input, ShopType.COMBO), input);
+        }
+    }
+
+    @Test
+    void vaultChatPricesPreserveDecimalsWithoutMultiplyingByTheirOwnDigits() throws Exception {
+        useCurrency(CurrencyType.VAULT);
+        assertEquals(1234.5, util.getShopPrice(player, "$1,234.50", ShopType.COMBO));
+        assertEquals(1234.5, util.getShopPriceCombo(player, "$1,234.50", ShopType.COMBO));
+    }
+
+    @Test
+    void vaultPrimaryChatPriceAppliesExplicitMultiplier() throws Exception {
+        useCurrency(CurrencyType.VAULT);
+        assertEquals(200, util.getShopPrice(player, "100x2", ShopType.COMBO),
+                "The multiplier digits must not become part of the price");
+    }
+
+    @Test
+    void vaultSecondaryChatPriceAppliesExplicitMultiplier() throws Exception {
+        useCurrency(CurrencyType.VAULT);
+        assertEquals(200, util.getShopPriceCombo(player, "100x2", ShopType.COMBO),
+                "The secondary prompt must apply the same multiplier as sign prices");
+    }
+
     /**
      * Selects a currency mode on the test plugin through its private currency field.
      *
