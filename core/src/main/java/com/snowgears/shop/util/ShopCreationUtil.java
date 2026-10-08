@@ -457,6 +457,14 @@ public class ShopCreationUtil {
         return Long.parseLong(token);
     }
 
+    /** Parses a Vault chat price without merging multiplier digits or grouping spaces into the price. */
+    private static double parseVaultChatPrice(String input) {
+        double multiplier = UtilMethods.getMultiplyValue(input);
+        String priceText = input == null ? null : input.replaceAll("x\\d+", "");
+        // Keep internal spaces so grouped chat prices still fail numeric parsing.
+        return parsePriceToken(UtilMethods.cleanNumberText(priceText)) * multiplier;
+    }
+
     /** A combo requires an explicit slash; whitespace alone groups a single price. */
     private static boolean isComboLine(String input) {
         return input.contains("/");
@@ -512,15 +520,7 @@ public class ShopCreationUtil {
         double price = 0;
         if (plugin.getCurrencyType() == CurrencyType.VAULT) {
             try {
-                // Spaces are preserved here on purpose: this is the single-price prompt, and a
-                // price typed with an internal space is invalid input that should be rejected.
-                // Collapsing the space would let "10 000" parse as 10000. See issue #125.
-                double multiplyValue = UtilMethods.getMultiplyValue(input);
-                // Remove the whole marker so its digits cannot become part of the price.
-                String line3 = UtilMethods.cleanNumberText(input == null ? null : input.replaceAll("x\\d+", ""));
-
-                price = parsePriceToken(line3);
-                price *= multiplyValue;
+                price = parseVaultChatPrice(input);
             } catch (NumberFormatException e) {
                 ShopMessage.sendMessage("interaction_issue", "line3", player, null);
                 return -1;
@@ -559,15 +559,7 @@ public class ShopCreationUtil {
         double priceCombo = 0;
         if (plugin.getCurrencyType() == CurrencyType.VAULT) {
             try {
-                // Spaces are preserved here on purpose: this is the single-price prompt, and a
-                // price typed with an internal space is invalid input that should be rejected.
-                // Collapsing the space would let "10 000" parse as 10000. See issue #125.
-                double multiplyValue = UtilMethods.getMultiplyValue(input);
-                // Remove the whole marker so its digits cannot become part of the price.
-                String line3 = UtilMethods.cleanNumberText(input == null ? null : input.replaceAll("x\\d+", ""));
-
-                priceCombo = parsePriceToken(line3);
-                priceCombo *= multiplyValue;
+                priceCombo = parseVaultChatPrice(input);
 
             } catch (NumberFormatException e) {
                 ShopMessage.sendMessage("interaction_issue", "line3", player, null);

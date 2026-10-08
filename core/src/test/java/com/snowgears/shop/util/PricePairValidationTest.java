@@ -237,7 +237,7 @@ class PricePairValidationTest {
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void chatPricesRejectGroupingSpacesInBothSteps(CurrencyType currency) throws Exception {
         useCurrency(currency);
-        for (String input : new String[]{"10 000", "10   500", "10 000x2", "1.2.3", "words"}) {
+        for (String input : new String[]{"10 000", "10   500", "10 000x2", "10   500x2", "1.2.3", "words"}) {
             assertEquals(-1, util.getShopPrice(player, input, ShopType.COMBO), input);
             assertEquals(-1, util.getShopPriceCombo(player, input, ShopType.COMBO), input);
         }
@@ -269,6 +269,23 @@ class PricePairValidationTest {
                 "The secondary prompt must apply the same multiplier as sign prices");
     }
 
+    /** Both prompts separate the multiplier from the price while retaining their existing validation rules. */
+    @ParameterizedTest
+    @CsvSource({
+            "100.5x2, 201, 201",
+            "'$1,234.50x2', 2469, 2469",
+            "100x0002, 200, 200",
+            "100x2147483648, 100, 100",
+            "100x0, -1, 0",
+            "-100x2, -1, -200",
+            "x2, -1, -1"
+    })
+    void vaultChatMultiplierBoundaries(String input, double primary, double secondary) throws Exception {
+        useCurrency(CurrencyType.VAULT);
+        assertEquals(primary, util.getShopPrice(player, input, ShopType.COMBO));
+        assertEquals(secondary, util.getShopPriceCombo(player, input, ShopType.COMBO));
+    }
+
     /**
      * Selects a currency mode on the test plugin through its private currency field.
      *
@@ -279,6 +296,68 @@ class PricePairValidationTest {
         java.lang.reflect.Field field = Shop.class.getDeclaredField("currencyType");
         field.setAccessible(true);
         field.set(plugin, currency);
+    }
+
+    /** The largest supported whole number remains valid in either price position and chat step. */
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void maximumWholeNumberPriceIsAccepted(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        String maximum = Long.toString(Long.MAX_VALUE);
+        PricePair pair = util.getShopPricePair(player, maximum + " / " + maximum, ShopType.COMBO);
+        assertNotNull(pair);
+        assertEquals((double) Long.MAX_VALUE, pair.getPrice());
+        assertEquals((double) Long.MAX_VALUE, pair.getPriceCombo());
+        assertEquals((double) Long.MAX_VALUE, util.getShopPrice(player, maximum, ShopType.COMBO));
+        assertEquals((double) Long.MAX_VALUE, util.getShopPriceCombo(player, maximum, ShopType.COMBO));
+    }
+
+    /** Whole-number overflow must fail in both chat steps instead of silently rounding to a double. */
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void chatPricesRejectWholeNumberOverflow(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        for (String input : new String[]{"9223372036854775808", "-9223372036854775809"}) {
+            assertEquals(-1, util.getShopPrice(player, input, ShopType.COMBO), input);
+            assertEquals(-1, util.getShopPriceCombo(player, input, ShopType.COMBO), input);
+        }
+    }
+
+    /** Only the first combo price supplies a Vault multiplier; item prices stay unscaled. */
+    @ParameterizedTest
+    @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
+    void secondaryMultiplierCannotChangeComboScaling(CurrencyType currency) throws Exception {
+        useCurrency(currency);
+        PricePair secondaryOnly = util.getShopPricePair(player, "100 / 250x3", ShopType.COMBO);
+        assertNotNull(secondaryOnly);
+        assertEquals(100, secondaryOnly.getPrice());
+        assertEquals(250, secondaryOnly.getPriceCombo());
+
+        PricePair both = util.getShopPricePair(player, "100x2 / 250x3", ShopType.COMBO);
+        assertNotNull(both);
+        assertEquals(currency == CurrencyType.VAULT ? 200 : 100, both.getPrice());
+        assertEquals(currency == CurrencyType.VAULT ? 500 : 250, both.getPriceCombo());
+    }
+
+    /** Overflow in the multiplier falls back to one without appending its digits to either price. */
+    @Test
+    void overflowingVaultMultiplierLeavesOriginalPrices() throws Exception {
+        useCurrency(CurrencyType.VAULT);
+        PricePair pair = util.getShopPricePair(player, "100x2147483648 / 250", ShopType.COMBO);
+        assertNotNull(pair);
+        assertEquals(100, pair.getPrice());
+        assertEquals(250, pair.getPriceCombo());
+    }
+
+    /** A zero multiplier is applied before the primary barter-price validation. */
+    @Test
+    void zeroVaultMultiplierRespectsBarterPriceValidation() throws Exception {
+        useCurrency(CurrencyType.VAULT);
+        assertNull(util.getShopPricePair(player, "100x0 / 250", ShopType.BARTER));
+        PricePair pair = util.getShopPricePair(player, "100x0 / 250", ShopType.COMBO);
+        assertNotNull(pair);
+        assertEquals(0, pair.getPrice());
+        assertEquals(0, pair.getPriceCombo());
     }
 
     // --- VAULT currency (the multiplier path) ---

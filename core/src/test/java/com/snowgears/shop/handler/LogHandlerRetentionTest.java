@@ -15,8 +15,10 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -309,6 +311,121 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         waitForPurgeToFinish();
         assertEquals(0, countActionRows());
         assertEquals(0, countTransactionRows());
+    }
+
+    /** Coverage recorded for one owner must never release another owner's equally old purchase. */
+    @Test
+    void summariesReleaseOnlyTheirOwnersPurchases() throws Exception {
+        setRetentionDays(90);
+        UUID summarizedOwner = UUID.randomUUID();
+        UUID pendingOwner = UUID.randomUUID();
+        Timestamp purchaseTime = makeTimestampDaysAgo(150);
+        insertTransactionRow(purchaseTime, summarizedOwner.toString());
+        insertTransactionRow(purchaseTime, pendingOwner.toString());
+
+        calculateSummary(summarizedOwner, makeTimestampDaysAgo(100).getTime());
+        waitForPurgeToFinish();
+
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+        try (Connection conn = logHandler.getDataSourceForTesting().getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rows = stmt.executeQuery("SELECT owner_uuid FROM shop_action")) {
+            assertTrue(rows.next());
+            assertEquals(pendingOwner.toString(), rows.getString(1));
+        }
+        assertNull(readSummaryBoundary(pendingOwner), "Another owner's summary must not create coverage");
+    }
+
+    /** The summary timestamp is inclusive, while purchases just beyond it remain protected. */
+    @Test
+    void summaryBoundaryReleasesEqualTimestampButProtectsLaterPurchase() throws Exception {
+        setRetentionDays(90);
+        UUID owner = UUID.randomUUID();
+        Timestamp boundary = makeTimestampDaysAgo(150);
+        calculateSummary(owner, boundary.getTime());
+        Timestamp later = new Timestamp(boundary.getTime() + TimeUnit.SECONDS.toMillis(1));
+        insertTransactionRow(new Timestamp(boundary.getTime() - TimeUnit.SECONDS.toMillis(1)), owner.toString());
+        insertTransactionRow(boundary, owner.toString());
+        insertTransactionRow(later, owner.toString());
+
+        waitForPurgeToFinish();
+
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+        try (Connection conn = logHandler.getDataSourceForTesting().getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rows = stmt.executeQuery("SELECT ts FROM shop_action")) {
+            assertTrue(rows.next());
+            assertEquals(later, rows.getTimestamp(1));
+        }
+    }
+
+    /** Finishing an older login calculation after a newer one must not move persisted coverage backwards. */
+    @Test
+    void olderSummaryCannotMovePersistedBoundaryBackwards() throws Exception {
+        setRetentionDays(90);
+        UUID owner = UUID.randomUUID();
+        Timestamp newerLogin = makeTimestampDaysAgo(100);
+        calculateSummary(owner, newerLogin.getTime());
+        calculateSummary(owner, makeTimestampDaysAgo(200).getTime());
+        assertEquals(newerLogin, readSummaryBoundary(owner));
+
+        insertTransactionRow(makeTimestampDaysAgo(150), owner.toString());
+        waitForPurgeToFinish();
+        assertEquals(0, countActionRows(), "Persisted newer coverage still releases this purchase");
+        assertEquals(0, countTransactionRows());
+    }
+
+    /** First-time players with no purchases must not persist epoch timestamps unsupported by MySQL. */
+    @Test
+    void emptyFirstLoginDoesNotCreateSummaryBoundary() throws Exception {
+        UUID owner = UUID.randomUUID();
+        OfflineTransactions summary = calculateSummary(owner, 0);
+
+        verify(summary).setNumTransactions(0);
+        assertNull(readSummaryBoundary(owner));
+    }
+
+    /** Coverage advances to the latest purchase even when rows are inserted in another timestamp order. */
+    @Test
+    void summaryPersistsLatestPurchaseRatherThanLastPlayed() throws Exception {
+        setRetentionDays(90);
+        UUID owner = UUID.randomUUID();
+        Timestamp latest = makeTimestampDaysAgo(100);
+        insertTransactionRow(latest, owner.toString());
+        insertTransactionRow(makeTimestampDaysAgo(150), owner.toString());
+
+        OfflineTransactions summary = calculateSummary(owner, makeTimestampDaysAgo(200).getTime());
+
+        verify(summary).setNumTransactions(2);
+        verify(summary).setTotalSpent(20.0);
+        assertEquals(latest, readSummaryBoundary(owner));
+        waitForPurgeToFinish();
+        assertEquals(0, countActionRows());
+        assertEquals(0, countTransactionRows());
+    }
+
+    /** Waits for the final completion callback, rather than a row count that may already match. */
+    private OfflineTransactions calculateSummary(UUID owner, long lastPlayed) {
+        OfflineTransactions summary = mock(OfflineTransactions.class);
+        when(summary.getPlayerUUID()).thenReturn(owner);
+        when(summary.getLastPlayed()).thenReturn(lastPlayed);
+        logHandler.calculateOfflineTransactions(summary);
+        verify(summary, timeout(5000)).setIsCalculating(false);
+        return summary;
+    }
+
+    /** Reads persisted coverage independently of the mutable summary result. */
+    private Timestamp readSummaryBoundary(UUID owner) throws SQLException {
+        try (Connection conn = logHandler.getDataSourceForTesting().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT summarized_through FROM shop_offline_summary WHERE owner_uuid = ?")) {
+            stmt.setString(1, owner.toString());
+            try (ResultSet rows = stmt.executeQuery()) {
+                return rows.next() ? rows.getTimestamp(1) : null;
+            }
+        }
     }
 
     /**
