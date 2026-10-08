@@ -237,7 +237,7 @@ class PricePairValidationTest {
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void chatPricesRejectGroupingSpacesInBothSteps(CurrencyType currency) throws Exception {
         useCurrency(currency);
-        for (String input : new String[]{"10 000", "10   500", "10 000x2", "1.2.3", "words"}) {
+        for (String input : new String[]{"10 000", "10   500", "10 000x2", "10   500x2", "1.2.3", "words"}) {
             assertEquals(-1, util.getShopPrice(player, input, ShopType.COMBO), input);
             assertEquals(-1, util.getShopPriceCombo(player, input, ShopType.COMBO), input);
         }
@@ -267,6 +267,23 @@ class PricePairValidationTest {
         useCurrency(CurrencyType.VAULT);
         assertEquals(expected, util.getShopPriceCombo(player, input, ShopType.COMBO),
                 "The secondary prompt must apply the same multiplier as sign prices");
+    }
+
+    /** Both prompts separate the multiplier from the price while retaining their existing validation rules. */
+    @ParameterizedTest
+    @CsvSource({
+            "100.5x2, 201, 201",
+            "'$1,234.50x2', 2469, 2469",
+            "100x0002, 200, 200",
+            "100x2147483648, 100, 100",
+            "100x0, -1, 0",
+            "-100x2, -1, -200",
+            "x2, -1, -1"
+    })
+    void vaultChatMultiplierBoundaries(String input, double primary, double secondary) throws Exception {
+        useCurrency(CurrencyType.VAULT);
+        assertEquals(primary, util.getShopPrice(player, input, ShopType.COMBO));
+        assertEquals(secondary, util.getShopPriceCombo(player, input, ShopType.COMBO));
     }
 
     /**
