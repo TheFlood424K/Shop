@@ -515,8 +515,9 @@ public class ShopCreationUtil {
                 // Spaces are preserved here on purpose: this is the single-price prompt, and a
                 // price typed with an internal space is invalid input that should be rejected.
                 // Collapsing the space would let "10 000" parse as 10000. See issue #125.
-                String line3 = UtilMethods.cleanNumberText(input);
-                double multiplyValue = UtilMethods.getMultiplyValue(line3);
+                double multiplyValue = UtilMethods.getMultiplyValue(input);
+                // Remove the whole marker so its digits cannot become part of the price.
+                String line3 = UtilMethods.cleanNumberText(input == null ? null : input.replaceAll("x\\d+", ""));
 
                 price = parsePriceToken(line3);
                 price *= multiplyValue;
@@ -561,8 +562,9 @@ public class ShopCreationUtil {
                 // Spaces are preserved here on purpose: this is the single-price prompt, and a
                 // price typed with an internal space is invalid input that should be rejected.
                 // Collapsing the space would let "10 000" parse as 10000. See issue #125.
-                String line3 = UtilMethods.cleanNumberText(input);
-                double multiplyValue = UtilMethods.getMultiplyValue(line3);
+                double multiplyValue = UtilMethods.getMultiplyValue(input);
+                // Remove the whole marker so its digits cannot become part of the price.
+                String line3 = UtilMethods.cleanNumberText(input == null ? null : input.replaceAll("x\\d+", ""));
 
                 priceCombo = parsePriceToken(line3);
                 priceCombo *= multiplyValue;

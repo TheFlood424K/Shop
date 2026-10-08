@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockbukkit.mockbukkit.MockBukkit;
@@ -236,7 +237,7 @@ class PricePairValidationTest {
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void chatPricesRejectGroupingSpacesInBothSteps(CurrencyType currency) throws Exception {
         useCurrency(currency);
-        for (String input : new String[]{"10 000", "10   500", "1.2.3", "words"}) {
+        for (String input : new String[]{"10 000", "10   500", "10 000x2", "1.2.3", "words"}) {
             assertEquals(-1, util.getShopPrice(player, input, ShopType.COMBO), input);
             assertEquals(-1, util.getShopPriceCombo(player, input, ShopType.COMBO), input);
         }
@@ -251,18 +252,20 @@ class PricePairValidationTest {
     }
 
     /** Verifies that the primary Vault chat prompt applies an explicit multiplier separately from the price. */
-    @Test
-    void vaultPrimaryChatPriceAppliesExplicitMultiplier() throws Exception {
+    @ParameterizedTest
+    @CsvSource({"100x2, 200", "12.50x3, 37.5", "'$1,234.50x2', 2469"})
+    void vaultPrimaryChatPriceAppliesExplicitMultiplier(String input, double expected) throws Exception {
         useCurrency(CurrencyType.VAULT);
-        assertEquals(200, util.getShopPrice(player, "100x2", ShopType.COMBO),
+        assertEquals(expected, util.getShopPrice(player, input, ShopType.COMBO),
                 "The multiplier digits must not become part of the price");
     }
 
     /** Verifies that the secondary Vault chat prompt applies the same explicit multiplier as sign parsing. */
-    @Test
-    void vaultSecondaryChatPriceAppliesExplicitMultiplier() throws Exception {
+    @ParameterizedTest
+    @CsvSource({"100x2, 200", "12.50x3, 37.5", "'$1,234.50x2', 2469"})
+    void vaultSecondaryChatPriceAppliesExplicitMultiplier(String input, double expected) throws Exception {
         useCurrency(CurrencyType.VAULT);
-        assertEquals(200, util.getShopPriceCombo(player, "100x2", ShopType.COMBO),
+        assertEquals(expected, util.getShopPriceCombo(player, input, ShopType.COMBO),
                 "The secondary prompt must apply the same multiplier as sign prices");
     }
 

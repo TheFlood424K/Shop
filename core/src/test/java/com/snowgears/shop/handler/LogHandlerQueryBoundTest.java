@@ -46,14 +46,10 @@ class LogHandlerQueryBoundTest {
 
     private Shop plugin;
 
-    /** How many wait-and-pump cycles waitFor() performs. Chosen large enough that the
-     *  double-hopped query (runAsync + runNextTick) reliably delivers even on busy CI
-     *  runners, where MockBukkit's waitAsyncTasksFinished() does not pump ticks during
-     *  its pool-wait loop. */
+    /** Retry async completion because a query can still be queued when the pool is observed idle. */
     private static final int WAIT_ITERATIONS = 120;
 
-    /** Ticks pumped per waitFor() iteration after the async pool is observed idle. Ten
-     *  is enough to flush any runNextTick callbacks scheduled by the just-completed task. */
+    /** Maximum callback ticks per query wait iteration. */
     private static final int TICKS_PER_WAIT = 10;
 
     @BeforeEach
@@ -94,7 +90,7 @@ class LogHandlerQueryBoundTest {
                 System.currentTimeMillis() - 1000, System.currentTimeMillis(),
                 new TransactionLookupFilter(null, null, null, null),
                 result::set);
-        assertTrue(waitFor(result, 10), "The query should still answer");
+        assertTrue(waitForQuery(result), "The query should still answer");
 
         assertNotNull(result.get(), "The query should still answer");
         assertTrue(result.get().size() <= maxRows(),
@@ -113,7 +109,7 @@ class LogHandlerQueryBoundTest {
                 System.currentTimeMillis() - 86_400_000L, System.currentTimeMillis(),
                 new TransactionLookupFilter(null, null, null, null),
                 result::set);
-        assertTrue(waitFor(result, 10),
+        assertTrue(waitForQuery(result),
                 "The bound query must still deliver a result — an empty list is fine, null is not");
 
         assertNotNull(result.get(), "Expected a result");
@@ -146,8 +142,8 @@ class LogHandlerQueryBoundTest {
                     System.currentTimeMillis() - 1000, System.currentTimeMillis(),
                     filter, result::set);
 
-            assertTrue(waitFor(result, 10),
-                    "A query with filter " + filter + " did not answer within the tick budget");
+            assertTrue(waitForQuery(result),
+                    "A query with filter " + filter + " did not answer within the retry budget");
         }
     }
 
@@ -155,33 +151,44 @@ class LogHandlerQueryBoundTest {
     @Test
     void waitForHonorsPartialTickBudget() {
         AtomicReference<List<PlayerTransactionRecord>> result = new AtomicReference<>();
+        long startTick = server.getScheduler().getCurrentTick();
         server.getScheduler().runTaskLater(plugin, () -> result.set(List.of()), 4);
         assertFalse(waitFor(result, 3), "A callback after the budget must not satisfy the wait");
+        assertEquals(startTick + 3, server.getScheduler().getCurrentTick());
         assertTrue(waitFor(result, 1), "The next tick delivers the pending callback");
+        assertEquals(startTick + 4, server.getScheduler().getCurrentTick());
     }
 
     /** Verifies that a zero-tick wait leaves the scheduled callback pending. */
     @Test
     void waitForHonorsZeroTickBudget() {
         AtomicReference<List<PlayerTransactionRecord>> result = new AtomicReference<>();
+        long startTick = server.getScheduler().getCurrentTick();
         server.getScheduler().runTaskLater(plugin, () -> result.set(List.of()), 1);
         assertFalse(waitFor(result, 0));
+        assertEquals(startTick, server.getScheduler().getCurrentTick());
         assertTrue(waitFor(result, 1));
     }
 
-    /** Pumps ticks until {@code target} is set, or the caller's budget runs out. */
-    private boolean waitFor(AtomicReference<List<PlayerTransactionRecord>> target, int maxTicks) {
-        // The query is double-hopped (runAsync then runNextTick), so a single waitAsyncTasksFinished
-        // + performTicks(1) is not enough — and when it is not enough the result is a silent timeout.
-        // Pump more aggressively to cover load-induced delays on busy runners.
-        // Use WAIT_ITERATIONS as the cap (caller's maxTicks is ignored; the constant is the real budget).
+    /** Drains async query work and pumps its callback, retrying the async-to-sync handoff. */
+    private boolean waitForQuery(AtomicReference<List<PlayerTransactionRecord>> target) {
         for (int i = 0; i < WAIT_ITERATIONS; i++) {
             server.getScheduler().waitAsyncTasksFinished();
-            server.getScheduler().performTicks(TICKS_PER_WAIT);
-            if (target.get() != null) {
+            if (waitFor(target, TICKS_PER_WAIT)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Pumps ticks until {@code target} is set, or the caller's budget runs out. */
+    private boolean waitFor(AtomicReference<List<PlayerTransactionRecord>> target, int maxTicks) {
+        // Query tests await their async work before entering this tick-bounded helper.
+        // waitAsyncTasksFinished also drains scheduled ticks, so calling it here would
+        // execute callbacks beyond maxTicks and invalidate the budget assertions.
+        for (int i = 0; i < maxTicks && target.get() == null; i++) {
+            server.getScheduler().performOneTick();
+        }
+        return target.get() != null;
     }
 }
