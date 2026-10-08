@@ -10,14 +10,20 @@ import org.junit.jupiter.api.Test;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.TimeZone;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
+import com.snowgears.shop.util.OfflineTransactions;
 import com.snowgears.shop.util.UtilMethods;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -43,6 +49,14 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
     void setUp() throws Exception {
         plugin = getPlugin();
         logHandler = plugin.getLogHandler();
+        // Existing retention cases use an owner whose history has already been summarized.
+        try (Connection conn = logHandler.getDataSourceForTesting().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "INSERT INTO shop_offline_summary VALUES (?, ?)")) {
+            stmt.setString(1, "00000000-0000-0000-0000-000000000002");
+            stmt.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+            stmt.executeUpdate();
+        }
     }
 
     /** Leaves scheduler draining and server cleanup to the shared fixture teardown. */
@@ -206,6 +220,94 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         }
     }
 
+    @Test
+    void pendingPurchasesSurviveUntilTheirSummaryIsRecorded() throws Exception {
+        setRetentionDays(90);
+        getServer().addSimpleWorld("world");
+        UUID owner = UUID.randomUUID();
+        Timestamp purchaseTime = makeTimestampDaysAgo(150);
+        insertTransactionRow(purchaseTime, owner.toString());
+        insertTransactionRow(makeTimestampDaysAgo(151), "admin");
+        insertActionRow(makeTimestampDaysAgo(151));
+
+        waitForPurgeToFinish();
+        assertEquals(1, countActionRows(), "Pending purchases survive, other expired actions do not");
+        assertEquals(1, countTransactionRows(), "Pending purchases retain their transaction data");
+
+        OfflineTransactions summary = new OfflineTransactions(owner, makeTimestampDaysAgo(200).getTime());
+        waitForSummary(summary);
+        assertEquals(1, summary.getNumTransactions());
+        assertEquals(10.0, summary.getTotalSpent());
+        assertEquals(1, summary.getItemsBought().get(new ItemStack(Material.DIRT)));
+
+        // A later offline purchase must remain protected by the same owner's older receipt.
+        insertTransactionRow(makeTimestampDaysAgo(100), owner.toString());
+        waitForPurgeToFinish();
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+
+        // A subsequent summary releases the newly covered purchase as well.
+        OfflineTransactions nextSummary = mock(OfflineTransactions.class);
+        when(nextSummary.getPlayerUUID()).thenReturn(owner);
+        when(nextSummary.getLastPlayed()).thenReturn(makeTimestampDaysAgo(200).getTime());
+        logHandler.calculateOfflineTransactions(nextSummary);
+        verify(nextSummary, timeout(5000)).setIsCalculating(false);
+        waitForPurgeToFinish();
+        assertEquals(0, countActionRows());
+        assertEquals(0, countTransactionRows());
+    }
+
+    @Test
+    void failedSummaryDoesNotReleasePendingPurchases() throws Exception {
+        setRetentionDays(90);
+        UUID owner = UUID.randomUUID();
+        insertTransactionRow(makeTimestampDaysAgo(150), owner.toString());
+        OfflineTransactions summary = mock(OfflineTransactions.class);
+        when(summary.getPlayerUUID()).thenReturn(owner);
+        when(summary.getLastPlayed()).thenReturn(makeTimestampDaysAgo(200).getTime());
+        doThrow(new IllegalStateException("Synthetic summary failure"))
+                .when(summary).setItemsSold(org.mockito.ArgumentMatchers.anyMap());
+
+        logHandler.calculateOfflineTransactions(summary);
+        verify(summary, timeout(5000)).setIsCalculating(false);
+        waitForPurgeToFinish();
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+    }
+
+    @Test
+    void emptySummaryReleasesHistoryBeforeLastPlayed() throws Exception {
+        setRetentionDays(90);
+        UUID owner = UUID.randomUUID();
+        insertTransactionRow(makeTimestampDaysAgo(150), owner.toString());
+        OfflineTransactions summary = new OfflineTransactions(owner, makeTimestampDaysAgo(100).getTime());
+        waitForSummary(summary);
+        assertEquals(0, summary.getNumTransactions());
+
+        waitForPurgeToFinish();
+        assertEquals(0, countActionRows());
+        assertEquals(0, countTransactionRows());
+    }
+
+    @Test
+    void disabledNotificationsKeepNormalPurchaseRetention() throws Exception {
+        setRetentionDays(90);
+        setConfig("offlinePurchaseNotificationsEnabled", false);
+        insertTransactionRow(makeTimestampDaysAgo(150), UUID.randomUUID().toString());
+
+        waitForPurgeToFinish();
+        assertEquals(0, countActionRows());
+        assertEquals(0, countTransactionRows());
+    }
+
+    private void waitForSummary(OfflineTransactions summary) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (summary.isCalculating() && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertFalse(summary.isCalculating(), "Summary calculation should finish within five seconds");
+    }
+
     // --- helpers ---
 
     /**
@@ -325,6 +427,10 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
      * @throws SQLException if either insert fails or no transaction ID is generated
      */
     private void insertTransactionRow(Timestamp ts) throws SQLException {
+        insertTransactionRow(ts, "00000000-0000-0000-0000-000000000002");
+    }
+
+    private void insertTransactionRow(Timestamp ts, String owner) throws SQLException {
         javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
 
         // Insert the transaction first, then link its action using the generated id.
@@ -352,7 +458,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
             int transactionId = keys.getInt(1);
 
             actionStmt.setString(1, "00000000-0000-0000-0000-000000000001");
-            actionStmt.setString(2, "00000000-0000-0000-0000-000000000002");
+            actionStmt.setString(2, owner);
             actionStmt.setString(3, "00000000-0000-0000-0000-000000000003");
             actionStmt.setString(4, "world");
             actionStmt.setInt(5, 0);

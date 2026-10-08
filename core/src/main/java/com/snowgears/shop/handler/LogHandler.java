@@ -239,6 +239,8 @@ public class LogHandler {
     /**
      * Schedules deletion of {@code shop_action} rows strictly older than the retention window,
      * followed by all {@code shop_transaction} rows no longer referenced by any action.
+     * Purchases for player owners are retained until a successful offline summary records
+     * coverage of their timestamp, when offline purchase notifications are enabled.
      *
      * <p>{@code logging.actionRetentionDays} defaults to 90 days, each lasting 24 hours.
      * Disabled logging or a nonpositive retention value skips cleanup. This method returns
@@ -282,6 +284,14 @@ public class LogHandler {
             Timestamp cutoff = new Timestamp(
                     Calendar.getInstance().getTimeInMillis() - TimeUnit.DAYS.toMillis(retentionDays));
             String actionSql = "DELETE FROM shop_action WHERE ts < ?";
+            if (plugin.offlinePurchaseNotificationsEnabled()) {
+                // A long absence can outlast retention. Keep purchases until the summary has
+                // been calculated, including across restarts and while the owner is logging in.
+                actionSql += " AND (player_action <> 'TRANSACT' OR owner_uuid = 'admin' OR EXISTS "
+                        + "(SELECT 1 FROM shop_offline_summary WHERE "
+                        + "shop_offline_summary.owner_uuid = shop_action.owner_uuid "
+                        + "AND shop_action.ts <= shop_offline_summary.summarized_through))";
+            }
             String txSql = "DELETE FROM shop_transaction WHERE NOT EXISTS "
                     + "(SELECT 1 FROM shop_action WHERE shop_action.transaction_id = shop_transaction.id)";
             try (Connection conn = dataSource.getConnection();
@@ -453,10 +463,13 @@ public class LogHandler {
                 stmt.setTimestamp(2, new Timestamp(offlineTransactions.getLastPlayed()));
                 ResultSet resultSet = stmt.executeQuery();
 
+                Timestamp summarizedThrough = new Timestamp(offlineTransactions.getLastPlayed());
                 int size = 0;
                 if (resultSet != null) {
                     while (resultSet.next()) {
                         size++;
+                        Timestamp actionTimestamp = resultSet.getTimestamp("ts");
+                        if (actionTimestamp.after(summarizedThrough)) summarizedThrough = actionTimestamp;
                         // Extract transaction data
                         String purchaserUUID = resultSet.getString("player_uuid");
                         String tType = resultSet.getString("t_type");
@@ -514,6 +527,22 @@ public class LogHandler {
                 offlineTransactions.setTotalSpent(totalSpent);
                 offlineTransactions.setItemsBought(itemsBought);
                 offlineTransactions.setItemsSold(itemsSold);
+
+                // Release only history covered by this successful calculation. Persist the
+                // boundary so retention remains safe after restart, and never move it backwards
+                // if overlapping login calculations finish out of order.
+                // First-time players without purchases have no history to release. Their zero
+                // lastPlayed is also outside MySQL's TIMESTAMP range.
+                if (summarizedThrough.getTime() > 0) {
+                    try (PreparedStatement summaryStmt = conn.prepareStatement(
+                            "INSERT INTO shop_offline_summary (owner_uuid, summarized_through) VALUES (?, ?) "
+                                    + "ON DUPLICATE KEY UPDATE summarized_through = "
+                                    + "GREATEST(summarized_through, VALUES(summarized_through))")) {
+                        summaryStmt.setString(1, offlineTransactions.getPlayerUUID().toString());
+                        summaryStmt.setTimestamp(2, summarizedThrough);
+                        summaryStmt.executeUpdate();
+                    }
+                }
                 offlineTransactions.setIsCalculating(false);
 
             } catch (SQLException e){

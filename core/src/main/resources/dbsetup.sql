@@ -24,6 +24,14 @@ CREATE TABLE IF NOT EXISTS shop_action
     FOREIGN KEY (transaction_id) REFERENCES shop_transaction(id)
 );
 
+-- Successful offline summary coverage, retained across plugin restarts.
+CREATE TABLE IF NOT EXISTS shop_offline_summary
+(
+    owner_uuid CHAR(36) NOT NULL,
+    summarized_through TIMESTAMP NOT NULL,
+    PRIMARY KEY (owner_uuid)
+);
+
 -- shop_action had no indexes at all, so every query against it full-scanned a table that only
 -- ever grows. The column order below matches the queries in LogHandler:
 --   * owner history  — WHERE owner_uuid=? AND ts > ? ORDER BY ts DESC
