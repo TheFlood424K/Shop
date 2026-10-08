@@ -1,0 +1,514 @@
+package com.snowgears.shop.handler;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.testsupport.BaseMockBukkitTest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.sql.*;
+import java.util.Calendar;
+import java.util.TimeZone;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+
+import com.snowgears.shop.util.OfflineTransactions;
+import com.snowgears.shop.util.UtilMethods;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+
+/**
+ * Covers the shop_action retention policy added for issue #41.
+ *
+ * <p>{@code purgeOldActions} must delete rows older than the configured window, preserve
+ * recent ones, default to 90 days when missing, and do nothing for non-positive retention.
+ *
+ * <p>Extends {@link BaseMockBukkitTest}, which gives each test its own in-memory H2 database
+ * named for the test. Without that isolation the default file-backed database is shared state:
+ * a row written by one test is still present for the next, which makes database assertions
+ * order-dependent, and the pool holds the file open. See issue #125.
+ */
+class LogHandlerRetentionTest extends BaseMockBukkitTest {
+
+    private Shop plugin;
+    private LogHandler logHandler;
+
+    /** Uses the plugin and isolated database initialized by the shared MockBukkit fixture. */
+    @BeforeEach
+    void setUp() throws Exception {
+        plugin = getPlugin();
+        logHandler = plugin.getLogHandler();
+        // Existing retention cases use an owner whose history has already been summarized.
+        try (Connection conn = logHandler.getDataSourceForTesting().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "INSERT INTO shop_offline_summary VALUES (?, ?)")) {
+            stmt.setString(1, "00000000-0000-0000-0000-000000000002");
+            stmt.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+            stmt.executeUpdate();
+        }
+    }
+
+    /** Leaves scheduler draining and server cleanup to the shared fixture teardown. */
+    @AfterEach
+    void tearDown() {
+        // BaseMockBukkitTest.tearDownServer() already drains the scheduler and unmocks.
+    }
+
+    /** Verifies that completed retention cleanup deletes actions older than the configured window. */
+    @Test
+    @DisplayName("purgeOldActions removes rows older than the retention window")
+    void purgeRemovesOldRows() throws Exception {
+        int retentionDays = 90;
+        setRetentionDays(retentionDays);
+
+        insertActionRow(makeTimestampDaysAgo(retentionDays + 1));
+        insertActionRow(makeTimestampDaysAgo(retentionDays + 30));
+
+        waitForPurgeToFinish();
+
+        assertEquals(0, countActionRows(),
+                "Rows older than the retention window should be deleted");
+    }
+
+    /** Verifies that actions inside the retention window survive completed cleanup. */
+    @Test
+    @DisplayName("purgeOldActions keeps rows within the retention window")
+    void purgeKeepsRecentRows() throws Exception {
+        setRetentionDays(90);
+
+        insertActionRow(makeTimestampDaysAgo(10));
+        insertActionRow(makeTimestampDaysAgo(30));
+
+        waitForPurgeToFinish();
+
+        assertEquals(2, countActionRows(),
+                "Rows inside the retention window must survive the purge");
+    }
+
+    /** Verifies that zero retention preserves both old actions and their transactions. */
+    @Test
+    @DisplayName("purgeOldActions is a no-op when retentionDays is zero")
+    void purgeDisabledWhenRetentionZero() throws Exception {
+        setRetentionDays(0);
+
+        insertTransactionRow(makeTimestampDaysAgo(400));
+
+        waitForPurgeToFinish();
+
+        assertEquals(1, countActionRows(),
+                "A retention value of 0 disables purging entirely");
+        assertEquals(1, countTransactionRows());
+    }
+
+    /** Verifies that a custom retention window removes expired history and repeated purges preserve recent rows. */
+    @Test
+    void purgeUsesConfiguredWindowAndIsIdempotent() throws Exception {
+        setRetentionDays(7);
+        Timestamp expired = makeTimestampDaysAgo(8);
+        Timestamp retained = makeTimestampDaysAgo(6);
+        insertActionRow(expired);
+        insertTransactionRow(expired);
+        insertActionRow(retained);
+        insertTransactionRow(retained);
+
+        waitForPurgeToFinish();
+
+        assertEquals(2, countActionRows());
+        assertEquals(1, countTransactionRows());
+        try (Connection conn = logHandler.getDataSourceForTesting().getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rows = stmt.executeQuery("SELECT ts FROM shop_action")) {
+            while (rows.next()) {
+                assertEquals(retained, rows.getTimestamp(1), "Only recent actions should remain");
+            }
+        }
+
+        waitForPurgeToFinish();
+        assertEquals(2, countActionRows(), "Repeated cleanup must preserve retained actions");
+        assertEquals(1, countTransactionRows());
+    }
+
+    /** Verifies that an absent retention setting uses the default 90-day cutoff. */
+    @Test
+    void missingRetentionSettingUsesNinetyDayDefault() throws Exception {
+        plugin.getConfig().set("logging.actionRetentionDays", null);
+        insertTransactionRow(makeTimestampDaysAgo(91));
+        insertTransactionRow(makeTimestampDaysAgo(89));
+
+        waitForPurgeToFinish();
+
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+    }
+
+    /** Verifies that negative retention preserves old actions and their linked transactions. */
+    @Test
+    void negativeRetentionDisablesCleanup() throws Exception {
+        setRetentionDays(-1);
+        insertActionRow(makeTimestampDaysAgo(400));
+        insertTransactionRow(makeTimestampDaysAgo(400));
+
+        waitForPurgeToFinish();
+
+        assertEquals(2, countActionRows());
+        assertEquals(1, countTransactionRows());
+    }
+
+    /** Verifies that the largest integer retention window does not overflow into a destructive cutoff. */
+    @Test
+    void maximumRetentionDoesNotOverflowAndDeleteRecentHistory() throws Exception {
+        setRetentionDays(Integer.MAX_VALUE);
+        insertTransactionRow(makeTimestampDaysAgo(400));
+
+        waitForPurgeToFinish();
+
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+    }
+
+    /** Verifies that orphan transactions are removed even when surviving actions have no transaction ID. */
+    @Test
+    void purgeRemovesExistingOrphansEvenWhenNoActionsExpire() throws Exception {
+        setRetentionDays(90);
+        insertTransactionRow(makeTimestampDaysAgo(10));
+        try (Connection conn = logHandler.getDataSourceForTesting().getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("DELETE FROM shop_action");
+        }
+        insertActionRow(makeTimestampDaysAgo(10));
+        assertEquals(1, countTransactionRows(), "Fixture contains an orphan transaction");
+
+        waitForPurgeToFinish();
+
+        assertEquals(1, countActionRows(), "A non-transaction action must survive");
+        assertEquals(0, countTransactionRows(),
+                "A NULL transaction_id must not prevent removal of orphan transactions");
+    }
+
+    /** Verifies that purge completes normally when the logging data source is unavailable. */
+    @Test
+    void disabledLoggingCompletesWithoutADatabase() throws Exception {
+        setRetentionDays(90);
+        javax.sql.DataSource original = logHandler.getDataSourceForTesting();
+        try {
+            logHandler.setDataSourceForTesting(null);
+            waitForPurgeToFinish();
+        } finally {
+            logHandler.setDataSourceForTesting(original);
+        }
+    }
+
+    /** Verifies that a database connection failure reaches the purge future with its original cause. */
+    @Test
+    void databaseFailureCompletesPurgeExceptionally() throws Exception {
+        setRetentionDays(90);
+        javax.sql.DataSource original = logHandler.getDataSourceForTesting();
+        javax.sql.DataSource failing = mock(javax.sql.DataSource.class);
+        SQLException failure = new SQLException("Synthetic connection failure");
+        when(failing.getConnection()).thenThrow(failure);
+        try {
+            logHandler.setDataSourceForTesting(failing);
+            java.util.concurrent.ExecutionException result = assertThrows(
+                    java.util.concurrent.ExecutionException.class, this::waitForPurgeToFinish);
+            assertSame(failure, result.getCause());
+        } finally {
+            logHandler.setDataSourceForTesting(original);
+        }
+    }
+
+    /** Verifies that pending purchases survive cleanup until covered by a successful owner summary. */
+    @Test
+    void pendingPurchasesSurviveUntilTheirSummaryIsRecorded() throws Exception {
+        setRetentionDays(90);
+        getServer().addSimpleWorld("world");
+        UUID owner = UUID.randomUUID();
+        Timestamp purchaseTime = makeTimestampDaysAgo(150);
+        insertTransactionRow(purchaseTime, owner.toString());
+        insertTransactionRow(makeTimestampDaysAgo(151), "admin");
+        insertActionRow(makeTimestampDaysAgo(151));
+
+        waitForPurgeToFinish();
+        assertEquals(1, countActionRows(), "Pending purchases survive, other expired actions do not");
+        assertEquals(1, countTransactionRows(), "Pending purchases retain their transaction data");
+
+        OfflineTransactions summary = new OfflineTransactions(owner, makeTimestampDaysAgo(200).getTime());
+        waitForSummary(summary);
+        assertEquals(1, summary.getNumTransactions());
+        assertEquals(10.0, summary.getTotalSpent());
+        assertEquals(1, summary.getItemsBought().get(new ItemStack(Material.DIRT)));
+
+        // A later offline purchase must remain protected by the same owner's older receipt.
+        insertTransactionRow(makeTimestampDaysAgo(100), owner.toString());
+        waitForPurgeToFinish();
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+
+        // A subsequent summary releases the newly covered purchase as well.
+        OfflineTransactions nextSummary = mock(OfflineTransactions.class);
+        when(nextSummary.getPlayerUUID()).thenReturn(owner);
+        when(nextSummary.getLastPlayed()).thenReturn(makeTimestampDaysAgo(200).getTime());
+        logHandler.calculateOfflineTransactions(nextSummary);
+        verify(nextSummary, timeout(5000)).setIsCalculating(false);
+        waitForPurgeToFinish();
+        assertEquals(0, countActionRows());
+        assertEquals(0, countTransactionRows());
+    }
+
+    /** Verifies that a failed summary calculation leaves pending purchase history protected from cleanup. */
+    @Test
+    void failedSummaryDoesNotReleasePendingPurchases() throws Exception {
+        setRetentionDays(90);
+        UUID owner = UUID.randomUUID();
+        insertTransactionRow(makeTimestampDaysAgo(150), owner.toString());
+        OfflineTransactions summary = mock(OfflineTransactions.class);
+        when(summary.getPlayerUUID()).thenReturn(owner);
+        when(summary.getLastPlayed()).thenReturn(makeTimestampDaysAgo(200).getTime());
+        doThrow(new IllegalStateException("Synthetic summary failure"))
+                .when(summary).setItemsSold(org.mockito.ArgumentMatchers.anyMap());
+
+        logHandler.calculateOfflineTransactions(summary);
+        verify(summary, timeout(5000)).setIsCalculating(false);
+        waitForPurgeToFinish();
+        assertEquals(1, countActionRows());
+        assertEquals(1, countTransactionRows());
+    }
+
+    /** Verifies that an empty summary releases expired purchases preceding the owner's last login. */
+    @Test
+    void emptySummaryReleasesHistoryBeforeLastPlayed() throws Exception {
+        setRetentionDays(90);
+        UUID owner = UUID.randomUUID();
+        insertTransactionRow(makeTimestampDaysAgo(150), owner.toString());
+        OfflineTransactions summary = new OfflineTransactions(owner, makeTimestampDaysAgo(100).getTime());
+        waitForSummary(summary);
+        assertEquals(0, summary.getNumTransactions());
+
+        waitForPurgeToFinish();
+        assertEquals(0, countActionRows());
+        assertEquals(0, countTransactionRows());
+    }
+
+    /** Verifies that disabling offline notifications allows expired purchases to be purged without a summary. */
+    @Test
+    void disabledNotificationsKeepNormalPurchaseRetention() throws Exception {
+        setRetentionDays(90);
+        setConfig("offlinePurchaseNotificationsEnabled", false);
+        insertTransactionRow(makeTimestampDaysAgo(150), UUID.randomUUID().toString());
+
+        waitForPurgeToFinish();
+        assertEquals(0, countActionRows());
+        assertEquals(0, countTransactionRows());
+    }
+
+    /**
+     * Waits up to five seconds for summary calculation and fails if it remains active.
+     *
+     * @param summary the asynchronous calculation to observe
+     * @throws InterruptedException if the polling sleep is interrupted
+     */
+    private void waitForSummary(OfflineTransactions summary) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (summary.isCalculating() && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertFalse(summary.isCalculating(), "Summary calculation should finish within five seconds");
+    }
+
+    // --- helpers ---
+
+    /**
+     * Sets and saves the retention policy used by the next purge.
+     *
+     * @param days the retention window in days; zero disables purging
+     */
+    private void setRetentionDays(int days) {
+        plugin.getConfig().set("logging.actionRetentionDays", days);
+        plugin.saveConfig();
+    }
+
+    /**
+     * Creates a timestamp by subtracting calendar days in UTC from the current time.
+     *
+     * @param days the number of days to subtract
+     * @return the timestamp used to age fixture rows
+     */
+    private Timestamp makeTimestampDaysAgo(int days) {
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        cal.add(Calendar.DAY_OF_YEAR, -days);
+        return new Timestamp(cal.getTimeInMillis());
+    }
+
+    /**
+     * Inserts a click action without an associated transaction into the isolated database.
+     *
+     * @param ts the action timestamp used for retention checks
+     * @throws SQLException if the fixture row cannot be inserted
+     */
+    private void insertActionRow(Timestamp ts) throws SQLException {
+        // The handler exposes getDataSourceForTesting for test injection; reuse it instead of
+        // reaching for the private dataSource field by name. A field rename would otherwise
+        // silently break this test even though the handler's behaviour is unchanged. See issue #125.
+        javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
+
+        try (Connection conn = ds.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "INSERT INTO shop_action (player_uuid, owner_uuid, shop_uuid, shop_world, "
+                             + "shop_x, shop_y, shop_z, player_action, ts) "
+                             + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+            stmt.setString(1, "00000000-0000-0000-0000-000000000001");
+            stmt.setString(2, "00000000-0000-0000-0000-000000000002");
+            stmt.setString(3, "00000000-0000-0000-0000-000000000003");
+            stmt.setString(4, "world");
+            stmt.setInt(5, 0);
+            stmt.setInt(6, 64);
+            stmt.setInt(7, 0);
+            stmt.setString(8, "CLICK");
+            stmt.setTimestamp(9, ts);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Counts all action rows remaining in the isolated database.
+     *
+     * @return the current action row count
+     * @throws Exception if the count query fails
+     */
+    private int countActionRows() throws Exception {
+        javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
+
+        try (Connection conn = ds.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM shop_action")) {
+            rs.next();
+            return rs.getInt(1);
+        }
+    }
+
+    /** Wait for both deletion statements, including when neither changes a row count. */
+    private void waitForPurgeToFinish() throws Exception {
+        logHandler.purgeOldActionsAsync().get(5, TimeUnit.SECONDS);
+    }
+
+    /** Verifies that cleanup deletes expired actions and the transactions they leave unreferenced. */
+    @Test
+    @DisplayName("purgeOldActions also deletes the matching shop_transaction rows")
+    void purgeRemovesTransactionRows() throws Exception {
+        setRetentionDays(90);
+
+        // A purchase writes a row in both tables; the old purge deleted only shop_action, so
+        // shop_transaction kept growing without bound despite the retention setting.
+        insertActionRow(makeTimestampDaysAgo(95));
+        insertTransactionRow(makeTimestampDaysAgo(95));
+
+        waitForPurgeToFinish();
+
+        assertEquals(0, countActionRows(),
+                "The action row is deleted");
+        assertEquals(0, countTransactionRows(),
+                "The transaction row is deleted too — a purge that leaves its transaction "
+                        + "row behind does not bound that table");
+    }
+
+    /** Verifies that recent transactions and their referencing actions survive completed cleanup. */
+    @Test
+    @DisplayName("purgeOldActions keeps transaction rows inside the retention window")
+    void purgeKeepsRecentTransactionRows() throws Exception {
+        setRetentionDays(90);
+
+        insertActionRow(makeTimestampDaysAgo(10));
+        insertTransactionRow(makeTimestampDaysAgo(10));
+
+        waitForPurgeToFinish();
+
+        assertEquals(2, countActionRows());
+        assertEquals(1, countTransactionRows(),
+                "A transaction row inside the window must survive alongside its action");
+    }
+
+    /**
+     * Inserts a purchase transaction and a timestamped action referencing its generated ID.
+     *
+     * @param ts the timestamp that determines the linked action's retention age
+     * @throws SQLException if either insert fails or no transaction ID is generated
+     */
+    private void insertTransactionRow(Timestamp ts) throws SQLException {
+        insertTransactionRow(ts, "00000000-0000-0000-0000-000000000002");
+    }
+
+    /**
+     * Inserts a purchase and its linked action for an owner UUID or the {@code admin} sentinel.
+     *
+     * @param ts the action timestamp used to determine retention eligibility
+     * @param owner the owner identifier stored on the action
+     * @throws SQLException if either insert fails or no transaction ID is generated
+     */
+    private void insertTransactionRow(Timestamp ts, String owner) throws SQLException {
+        javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
+
+        // Insert the transaction first, then link its action using the generated id.
+        // The action timestamp determines retention; after expired actions are deleted,
+        // transactions with no remaining action references are removed as orphans.
+        try (Connection conn = ds.getConnection();
+             PreparedStatement txStmt = conn.prepareStatement(
+                     "INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) "
+                             + "VALUES (?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+             PreparedStatement actionStmt = conn.prepareStatement(
+                     "INSERT INTO shop_action (player_uuid, owner_uuid, shop_uuid, shop_world, "
+                             + "shop_x, shop_y, shop_z, player_action, transaction_id, ts) "
+                             + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+            txStmt.setString(1, "BUY");
+            txStmt.setDouble(2, 10.0);
+            txStmt.setInt(3, 1);
+            txStmt.setString(4, UtilMethods.itemStackToBase64(new ItemStack(Material.DIRT)));
+            txStmt.setNull(5, java.sql.Types.VARCHAR);
+            txStmt.executeUpdate();
+
+            java.sql.ResultSet keys = txStmt.getGeneratedKeys();
+            if (!keys.next()) {
+                throw new SQLException("No generated key returned for shop_transaction");
+            }
+            int transactionId = keys.getInt(1);
+
+            actionStmt.setString(1, "00000000-0000-0000-0000-000000000001");
+            actionStmt.setString(2, owner);
+            actionStmt.setString(3, "00000000-0000-0000-0000-000000000003");
+            actionStmt.setString(4, "world");
+            actionStmt.setInt(5, 0);
+            actionStmt.setInt(6, 64);
+            actionStmt.setInt(7, 0);
+            actionStmt.setString(8, "TRANSACT");
+            actionStmt.setInt(9, transactionId);
+            actionStmt.setTimestamp(10, ts);
+            actionStmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Counts all transaction rows remaining in the isolated database.
+     *
+     * @return the current transaction row count
+     * @throws Exception if the count query fails
+     */
+    private int countTransactionRows() throws Exception {
+        javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
+
+        try (Connection conn = ds.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM shop_transaction")) {
+            rs.next();
+            return rs.getInt(1);
+        }
+    }
+}

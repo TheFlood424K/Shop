@@ -25,6 +25,8 @@ import java.util.Date;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
 
 public class LogHandler {
 
@@ -199,6 +201,22 @@ public class LogHandler {
         this.enabled = replacement != null;
     }
 
+    /**
+     * Exposes the current pool to tests, for the read side of {@link #setDataSourceForTesting}.
+     *
+     * <p>Tests need to seed and count rows, and reaching the private {@code dataSource} field by
+     * name couples them to an implementation detail: a field rename breaks the tests even though
+     * the handler's behaviour is unchanged. This accessor is the seam; it is package-private so
+     * only the test package can use it.
+     */
+    DataSource getDataSourceForTesting() {
+        return dataSource;
+    }
+
+    /**
+     * Disables logging and query callbacks, then closes the data source when it is closeable.
+     * Failures while closing the data source are logged.
+     */
     public void shutdown() {
         // Flipped before the pool closes so an in-flight query sees it at its next hop and declines
         // to schedule its callback. Without this, shutdown landing between runAsync and runNextTick
@@ -216,6 +234,83 @@ public class LogHandler {
                 }
             }
         }
+    }
+
+    /**
+     * Schedules deletion of {@code shop_action} rows strictly older than the retention window,
+     * followed by all {@code shop_transaction} rows no longer referenced by any action.
+     * Purchases for player owners are retained until a successful offline summary records
+     * coverage of their timestamp, when offline purchase notifications are enabled.
+     *
+     * <p>{@code logging.actionRetentionDays} defaults to 90 days, each lasting 24 hours.
+     * Disabled logging or a nonpositive retention value skips cleanup. This method returns
+     * without waiting for cleanup; SQL failures in the scheduled work do not reach the caller.
+     */
+    public void purgeOldActions() {
+        purgeOldActionsAsync();
+    }
+
+    /**
+     * Schedules the retention cleanup described by {@link #purgeOldActions()}.
+     *
+     * @return a future completed after both deletions, or immediately when cleanup is disabled;
+     *         completes exceptionally with the {@link SQLException} if database access fails
+     */
+    CompletableFuture<Void> purgeOldActionsAsync() {
+        if (!enabled) return CompletableFuture.completedFuture(null);
+        int retentionDays = plugin.getConfig().getInt("logging.actionRetentionDays", 90);
+        if (retentionDays <= 0) return CompletableFuture.completedFuture(null);
+
+        CompletableFuture<Void> completion = new CompletableFuture<>();
+        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+            // Delete the action rows first, then the transactions that outlived them.
+            //
+            // shop_action.transaction_id references shop_transaction.id, so actions are the child
+            // table. Deleting transactions first — via a subquery that reads shop_action — is
+            // what the original purge did, and it is rejected by H2's foreign-key check: the
+            // constraint is enforced per deleted row, so deleting a transaction while its action
+            // still references it fails even though that action is about to be deleted by the
+            // same purge. Deleting children first is FK-safe on every database this runs on.
+            //
+            // shop_transaction has no timestamp of its own, so a transaction cannot be aged
+            // directly; it is reachable only through its action. Purging an action orphans its
+            // transaction, and the second statement removes every orphan — which is exactly the
+            // transactions whose actions were just purged. NOT EXISTS is used rather than NOT IN
+            // because shop_action.transaction_id is NULL for non-transaction actions (CLICK,
+            // INIT, DESTROY), and NOT IN with a NULL in the subquery matches nothing.
+            //
+            // Purging actions alone left every transaction row behind, so shop_transaction kept
+            // growing without bound despite the retention setting. See issue #41.
+            Timestamp cutoff = new Timestamp(
+                    Calendar.getInstance().getTimeInMillis() - TimeUnit.DAYS.toMillis(retentionDays));
+            String actionSql = "DELETE FROM shop_action WHERE ts < ?";
+            if (plugin.offlinePurchaseNotificationsEnabled()) {
+                // A long absence can outlast retention. Keep purchases until the summary has
+                // been calculated, including across restarts and while the owner is logging in.
+                actionSql += " AND (player_action <> 'TRANSACT' OR owner_uuid = 'admin' OR EXISTS "
+                        + "(SELECT 1 FROM shop_offline_summary WHERE "
+                        + "shop_offline_summary.owner_uuid = shop_action.owner_uuid "
+                        + "AND shop_action.ts <= shop_offline_summary.summarized_through))";
+            }
+            String txSql = "DELETE FROM shop_transaction WHERE NOT EXISTS "
+                    + "(SELECT 1 FROM shop_action WHERE shop_action.transaction_id = shop_transaction.id)";
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement actionStmt = conn.prepareStatement(actionSql);
+                 PreparedStatement txStmt = conn.prepareStatement(txSql)) {
+                actionStmt.setTimestamp(1, cutoff);
+                int actionDeleted = actionStmt.executeUpdate();
+                int txDeleted = txStmt.executeUpdate();
+                plugin.getLogger().notice("Purged " + actionDeleted + " shop_action and "
+                        + txDeleted + " shop_transaction rows older than " + retentionDays + " days.");
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.WARNING,
+                        "Could not purge old shop_action rows.", e);
+                completion.completeExceptionally(e);
+                return;
+            }
+            completion.complete(null);
+        });
+        return completion;
     }
 
     public void logAction(Player player, AbstractShop shop, ShopActionType actionType) {
@@ -344,6 +439,15 @@ public class LogHandler {
         });
     }
 
+    /**
+     * Asynchronously fills an owner's transaction summary for activity after their last login.
+     * On success, persists the latest summarized timestamp (or last login for an empty summary)
+     * when positive, allowing retention cleanup to remove eligible history through that boundary.
+     * The boundary records calculation completion, not notification delivery.
+     * Logged calculation failures clear the calculating flag, as does disabled logging.
+     *
+     * @param offlineTransactions the owner's query context and mutable summary result
+     */
     public void calculateOfflineTransactions(OfflineTransactions offlineTransactions){
         if(!enabled) {
             offlineTransactions.setIsCalculating(false);
@@ -368,10 +472,13 @@ public class LogHandler {
                 stmt.setTimestamp(2, new Timestamp(offlineTransactions.getLastPlayed()));
                 ResultSet resultSet = stmt.executeQuery();
 
+                Timestamp summarizedThrough = new Timestamp(offlineTransactions.getLastPlayed());
                 int size = 0;
                 if (resultSet != null) {
                     while (resultSet.next()) {
                         size++;
+                        Timestamp actionTimestamp = resultSet.getTimestamp("ts");
+                        if (actionTimestamp.after(summarizedThrough)) summarizedThrough = actionTimestamp;
                         // Extract transaction data
                         String purchaserUUID = resultSet.getString("player_uuid");
                         String tType = resultSet.getString("t_type");
@@ -429,6 +536,22 @@ public class LogHandler {
                 offlineTransactions.setTotalSpent(totalSpent);
                 offlineTransactions.setItemsBought(itemsBought);
                 offlineTransactions.setItemsSold(itemsSold);
+
+                // Release only history covered by this successful calculation. Persist the
+                // boundary so retention remains safe after restart, and never move it backwards
+                // if overlapping login calculations finish out of order.
+                // First-time players without purchases have no history to release. Their zero
+                // lastPlayed is also outside MySQL's TIMESTAMP range.
+                if (summarizedThrough.getTime() > 0) {
+                    try (PreparedStatement summaryStmt = conn.prepareStatement(
+                            "INSERT INTO shop_offline_summary (owner_uuid, summarized_through) VALUES (?, ?) "
+                                    + "ON DUPLICATE KEY UPDATE summarized_through = "
+                                    + "GREATEST(summarized_through, VALUES(summarized_through))")) {
+                        summaryStmt.setString(1, offlineTransactions.getPlayerUUID().toString());
+                        summaryStmt.setTimestamp(2, summarizedThrough);
+                        summaryStmt.executeUpdate();
+                    }
+                }
                 offlineTransactions.setIsCalculating(false);
 
             } catch (SQLException e){

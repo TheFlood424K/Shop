@@ -444,18 +444,82 @@ public class ShopCreationUtil {
         return type;
     }
 
+    /**
+     * Parses a cleaned price token as a double when it contains a decimal point, or as a
+     * signed long otherwise, returning the result as a double.
+     *
+     * @throws NumberFormatException if the token is invalid for the selected parser,
+     *         including a whole number outside the signed long range
+     */
+    private static double parsePriceToken(String token) {
+        if (token.contains("."))
+            return Double.parseDouble(token);
+        return Long.parseLong(token);
+    }
+
+    /** A combo requires an explicit slash; whitespace alone groups a single price. */
+    private static boolean isComboLine(String input) {
+        return input.contains("/");
+    }
+
+    /**
+     * Splits an explicitly slash-separated combo into two raw price tokens.
+     * Whitespace around the separator is allowed, but neither price may contain whitespace.
+     *
+     * @param input the raw sign price line
+     * @return the primary and secondary tokens, with multiplier markers preserved
+     * @throws NumberFormatException if there is not exactly one slash and two nonempty tokens,
+     *         or either price contains internal whitespace
+     */
+    private static String[] comboPriceTokens(String input) {
+        String[] sides = input.trim().split("/", -1);
+        if (sides.length != 2 || sides[0].isBlank() || sides[1].isBlank())
+            throw new NumberFormatException("Expected two combo prices");
+        String[] tokens = input.replace('/', ' ').trim().split("\\s+");
+        if (tokens.length != 2)
+            throw new NumberFormatException("Expected two combo prices");
+        return tokens;
+    }
+
+    /**
+     * Cleans a single sign price while rejecting a minus sign in any later whitespace token.
+     * This prevents cleaning from hiding a negative secondary price without a slash separator.
+     *
+     * @param input the raw single-price line, optionally containing grouping spaces
+     * @return the cleaned numeric token
+     * @throws NumberFormatException if a token after the first contains a minus sign
+     */
+    private static String singlePriceToken(String input) {
+        // Do not let priceToken erase a negative second value in an unseparated combo.
+        String[] tokens = input.trim().split("\\s+");
+        for (int i = 1; i < tokens.length; i++) {
+            if (tokens[i].contains("-"))
+                throw new NumberFormatException("Unexpected negative price");
+        }
+        return UtilMethods.priceToken(input);
+    }
+
+    /**
+     * Parses the primary chat price using the configured currency's numeric format.
+     * Negative prices and zero prices for non-gamble shops are rejected with a player message.
+     *
+     * @param player the player to notify about invalid input
+     * @param input the raw chat price
+     * @param shopType the shop type used to decide whether zero is allowed
+     * @return the parsed price, or {@code -1} when parsing or price validation fails
+     */
     public double getShopPrice(Player player, String input, ShopType shopType){
         double price = 0;
         if (plugin.getCurrencyType() == CurrencyType.VAULT) {
             try {
+                // Spaces are preserved here on purpose: this is the single-price prompt, and a
+                // price typed with an internal space is invalid input that should be rejected.
+                // Collapsing the space would let "10 000" parse as 10000. See issue #125.
                 double multiplyValue = UtilMethods.getMultiplyValue(input);
-                String line3 = UtilMethods.cleanNumberText(input);
+                // Remove the whole marker so its digits cannot become part of the price.
+                String line3 = UtilMethods.cleanNumberText(input == null ? null : input.replaceAll("x\\d+", ""));
 
-                if (line3.contains("."))
-                    price = Double.parseDouble(line3);
-                else
-                    price = Long.parseLong(line3);
-
+                price = parsePriceToken(line3);
                 price *= multiplyValue;
             } catch (NumberFormatException e) {
                 ShopMessage.sendMessage("interaction_issue", "line3", player, null);
@@ -482,18 +546,27 @@ public class ShopCreationUtil {
         return price;
     }
 
+    /**
+     * Parses the secondary chat price using the configured currency's numeric format.
+     * This step reports malformed numbers but does not validate the parsed price's sign.
+     *
+     * @param player the player to notify about malformed input
+     * @param input the raw secondary chat price
+     * @param shopType the requested shop type; currently unused by this parsing step
+     * @return the parsed secondary price, or {@code -1} when numeric parsing fails
+     */
     public double getShopPriceCombo(Player player, String input, ShopType shopType){
         double priceCombo = 0;
         if (plugin.getCurrencyType() == CurrencyType.VAULT) {
             try {
+                // Spaces are preserved here on purpose: this is the single-price prompt, and a
+                // price typed with an internal space is invalid input that should be rejected.
+                // Collapsing the space would let "10 000" parse as 10000. See issue #125.
                 double multiplyValue = UtilMethods.getMultiplyValue(input);
-                String line3 = UtilMethods.cleanNumberText(input);
+                // Remove the whole marker so its digits cannot become part of the price.
+                String line3 = UtilMethods.cleanNumberText(input == null ? null : input.replaceAll("x\\d+", ""));
 
-                if (line3.contains("."))
-                    priceCombo = Double.parseDouble(line3);
-                else
-                    priceCombo = Long.parseLong(line3);
-
+                priceCombo = parsePriceToken(line3);
                 priceCombo *= multiplyValue;
 
             } catch (NumberFormatException e) {
@@ -512,34 +585,47 @@ public class ShopCreationUtil {
         return priceCombo;
     }
 
+    /**
+     * Parses a sign line as one price or two prices separated by a slash.
+     * Spaces group a single price. In Vault mode, a multiplier on the first token scales both
+     * prices; item currency requires whole numbers. Negative prices and a zero primary barter
+     * price are rejected, with a message sent to the player.
+     * Whitespace is allowed around the slash, but not within either price of a pair.
+     * Multiplier markers on the secondary price or in item currency mode are ignored.
+     *
+     * @param player the player to notify about invalid input
+     * @param input the raw sign price line
+     * @param shopType the shop type used to validate the primary price
+     * @return the price pair, with a zero secondary price for single input, or {@code null}
+     *         when parsing or price validation fails
+     * @throws NullPointerException if {@code input} is null
+     */
     public PricePair getShopPricePair(Player player, String input, ShopType shopType){
         double price = 0;
         double priceCombo = 0;
         if (plugin.getCurrencyType() == CurrencyType.VAULT) {
             try {
-                double multiplyValue = UtilMethods.getMultiplyValue(input);
-                String line3 = UtilMethods.cleanNumberText(input);
+                if (isComboLine(input)) {
+                    String[] multiplePrices = comboPriceTokens(input);
+                    // Read the multiplier from the raw first token, not the cleaned one: the
+                    // marker is stripped by priceToken, so reading it afterwards always returns 1.
+                    double multiplyValue = UtilMethods.getMultiplyValue(multiplePrices[0]);
+                    String priceToken = UtilMethods.priceToken(multiplePrices[0]);
+                    String comboToken = UtilMethods.priceToken(multiplePrices[1]);
 
-                String[] multiplePrices = line3.split(" ");
-                if (multiplePrices.length > 1) {
-                    if (multiplePrices[0].contains("."))
-                        price = Double.parseDouble(multiplePrices[0]);
-                    else
-                        price = Long.parseLong(multiplePrices[0]);
-
-                    if (multiplePrices[1].contains("."))
-                        priceCombo = Double.parseDouble(multiplePrices[1]);
-                    else
-                        priceCombo = Long.parseLong(multiplePrices[1]);
+                    price = parsePriceToken(priceToken);
+                    priceCombo = parsePriceToken(comboToken);
+                    price *= multiplyValue;
+                    priceCombo *= multiplyValue;
                 } else {
-                    if (line3.contains("."))
-                        price = Double.parseDouble(line3);
-                    else
-                        price = Long.parseLong(line3);
+                    // Not a combo: a single price, possibly typed with a thousands-separator
+                    // space ("10 000"). Collapse the spaces so it parses as one number rather
+                    // than splitting into "10" and "000" and creating the shop at 10. See #125.
+                    String line3 = singlePriceToken(input);
+                    double multiplyValue = UtilMethods.getMultiplyValue(input);
+                    price = parsePriceToken(line3);
+                    price *= multiplyValue;
                 }
-
-                price *= multiplyValue;
-                priceCombo *= multiplyValue;
 
             } catch (NumberFormatException e) {
                 ShopMessage.sendMessage("interaction_issue", "createLine3", player, null);
@@ -547,14 +633,14 @@ public class ShopCreationUtil {
             }
         } else {
             try {
-                String line3 = UtilMethods.cleanNumberText(input);
-
-                String[] multiplePrices = line3.split(" ");
-                if (multiplePrices.length > 1) {
-                    price = Long.parseLong(multiplePrices[0]);
-                    priceCombo = Long.parseLong(multiplePrices[1]);
+                if (isComboLine(input)) {
+                    String[] multiplePrices = comboPriceTokens(input);
+                    String priceToken = UtilMethods.priceToken(multiplePrices[0]);
+                    String comboToken = UtilMethods.priceToken(multiplePrices[1]);
+                    price = Long.parseLong(priceToken);
+                    priceCombo = Long.parseLong(comboToken);
                 } else {
-                    price = Long.parseLong(line3);
+                    price = Long.parseLong(singlePriceToken(input));
                 }
             } catch (NumberFormatException e) {
                 ShopMessage.sendMessage("interaction_issue", "createLine3", player, null);
@@ -563,6 +649,12 @@ public class ShopCreationUtil {
         }
         //only allow price to be zero if the type is selling
         if (price < 0 || (price == 0 && shopType == ShopType.BARTER)) {
+            ShopMessage.sendMessage("interaction_issue", "line3", player, null);
+            return null;
+        }
+        // priceCombo was never validated independently — a negative combo price would silently
+        // pass through even though the primary price guard catches it (#93).
+        if (priceCombo < 0) {
             ShopMessage.sendMessage("interaction_issue", "line3", player, null);
             return null;
         }

@@ -225,6 +225,11 @@ public class Shop extends JavaPlugin {
         }
     }
 
+    /**
+     * Loads configuration, initializes handlers and integrations, and registers shop listeners.
+     *
+     * <p>Also schedules log retention cleanup against the newly initialized database pool.
+     */
     @Override
     public void onEnable() {
         plugin = this;
@@ -588,6 +593,10 @@ public class Shop extends JavaPlugin {
         guiHandler.loadIconsAndTitles();
         logHandler = new LogHandler(plugin, config);
 
+        // Purge old shop_action rows on startup and reload so the log table does not grow
+        // without bound (issue #41).
+        logHandler.purgeOldActions();
+
         getServer().getPluginManager().registerEvents(displayListener, this);
         getServer().getPluginManager().registerEvents(shopListener, this);
         getServer().getPluginManager().registerEvents(miscListener, this);
@@ -928,6 +937,10 @@ public class Shop extends JavaPlugin {
         this.getLogger().info("Disabled Shop " + this.getDescription().getVersion());
     }
 
+    /**
+     * Cancels scheduled work, unregisters listeners, and removes displays before restarting
+     * this plugin through its disable and enable lifecycle hooks.
+     */
     public void reload(){
         this.getLogger().info("Reloading Shop " + this.getDescription().getVersion());
 
@@ -979,6 +992,10 @@ public class Shop extends JavaPlugin {
 
         plugin.getShopHandler().removeAllDisplays(null);
 
+        // Do NOT schedule the purge here. purgeOldActions() is async and onDisable() below cancels
+        // all FoliaLib tasks and closes the connection pool, so the purge would be cancelled or
+        // would run against a closed pool — a failed cleanup that achieves nothing. onEnable()
+        // schedules a fresh purge against the freshly-built pool instead. See issue #125.
         onDisable();
         onEnable();
     }

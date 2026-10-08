@@ -208,22 +208,10 @@ class MessageKeyConfigTest {
             }
         }
 
-        // This asserts the *mechanism*, not that the config is clean: NEEDS_REVIEW is the list of
-        // keys a literal scan cannot classify, and it is expected to be non-empty. The value is that
-        // a NEW unrequested key shows up here rather than sitting unnoticed.
-        // Three keys are known-dead and are expected here rather than suppressed: a scan cannot
-        // prove they are unreachable, only that nothing in the tree names them. They are asserted
-        // individually below and filed as issue #114, so this list is the record of what is left
-        // rather than a growing allowlist.
-        Set<String> KNOWN_DEAD = Set.of(
-                "interaction_issue.createDirection",
-                "interaction_issue.createOtherShop",
-                "interaction_issue.adminOpen");
-
-        assertEquals(new TreeSet<>(KNOWN_DEAD), new TreeSet<>(unused),
-                "The set of unrequested config keys changed. New entries need classifying — reached "
-                        + "through an indirection, or genuinely dead (see issue #114):"
-                        + System.lineSeparator() + String.join(System.lineSeparator(), unused));
+        // The config defines no unrequested scalar keys outside shape-dependent sections.
+        assertTrue(unused.isEmpty(),
+                "The set of unrequested config keys changed. New entries need classifying:\n  "
+                        + String.join(System.lineSeparator() + "  ", unused));
     }
 
     /**

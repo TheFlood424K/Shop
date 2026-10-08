@@ -212,14 +212,54 @@ public class UtilMethods {
     }
 
     /**
-     * Strips non-numeric characters from a price/number string and returns it clean.
+     * Strips non-numeric characters from an amount/number string and returns it clean.
      * E.g. "$1,234.56" -> "1234.56"
      * Preserves leading minus sign for negative number detection.
+     *
+     * <p>Internal ASCII spaces are <em>preserved</em>, with runs reduced to one space and outer
+     * spaces trimmed; other whitespace is removed. This cleans amounts and chat prices. An amount
+     * typed with an internal space is invalid input that should be rejected. Collapsing the space
+     * would let "64 1" parse as 641. Sign prices use {@link #priceToken} instead, which removes
+     * spaces so a single price written as "10 000" is ten thousand, not two tokens. Combo prices
+     * are split by {@link ShopCreationUtil#getShopPricePair} before each token is cleaned. See
+     * issue #125.
+     *
+     * @return the cleaned text without numeric validation, or {@code "0"} for null input
      */
     public static String cleanNumberText(String text) {
         if (text == null) return "0";
-        // Preserve leading minus sign, remove all other non-numeric chars except decimal point
-        String cleaned = text.replaceAll("[^0-9.-]", "");
+        // Preserve spaces, leading minus sign, and decimal points; strip everything else.
+        String cleaned = text.replaceAll("[^0-9 .-]", "");
+        // Collapse runs of spaces and trim leading/trailing.
+        cleaned = cleaned.replaceAll(" +", " ").trim();
+        // Remove any minus signs that aren't at the start
+        if (cleaned.length() > 1) {
+            cleaned = cleaned.charAt(0) + cleaned.substring(1).replace("-", "");
+        }
+        return cleaned;
+    }
+
+    /**
+     * Extracts the numeric price token from raw user input.
+     *
+     * <p>Three things happen, in order:
+     * <ol>
+     *   <li>Every lowercase {@code x} followed by one or more ASCII digits is removed, wherever
+     *       it occurs. {@code "100x2"} becomes {@code "100"}, not {@code "1002"}.</li>
+     *   <li>Whitespace is removed, so a single price written as {@code "10 000"} stays one
+     *       token of ten thousand rather than splitting into {@code "10"} and {@code "000"}.</li>
+     *   <li>Other non-numeric characters are stripped, retaining digits, decimal points, and
+     *       at most a leading minus sign.</li>
+     * </ol>
+     * Combo prices are split at an explicit slash by {@link ShopCreationUtil#getShopPricePair} before this
+     * is called per token, so the separator never reaches it as one string.
+     *
+     * @return the cleaned text without numeric validation, or {@code "0"} for null input
+     */
+    public static String priceToken(String text) {
+        if (text == null) return "0";
+        // Drop a trailing xN multiplier marker before merging digits.
+        String cleaned = text.replaceAll("x\\d+", "").replaceAll("[^0-9.-]", "");
         // Remove any minus signs that aren't at the start
         if (cleaned.length() > 1) {
             cleaned = cleaned.charAt(0) + cleaned.substring(1).replace("-", "");
@@ -252,17 +292,27 @@ public class UtilMethods {
 
     /**
      * Returns the multiplier value for an item amount string.
-     * E.g. "x4" -> 4, "4" -> 4, null/invalid -> 1.
+     * E.g. "x4" -> 4, null/invalid -> 1.
+     * Uses the first lowercase {@code x} followed by ASCII digits anywhere in the input.
+     * Zero is accepted; null input, no match, or a value above {@link Integer#MAX_VALUE}
+     * returns 1 without propagating a numeric parsing error.
+     *
+     * <p>A multiplier is only meaningful when the input carries an explicit {@code xN} marker.
+     * Stripping every digit from a plain price like {@code "100"} used to return 100, so every
+     * Vault price was multiplied by its own value — {@code "100"} became 10,000 and a combo
+     * {@code "100 250"} became 10,025,000 and 25,062,500. See issue #125.
      */
     public static int getMultiplyValue(String text) {
         if (text == null) return 1;
-        String cleaned = text.replaceAll("[^0-9]", "");
-        if (cleaned.isEmpty()) return 1;
-        try {
-            return Integer.parseInt(cleaned);
-        } catch (NumberFormatException e) {
-            return 1;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("x(\\d+)").matcher(text);
+        if (m.find()) {
+            try {
+                return Integer.parseInt(m.group(1));
+            } catch (NumberFormatException e) {
+                return 1;
+            }
         }
+        return 1;
     }
 
     /**

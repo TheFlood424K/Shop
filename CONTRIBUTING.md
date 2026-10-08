@@ -62,12 +62,12 @@ After setting up the local Maven repository, you can compile the Shop plugin:
    ./compile.sh
    ```
 
-The compiled plugin will be stored in the `target` directory with the filename `shop-{version}.jar`.
+The compiled plugin will be stored in the `dist/target` directory with the filename `Shop-{version}.jar`.
 
 If you need to update the version:
 1. Update the version in `/pom.xml`
 2. Run `./compile.sh`
-3. The plugin will be built to `/target/shop-{version}.jar`
+3. The plugin will be built to `/dist/target/Shop-{version}.jar`
 
 ## Versioning Guidelines
 

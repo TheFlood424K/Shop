@@ -259,6 +259,10 @@ logging:
    # properties are only used on a 'MYSQL' type for now, you shouldn't need to touch this normally
    properties:
       - "useSSL=false"
+   # How many days of shop_action rows to keep. Rows older than this are purged on
+   # plugin enable and reload. Purchases awaiting an enabled offline summary are kept
+   # until that summary is calculated. Set to 0 to disable purging (table grows without bound).
+   actionRetentionDays: 90
 
 # Logging must be enabled for purchase notifications to appear!
 # Check chatConfig.yml to customize the offline purchase notification message #
