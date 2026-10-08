@@ -439,6 +439,15 @@ public class LogHandler {
         });
     }
 
+    /**
+     * Asynchronously fills an owner's transaction summary for activity after their last login.
+     * On success, persists the latest summarized timestamp (or last login for an empty summary)
+     * when positive, allowing retention cleanup to remove eligible history through that boundary.
+     * The boundary records calculation completion, not notification delivery.
+     * Logged calculation failures clear the calculating flag, as does disabled logging.
+     *
+     * @param offlineTransactions the owner's query context and mutable summary result
+     */
     public void calculateOfflineTransactions(OfflineTransactions offlineTransactions){
         if(!enabled) {
             offlineTransactions.setIsCalculating(false);

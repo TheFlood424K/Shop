@@ -174,6 +174,7 @@ class PricePairValidationTest {
         assertEquals(501, pair.getPriceCombo());
     }
 
+    /** Verifies that empty, malformed, and out-of-range tokens fail as single prices or either combo price. */
     @ParameterizedTest
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void malformedNumericTokensAreRejectedInEitherComboPosition(CurrencyType currency) throws Exception {
@@ -188,6 +189,7 @@ class PricePairValidationTest {
         }
     }
 
+    /** Verifies that currency symbols and grouping commas are removed independently from each combo price. */
     @ParameterizedTest
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void currencyDecorationsDoNotMergeComboPrices(CurrencyType currency) throws Exception {
@@ -198,6 +200,7 @@ class PricePairValidationTest {
         assertEquals(5678, pair.getPriceCombo());
     }
 
+    /** Verifies that currency decoration and whitespace cannot hide a negative value in an unsplit price. */
     @ParameterizedTest
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void unseparatedNegativePricesCannotBeHiddenByCurrencyCleaning(CurrencyType currency) throws Exception {
@@ -207,6 +210,7 @@ class PricePairValidationTest {
         }
     }
 
+    /** Verifies that item currency rejects fractional single prices and either fractional combo price. */
     @Test
     void itemCurrencyRejectsFractionalPricesInEitherPosition() throws Exception {
         useCurrency(CurrencyType.ITEM);
@@ -215,6 +219,7 @@ class PricePairValidationTest {
         }
     }
 
+    /** Verifies that Vault accepts positive fractional combo prices and rejects either negative fraction. */
     @Test
     void vaultAcceptsFractionalPricesAndRejectsNegativeFractions() throws Exception {
         useCurrency(CurrencyType.VAULT);
@@ -226,6 +231,7 @@ class PricePairValidationTest {
         assertNull(util.getShopPricePair(player, "0.125 / -0.5", ShopType.COMBO));
     }
 
+    /** Verifies that both chat price prompts reject grouped spaces and malformed numbers in either currency mode. */
     @ParameterizedTest
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void chatPricesRejectGroupingSpacesInBothSteps(CurrencyType currency) throws Exception {
@@ -236,6 +242,7 @@ class PricePairValidationTest {
         }
     }
 
+    /** Verifies that both Vault chat prompts preserve decorated decimal prices without an implicit multiplier. */
     @Test
     void vaultChatPricesPreserveDecimalsWithoutMultiplyingByTheirOwnDigits() throws Exception {
         useCurrency(CurrencyType.VAULT);
@@ -243,6 +250,7 @@ class PricePairValidationTest {
         assertEquals(1234.5, util.getShopPriceCombo(player, "$1,234.50", ShopType.COMBO));
     }
 
+    /** Verifies that the primary Vault chat prompt applies an explicit multiplier separately from the price. */
     @Test
     void vaultPrimaryChatPriceAppliesExplicitMultiplier() throws Exception {
         useCurrency(CurrencyType.VAULT);
@@ -250,6 +258,7 @@ class PricePairValidationTest {
                 "The multiplier digits must not become part of the price");
     }
 
+    /** Verifies that the secondary Vault chat prompt applies the same explicit multiplier as sign parsing. */
     @Test
     void vaultSecondaryChatPriceAppliesExplicitMultiplier() throws Exception {
         useCurrency(CurrencyType.VAULT);

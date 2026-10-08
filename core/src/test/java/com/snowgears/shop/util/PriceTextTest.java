@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /** Pure unit tests for the distinct amount, price, and multiplier input formats. */
 class PriceTextTest {
 
+    /** Verifies that amount cleaning normalizes spaces and removes decoration without validating decimal syntax. */
     @ParameterizedTest
     @CsvSource({
             "'  $1,234.50  ', 1234.50",
@@ -22,6 +23,7 @@ class PriceTextTest {
         assertEquals(expected, UtilMethods.cleanNumberText(input));
     }
 
+    /** Verifies that price cleaning removes grouping and multiplier suffixes while preserving the numeric token. */
     @ParameterizedTest
     @CsvSource({
             "'  $1,234.50  ', 1234.50",
@@ -37,6 +39,7 @@ class PriceTextTest {
         assertEquals(expected, UtilMethods.priceToken(input));
     }
 
+    /** Verifies explicit multipliers at integer boundaries and the fallback for an overflowing value. */
     @ParameterizedTest
     @CsvSource({
             "x0, 0",
@@ -49,6 +52,7 @@ class PriceTextTest {
         assertEquals(expected, UtilMethods.getMultiplyValue(input));
     }
 
+    /** Verifies that missing or malformed multiplier markers leave the effective multiplier at one. */
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"100", "100 / 250", "$1,234.50", "x", "x-2", "words"})
@@ -56,6 +60,7 @@ class PriceTextTest {
         assertEquals(1, UtilMethods.getMultiplyValue(input));
     }
 
+    /** Verifies that both cleaners map null to zero text while preserving an empty string. */
     @ParameterizedTest
     @NullAndEmptySource
     void cleanersHandleMissingInput(String input) {

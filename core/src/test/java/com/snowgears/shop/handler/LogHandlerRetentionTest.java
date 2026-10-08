@@ -111,6 +111,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(1, countTransactionRows());
     }
 
+    /** Verifies that a custom retention window removes expired history and repeated purges preserve recent rows. */
     @Test
     void purgeUsesConfiguredWindowAndIsIdempotent() throws Exception {
         setRetentionDays(7);
@@ -138,6 +139,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(1, countTransactionRows());
     }
 
+    /** Verifies that an absent retention setting uses the default 90-day cutoff. */
     @Test
     void missingRetentionSettingUsesNinetyDayDefault() throws Exception {
         plugin.getConfig().set("logging.actionRetentionDays", null);
@@ -150,6 +152,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(1, countTransactionRows());
     }
 
+    /** Verifies that negative retention preserves old actions and their linked transactions. */
     @Test
     void negativeRetentionDisablesCleanup() throws Exception {
         setRetentionDays(-1);
@@ -162,6 +165,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(1, countTransactionRows());
     }
 
+    /** Verifies that the largest integer retention window does not overflow into a destructive cutoff. */
     @Test
     void maximumRetentionDoesNotOverflowAndDeleteRecentHistory() throws Exception {
         setRetentionDays(Integer.MAX_VALUE);
@@ -173,6 +177,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(1, countTransactionRows());
     }
 
+    /** Verifies that orphan transactions are removed even when surviving actions have no transaction ID. */
     @Test
     void purgeRemovesExistingOrphansEvenWhenNoActionsExpire() throws Exception {
         setRetentionDays(90);
@@ -191,6 +196,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
                 "A NULL transaction_id must not prevent removal of orphan transactions");
     }
 
+    /** Verifies that purge completes normally when the logging data source is unavailable. */
     @Test
     void disabledLoggingCompletesWithoutADatabase() throws Exception {
         setRetentionDays(90);
@@ -203,6 +209,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         }
     }
 
+    /** Verifies that a database connection failure reaches the purge future with its original cause. */
     @Test
     void databaseFailureCompletesPurgeExceptionally() throws Exception {
         setRetentionDays(90);
@@ -220,6 +227,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         }
     }
 
+    /** Verifies that pending purchases survive cleanup until covered by a successful owner summary. */
     @Test
     void pendingPurchasesSurviveUntilTheirSummaryIsRecorded() throws Exception {
         setRetentionDays(90);
@@ -257,6 +265,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(0, countTransactionRows());
     }
 
+    /** Verifies that a failed summary calculation leaves pending purchase history protected from cleanup. */
     @Test
     void failedSummaryDoesNotReleasePendingPurchases() throws Exception {
         setRetentionDays(90);
@@ -275,6 +284,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(1, countTransactionRows());
     }
 
+    /** Verifies that an empty summary releases expired purchases preceding the owner's last login. */
     @Test
     void emptySummaryReleasesHistoryBeforeLastPlayed() throws Exception {
         setRetentionDays(90);
@@ -289,6 +299,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(0, countTransactionRows());
     }
 
+    /** Verifies that disabling offline notifications allows expired purchases to be purged without a summary. */
     @Test
     void disabledNotificationsKeepNormalPurchaseRetention() throws Exception {
         setRetentionDays(90);
@@ -300,6 +311,12 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertEquals(0, countTransactionRows());
     }
 
+    /**
+     * Waits up to five seconds for summary calculation and fails if it remains active.
+     *
+     * @param summary the asynchronous calculation to observe
+     * @throws InterruptedException if the polling sleep is interrupted
+     */
     private void waitForSummary(OfflineTransactions summary) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (summary.isCalculating() && System.nanoTime() < deadline) {
@@ -430,6 +447,13 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         insertTransactionRow(ts, "00000000-0000-0000-0000-000000000002");
     }
 
+    /**
+     * Inserts a purchase and its linked action for an owner UUID or the {@code admin} sentinel.
+     *
+     * @param ts the action timestamp used to determine retention eligibility
+     * @param owner the owner identifier stored on the action
+     * @throws SQLException if either insert fails or no transaction ID is generated
+     */
     private void insertTransactionRow(Timestamp ts, String owner) throws SQLException {
         javax.sql.DataSource ds = logHandler.getDataSourceForTesting();
 
