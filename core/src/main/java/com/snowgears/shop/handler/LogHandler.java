@@ -237,17 +237,23 @@ public class LogHandler {
     }
 
     /**
-     * Deletes rows from {@code shop_action} older than the configured retention window.
+     * Schedules deletion of {@code shop_action} rows strictly older than the retention window,
+     * followed by all {@code shop_transaction} rows no longer referenced by any action.
      *
-     * <p>Runs on the async scheduler — it touches the database and does not need the main thread.
-     * A missing or zero config value disables purging entirely; this is deliberate, because a
-     * server admin who sets retention to 0 is choosing unbounded growth.
+     * <p>{@code logging.actionRetentionDays} defaults to 90 days, each lasting 24 hours.
+     * Disabled logging or a nonpositive retention value skips cleanup. This method returns
+     * without waiting for cleanup; SQL failures in the scheduled work do not reach the caller.
      */
     public void purgeOldActions() {
         purgeOldActionsAsync();
     }
 
-    /** Completes after both tables have been purged, or immediately when purging is disabled. */
+    /**
+     * Schedules the retention cleanup described by {@link #purgeOldActions()}.
+     *
+     * @return a future completed after both deletions, or immediately when cleanup is disabled;
+     *         completes exceptionally with the {@link SQLException} if database access fails
+     */
     CompletableFuture<Void> purgeOldActionsAsync() {
         if (!enabled) return CompletableFuture.completedFuture(null);
         int retentionDays = plugin.getConfig().getInt("logging.actionRetentionDays", 90);
