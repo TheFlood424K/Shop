@@ -186,11 +186,11 @@ public class MiscListener implements Listener {
                 process.setStep(ShopCreationProcess.ChatCreationStep.SIGN_ITEM);
                 playerChatCreationSteps.put(player.getUniqueId(), process);
 
-                process.displayFloatingText("interaction", type.toString() + ".initialize");
+                process.displayFloatingText("interaction", type.name() + ".initialize");
                 // Send initial creation instruction message so player knows what to do next
                 ShopMessage.sendMessage("interaction", "initialCreateInstruction", process, player);
                 if (plugin.allowCreativeSelection() && (type == ShopType.BUY || type == ShopType.COMBO)) {
-                    ShopMessage.sendMessage(type.toString(), "initializeAlt", player, shop);
+                    ShopMessage.sendMessage(type, "interaction", "initializeAlt", player, shop);
                 }
 
                 //give player a limited amount of time to finish creating the shop until it is deleted
@@ -427,7 +427,7 @@ public class MiscListener implements Listener {
                     }
                     currentProcess.setBarterItemStack(itemInHand);
                     currentProcess.markInteracted();
-                    currentProcess.displayFloatingText("interaction", currentProcess.getShopType().toString() + ".createHitChestBarterAmount");
+                    currentProcess.displayFloatingText("interaction", currentProcess.getShopType().getConfigKey() + ".createHitChestBarterAmount");
                     return;
                 }
             }
@@ -468,7 +468,7 @@ public class MiscListener implements Listener {
             // that would duplicate the prompt for every non-floating-text server.
             process.displayFloatingText("interaction", "createHitChest");
             List<String> autocomplete = new ArrayList<>();
-            Arrays.asList(ShopType.values()).forEach((shopType -> autocomplete.add(shopType.toString().toLowerCase())));
+            Arrays.asList(ShopType.values()).forEach((shopType -> autocomplete.add(ShopMessage.getCreationWord(shopType.name()))));
             try {
                 player.setCustomChatCompletions(autocomplete);
             } catch (Error | Exception error) {} // Suppress error if autocomplete is not supported
@@ -515,9 +515,9 @@ public class MiscListener implements Listener {
                     process.setAdmin(isAdmin);
                     event.setCancelled(true);
 
-                    if(type == ShopType.GAMBLE){ ShopMessage.sendMessage("interaction", type.toString() + ".createHitChestPrice", process, player); }
+                    if(type == ShopType.GAMBLE){ ShopMessage.sendMessage("interaction", type.getConfigKey() + ".createHitChestPrice", process, player); }
                     else {
-                        process.displayFloatingText("interaction", type.toString() + ".createHitChestAmount");
+                        process.displayFloatingText("interaction", type.getConfigKey() + ".createHitChestAmount");
                     }
                     break;
                 case ITEM_AMOUNT:
@@ -545,13 +545,13 @@ public class MiscListener implements Listener {
                     event.setCancelled(true);
 
                     if(process.getShopType() == ShopType.BARTER){
-                        process.displayFloatingText("interaction", process.getShopType().toString() + ".createHitChest");
+                        process.displayFloatingText("interaction", process.getShopType().getConfigKey() + ".createHitChest");
                         if (plugin.allowCreativeSelection()) {
-                            ShopMessage.sendMessage("interaction", process.getShopType().toString() + ".initializeBarterAlt", player, null);
+                            ShopMessage.sendMessage("interaction", process.getShopType().getConfigKey() + ".initializeBarterAlt", player, null);
                         }
                     }
                     else {
-                        process.displayFloatingText("interaction", process.getShopType().toString() + ".createHitChestPrice");
+                        process.displayFloatingText("interaction", process.getShopType().getConfigKey() + ".createHitChestPrice");
                     }
                     break;
                 case ITEM_PRICE:
@@ -567,7 +567,7 @@ public class MiscListener implements Listener {
                     event.setCancelled(true);
 
                     if(process.getStep() == ShopCreationProcess.ChatCreationStep.ITEM_PRICE_COMBO){
-                        process.displayFloatingText("interaction", process.getShopType().toString() + ".createHitChestPriceCombo");
+                        process.displayFloatingText("interaction", process.getShopType().getConfigKey() + ".createHitChestPriceCombo");
                         return;
                     }
                     if(process.getStep() == ShopCreationProcess.ChatCreationStep.FINISHED){

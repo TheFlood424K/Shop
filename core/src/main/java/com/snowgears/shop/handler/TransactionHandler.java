@@ -140,14 +140,14 @@ public class TransactionHandler {
                         ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(player, PlayerSettings.Option.NOTIFICATION_STOCK);
 
                         if (guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) {
-                            ShopMessage.sendMessage(actionType.toString(), "ownerNoStock", owner, shop);
+                            ShopMessage.sendMessage(actionType, "transaction_issue", "ownerNoStock", owner, shop);
                         }
                     }
                 }
-                message = ShopMessage.getUnformattedMessage(actionType.toString(), "shopNoStock");
+                message = ShopMessage.getShopMessage(actionType, "transaction_issue", "shopNoStock");
                 break;
             case INSUFFICIENT_FUNDS_PLAYER:
-                message = ShopMessage.getUnformattedMessage(actionType.toString(), "playerNoStock");
+                message = ShopMessage.getShopMessage(actionType, "transaction_issue", "playerNoStock");
                 break;
             case INVENTORY_FULL_SHOP:
                 if (!shop.isAdmin()) {
@@ -157,14 +157,14 @@ public class TransactionHandler {
                         ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(player, PlayerSettings.Option.NOTIFICATION_STOCK);
 
                         if (guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) {
-                            ShopMessage.sendMessage(actionType.toString(), "ownerNoSpace", owner, shop);
+                            ShopMessage.sendMessage(actionType, "transaction_issue", "ownerNoSpace", owner, shop);
                         }
                     }
                 }
-                message = ShopMessage.getUnformattedMessage(actionType.toString(), "shopNoSpace");
+                message = ShopMessage.getShopMessage(actionType, "transaction_issue", "shopNoSpace");
                 break;
             case INVENTORY_FULL_PLAYER:
-                message = ShopMessage.getUnformattedMessage(actionType.toString(), "playerNoSpace");
+                message = ShopMessage.getShopMessage(actionType, "transaction_issue", "playerNoSpace");
                 break;
         }
 
@@ -177,8 +177,8 @@ public class TransactionHandler {
     private void sendExchangeMessagesAndLog(AbstractShop shop, Player player, ShopType transactionType, Transaction transaction) {
 
         double price = transaction.getPrice();
-        // Fix 1: ShopType cannot be passed as String — use .name().toLowerCase() as message key
-        String message = ShopMessage.getMessageFromOrders(transactionType.name().toLowerCase(), "user", price, transaction.getAmount());
+        // Use standardized message lookup with ShopType
+        String message = ShopMessage.getShopMessage(transactionType, "transaction", "user");
 
         ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(player, PlayerSettings.Option.NOTIFICATION_SALE_USER);
         if(guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) {
@@ -189,8 +189,8 @@ public class TransactionHandler {
 
         Player owner = Bukkit.getPlayer(shop.getOwnerUUID());
         if ((owner != null) && (!shop.isAdmin())) {
-            // Fix 1: same pattern — ShopType → String key
-            message = ShopMessage.getMessageFromOrders(transactionType.name().toLowerCase(), "owner", price, transaction.getAmount());
+            // Use standardized message lookup with ShopType
+            message = ShopMessage.getShopMessage(transactionType, "transaction", "owner");
 
             guiIcon = plugin.getGuiHandler().getIconFromOption(owner, PlayerSettings.Option.NOTIFICATION_SALE_OWNER);
             if(guiIcon != null && guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) {

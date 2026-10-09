@@ -402,11 +402,11 @@ public class ShopCreationUtil {
 
             ShopCreationProcess process = plugin.getMiscListener().getShopCreationProcess(player);
             if (shop.getType() == ShopType.BARTER && barterItem == null) {
-                ShopMessage.sendMessage("interaction", shop.getType().name() + ".initializeInfo", player, shop);
+                ShopMessage.sendMessage(shop.getType(), "interaction", "initializeInfo", player, shop);
                 process.setStep(ShopCreationProcess.ChatCreationStep.SIGN_BARTER_ITEM);
                 process.displayFloatingText("interaction", shop.getType().name() + ".initializeBarter");
                 if(plugin.allowCreativeSelection()) {
-                    ShopMessage.sendMessage("interaction", "BUY.initializeAlt", player, shop);
+                    ShopMessage.sendMessage(shop.getType(), "interaction", "initializeBarterAlt", player, shop);
                 }
             }
             else if(shop.getType() != ShopType.BARTER){
@@ -639,14 +639,16 @@ public class ShopCreationUtil {
                 return null;
             }
         }
-        //only allow price to be zero if the type is selling
-        if (price < 0 || (price == 0 && shopType == ShopType.BARTER)) {
+        // Only allow price to be zero for GAMBLE shops (they have no price in the traditional sense).
+        // For all transactional types (BUY, SELL, COMBO, BARTER), zero creates a free-item shop
+        // with no config opt-in. Chat validation already enforces this at getShopPrice().
+        if (price < 0 || (price == 0 && shopType != ShopType.GAMBLE)) {
             ShopMessage.sendMessage("interaction_issue", "line3", player, null);
             return null;
         }
-        // priceCombo was never validated independently — a negative combo price would silently
-        // pass through even though the primary price guard catches it (#93).
-        if (priceCombo < 0) {
+        // Validate priceCombo: reject negative, and for COMBO shops also reject zero
+        // (a combo with zero sell price silently passes validation otherwise).
+        if (priceCombo < 0 || (priceCombo == 0 && shopType == ShopType.COMBO)) {
             ShopMessage.sendMessage("interaction_issue", "line3", player, null);
             return null;
         }

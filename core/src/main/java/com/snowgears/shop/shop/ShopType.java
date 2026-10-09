@@ -50,4 +50,13 @@ public enum ShopType {
                 return ShopMessage.getCreationWord("GAMBLE");
         }
     }
+
+    /**
+     * Returns the config key for this shop type (uppercase name as used in chatConfig.yml
+     * and signConfig.yml sections). This standardizes the casing convention to match
+     * configuration files, avoiding silent message lookup failures.
+     */
+    public String getConfigKey() {
+        return this.name(); // uppercase: SELL, BUY, BARTER, COMBO, GAMBLE
+    }
 }
