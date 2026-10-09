@@ -480,6 +480,40 @@ public class ShopMessage {
         sendMessage(message, player, context);
     }
 
+    /**
+     * Send a shop-type-specific message using the standardized lookup pattern.
+     * This enforces consistent message keys: section + "." + uppercase_shop_type + "." + subkey
+     *
+     * @param type the shop type
+     * @param section the message section (e.g., "transaction_issue", "interaction")
+     * @param subkey the message subkey (e.g., "shopNoStock", "initialize")
+     * @param player the player to send the message to
+     * @param shop the shop context for placeholders
+     */
+    public static void sendMessage(ShopType type, String section, String subkey, Player player, AbstractShop shop) {
+        String message = getShopMessage(type, section, subkey);
+        plugin.getLogger().info("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
+        if (message != null && !message.isEmpty())
+            sendMessage(message, player, shop);
+    }
+
+    /**
+     * Send a shop-type-specific message using the standardized lookup pattern.
+     * This enforces consistent message keys: section + "." + uppercase_shop_type + "." + subkey
+     *
+     * @param type the shop type
+     * @param section the message section (e.g., "transaction_issue", "interaction")
+     * @param subkey the message subkey (e.g., "shopNoStock", "initialize")
+     * @param process the shop creation process context for placeholders
+     * @param player the player to send the message to
+     */
+    public static void sendMessage(ShopType type, String section, String subkey, ShopCreationProcess process, Player player) {
+        String message = getShopMessage(type, section, subkey);
+        plugin.getLogger().info("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
+        if (message != null && !message.isEmpty())
+            sendMessage(message, process, player);
+    }
+
     public static void sendMessage(String message, ShopCreationProcess process, Player player) {
         PlaceholderContext context = new PlaceholderContext();
         context.setPlayer(player);
@@ -531,9 +565,9 @@ public class ShopMessage {
         });
         registerPlaceholder("[shop type]", context -> {
             if (context.getProcess() != null && context.getProcess().getShopType() != null)
-                return Component.text(context.getProcess().getShopType().toString());
+                return Component.text(context.getProcess().getShopType().getConfigKey());
             if (context.getShop() != null)
-                return Component.text(ShopMessage.getCreationWord(context.getShop().getType().name().toUpperCase()));
+                return Component.text(ShopMessage.getCreationWord(context.getShop().getType().getConfigKey()));
             return null;
         });
         registerPlaceholder("[shop types]", ShopMessage::getShopTypesPlaceholder);
@@ -903,7 +937,7 @@ public class ShopMessage {
         TextComponent.Builder builder = Component.text();
         ShopType[] types = ShopType.values();
         for (int i = 0; i < types.length; i++) {
-            builder.append(Component.text(getCreationWord(types[i].toString().toUpperCase())));
+            builder.append(Component.text(getCreationWord(types[i].getConfigKey())));
             if (i < types.length - 1) builder.append(Component.text(", "));
         }
         return builder.build();
@@ -1065,6 +1099,34 @@ public class ShopMessage {
     }
 
     /**
+     * Get a shop-type-specific message using a standardized lookup pattern.
+     * This enforces a consistent pattern: section + "." + uppercase_shop_type + "." + subkey
+     * Call sites should use this instead of getUnformattedMessage() when dealing with shop-type-specific messages.
+     *
+     * @param type the shop type
+     * @param section the message section (e.g., "transaction_issue", "interaction")
+     * @param subkey the message subkey (e.g., "shopNoStock", "initialize")
+     * @return the message, or null if not found
+     */
+    public static String getShopMessage(ShopType type, String section, String subkey) {
+        String upperKey = type.name();
+        String fullPath = section + "." + upperKey + "." + subkey;
+        String message = messageMap.get(fullPath);
+        if (message != null) {
+            return message;
+        }
+        // Fallback: try lowercase subkey segment (for legacy call sites)
+        String upperSubkey = uppercaseLeadingTypeSegment(subkey);
+        if (!upperSubkey.equals(subkey)) {
+            message = messageMap.get(section + "." + upperKey + "." + upperSubkey);
+            if (message != null) {
+                return message;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Uppercases a leading lowercase shop-type segment, e.g. "sell.createHitChestAmount"
      * becomes "SELL.createHitChestAmount". Other subkeys are returned unchanged.
      */
@@ -1197,15 +1259,21 @@ public class ShopMessage {
     }
 
     public static String[] getShopSignText(String shopType) {
-        // Shop types are stored uppercase (SELL, BUY, ...), but the shared sign-text keys
-        // are lowercase in signConfig.yml (deleted, timeout, ...). Trying the given key
-        // verbatim first means both resolve, instead of every non-shop-type key falling
-        // through to the placeholder default and rendering literal "[item]" text on signs.
-        String[] exact = shopSignTextMap.get(shopType);
+        // Shop types are stored uppercase (SELL, BUY, ...). Both sign_creation and sign_text
+        // use uppercase keys in signConfig.yml. Use uppercase consistently.
+        // Special keys "deleted" and "timeout" are not shop types and remain lowercase.
+        String upperKey = shopType.toUpperCase();
+        if ("deleted".equals(shopType) || "timeout".equals(shopType)) {
+            String[] exact = shopSignTextMap.get(shopType);
+            if (exact != null) {
+                return exact;
+            }
+        }
+        String[] exact = shopSignTextMap.get(upperKey);
         if (exact != null) {
             return exact;
         }
-        return shopSignTextMap.getOrDefault(shopType.toUpperCase(), new String[]{"Buy", "[item]", "[price]", "[stock]"});
+        return shopSignTextMap.getOrDefault(upperKey, new String[]{"Buy", "[item]", "[price]", "[stock]"});
     }
 
     public static List<String> getDisplayText(String shopType) {
@@ -1219,7 +1287,7 @@ public class ShopMessage {
     public static String getStockColorOutOfStock() { return stockColorOutOfStock != null ? stockColorOutOfStock : "&4"; }
     public static HashMap<String, String> getCreationWords() { return creationWords; }
     public static String getCreationWord(String key) {
-        return creationWords.getOrDefault(key.toUpperCase(), UtilMethods.capitalize(key.toLowerCase()));
+        return creationWords.getOrDefault(key.toUpperCase(), key.toLowerCase());
     }
     public static int getTargetMaxLength() { return targetMaxLength; }
     public static YamlConfiguration getChatConfig() { return chatConfig; }

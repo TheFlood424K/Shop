@@ -29,21 +29,16 @@ public class BuyShop extends AbstractShop {
         }
         else {
             double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
-            if (this.getPrice() == 0) {
-                stock = Integer.MAX_VALUE;
-                return stock;
-            } else {
-                // Check if the player has enough funds to cover a full transaction
-                stock = (int) Math.floor(funds / this.getPrice());
-                // If the player doesn't have enough funds for a full transaction, see if they can accept a partial one
-                if(stock == 0 && Shop.getPlugin().getAllowPartialSales()){
-                    if(this.getItemStack() == null)
-                        stock = 0;
-                    else {
-                        double pricePer = this.getPricePerItem();
-                        if (funds >= pricePer) {
-                            stock = 1;
-                        }
+            // Check if the player has enough funds to cover a full transaction
+            stock = (int) Math.floor(funds / this.getPrice());
+            // If the player doesn't have enough funds for a full transaction, see if they can accept a partial one
+            if(stock == 0 && Shop.getPlugin().getAllowPartialSales()){
+                if(this.getItemStack() == null)
+                    stock = 0;
+                else {
+                    double pricePer = this.getPricePerItem();
+                    if (funds >= pricePer) {
+                        stock = 1;
                     }
                 }
             }

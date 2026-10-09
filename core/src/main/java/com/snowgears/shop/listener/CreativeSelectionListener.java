@@ -283,13 +283,13 @@ public class CreativeSelectionListener implements Listener {
                     if(currentProcess.getStep() == ITEM){
                         currentProcess.setItemStack(selectedItem);
                         currentProcess.setShopType(ShopType.BUY);
-                        currentProcess.displayFloatingText("interaction", ShopType.BUY.toString() + ".createHitChestAmount");
+                        currentProcess.displayFloatingText("interaction", ShopType.BUY.getConfigKey() + ".createHitChestAmount");
                         removePlayerFromCreativeSelection(player);
                     }
                     //they just hit a chest with an open hand when creating a barter shop and need choose a barter item from creative selection
                     else if(currentProcess.getStep() == ShopCreationProcess.ChatCreationStep.BARTER_ITEM){
                         currentProcess.setBarterItemStack(selectedItem);
-                        currentProcess.displayFloatingText("interaction", ShopType.BARTER.toString() + ".createHitChestBarterAmount");
+                        currentProcess.displayFloatingText("interaction", ShopType.BARTER.getConfigKey() + ".createHitChestBarterAmount");
                         removePlayerFromCreativeSelection(player);
                     }
                 }

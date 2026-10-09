@@ -87,7 +87,7 @@ jobs:
             -Dmaven.javadoc.skip=true -Dmaven.source.skip=true \
             -Dmaven.compiler.fork=false \
             -DforkCount=2 -DreuseForks=true \
-            -DfailIfNoTests=false \
+            -DfailIfNoTests=true \
             clean test package 2>&1 | tee build-test-output.log
           TEST_EXIT=${PIPESTATUS[0]}
           end_time=$(date +%s)

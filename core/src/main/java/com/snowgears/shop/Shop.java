@@ -354,6 +354,11 @@ public class Shop extends JavaPlugin {
 
         // Load ShopMessage by initializing it once
         new ShopMessage(this);
+
+        // Initialize player name cache - must be done before any getName() calls
+        // (e.g., from ShopMessage placeholders or other components)
+        PlayerNameCache.initialize();
+
         itemNameUtil = new ItemNameUtil();
 
         File fileDirectory = new File(this.getDataFolder(), "Data");

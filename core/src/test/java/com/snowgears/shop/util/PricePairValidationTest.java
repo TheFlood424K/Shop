@@ -89,23 +89,31 @@ class PricePairValidationTest {
     }
 
     @Test
-    @DisplayName("A zero price is refused for BARTER but allowed otherwise")
-    void zeroPriceRulesUnchanged() {
+    @DisplayName("A zero price is refused for all transactional types except GAMBLE")
+    void zeroPriceRejectedForTransactionalTypes() {
+        // BARTER still rejects zero (original behavior)
         assertNull(util.getShopPricePair(player, "0", ShopType.BARTER));
 
-        PricePair sell = util.getShopPricePair(player, "0", ShopType.SELL);
-        assertNotNull(sell, "A zero price is allowed for selling");
-        assertEquals(0.0, sell.getPrice());
+        // SELL, BUY, COMBO now also reject zero (fixed per issue #151)
+        assertNull(util.getShopPricePair(player, "0", ShopType.SELL),
+                "Zero price creates free-item shop for SELL");
+        assertNull(util.getShopPricePair(player, "0", ShopType.BUY),
+                "Zero price creates free-item shop for BUY");
+        assertNull(util.getShopPricePair(player, "0", ShopType.COMBO),
+                "Zero price creates free-item shop for COMBO");
+
+        // GAMBLE is the only type that allows zero price
+        PricePair gamble = util.getShopPricePair(player, "0", ShopType.GAMBLE);
+        assertNotNull(gamble, "GAMBLE shops intentionally allow zero price");
+        assertEquals(0.0, gamble.getPrice());
     }
 
-    /** Verifies that a combo can have a zero secondary price and a positive primary price. */
+    /** Verifies that a combo cannot have a zero secondary price (sell price). */
     @Test
-    @DisplayName("A zero combo price is allowed for a combo shop")
-    void zeroComboPriceAllowed() {
-        PricePair pair = util.getShopPricePair(player, "100 / 0", ShopType.COMBO);
-        assertNotNull(pair, "A zero combo price is not negative, so it is allowed");
-        assertEquals(100.0, pair.getPrice());
-        assertEquals(0.0, pair.getPriceCombo());
+    @DisplayName("A zero combo price is rejected for a combo shop")
+    void zeroComboPriceRejected() {
+        assertNull(util.getShopPricePair(player, "100 / 0", ShopType.COMBO),
+                "Zero sell price on COMBO shop is not allowed");
     }
 
     /**
@@ -118,8 +126,10 @@ class PricePairValidationTest {
     @EnumSource(value = CurrencyType.class, names = {"ITEM", "VAULT"})
     void groupedPricesAreSinglePrices(CurrencyType currency) throws Exception {
         useCurrency(currency);
+        // Use GAMBLE type which allows zero price; the test is about grouped price parsing,
+        // not zero price validation. COMBO now rejects zero primary price per issue #151.
         for (String input : new String[]{"10 000", "10 500", "100 250", "1 234 567"}) {
-            PricePair pair = util.getShopPricePair(player, input, ShopType.COMBO);
+            PricePair pair = util.getShopPricePair(player, input, ShopType.GAMBLE);
             assertNotNull(pair, input);
             assertEquals(Double.parseDouble(input.replace(" ", "")), pair.getPrice(), input);
             assertEquals(0, pair.getPriceCombo(), input);
@@ -354,10 +364,9 @@ class PricePairValidationTest {
     void zeroVaultMultiplierRespectsBarterPriceValidation() throws Exception {
         useCurrency(CurrencyType.VAULT);
         assertNull(util.getShopPricePair(player, "100x0 / 250", ShopType.BARTER));
-        PricePair pair = util.getShopPricePair(player, "100x0 / 250", ShopType.COMBO);
-        assertNotNull(pair);
-        assertEquals(0, pair.getPrice());
-        assertEquals(0, pair.getPriceCombo());
+        // COMBO also rejects zero price after fix for issue #151
+        assertNull(util.getShopPricePair(player, "100x0 / 250", ShopType.COMBO),
+                "Zero primary price on COMBO shop is rejected");
     }
 
     // --- VAULT currency (the multiplier path) ---

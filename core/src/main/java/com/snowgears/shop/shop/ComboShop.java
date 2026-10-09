@@ -59,17 +59,13 @@ public class ComboShop extends AbstractShop {
         }
         else {
             double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
-            if (this.getPrice() == 0) {
-                stock = Integer.MAX_VALUE;
-                return stock;
-            } else{
-                stock = (int) Math.floor(funds / this.getPrice());
-                // Check if we should show partial stock
-                if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
-                    if (funds >= this.getPricePerItem()) {
-                        stock = 1;
-                        return stock;
-                    }
+            // Calculate buying capacity from available funds
+            stock = (int) Math.floor(funds / this.getPrice());
+            // Check if we should show partial buying capacity
+            if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
+                if (funds >= this.getPricePerItem()) {
+                    stock = 1;
+                    return stock;
                 }
             }
 
