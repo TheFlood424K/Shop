@@ -11,6 +11,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SharedCreationPriceValidationTest extends BaseMockBukkitTest {
 
+    /**
+     * Verifies secondary price validation and that rejected creation leaves blocks and registration intact.
+     *
+     * @param type the requested shop type, or null to use the default selling shop
+     * @param secondary the secondary price supplied to the shared creation path
+     * @param valid whether creation should succeed
+     */
     @ParameterizedTest
     @CsvSource({"COMBO, 0, false", "COMBO, -1, false", "COMBO, 5, true",
             "SELL, -1, false", "SELL, 0, true", ", -1, false", ", 0, true"})

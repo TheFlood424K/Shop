@@ -15,6 +15,13 @@ import static org.mockito.Mockito.mockStatic;
 
 class ZeroPriceStockTest extends BaseMockBukkitTest {
 
+    /**
+     * Verifies that a stored zero buy price clears stock regardless of funds or partial sales.
+     *
+     * @param combo whether to exercise a combo shop instead of a buy shop
+     * @param partialSales whether partial sales are enabled
+     * @param funds the owner's available funds
+     */
     @ParameterizedTest
     @CsvSource({"false, false, 0", "false, false, 100", "false, true, 0", "false, true, 100",
             "true, false, 0", "true, false, 100", "true, true, 0", "true, true, 100"})

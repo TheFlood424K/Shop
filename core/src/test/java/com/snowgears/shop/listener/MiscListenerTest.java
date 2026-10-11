@@ -70,6 +70,11 @@ class MiscListenerTest extends BaseMockBukkitTest {
         setConfig("debug_shopInitTimeout", 0); // Disable initialization timeout for tests
     }
 
+    /**
+     * Verifies that an adjacent, unconnected chest does not move the shop creation location.
+     *
+     * @param material the clicked container type
+     */
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.EnumSource(value = Material.class,
             names = {"CHEST", "BARREL", "WHITE_SHULKER_BOX"})

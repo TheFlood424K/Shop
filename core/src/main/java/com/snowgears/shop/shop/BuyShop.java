@@ -21,6 +21,12 @@ public class BuyShop extends AbstractShop {
         this.signLines = ShopMessage.getSignLines(this, this.type);
     }
 
+    /**
+     * Updates buying capacity from the owner's funds, allowing a partial purchase when configured.
+     * Admin shops have unlimited stock; non-admin shops with a zero price have no stock.
+     *
+     * @return the calculated stock, also stored on this shop
+     */
     @Override
     protected int calculateStock(){
         if(this.isAdmin) {
