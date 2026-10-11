@@ -212,10 +212,7 @@ public class TransactionHandler {
             return false;
         else{
             // Capture the sign location so the cooldown entry can always be removed even if
-            // the shop object is deleted before the 2-minute window elapses (Bug fix: the
-            // old code fell into the TODO path and left a dangling entry in the cooldown map
-            // when the shop was deleted mid-cooldown, permanently breaking owner notifications
-            // for any new shop created at the same location within that window).
+            // the shop object is deleted before the 2-minute window elapses.
             final Location signLoc = shop.getSignLocation();
             shopMessageCooldown.put(signLoc, shop.getOwnerUUID());
 

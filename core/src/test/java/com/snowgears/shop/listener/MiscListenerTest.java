@@ -139,7 +139,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertEquals(chestBlock, signBlock.getRelative(attachedFace), "Chest should be at sign.getRelative(facing.getOppositeFace())");
 
         // Fire SignChangeEvent with proper lines (using String[] constructor for MockBukkit compatibility)
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -186,7 +186,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         // Use String[] constructor for MockBukkit compatibility
         String[] lines = {
-            "Not a shop",
+            "Not a store sign",
             "1",
             "10",
             "sell"
@@ -217,7 +217,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -263,7 +263,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             amount,
@@ -295,7 +295,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -326,7 +326,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -361,7 +361,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord.toLowerCase(),
             "1",
@@ -387,7 +387,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         signBlock.setType(Material.OAK_SIGN); // Ground sign, not wall sign
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -1025,7 +1025,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Fire SignChangeEvent with proper lines (using String[] constructor for MockBukkit compatibility)
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",

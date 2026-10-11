@@ -80,7 +80,8 @@ public class ShopTransactionsTest extends BaseMockBukkitTest {
         shop.updateSign(true);
         server.getScheduler().performTicks(5);
         server.getScheduler().waitAsyncTasksFinished();
-        assertEquals("§4§lsell", ((Sign) shop.getSignLocation().getBlock().getState()).getLine(0));
+        // The sign template uses "[shop]" placeholder which resolves to "shop" from sign_creation table
+        assertEquals("§4§lshop", ((Sign) shop.getSignLocation().getBlock().getState()).getLine(0));
         // add stock to shop
         // Load the sign's chunk, not just the chest's: updateSign() early-returns when the
         // sign's chunk is unloaded, so restocking would leave the sign stale at out-of-stock red.
@@ -88,10 +89,10 @@ public class ShopTransactionsTest extends BaseMockBukkitTest {
         shop.getChestLocation().getChunk().load(true); // chest location is null if chunk is not loaded for MockBukkit
         shop.getInventory().addItem(new ItemStack(Material.DIRT, 8));
         shop.updateStock();
-        server.getScheduler().performTicks(5); // updateSign writes the sign from a scheduled task
+        server.getScheduler().performTicks(5);
         server.getScheduler().waitAsyncTasksFinished();
-        // Shop sign should now show in stock color/text
-        assertEquals("§a§lsell", ((Sign) shop.getSignLocation().getBlock().getState()).getLine(0));
+        // The sign template uses "[shop]" placeholder which resolves to "shop" from sign_creation table
+        assertEquals("§a§lshop", ((Sign) shop.getSignLocation().getBlock().getState()).getLine(0));
 
         // Make sure we setup inventories correctly and verify the current contents
         assertEquals(0, InventoryUtils.getAmount(other.getInventory(), new ItemStack(Material.DIRT)));

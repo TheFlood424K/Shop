@@ -135,7 +135,7 @@ public class MiscListener implements Listener {
         if (plugin.getShopHandler().isChest(chest)) {
             plugin.getLogger().info("[DEBUG onShopCreation] Chest detected, proceeding with shop creation");
             final Sign signBlock = (Sign) b.getState();
-            if (event.getLine(0).toLowerCase().contains(ShopMessage.getCreationWord("SHOP").toLowerCase())) {
+            if (event.getLine(0).toLowerCase().contains(ShopMessage.getSignCreationWord("SHOP").toLowerCase())) {
 
                 if(!plugin.getShopCreationUtil().shopCanBeCreated(player, chest)){
                     // cancelShopCreationProcess() already sends the "createCancel" message
@@ -226,6 +226,21 @@ public class MiscListener implements Listener {
                 }
             }
         }
+    }
+
+    /**
+     * Checks if the given chest block has an adjacent chest block that would form a double chest.
+     * Returns the adjacent chest block if found, null otherwise.
+     * Only checks horizontal neighbors (NORTH, SOUTH, EAST, WEST).
+     */
+    private Block getDoubleChestMate(Block chest) {
+        for (BlockFace face : CARDINAL_FACES) {
+            Block neighbor = chest.getRelative(face);
+            if (plugin.getShopHandler().isChest(neighbor)) {
+                return neighbor;
+            }
+        }
+        return null;
     }
 
     public ShopCreationProcess getShopCreationProcess(Player player){
@@ -377,7 +392,21 @@ public class MiscListener implements Listener {
                 return;
             }
 
-            //TODO come back to this and allow players to create double chest shops via chest creation method
+            // Check if this chest is part of a double chest (adjacent chest block)
+            // If so, use the double chest for the shop creation
+            Block doubleChestMate = getDoubleChestMate(clicked);
+            if (doubleChestMate != null) {
+                // Verify the adjacent chest is also empty (no existing shop)
+                existingShop = plugin.getShopHandler().getShopByChest(doubleChestMate);
+                if (existingShop != null) {
+                    return;
+                }
+                // Use the first chest as the primary location for consistency
+                clicked = clicked.getLocation().getBlockX() <= doubleChestMate.getLocation().getBlockX()
+                        || (clicked.getLocation().getBlockX() == doubleChestMate.getLocation().getBlockX()
+                        && clicked.getLocation().getBlockZ() <= doubleChestMate.getLocation().getBlockZ())
+                        ? clicked : doubleChestMate;
+            }
 
             // Make sure that the shop can be created at all, prior to checking whats in the players hand.
             if(!plugin.getShopCreationUtil().shopCanBeCreated(player, clicked)){
@@ -386,7 +415,6 @@ public class MiscListener implements Listener {
 
             if(itemInHand == null || itemInHand.getType() == Material.AIR){
                 if(plugin.allowCreativeSelection()) {
-                    //TODO this section needs to check if the current step is to get the barter item
                     ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
                     // Check if last created process is within 80ms, if so, cancel the event
                     Long lastCreatedProcess = lastChatCreation.get(player.getUniqueId());

@@ -64,7 +64,7 @@ public class ForkAuditListenerRegressionTest extends BaseMockBukkitTest {
         Location chestLoc = signBlock.getRelative(BlockFace.SOUTH).getLocation();
         world.getBlockAt(chestLoc).setType(Material.CHEST);
 
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         SignChangeEvent signChange = new SignChangeEvent(signBlock, player, new String[]{
                 creationWord, "1", "10", ShopMessage.getCreationWord("SELL")});
         getServer().getPluginManager().callEvent(signChange);
@@ -111,7 +111,7 @@ public class ForkAuditListenerRegressionTest extends BaseMockBukkitTest {
         world.setBlockData(signLoc, facing);
         world.getBlockAt(signBlock.getRelative(BlockFace.SOUTH).getLocation()).setType(Material.CHEST);
 
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         getServer().getPluginManager().callEvent(new SignChangeEvent(signBlock, player, new String[]{
                 creationWord, "1", "10", ShopMessage.getCreationWord("SELL")}));
         while (player.nextMessage() != null) {}
