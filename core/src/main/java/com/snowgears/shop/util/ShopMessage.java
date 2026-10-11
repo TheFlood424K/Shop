@@ -276,14 +276,6 @@ public class ShopMessage {
     // format() — builds an Adventure Component from a legacy-style string
     // -----------------------------------------------------------------------
 
-    /**
-     * Expands placeholders and legacy or hexadecimal color codes into an Adventure component.
-     * Color and formatting directives also apply to the text that follows them.
-     *
-     * @param message the message template, or null for an empty component
-     * @param context the player, shop and display context used to resolve placeholders
-     * @return the formatted message component
-     */
     public static Component format(String message, PlaceholderContext context) {
         if (message == null) return Component.empty();
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
@@ -525,7 +517,7 @@ public class ShopMessage {
      */
     public static void sendMessage(ShopType type, String section, String subkey, Player player, AbstractShop shop) {
         String message = getShopMessage(type, section, subkey);
-        plugin.getLogger().info("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
+        plugin.getLogger().debug("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
         if (message != null && !message.isEmpty())
             sendMessage(message, player, shop);
     }
@@ -542,7 +534,7 @@ public class ShopMessage {
      */
     public static void sendMessage(ShopType type, String section, String subkey, ShopCreationProcess process, Player player) {
         String message = getShopMessage(type, section, subkey);
-        plugin.getLogger().info("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
+        plugin.getLogger().debug("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
         if (message != null && !message.isEmpty())
             sendMessage(message, process, player);
     }
@@ -584,10 +576,6 @@ public class ShopMessage {
     // Placeholder loaders
     // -----------------------------------------------------------------------
 
-    /**
-     * Registers the built-in message placeholders, including shop labels and stock colors.
-     * Existing registrations with the same placeholder names are replaced.
-     */
     public static void loadPlaceholders() {
         registerPlaceholder("[plugin]", context -> Component.text(plugin.getCommandAlias()));
         registerPlaceholder("[server name]", context -> Component.text(ShopMessage.getServerDisplayName()));
@@ -602,7 +590,7 @@ public class ShopMessage {
         });
         registerPlaceholder("[shop type]", context -> {
             if (context.getProcess() != null && context.getProcess().getShopType() != null)
-                return Component.text(getCreationWord(context.getProcess().getShopType().getConfigKey()));
+                return Component.text(ShopMessage.getCreationWord(context.getProcess().getShopType().getConfigKey()));
             if (context.getShop() != null)
                 return Component.text(ShopMessage.getCreationWord(context.getShop().getType().getConfigKey()));
             return null;
@@ -948,13 +936,6 @@ public class ShopMessage {
         return Component.text(getSignCreationWord("SHOP"));
     }
 
-    /**
-     * Resolves a shop-type label from the sign creation table.
-     *
-     * @param context the context whose shop type, when present, must match the requested type
-     * @param type the shop type to label
-     * @return the configured sign word, or null if the context has a different shop type
-     */
     private static Component shopNameWord(PlaceholderContext context, ShopType type) {
         // A per-type tag only reads correctly on a shop of that type; render nothing otherwise
         // rather than telling a BARTER shop it is a "[sell shop]".
@@ -1254,6 +1235,7 @@ public class ShopMessage {
         if (shop == null) return rawLines;
         PlaceholderContext context = new PlaceholderContext();
         context.setShop(shop);
+        context.setForSign(true);
         String[] formatted = new String[rawLines.length];
         for (int i = 0; i < rawLines.length; i++) {
             formatted[i] = toLegacy(format(rawLines[i], context));
@@ -1317,17 +1299,7 @@ public class ShopMessage {
     public static String getServerDisplayName() { return serverDisplayName != null ? serverDisplayName : "Server"; }
     public static String getStockColorInStock() { return stockColorInStock != null ? stockColorInStock : "&a"; }
     public static String getStockColorOutOfStock() { return stockColorOutOfStock != null ? stockColorOutOfStock : "&4"; }
-    /**
-     * Sets the color used for in-stock placeholders.
-     *
-     * @param color the color directive, or null to use the default green code
-     */
     public static void setStockColorInStock(String color) { stockColorInStock = color; }
-    /**
-     * Sets the color used for out-of-stock placeholders.
-     *
-     * @param color the color directive, or null to use the default dark red code
-     */
     public static void setStockColorOutOfStock(String color) { stockColorOutOfStock = color; }
     public static HashMap<String, String> getCreationWords() { return creationWords; }
     public static String getCreationWord(String key) {

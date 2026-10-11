@@ -51,13 +51,6 @@ public class ComboShop extends AbstractShop {
         this.priceSell = priceSell;
     }
 
-    /**
-     * Updates stock from buying capacity, falling back to items available to sell when needed.
-     * Honors partial sales; admin shops have unlimited stock, while non-admin shops with
-     * a zero buy price have no stock even if items remain in the inventory.
-     *
-     * @return the calculated stock, also stored on this shop
-     */
     @Override
     protected int calculateStock(){
         if(this.isAdmin) {
@@ -65,6 +58,7 @@ public class ComboShop extends AbstractShop {
             return stock;
         }
         else {
+            // Handle stored zero prices: if buy price is zero, stock is zero (free items not allowed)
             if (this.getPrice() == 0) {
                 stock = 0;
                 return stock;

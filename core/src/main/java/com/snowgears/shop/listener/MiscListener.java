@@ -107,12 +107,6 @@ public class MiscListener implements Listener {
             event.setCancelled(true);
     }
 
-    /**
-     * Validates a wall sign's creation word, amount, price and shop type, then creates
-     * an uninitialized shop on its attached chest when sign creation is enabled.
-     *
-     * @param event the sign edit supplying the shop details
-     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onShopCreation(SignChangeEvent event) {
         final Block b = event.getBlock();
@@ -235,13 +229,13 @@ public class MiscListener implements Listener {
     }
 
     /**
-     * Checks for an adjacent chest only when the given block belongs to a double chest.
-     * Returns the adjacent chest block if found, null otherwise.
-     * Only checks horizontal neighbors (NORTH, SOUTH, EAST, WEST).
+     * Checks if the given chest block has an adjacent chest block that would form a double chest.
+     * Returns the adjacent chest block if found and the clicked chest is part of a DoubleChest,
+     * null otherwise. Only checks horizontal neighbors (NORTH, SOUTH, EAST, WEST).
      */
     private Block getDoubleChestMate(Block chest) {
-        if (!(chest.getState() instanceof InventoryHolder holder)
-                || !(holder.getInventory().getHolder() instanceof DoubleChest)) {
+        // Only look for a double chest mate if this chest is part of a DoubleChest
+        if (!(chest.getState() instanceof InventoryHolder holder) || !(holder instanceof DoubleChest)) {
             return null;
         }
         for (BlockFace face : CARDINAL_FACES) {

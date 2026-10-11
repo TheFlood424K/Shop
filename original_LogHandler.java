@@ -1,0 +1,780 @@
+package com.snowgears.shop.handler;
+
+import com.snowgears.shop.Shop;
+import com.snowgears.shop.shop.AbstractShop;
+import com.snowgears.shop.shop.ShopType;
+import com.snowgears.shop.util.*;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.ChatColor;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.sql.*;
+import javax.sql.DataSource;
+import java.util.*;
+import java.util.Date;
+import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+
+public class LogHandler {
+
+    private Shop plugin;
+    private DataSource dataSource;
+    /** Read from the async query thread and written by shutdown() on the main thread. */
+    private volatile boolean enabled;
+
+    public LogHandler(Shop plugin, YamlConfiguration shopConfig){
+        this.plugin = plugin;
+        // Setup database connection and check if we should enable database logging
+        try {
+            startup(shopConfig);
+        } catch (Error | Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error initializing database connection. Database logging will not be used. Exception: " + e.getMessage());
+            this.enabled = false;
+            return;
+        }
+        if(!enabled) return;
+
+        // Force inclusion of the H2 driver class so that it will be compiled into our jar.
+        // Without this it just ignores the H2 driver and it gets removed when we minimize our jar!
+        try {
+            Class.forName("org.h2.Driver");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            testDataSource();
+        } catch (SQLException e){
+            plugin.getLogger().log(Level.WARNING, "Error establishing connection to defined database. Logging will not be used.", e);
+            enabled = false;
+            return;
+        }
+        try {
+            initDb();
+        } catch (SQLException e){
+            plugin.getLogger().log(Level.WARNING, "Error initializing tables in database. Logging will not be used.", e);
+            enabled = false;
+            return;
+        }
+        plugin.getLogger().notice("Shop Database Logging initialized successfully!");
+        plugin.getLogger().helpful("Offline Purchase Notifications are Enabled!");
+    }
+
+    /**
+     * Builds the MySQL JDBC URL from the configured connection properties.
+     *
+     * <p>The first property opens the query string and every one after it is joined with '&amp;'.
+     * Prefixing each with '?' instead builds {@code jdbc:mysql://host/db?a=b?c=d}, which the driver
+     * rejects — and because the failure surfaces as a bare connection error rather than a config
+     * error, a server owner sees an unexplained startup failure. One property happens to work by
+     * accident, which is why this went unnoticed.
+     */
+    static String buildMySqlJdbcUrl(String serverName, int port, String databaseName, List<String> connectionProperties) {
+        StringBuilder jdbcURL = new StringBuilder("jdbc:mysql://").append(serverName).append(":").append(port).append("/").append(databaseName);
+        char separator = '?';
+        for (String property : connectionProperties) {
+            jdbcURL.append(separator).append(property);
+            separator = '&';
+        }
+        return jdbcURL.toString();
+    }
+
+    public void startup(YamlConfiguration shopConfig){
+        String type = shopConfig.getString("logging.type");
+        String serverName = shopConfig.getString("logging.serverName");
+        String databaseName = shopConfig.getString("logging.databaseName");
+        int port = shopConfig.getInt("logging.port");
+        String username = shopConfig.getString("logging.user");
+        String password = shopConfig.getString("logging.password");
+        List<String> connectionProperties = shopConfig.getStringList("logging.properties");
+
+        // A missing "logging.type" key used to NPE here, inside onEnable, which took the whole
+        // plugin down rather than just disabling logging.
+        if (type == null || type.equalsIgnoreCase("OFF")) {
+            this.enabled = false;
+            return;
+        }
+
+        plugin.getLogger().debug("Starting Database (" + type + ") connection to track purchases and Shop actions!");
+
+        if (type.equalsIgnoreCase("MYSQL")) {
+            // Configured concretely rather than through newDataSource(): this branch uses
+            // Hikari-specific setters that DataSource does not expose. A test substituting a pool
+            // targets the MARIADB/FILE paths, which go through the factory.
+            HikariDataSource mysql = new HikariDataSource();
+            mysql.setJdbcUrl(buildMySqlJdbcUrl(serverName, port, databaseName, connectionProperties));
+            mysql.setUsername(username);
+            mysql.setPassword(password);
+            mysql.setLeakDetectionThreshold(10000);
+            mysql.setMaximumPoolSize(10);
+            mysql.setMaxLifetime(600000);
+            mysql.setPoolName("MYSQL");
+            dataSource = mysql;
+        } else if (type.equalsIgnoreCase("MARIADB")) {
+            HikariConfig config = new HikariConfig();
+            config.setDataSourceClassName("org.mariadb.jdbc.MariaDbDataSource");
+            config.addDataSourceProperty("serverName", serverName);
+            config.addDataSourceProperty("portNumber", port);
+            config.addDataSourceProperty("databaseName", databaseName);
+            config.addDataSourceProperty("user", username);
+            config.addDataSourceProperty("password", password);
+            config.setLeakDetectionThreshold(10000);
+            config.setMaximumPoolSize(10);
+            config.setMaxLifetime(600000);
+            config.setPoolName("MARIADB");
+            dataSource = newDataSource(config);
+        } else if (type.equalsIgnoreCase("FILE")) {
+            HikariConfig config = new HikariConfig();
+            config.setDriverClassName("org.h2.Driver");
+            config.setJdbcUrl(h2UrlFor(databaseName));
+            config.setUsername(username != null ? username : "sa");
+            config.setPassword(password != null ? password : "");
+            config.setLeakDetectionThreshold(10000);
+            config.setMaximumPoolSize(10);
+            config.setMaxLifetime(600000);
+            config.setPoolName("FILE");
+            dataSource = newDataSource(config);
+        } else {
+            plugin.getLogger().log(Level.WARNING, "Unsupported database type! Please check your `config.yml` file! type: " + type);
+            this.enabled = false;
+            return;
+        }
+        this.enabled = true;
+    }
+
+    /**
+     * The JDBC URL for the embedded H2 database.
+     *
+     * <p>Split out so a test can substitute a per-test in-memory database. The default writes a file
+     * under the plugin's data folder, and that file is shared state between test methods: a row
+     * written by one test is still there for the next, so assertions on database contents become
+     * order-dependent — and the pool holds the file open, which defeats the recursive delete the
+     * test base performs between tests. See issue #124.
+     */
+    protected String h2UrlFor(String databaseName) {
+        // A test may pin an isolated in-memory database; see BaseMockBukkitTest#useIsolatedDatabase.
+        // Read as a system property because the handler is constructed during plugin load, before any
+        // test can reach the instance to call a setter.
+        String override = System.getProperty("shop.test.h2.url");
+        if (override != null && !override.isEmpty()) {
+            return override;
+        }
+        return "jdbc:h2:" + plugin.getDataFolder().getAbsolutePath() + "/data/" + databaseName + ";MODE=MySQL";
+    }
+
+    /**
+     * Creates the connection pool.
+     *
+     * <p>Exists so a test can supply its own {@link DataSource} — see
+     * {@link #setDataSourceForTesting}. Pool construction is otherwise inline in {@link #startup},
+     * which leaves no seam for testing the behaviour that actually depends on pooling: whether a
+     * rollback on a borrowed connection discards another caller's in-flight work. See issue #122.
+     */
+    protected DataSource newDataSource() {
+        return new HikariDataSource();
+    }
+
+    protected DataSource newDataSource(HikariConfig config) {
+        return new HikariDataSource(config);
+    }
+
+    /**
+     * Replaces the connection pool, for tests only.
+     *
+     * <p>The caller owns the lifecycle of the supplied pool: {@link #shutdown()} will close it.
+     */
+    protected void setDataSourceForTesting(DataSource replacement) {
+        this.dataSource = replacement;
+        this.enabled = replacement != null;
+    }
+
+    /**
+     * Exposes the current pool to tests, for the read side of {@link #setDataSourceForTesting}.
+     *
+     * <p>Tests need to seed and count rows, and reaching the private {@code dataSource} field by
+     * name couples them to an implementation detail: a field rename breaks the tests even though
+     * the handler's behaviour is unchanged. This accessor is the seam; it is package-private so
+     * only the test package can use it.
+     */
+    DataSource getDataSourceForTesting() {
+        return dataSource;
+    }
+
+    /**
+     * Disables logging and query callbacks, then closes the data source when it is closeable.
+     * Failures while closing the data source are logged.
+     */
+    public void shutdown() {
+        // Flipped before the pool closes so an in-flight query sees it at its next hop and declines
+        // to schedule its callback. Without this, shutdown landing between runAsync and runNextTick
+        // delivers into a handler whose connection pool is already gone.
+        this.enabled = false;
+        if (dataSource != null) {
+            // DataSource has no close(); only HikariDataSource does. Close the pool when it is one —
+            // a test-supplied pool that implements AutoCloseable is closed the same way.
+            if (dataSource instanceof AutoCloseable closeable) {
+                try {
+                    closeable.close();
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING,
+                            "Could not close the database connection pool.", e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Schedules deletion of {@code shop_action} rows strictly older than the retention window,
+     * followed by all {@code shop_transaction} rows no longer referenced by any action.
+     * Purchases for player owners are retained until a successful offline summary records
+     * coverage of their timestamp, when offline purchase notifications are enabled.
+     *
+     * <p>{@code logging.actionRetentionDays} defaults to 90 days, each lasting 24 hours.
+     * Disabled logging or a nonpositive retention value skips cleanup. This method returns
+     * without waiting for cleanup; SQL failures in the scheduled work do not reach the caller.
+     */
+    public void purgeOldActions() {
+        purgeOldActionsAsync();
+    }
+
+    /**
+     * Schedules the retention cleanup described by {@link #purgeOldActions()}.
+     *
+     * @return a future completed after both deletions, or immediately when cleanup is disabled;
+     *         completes exceptionally with the {@link SQLException} if database access fails
+     */
+    CompletableFuture<Void> purgeOldActionsAsync() {
+        if (!enabled) return CompletableFuture.completedFuture(null);
+        int retentionDays = plugin.getConfig().getInt("logging.actionRetentionDays", 90);
+        if (retentionDays <= 0) return CompletableFuture.completedFuture(null);
+
+        CompletableFuture<Void> completion = new CompletableFuture<>();
+        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+            // Delete the action rows first, then the transactions that outlived them.
+            //
+            // shop_action.transaction_id references shop_transaction.id, so actions are the child
+            // table. Deleting transactions first — via a subquery that reads shop_action — is
+            // what the original purge did, and it is rejected by H2's foreign-key check: the
+            // constraint is enforced per deleted row, so deleting a transaction while its action
+            // still references it fails even though that action is about to be deleted by the
+            // same purge. Deleting children first is FK-safe on every database this runs on.
+            //
+            // shop_transaction has no timestamp of its own, so a transaction cannot be aged
+            // directly; it is reachable only through its action. Purging an action orphans its
+            // transaction, and the second statement removes every orphan — which is exactly the
+            // transactions whose actions were just purged. NOT EXISTS is used rather than NOT IN
+            // because shop_action.transaction_id is NULL for non-transaction actions (CLICK,
+            // INIT, DESTROY), and NOT IN with a NULL in the subquery matches nothing.
+            //
+            // Purging actions alone left every transaction row behind, so shop_transaction kept
+            // growing without bound despite the retention setting. See issue #41.
+            Timestamp cutoff = new Timestamp(
+                    Calendar.getInstance().getTimeInMillis() - TimeUnit.DAYS.toMillis(retentionDays));
+            String actionSql = "DELETE FROM shop_action WHERE ts < ?";
+            if (plugin.offlinePurchaseNotificationsEnabled()) {
+                // A long absence can outlast retention. Keep purchases until the summary has
+                // been calculated, including across restarts and while the owner is logging in.
+                actionSql += " AND (player_action <> 'TRANSACT' OR owner_uuid = 'admin' OR EXISTS "
+                        + "(SELECT 1 FROM shop_offline_summary WHERE "
+                        + "shop_offline_summary.owner_uuid = shop_action.owner_uuid "
+                        + "AND shop_action.ts <= shop_offline_summary.summarized_through))";
+            }
+            String txSql = "DELETE FROM shop_transaction WHERE NOT EXISTS "
+                    + "(SELECT 1 FROM shop_action WHERE shop_action.transaction_id = shop_transaction.id)";
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement actionStmt = conn.prepareStatement(actionSql);
+                 PreparedStatement txStmt = conn.prepareStatement(txSql)) {
+                actionStmt.setTimestamp(1, cutoff);
+                int actionDeleted = actionStmt.executeUpdate();
+                int txDeleted = txStmt.executeUpdate();
+                plugin.getLogger().notice("Purged " + actionDeleted + " shop_action and "
+                        + txDeleted + " shop_transaction rows older than " + retentionDays + " days.");
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.WARNING,
+                        "Could not purge old shop_action rows.", e);
+                completion.completeExceptionally(e);
+                return;
+            }
+            completion.complete(null);
+        });
+        return completion;
+    }
+
+    public void logAction(Player player, AbstractShop shop, ShopActionType actionType) {
+        if (actionType == ShopActionType.INIT) {
+            plugin.getLogger().notice(
+                    player.getName() + " created a " + shop.getType().name().toUpperCase() + " shop at ("
+                            + "x: " + shop.getChestLocation().getBlockX()
+                            + " y: " + shop.getChestLocation().getBlockY()
+                            + " z: " + shop.getChestLocation().getBlockZ()
+                            + ") item: " + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getItemStack())))
+                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getSecondaryItemStack()))) : "")
+            );
+        }
+        if (actionType == ShopActionType.DESTROY) {
+            plugin.getLogger().notice(
+                    player.getName() + " destroyed a " + shop.getType().name().toUpperCase() + " shop at ("
+                            + "x: " + shop.getChestLocation().getBlockX()
+                            + " y: " + shop.getChestLocation().getBlockY()
+                            + " z: " + shop.getChestLocation().getBlockZ()
+                            + ") item: " + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getItemStack())))
+                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getSecondaryItemStack()))) : "")
+            );
+        }
+        if (!this.enabled) return;
+        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+            // Connect to datasource & create statement in "try" to handle automatically closing the connection!
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(
+                         "INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);");
+            ){
+                stmt.setTimestamp(1, new Timestamp(new Date().getTime()));
+                stmt.setString(2, player.getUniqueId().toString());
+                if (shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID())) stmt.setString(3, "admin");
+                else stmt.setString(3, shop.getOwnerUUID().toString());
+                String shop_uuid = "";
+                if (shop.getId() != null && shop.getId().toString() != null) shop_uuid = shop.getId().toString();
+                stmt.setString(4, shop_uuid);
+                stmt.setString(5, actionType.toString());
+                stmt.setString(6, shop.getSignLocation().getWorld().getName());
+                stmt.setInt(7, shop.getSignLocation().getBlockX());
+                stmt.setInt(8, shop.getSignLocation().getBlockY());
+                stmt.setInt(9, shop.getSignLocation().getBlockZ());
+                stmt.execute();
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.WARNING, "SQL error occurred while trying to log player action.");
+                e.printStackTrace();
+            }
+        });
+    }
+
+    public void logTransaction(Player player, AbstractShop shop, ShopType transactionType, double price, int amount){
+        plugin.getLogger().helpful(
+                "Shop " + shop.getType().name().toUpperCase() + " from/to " + player.getName() + ": "
+                        + ChatColor.stripColor(ShopMessage.toPlain(new ItemNameUtil().getName(shop.getItemStack())))
+                        + "(x" + amount + ")"
+                        + " for " + plugin.getPriceString(price, true)
+                        + " | Shop owned by " + shop.getOwnerName()
+                        + " at (x: " + shop.getChestLocation().getBlockX()
+                        + " y: " + shop.getChestLocation().getBlockY()
+                        + " z: " + shop.getChestLocation().getBlockZ() + ")"
+        );
+        try {
+            boolean isBarterOrItemCurrency = transactionType == ShopType.BARTER || plugin.getCurrencyType() == CurrencyType.ITEM;
+            txMetrics.addTransaction(amount, price, isBarterOrItemCurrency);
+        } catch (Exception e) { /* Ignore errors, added for safety. */ }
+
+        if(!enabled) return;
+        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+            // One connection for the whole transaction. The two inserts used to each open their own
+            // try-with-resources, which is two pool acquisitions per purchase — the pool is capped at
+            // ten and every concurrent purchase pays for it. Holding one connection also makes the
+            // transaction_id write atomic with the row that references it: if the action insert fails,
+            // the transaction row rolls back instead of leaving an orphaned id.
+            // See issue #54.
+            int transactionID = 0;
+            try (
+                Connection conn = dataSource.getConnection();
+                PreparedStatement logTxStmt = conn.prepareStatement(
+                        "INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) VALUES(?, ?, ?, ?, ?);",
+                        Statement.RETURN_GENERATED_KEYS);
+                PreparedStatement actionStmt = conn.prepareStatement(
+                        "INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, transaction_id, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
+            ) {
+                conn.setAutoCommit(false);
+
+                logTxStmt.setString(1, transactionType.toString().toUpperCase());
+                logTxStmt.setDouble(2, price);
+                logTxStmt.setInt(3, amount);
+                logTxStmt.setString(4, UtilMethods.itemStackToBase64(shop.getItemStack()));
+                if (shop.getSecondaryItemStack() != null)
+                    logTxStmt.setString(5, UtilMethods.itemStackToBase64(shop.getSecondaryItemStack()));
+                else
+                    logTxStmt.setNull(5, Types.VARCHAR);
+                logTxStmt.execute();
+                ResultSet txRS = logTxStmt.getGeneratedKeys();
+                txRS.next();
+                transactionID = txRS.getInt(1);
+
+                // Log the action that occured
+                if (transactionID == 0) return; // Last query failed, so skip this one!
+                actionStmt.setTimestamp(1, new Timestamp(new Date().getTime()));
+                actionStmt.setString(2, player.getUniqueId().toString());
+                if(shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()))
+                    actionStmt.setString(3, "admin");
+                else
+                    actionStmt.setString(3, shop.getOwnerUUID().toString());
+                String shop_uuid = "";
+                if (shop.getId() != null && shop.getId().toString() != null) shop_uuid = shop.getId().toString();
+                actionStmt.setString(4, shop_uuid);
+                actionStmt.setString(5, ShopActionType.TRANSACT.toString());
+                actionStmt.setInt(6, transactionID);
+                actionStmt.setString(7, shop.getSignLocation().getWorld().getName());
+                actionStmt.setInt(8, shop.getSignLocation().getBlockX());
+                actionStmt.setInt(9, shop.getSignLocation().getBlockY());
+                actionStmt.setInt(10, shop.getSignLocation().getBlockZ());
+                actionStmt.execute();
+
+                conn.commit();
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
+                e.printStackTrace();
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING,"Error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
+                e.printStackTrace();
+            }
+        });
+    }
+
+    /**
+     * Asynchronously fills an owner's transaction summary for activity after their last login.
+     * On success, persists the latest summarized timestamp (or last login for an empty summary)
+     * when positive, allowing retention cleanup to remove eligible history through that boundary.
+     * The boundary records calculation completion, not notification delivery.
+     * Logged calculation failures clear the calculating flag, as does disabled logging.
+     *
+     * @param offlineTransactions the owner's query context and mutable summary result
+     */
+    public void calculateOfflineTransactions(OfflineTransactions offlineTransactions){
+        if(!enabled) {
+            offlineTransactions.setIsCalculating(false);
+            return;
+        }
+        offlineTransactions.setIsCalculating(true);
+        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+            String query = "SELECT * from shop_action RIGHT JOIN shop_transaction on shop_action.transaction_id = shop_transaction.id where owner_uuid=? and ts > ?;";
+            // Connect to datasource & create statement in "try" to handle automatically closing the connection!
+            try (
+                Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(query);
+            ) {
+                // Initialize variables to accumulate totals
+                double totalProfit = 0.0;
+                double totalSpent = 0.0;
+                Map<ItemStack, Integer> itemsBought = new HashMap<>();
+                Map<ItemStack, Integer> itemsSold = new HashMap<>();
+
+                // Prepare and execute the statement
+                stmt.setString(1, offlineTransactions.getPlayerUUID().toString());
+                stmt.setTimestamp(2, new Timestamp(offlineTransactions.getLastPlayed()));
+                ResultSet resultSet = stmt.executeQuery();
+
+                Timestamp summarizedThrough = new Timestamp(offlineTransactions.getLastPlayed());
+                int size = 0;
+                if (resultSet != null) {
+                    while (resultSet.next()) {
+                        size++;
+                        Timestamp actionTimestamp = resultSet.getTimestamp("ts");
+                        if (actionTimestamp.after(summarizedThrough)) summarizedThrough = actionTimestamp;
+                        // Extract transaction data
+                        String purchaserUUID = resultSet.getString("player_uuid");
+                        String tType = resultSet.getString("t_type");
+                        double price = resultSet.getDouble("price");
+                        int amount = resultSet.getInt("amount");
+                        String item = resultSet.getString("item");
+                        String barterItem = resultSet.getString("barter_item"); // May be null
+                        String shopWorld = resultSet.getString("shop_world");
+                        int shopX = resultSet.getInt("shop_x");
+                        int shopY = resultSet.getInt("shop_y");
+                        int shopZ = resultSet.getInt("shop_z");
+                        Location loc = new Location(Bukkit.getWorld(shopWorld), shopX, shopY, shopZ);
+
+                        ItemStack itemstack = UtilMethods.itemStackFromBase64(item);
+                        ItemStack barterItemstack = null;
+
+                        // Create item stack to use for the Maps (show all identical items as the same sold row)
+                        ItemStack itemCheckClone = itemstack.clone();
+                        itemCheckClone.setAmount(1);
+
+                        // Process transactions based on their type
+                        if (tType.equalsIgnoreCase("BUY")) {
+                            // User spent money to buy items
+                            totalSpent += price;
+                            int itemsBoughtAmt = itemsBought.getOrDefault(itemCheckClone, 0) + amount;
+                            itemsBought.put(itemCheckClone,itemsBoughtAmt);
+                        } else if (tType.equalsIgnoreCase("SELL")) {
+                            // User earned money by selling items
+                            totalProfit += price;
+                            int itemsSoldAmt = itemsSold.getOrDefault(itemCheckClone, 0) + amount;
+                            itemsSold.put(itemCheckClone, itemsSoldAmt);
+                        } else if (tType.equalsIgnoreCase("BARTER")) {
+                            int itemsAmt = itemsSold.getOrDefault(itemCheckClone, 0) + amount;
+                            itemsSold.put(itemCheckClone, itemsAmt);
+                            if (barterItem != null) {
+                                // Barter Item is the "currency" item being spent in the transaction
+                                barterItemstack = UtilMethods.itemStackFromBase64(barterItem);
+                                ItemStack barterItemCheckClone = barterItemstack.clone();
+                                barterItemCheckClone.setAmount(1);
+                                itemsBought.put(barterItemCheckClone, itemsBought.getOrDefault(barterItemCheckClone, 0) + (int) price);
+                            }
+                        }
+
+                        OfflinePlayer purchaser = null;
+                        if (purchaserUUID != null && !purchaserUUID.isEmpty()) {
+                            purchaser = Bukkit.getServer().getOfflinePlayer(UUID.fromString(purchaserUUID));
+                        }
+                        offlineTransactions.addTx(loc, ShopType.valueOf(tType), price, purchaser, amount, itemstack, barterItemstack);
+                    }
+                }
+
+                // Update offlineTransactions object with the calculated data
+                offlineTransactions.setNumTransactions(size);
+                offlineTransactions.setTotalProfit(totalProfit);
+                offlineTransactions.setTotalSpent(totalSpent);
+                offlineTransactions.setItemsBought(itemsBought);
+                offlineTransactions.setItemsSold(itemsSold);
+
+                // Release only history covered by this successful calculation. Persist the
+                // boundary so retention remains safe after restart, and never move it backwards
+                // if overlapping login calculations finish out of order.
+                // First-time players without purchases have no history to release. Their zero
+                // lastPlayed is also outside MySQL's TIMESTAMP range.
+                if (summarizedThrough.getTime() > 0) {
+                    try (PreparedStatement summaryStmt = conn.prepareStatement(
+                            "INSERT INTO shop_offline_summary (owner_uuid, summarized_through) VALUES (?, ?) "
+                                    + "ON DUPLICATE KEY UPDATE summarized_through = "
+                                    + "GREATEST(summarized_through, VALUES(summarized_through))")) {
+                        summaryStmt.setString(1, offlineTransactions.getPlayerUUID().toString());
+                        summaryStmt.setTimestamp(2, summarizedThrough);
+                        summaryStmt.executeUpdate();
+                    }
+                }
+                offlineTransactions.setIsCalculating(false);
+
+            } catch (SQLException e){
+                plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to get offline transactions.");
+                e.printStackTrace();
+                offlineTransactions.setIsCalculating(false);
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING,"Exception occurred while trying to get offline transactions.");
+                e.printStackTrace();
+                offlineTransactions.setIsCalculating(false);
+            }
+        });
+    }
+
+    private void testDataSource() throws SQLException {
+        // Connect to datasource & create statement in "try" to handle automatically closing the connection!
+        try (Connection conn = dataSource.getConnection()) {
+            if (!conn.isValid(1000)) {
+                enabled = false;
+                plugin.getLogger().log(Level.WARNING, "Could not establish database connection!");
+                plugin.getLogger().log(Level.WARNING, "Purchase Database Logging and Offline Purchase notifications are disabled!");
+                throw new SQLException("Could not establish database connection.");
+            } else{
+                enabled = true;
+                plugin.getLogger().debug("Established connection to database.");
+            }
+        }
+    }
+
+    private final TransactionMetrics txMetrics = new TransactionMetrics();
+
+    // Inner class to store metrics for a time bucket
+    private static class TransactionMetrics {
+        private int transactionCount = 0;
+        private int itemVolume = 0;
+
+        public void addTransaction(int itemCount, double price, boolean isBarterOrItemCurrency) {
+            transactionCount++;
+            itemVolume += itemCount;
+            // For barter transactions or when currency is items, count the "price" as item volume too
+            if (isBarterOrItemCurrency) {
+                itemVolume += (int)price;
+            }
+        }
+
+        public void resetTransactionCount() { transactionCount = 0; }
+        public void resetItemVolume() { itemVolume = 0; }
+        public int getTransactionCount() { return transactionCount; }
+        public int getItemVolume() { return itemVolume; }
+    }
+
+    // Get the number of transactions during the last 30 minutes
+    public int getRecentTransactionCount() {
+        int count = txMetrics.getTransactionCount();
+        txMetrics.resetTransactionCount();
+        return count;
+    }
+
+    // Get the number of items bought and sold during the last 30 minutes
+    public int getRecentItemVolume() {
+        try {
+            int volume = txMetrics.getItemVolume();
+            txMetrics.resetItemVolume();
+            return volume;
+        } catch (Exception e) {
+            plugin.getLogger().debug("Error calculating recent item volume");
+            return 0; // Return 0 if any error occurs
+        }
+    }
+
+    /**
+     * Looks up all transactions that occurred at shops owned by the given player between two points in time,
+     * optionally narrowed by a {@link TransactionLookupFilter} (action type, included/excluded items, customer name).
+     * Results are ordered most-recent first. The callback is always invoked on the main thread; it receives an
+     * empty list if logging is disabled or if the query fails.
+     */
+    public void getShopTransactions(UUID ownerUUID, long startTime, long endTime, TransactionLookupFilter filter, Consumer<List<PlayerTransactionRecord>> callback) {
+        if (!enabled) {
+            callback.accept(Collections.emptyList());
+            return;
+        }
+
+        // Shutdown before the async hop even starts: answer empty without touching the pool. The
+        // callback still fires — it is the caller's only completion signal — so this is a fast,
+        // truthful answer rather than a silent one.
+        if (!enabled) {
+            callback.accept(Collections.emptyList());
+            return;
+        }
+
+        // A null filter means "no narrowing", which is what a caller passing nothing means. Left
+        // as-is it NPEs on the first getCustomerName() inside the async task, which surfaces as an
+        // AsyncTaskException at unmock rather than at the call. Bound to a new local because the
+        // parameter is captured by the lambda below and so cannot be reassigned.
+        final TransactionLookupFilter effectiveFilter =
+                filter != null ? filter : new TransactionLookupFilter(null, null, null, null);
+
+        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+            List<PlayerTransactionRecord> transactions = new ArrayList<>();
+
+            // A shutdown landing after this point closes the pool under the query. That is caught
+            // below and answered empty; the callback fires either way.
+
+            // Resolve the u: selector to a UUID off the main thread, since it may require a Mojang lookup for
+            // a name that isn't already cached locally.
+            UUID customerUUIDFilter = null;
+            if (effectiveFilter.getCustomerName() != null) {
+                OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(effectiveFilter.getCustomerName());
+                if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline()) {
+                    // Nobody by that name has ever played, so there can be no matching transactions.
+                    // Deliver unconditionally: this path touches no connection, and suppressing the
+                    // callback would leave the caller with no completion signal at all.
+                    plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(Collections.emptyList()));
+                    return;
+                }
+                customerUUIDFilter = offlinePlayer.getUniqueId();
+            }
+
+            StringBuilder query = new StringBuilder(
+                    "SELECT * FROM shop_action JOIN shop_transaction ON shop_action.transaction_id = shop_transaction.id " +
+                    "WHERE owner_uuid=? AND player_action=? AND ts >= ? AND ts <= ?");
+            if (customerUUIDFilter != null) query.append(" AND player_uuid=?");
+            if (effectiveFilter.getAction() != null) query.append(" AND t_type=?");
+            // Bounded: shop_action has no retention policy yet (see issue #41), so this table only
+            // grows, and the window is player-controlled — t:90d is a valid selector. Without a cap
+            // this reads every matching row into memory, decoding a base64 ItemStack per row, and
+            // ORDER BY forces the database to sort the whole matching set before returning row one.
+            query.append(" ORDER BY ts DESC LIMIT ?;");
+
+            try (
+                Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(query.toString());
+            ) {
+                int i = 1;
+                stmt.setString(i++, ownerUUID.toString());
+                stmt.setString(i++, ShopActionType.TRANSACT.toString());
+                stmt.setTimestamp(i++, new Timestamp(startTime));
+                stmt.setTimestamp(i++, new Timestamp(endTime));
+                if (customerUUIDFilter != null) stmt.setString(i++, customerUUIDFilter.toString());
+                if (effectiveFilter.getAction() != null) stmt.setString(i++, effectiveFilter.getAction().name());
+                stmt.setInt(i++, MAX_TRANSACTION_ROWS);
+                ResultSet resultSet = stmt.executeQuery();
+
+                while (resultSet.next()) {
+                    ShopType tType = ShopType.valueOf(resultSet.getString("t_type"));
+                    double price = resultSet.getDouble("price");
+                    int amount = resultSet.getInt("amount");
+                    ItemStack item = UtilMethods.itemStackFromBase64(resultSet.getString("item"));
+                    String barterItemString = resultSet.getString("barter_item");
+                    ItemStack barterItem = barterItemString != null ? UtilMethods.itemStackFromBase64(barterItemString) : null;
+
+                    // i:/e: can't be pushed into SQL (items are stored as opaque base64 blobs), so filter here.
+                    // The item is already being decoded regardless, to build the display line, so this costs nothing extra.
+                    if (!effectiveFilter.matchesItem(item)) continue;
+
+                    UUID customerUUID = UUID.fromString(resultSet.getString("player_uuid"));
+
+                    Location shopLocation = new Location(Bukkit.getWorld(resultSet.getString("shop_world")),
+                            resultSet.getInt("shop_x"), resultSet.getInt("shop_y"), resultSet.getInt("shop_z"));
+
+                    transactions.add(new PlayerTransactionRecord(resultSet.getTimestamp("ts"), tType, price, amount, item, barterItem, customerUUID, ownerUUID, shopLocation));
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.WARNING, "SQL error occurred while trying to look up shop transactions.");
+                e.printStackTrace();
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING, "Error occurred while trying to look up shop transactions. Unable to parse itemstack from base64!");
+                e.printStackTrace();
+            }
+
+            // Always deliver. The pool is closed if shutdown() ran, so the query either succeeded
+            // before that or produced nothing — but suppressing the callback would leave the caller
+            // with no completion signal, and a caller waiting on a delivery is worse than one told
+            // the truth.
+            plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> callback.accept(transactions));
+        });
+    }
+
+    /**
+     * Upper bound on rows returned by {@link #getShopTransactions}.
+     *
+     * <p>The command paginates at ten per page, so this is far more than any single page needs; it
+     * exists to stop an unbounded read, not to shape the display. Chosen to be generous enough that a
+     * busy shop's recent history is fully covered — the alternative, an unbounded query against a
+     * table with no retention policy, degrades without limit.
+     */
+    private static final int MAX_TRANSACTION_ROWS = 2000;
+
+    private void initDb() throws SQLException {
+        // first lets read our setup file.
+        // This file contains statements to create our inital tables.
+        // it is located in the resources.
+        String setup;
+        try (InputStream in = plugin.getResource("dbsetup.sql")) {
+            if (in == null) {
+                // getResource returns null when the resource is absent — a shaded jar that dropped it,
+                // or a packaging mistake. Treated as a failure below rather than a NullPointerException.
+                throw new SQLException("dbsetup.sql was not found in the plugin jar");
+            }
+            setup = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining("\n")); // Legacy way
+        } catch (IOException e) {
+            // Rethrow so the constructor's catch(SQLException) sets enabled=false and reports the
+            // failure. Returning normally here left enabled true, so the constructor went on to log
+            // "Shop Database Logging initialized successfully!" with no tables in existence.
+            throw new SQLException("Could not read db setup file.", e);
+        }
+        // Mariadb can only handle a single query per statement. We need to split at ;.
+        String[] queries = setup.split(";");
+        // execute each query to the database.
+        for (String query : queries) {
+            if (query.isEmpty()) continue;
+            // Connect to datasource & create statement in "try" to handle automatically closing the connection!
+            try (
+                Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(query);
+            ) {
+                stmt.execute();
+            }
+        }
+        plugin.getLogger().debug("Successfully initialized database.");
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+}

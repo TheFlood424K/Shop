@@ -187,6 +187,15 @@ public class ShopCreationUtil {
         final AbstractShop shop = AbstractShop.create(signBlock.getLocation(), player.getUniqueId(), pricePair.getPrice(), pricePair.getPriceCombo(), amount, isAdmin, type, signDirection);
         shop.setFakeSign(isFakeSign);
 
+        // Validate secondary price for COMBO shops: reject negative and zero
+        if (type == ShopType.COMBO) {
+            double priceCombo = pricePair.getPriceCombo();
+            if (priceCombo <= 0) {
+                ShopMessage.sendMessage("interaction_issue", "line3", player, null);
+                return null;
+            }
+        }
+
         if (plugin.usePerms()) {
             if (!(player.hasPermission("shop.create." + type.toString().toLowerCase()) || player.hasPermission("shop.create")))
                 playerMessage = ShopMessage.getUnformattedMessage("permission", "create");
