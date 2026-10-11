@@ -22,6 +22,11 @@ class PluginDescriptorConsistencyTest {
     private static final Path MAIN_PLUGIN_YML = Paths.get("src/main/resources/plugin.yml");
     private static final Path TEST_PLUGIN_YML = Paths.get("src/test/resources/plugin.yml");
 
+    /**
+     * Verifies that the main and test plugin descriptors exist and contain identical text.
+     *
+     * @throws IOException if either descriptor cannot be read
+     */
     @Test
     void testPluginDescriptorConsistency() throws IOException {
         // Both files must exist

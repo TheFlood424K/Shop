@@ -205,6 +205,12 @@ public class TransactionHandler {
         shop.updateStock();
     }
 
+    /**
+     * Reserves a two-minute notification cooldown for a non-admin shop's sign location.
+     *
+     * @param shop the shop whose owner may be notified
+     * @return true if a new cooldown was started; false for admin shops or an active cooldown
+     */
     private boolean notifyOwner(final AbstractShop shop){
         if(shop.isAdmin())
             return false;

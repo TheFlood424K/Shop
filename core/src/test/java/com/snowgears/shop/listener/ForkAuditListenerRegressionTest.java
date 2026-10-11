@@ -48,6 +48,7 @@ public class ForkAuditListenerRegressionTest extends BaseMockBukkitTest {
         setConfig("debug_shopInitTimeout", 0);
     }
 
+    /** Verifies that initializing a shop cancels the interact event to protect its sign from the same click. */
     @Test
     void leftClickInit_cancelsTheInteractEventSoTheSignSurvives() {
         Shop plugin = getPlugin();
@@ -96,6 +97,7 @@ public class ForkAuditListenerRegressionTest extends BaseMockBukkitTest {
                         + "BlockBreakEvent from the same click destroys the sign just created");
     }
 
+    /** Verifies that the shop initialization path used by spear attacks accepts a missing interact event. */
     @Test
     void leftClickInit_worksWithoutAnEventForSpearAttacks() {
         // SpearAttackListener calls the 4-arg overload with no event; that path must still initialise.

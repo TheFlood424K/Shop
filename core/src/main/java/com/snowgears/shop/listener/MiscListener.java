@@ -107,6 +107,12 @@ public class MiscListener implements Listener {
             event.setCancelled(true);
     }
 
+    /**
+     * Validates a wall sign's creation word, amount, price and shop type, then creates
+     * an uninitialized shop on its attached chest when sign creation is enabled.
+     *
+     * @param event the sign edit supplying the shop details
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onShopCreation(SignChangeEvent event) {
         final Block b = event.getBlock();

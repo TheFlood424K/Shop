@@ -44,6 +44,7 @@ public class ShopTransactionsTest extends BaseMockBukkitTest {
         return ShopCreationChestTest.createShop(server, getPlugin(), owner, world, chestLoc, new ItemStack(Material.DIRT), "sell", 8, "1");
     }
 
+    /** Verifies right-click purchases, insufficient-funds and stock messages, and sign updates after restocking. */
     @Test
     void sign_rightClick_other_performTransaction() {
         // Ensure mapping for transact is RIGHT_CLICK_SIGN by default

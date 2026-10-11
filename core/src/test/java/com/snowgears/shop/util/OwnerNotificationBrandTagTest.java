@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("integration")
 class OwnerNotificationBrandTagTest extends BaseMockBukkitTest {
 
+    /** Verifies that a SELL shop stock warning preserves the literal {@code [Shop]} brand tag. */
     @Test
     void ownerNoStockMessageContainsLiteralShopBrandTag() {
         ServerMock server = getServer();
@@ -106,6 +107,7 @@ class OwnerNotificationBrandTagTest extends BaseMockBukkitTest {
                 "Owner no-stock notification must not use sign creation word 'sell' as brand tag prefix. Got: " + ownerMsg);
     }
 
+    /** Verifies that a BUY shop space warning preserves the literal {@code [Shop]} brand tag. */
     @Test
     void ownerNoSpaceMessageContainsLiteralShopBrandTag() {
         ServerMock server = getServer();
@@ -175,6 +177,7 @@ class OwnerNotificationBrandTagTest extends BaseMockBukkitTest {
                 "Owner no-space notification must not use sign creation word 'buy' as brand tag prefix. Got: " + ownerMsg);
     }
 
+    /** Verifies that a BARTER shop stock warning preserves the literal {@code [Shop]} brand tag. */
     @Test
     void barterShopNoStockMessageContainsLiteralShopBrandTag() {
         ServerMock server = getServer();
@@ -246,6 +249,7 @@ class OwnerNotificationBrandTagTest extends BaseMockBukkitTest {
                 "Owner barter no-stock notification must not use sign creation word 'barter' as brand tag prefix. Message prefix: '" + prefix + "'. Full message: " + ownerMsg);
     }
 
+    /** Verifies that the shop sign displays the configured sign word without the chat brand tag. */
     @Test
     void signPlaceholderUsesSignCreationWordNotBrandTag() {
         // This test verifies that the [shop] placeholder on SIGNS resolves to "shop"
