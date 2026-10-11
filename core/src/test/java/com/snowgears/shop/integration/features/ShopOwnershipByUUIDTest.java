@@ -4,6 +4,8 @@ import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.SellShop;
 import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 import com.snowgears.shop.testsupport.StubbedPlayers;
+import com.snowgears.shop.testsupport.StubbedPlayerMock;
+import com.snowgears.shop.util.PlayerNameCache;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -35,7 +37,12 @@ class ShopOwnershipByUUIDTest extends BaseMockBukkitTest {
         World world = getServer().addSimpleWorld("world");
 
         // Create a shop owned by "Owner" with UUID_1
-        UUID ownerUUID1 = UUID.randomUUID();
+        Player trueOwner = StubbedPlayers.add(getServer(), "Owner");
+        trueOwner.setOp(false);
+        trueOwner.setSneaking(true);
+        trueOwner.addAttachment(getPlugin(), "shop.destroy", true);
+        UUID ownerUUID1 = trueOwner.getUniqueId();
+        PlayerNameCache.cacheName(ownerUUID1, trueOwner.getName());
         Location signLoc = new Location(world, 100, 64, 100);
         SellShop shop = new SellShop(signLoc, ownerUUID1, 10.0, 1, false, BlockFace.NORTH);
         shop.setItemStack(new ItemStack(Material.DIAMOND));
@@ -60,12 +67,24 @@ class ShopOwnershipByUUIDTest extends BaseMockBukkitTest {
             fail("Reflection failed: " + e.getMessage());
         }
 
-        // Create the TRUE owner player (UUID_1, name "Owner")
-        Player trueOwner = StubbedPlayers.add(getServer(), "Owner");
-        trueOwner.setOp(true);
-
         // Verify the shop is owned by the correct UUID
         assertEquals(ownerUUID1, shop.getOwnerUUID(), "Shop owner UUID should match");
+
+        StubbedPlayerMock impostor = new StubbedPlayerMock(getServer(), "Owner", UUID.randomUUID());
+        getServer().addPlayer(impostor);
+        impostor.setOp(false);
+        impostor.setSneaking(true);
+        impostor.addAttachment(getPlugin(), "shop.destroy", true);
+        impostor.addAttachment(getPlugin(), "shop.operator", false);
+        impostor.addAttachment(getPlugin(), "shop.destroy.other", false);
+        assertEquals(trueOwner.getName(), impostor.getName());
+        assertEquals(shop.getOwnerName(), impostor.getName());
+        assertNotEquals(ownerUUID1, impostor.getUniqueId());
+
+        BlockBreakEvent eventByImpostor = new BlockBreakEvent(signBlock, impostor);
+        getPlugin().getMiscListener().shopDestroy(eventByImpostor);
+        assertTrue(eventByImpostor.isCancelled(), "A matching name must not grant ownership");
+        assertSame(shop, getPlugin().getShopHandler().getShop(signLoc));
 
         // Create a BlockBreakEvent from the true owner
         BlockBreakEvent eventByTrueOwner = new BlockBreakEvent(signBlock, trueOwner);
@@ -80,10 +99,7 @@ class ShopOwnershipByUUIDTest extends BaseMockBukkitTest {
         assertFalse(eventByTrueOwner.isCancelled(),
             "True owner (matching UUID) should be able to destroy their shop");
 
-        // Verify the ownership check logic
-        // The code at MiscListener.java:675 checks: shop.getOwnerUUID().equals(player.getUniqueId())
-        // This is the correct UUID-based comparison
-        assertTrue(true, "Ownership check uses UUID comparison");
+        assertNull(getPlugin().getShopHandler().getShop(signLoc), "The true owner should remove the shop");
     }
 
     /**

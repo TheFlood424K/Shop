@@ -235,11 +235,15 @@ public class MiscListener implements Listener {
     }
 
     /**
-     * Checks if the given chest block has an adjacent chest block that would form a double chest.
+     * Checks for an adjacent chest only when the given block belongs to a double chest.
      * Returns the adjacent chest block if found, null otherwise.
      * Only checks horizontal neighbors (NORTH, SOUTH, EAST, WEST).
      */
     private Block getDoubleChestMate(Block chest) {
+        if (!(chest.getState() instanceof InventoryHolder holder)
+                || !(holder.getInventory().getHolder() instanceof DoubleChest)) {
+            return null;
+        }
         for (BlockFace face : CARDINAL_FACES) {
             Block neighbor = chest.getRelative(face);
             if (plugin.getShopHandler().isChest(neighbor)) {

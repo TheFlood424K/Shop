@@ -58,6 +58,10 @@ public class ComboShop extends AbstractShop {
             return stock;
         }
         else {
+            if (this.getPrice() == 0) {
+                stock = 0;
+                return stock;
+            }
             double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
             // Calculate buying capacity from available funds
             stock = (int) Math.floor(funds / this.getPrice());

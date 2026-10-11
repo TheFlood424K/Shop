@@ -602,7 +602,7 @@ public class ShopMessage {
         });
         registerPlaceholder("[shop type]", context -> {
             if (context.getProcess() != null && context.getProcess().getShopType() != null)
-                return Component.text(context.getProcess().getShopType().getConfigKey());
+                return Component.text(getCreationWord(context.getProcess().getShopType().getConfigKey()));
             if (context.getShop() != null)
                 return Component.text(ShopMessage.getCreationWord(context.getShop().getType().getConfigKey()));
             return null;

@@ -152,6 +152,11 @@ public class ShopCreationUtil {
         if(type == null)
             type = ShopType.SELL;
 
+        if (pricePair.getPriceCombo() < 0 || (pricePair.getPriceCombo() == 0 && type == ShopType.COMBO)) {
+            ShopMessage.sendMessage("interaction_issue", "line3", player, null);
+            return null;
+        }
+
         // The admin flag arrives from the player's own creation input (see getShopIsAdmin), so it is a
         // request, not a fact. Honour it only for a player entitled to it, and coerce rather than
         // refuse: the rest of creation proceeds normally and the player keeps their shop.

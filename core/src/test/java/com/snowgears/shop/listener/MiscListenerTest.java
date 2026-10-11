@@ -70,6 +70,25 @@ class MiscListenerTest extends BaseMockBukkitTest {
         setConfig("debug_shopInitTimeout", 0); // Disable initialization timeout for tests
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = Material.class,
+            names = {"CHEST", "BARREL", "WHITE_SHULKER_BOX"})
+    void adjacentContainersDoNotMoveCreationLocation(Material material) {
+        Block clicked = world.getBlockAt(10, 65, 10);
+        clicked.setType(material);
+        clicked.getRelative(BlockFace.WEST).setType(Material.CHEST);
+        player.setSneaking(true);
+        ItemStack item = new ItemStack(Material.DIAMOND);
+        player.getInventory().setItemInMainHand(item);
+        stubCalculateBlockFaceForSign(BlockFace.NORTH);
+
+        miscListener.handleShopLeftClick(player, clicked, item, BlockFace.NORTH);
+
+        var process = miscListener.getShopCreationProcess(player);
+        assertNotNull(process);
+        assertEquals(clicked.getLocation(), process.getClickedChest().getLocation());
+    }
+
     // ============================================================
     // WALL SIGN CREATION TESTS (all 4 cardinal directions)
     // ============================================================
