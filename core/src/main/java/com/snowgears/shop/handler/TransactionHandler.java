@@ -205,6 +205,12 @@ public class TransactionHandler {
         shop.updateStock();
     }
 
+    /**
+     * Reserves a two-minute notification cooldown for a non-admin shop's sign location.
+     *
+     * @param shop the shop whose owner may be notified
+     * @return true if a new cooldown was started; false for admin shops or an active cooldown
+     */
     private boolean notifyOwner(final AbstractShop shop){
         if(shop.isAdmin())
             return false;
@@ -212,10 +218,7 @@ public class TransactionHandler {
             return false;
         else{
             // Capture the sign location so the cooldown entry can always be removed even if
-            // the shop object is deleted before the 2-minute window elapses (Bug fix: the
-            // old code fell into the TODO path and left a dangling entry in the cooldown map
-            // when the shop was deleted mid-cooldown, permanently breaking owner notifications
-            // for any new shop created at the same location within that window).
+            // the shop object is deleted before the 2-minute window elapses.
             final Location signLoc = shop.getSignLocation();
             shopMessageCooldown.put(signLoc, shop.getOwnerUUID());
 
