@@ -275,7 +275,7 @@
         <dependency>
             <groupId>com.github.LlmDl</groupId>
             <artifactId>Towny</artifactId>
-            <version>0.103.2.7</version>
+            <version>0.103.2.10</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
