@@ -51,6 +51,15 @@ public class ComboShop extends AbstractShop {
         this.priceSell = priceSell;
     }
 
+    /**
+     * Updates and returns stock in transactions, using the owner's buying funds first
+     * and sellable inventory only when buying stock is zero. A zero buy price disables
+     * buying stock. With partial sales enabled, reports one for an affordable item or,
+     * on the selling fallback with a positive sell price, enough items worth at least
+     * one currency unit. Admin shops always report {@link Integer#MAX_VALUE}.
+     *
+     * @throws ArithmeticException if the transaction amount is zero when counting selling stock
+     */
     @Override
     protected int calculateStock(){
         if(this.isAdmin) {

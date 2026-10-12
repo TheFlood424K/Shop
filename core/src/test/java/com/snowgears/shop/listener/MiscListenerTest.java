@@ -165,6 +165,42 @@ class MiscListenerTest extends BaseMockBukkitTest {
         verify(creationUtil, Mockito.never()).shopCanBeCreated(player, mate);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"[MaRkEt], true", "[ChatBrand], false", "unrelated, false"})
+    void signCreationRecognizesTheConfiguredSignWord(String firstLine, boolean recognized) {
+        var signConfig = ShopMessage.getSignConfig();
+        Object previousSignWord = signConfig.get("sign_creation.SHOP");
+        String previousChatWord = ShopMessage.getCreationWords().put("SHOP", "[ChatBrand]");
+        var originalCreationUtil = plugin.getShopCreationUtil();
+        var creation = mock(com.snowgears.shop.util.ShopCreationUtil.class);
+        com.snowgears.shop.testsupport.TestReflection.setField(plugin, "shopCreationUtil", creation);
+        try {
+            signConfig.set("sign_creation.SHOP", "market");
+            Block sign = world.getBlockAt(10, 65, 10);
+            sign.setType(Material.OAK_WALL_SIGN);
+            WallSign data = (WallSign) sign.getBlockData();
+            data.setFacing(BlockFace.NORTH);
+            sign.setBlockData(data);
+            world.setBlockData(sign.getLocation(), data);
+            Block chest = sign.getRelative(BlockFace.SOUTH);
+            chest.setType(Material.CHEST);
+            SignChangeEvent event = new SignChangeEvent(sign, player,
+                    new String[]{firstLine, "1", "5", "sell"});
+
+            // Validation returns false so this isolates recognition from the creation pipeline.
+            miscListener.onShopCreation(event);
+
+            assertEquals(recognized, event.isCancelled());
+            if (recognized) verify(creation).shopCanBeCreated(player, chest);
+            else Mockito.verifyNoInteractions(creation);
+        } finally {
+            com.snowgears.shop.testsupport.TestReflection.setField(plugin, "shopCreationUtil", originalCreationUtil);
+            signConfig.set("sign_creation.SHOP", previousSignWord);
+            if (previousChatWord == null) ShopMessage.getCreationWords().remove("SHOP");
+            else ShopMessage.getCreationWords().put("SHOP", previousChatWord);
+        }
+    }
+
     // ============================================================
     // WALL SIGN CREATION TESTS (all 4 cardinal directions)
     // ============================================================

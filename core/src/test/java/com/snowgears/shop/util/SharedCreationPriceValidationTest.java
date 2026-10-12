@@ -6,8 +6,11 @@ import org.bukkit.Material;
 import org.bukkit.block.BlockFace;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.MockedStatic;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class SharedCreationPriceValidationTest extends BaseMockBukkitTest {
 
@@ -41,4 +44,22 @@ class SharedCreationPriceValidationTest extends BaseMockBukkitTest {
             assertEquals(Material.OAK_WALL_SIGN, sign.getType());
         }
     }
+
+    @ParameterizedTest
+    @EnumSource(ShopType.class)
+    void negativeSecondaryPriceIsRejectedBeforeTouchingContainers(ShopType type) {
+        var player = addStubbedOpPlayer("Owner");
+        var chest = mock(org.bukkit.block.Block.class);
+        var sign = mock(org.bukkit.block.Block.class);
+
+        try (MockedStatic<ShopMessage> messages = mockStatic(ShopMessage.class)) {
+            var shop = getPlugin().getShopCreationUtil().createShop(player, chest, sign,
+                    new PricePair(10, -0.01), 1, true, type, BlockFace.NORTH, true);
+
+            assertNull(shop, "Even an administrator must supply a nonnegative secondary price");
+            messages.verify(() -> ShopMessage.sendMessage("interaction_issue", "line3", player, null));
+            verifyNoInteractions(chest, sign);
+        }
+    }
+
 }
