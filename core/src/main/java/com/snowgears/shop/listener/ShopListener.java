@@ -107,19 +107,20 @@ public class ShopListener implements Listener {
             if (Tag.WALL_SIGNS.isTagged(clicked.getType()) || Tag.STANDING_SIGNS.isTagged(clicked.getType())) {
                 AbstractShop shop = plugin.getShopHandler().getShop(clicked.getLocation());
                 if (shop == null || !shop.isInitialized()) return;
-                boolean actionPerformed;
+                ShopClickType clickType;
                 if(player.isSneaking()) {
                     if(event.getAction() == Action.RIGHT_CLICK_BLOCK)
-                        actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_RIGHT_CLICK_SIGN);
+                        clickType = ShopClickType.SHIFT_RIGHT_CLICK_SIGN;
                     else
-                        actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_LEFT_CLICK_SIGN);
+                        clickType = ShopClickType.SHIFT_LEFT_CLICK_SIGN;
                 } else{
                     if(event.getAction() == Action.RIGHT_CLICK_BLOCK)
-                        actionPerformed = shop.executeClickAction(event, ShopClickType.RIGHT_CLICK_SIGN);
+                        clickType = ShopClickType.RIGHT_CLICK_SIGN;
                     else
-                        actionPerformed = shop.executeClickAction(event, ShopClickType.LEFT_CLICK_SIGN);
+                        clickType = ShopClickType.LEFT_CLICK_SIGN;
                 }
-                if (actionPerformed) event.setCancelled(true);
+                boolean actionPerformed = shop.executeClickAction(event, clickType);
+                if (actionPerformed || plugin.getShopAction(clickType) != null) event.setCancelled(true);
             }
         }
     }
