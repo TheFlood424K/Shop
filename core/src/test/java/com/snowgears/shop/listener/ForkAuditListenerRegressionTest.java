@@ -48,6 +48,7 @@ public class ForkAuditListenerRegressionTest extends BaseMockBukkitTest {
         setConfig("debug_shopInitTimeout", 0);
     }
 
+    /** Verifies that initializing a shop cancels the interact event to protect its sign from the same click. */
     @Test
     void leftClickInit_cancelsTheInteractEventSoTheSignSurvives() {
         Shop plugin = getPlugin();
@@ -64,7 +65,7 @@ public class ForkAuditListenerRegressionTest extends BaseMockBukkitTest {
         Location chestLoc = signBlock.getRelative(BlockFace.SOUTH).getLocation();
         world.getBlockAt(chestLoc).setType(Material.CHEST);
 
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         SignChangeEvent signChange = new SignChangeEvent(signBlock, player, new String[]{
                 creationWord, "1", "10", ShopMessage.getCreationWord("SELL")});
         getServer().getPluginManager().callEvent(signChange);
@@ -96,6 +97,7 @@ public class ForkAuditListenerRegressionTest extends BaseMockBukkitTest {
                         + "BlockBreakEvent from the same click destroys the sign just created");
     }
 
+    /** Verifies that the shop initialization path used by spear attacks accepts a missing interact event. */
     @Test
     void leftClickInit_worksWithoutAnEventForSpearAttacks() {
         // SpearAttackListener calls the 4-arg overload with no event; that path must still initialise.
@@ -111,7 +113,7 @@ public class ForkAuditListenerRegressionTest extends BaseMockBukkitTest {
         world.setBlockData(signLoc, facing);
         world.getBlockAt(signBlock.getRelative(BlockFace.SOUTH).getLocation()).setType(Material.CHEST);
 
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         getServer().getPluginManager().callEvent(new SignChangeEvent(signBlock, player, new String[]{
                 creationWord, "1", "10", ShopMessage.getCreationWord("SELL")}));
         while (player.nextMessage() != null) {}

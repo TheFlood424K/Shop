@@ -50,8 +50,8 @@ import java.util.Collections;
  */
 public abstract class BaseMockBukkitTest {
 
-    private static ServerMock server;
-    private static Shop plugin;
+    protected static ServerMock server;
+    protected static Shop plugin;
 
     @BeforeEach
     public void initServer() {
@@ -238,7 +238,7 @@ public abstract class BaseMockBukkitTest {
         }
     }
 
-    protected static String waitForNextMessage(PlayerMock player) {
+    public static String waitForNextMessage(PlayerMock player) {
         String nextMessage = null;
         int attempts = 0;
         while (nextMessage == null && attempts < 1000) {
