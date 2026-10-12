@@ -94,6 +94,12 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertEquals(clicked.getLocation(), process.getClickedChest().getLocation());
     }
 
+    /**
+     * Verifies that a chest mate comes from the combined inventory's distinct halves,
+     * and that unrelated blocks, missing halves and single chests have no mate.
+     *
+     * @throws Exception if reflective access to the chest-mate helper fails
+     */
     @Test
     void doubleChestMateUsesInventoryHalves() throws Exception {
         Block leftBlock = mock(Block.class);
@@ -165,6 +171,12 @@ class MiscListenerTest extends BaseMockBukkitTest {
         verify(creationUtil, Mockito.never()).shopCanBeCreated(player, mate);
     }
 
+    /**
+     * Verifies case-insensitive recognition of the configured sign word without accepting the chat brand tag.
+     *
+     * @param firstLine the text on the sign's first line
+     * @param recognized whether the text should enter shop validation
+     */
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"[MaRkEt], true", "[ChatBrand], false", "unrelated, false"})
     void signCreationRecognizesTheConfiguredSignWord(String firstLine, boolean recognized) {

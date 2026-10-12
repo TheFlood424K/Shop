@@ -18,6 +18,16 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class DisplayCyclePermissionTest extends BaseMockBukkitTest {
+    /**
+     * Verifies that click results and display mutations agree with ownership and permission rules.
+     *
+     * @param usePerms whether permission checks are enabled
+     * @param owner whether the player has the shop owner's UUID
+     * @param op whether the player is a server operator
+     * @param operatorPermission whether the player has {@code shop.operator}
+     * @param displayPermission whether the player has {@code shop.setdisplay}
+     * @param allowed whether the display should change
+     */
     @ParameterizedTest
     @CsvSource({
             "false, false, false, false, false, false",
