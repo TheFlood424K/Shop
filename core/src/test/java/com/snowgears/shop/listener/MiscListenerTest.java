@@ -130,6 +130,41 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertNull(getMate.invoke(miscListener, world.getBlockAt(0, 0, 0)));
     }
 
+    /** Both halves must use the same primary chest when checking whether creation is allowed. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"10, 10, 11, 10", "10, 10, 10, 11"})
+    void doubleChestSelectionChecksSamePrimaryFromEitherHalf(int primaryX, int primaryZ, int mateX, int mateZ) {
+        Block primary = mock(Block.class);
+        Block mate = mock(Block.class);
+        when(primary.getLocation()).thenReturn(new Location(world, primaryX, 65, primaryZ));
+        when(mate.getLocation()).thenReturn(new Location(world, mateX, 65, mateZ));
+        org.bukkit.block.Chest left = mock(org.bukkit.block.Chest.class);
+        org.bukkit.block.Chest right = mock(org.bukkit.block.Chest.class);
+        org.bukkit.inventory.Inventory inventory = mock(org.bukkit.inventory.Inventory.class);
+        org.bukkit.block.DoubleChest doubleChest = mock(org.bukkit.block.DoubleChest.class);
+        when(primary.getState()).thenReturn(left);
+        when(mate.getState()).thenReturn(right);
+        when(left.getInventory()).thenReturn(inventory);
+        when(right.getInventory()).thenReturn(inventory);
+        when(inventory.getHolder()).thenReturn(doubleChest);
+        when(doubleChest.getLeftSide()).thenReturn(left);
+        when(doubleChest.getRightSide()).thenReturn(right);
+        when(left.getBlock()).thenReturn(primary);
+        when(right.getBlock()).thenReturn(mate);
+        ShopHandler handler = mock(ShopHandler.class);
+        when(handler.isChest(primary)).thenReturn(true);
+        when(handler.isChest(mate)).thenReturn(true);
+        setPluginField("shopHandler", handler);
+        com.snowgears.shop.util.ShopCreationUtil creationUtil = mock(com.snowgears.shop.util.ShopCreationUtil.class);
+        setPluginField("shopCreationUtil", creationUtil);
+
+        miscListener.handleShopLeftClick(player, primary, null, BlockFace.NORTH);
+        miscListener.handleShopLeftClick(player, mate, null, BlockFace.NORTH);
+
+        verify(creationUtil, Mockito.times(2)).shopCanBeCreated(player, primary);
+        verify(creationUtil, Mockito.never()).shopCanBeCreated(player, mate);
+    }
+
     // ============================================================
     // WALL SIGN CREATION TESTS (all 4 cardinal directions)
     // ============================================================

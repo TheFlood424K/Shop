@@ -407,7 +407,7 @@ public class MiscListener implements Listener {
                     return;
                 }
                 // Use the first chest as the primary location for consistency
-                clicked = clicked.getLocation().getBlockX() <= doubleChestMate.getLocation().getBlockX()
+                clicked = clicked.getLocation().getBlockX() < doubleChestMate.getLocation().getBlockX()
                         || (clicked.getLocation().getBlockX() == doubleChestMate.getLocation().getBlockX()
                         && clicked.getLocation().getBlockZ() <= doubleChestMate.getLocation().getBlockZ())
                         ? clicked : doubleChestMate;
