@@ -13,9 +13,15 @@ import org.bukkit.inventory.ItemStack;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Seeds a transaction log and reads it back through the production query (issue #96).
@@ -32,36 +38,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <h2>The async trap</h2>
  *
- * <p>Both sides hop twice — {@code runAsync} for the work, then {@code runNextTick} to deliver. A
- * test must drain <em>both</em> hops; draining one produces a silently empty result rather than a
- * failure. {@link #drain()} pumps until the tracked counter settles rather than assuming a fixed tick
- * count covers it.
+ * <p>Writes run asynchronously; queries also use {@code runNextTick} to deliver results. A
+ * test must wait for committed writes and the query callback. The fixture advances ticks while
+ * waiting for those completion signals, rather than assuming a fixed tick count covers them.
  */
 class TransactionLogFixture extends BaseMockBukkitTest {
-
-    /** Counts work units started by {@link #seedSales} so {@link #drain()} can tell when the
-     *  tracked work has actually settled rather than guessing a fixed iteration count. */
-    private final AtomicInteger completed = new AtomicInteger();
-
-    /** Counts read queries in flight so {@link #drain()} waits for them too. */
-    private final AtomicInteger readQueriesInFlight = new AtomicInteger();
-
-    /** How many wait-and-pump cycles drain() performs when the work has not yet settled.
-     *  Chosen large enough that the second async hop (runNextTick) reliably lands even on busy
-     *  CI runners, where the pool wait loop inside MockBukkit's waitAsyncTasksFinished() does
-     *  not pump ticks. */
-    private static final int DRAIN_ITERATIONS = 120;
-
-    /** Ticks pumped per drain() iteration after the async pool is observed idle. Ten is
-     *  enough to flush any runNextTick callbacks scheduled by the just-completed async task. */
-    private static final int TICKS_PER_DRAIN = 10;
-
-    /**
-     *  Consecutive drain() iterations in which the async pool reports no outstanding work.
-     *  Once this many run back-to-back, the tracked work has settled and draining stops —
-     *  rather than running the full DRAIN_ITERATIONS every time. See issue #125.
-     */
-    private static final int IDLE_RUNS_TO_SETTLE = 3;
 
     protected ServerMock server() {
         return getServer();
@@ -85,76 +66,51 @@ class TransactionLogFixture extends BaseMockBukkitTest {
                             + "The default test config uses logging.type FILE (H2) and should be enabled.");
         }
 
+        UUID owner = shop.getOwnerUUID();
+        int expectedRows = countSales(owner) + count;
         for (int i = 0; i < count; i++) {
-            completed.incrementAndGet();
             log.logTransaction(seller, shop, type, price, amount);
         }
-        drain();
-        return shop.getOwnerUUID();
+        await(() -> countSales(owner) == expectedRows, "seeded transaction writes");
+        return owner;
     }
 
     /** Reads back through the production query, asserting the owner filter is honoured. */
     protected List<PlayerTransactionRecord> readSales(UUID owner) throws Exception {
-        AtomicInteger delivered = new AtomicInteger();
-        List<PlayerTransactionRecord>[] box = newBox();
-
-        readQueriesInFlight.incrementAndGet();
+        CompletableFuture<List<PlayerTransactionRecord>> result = new CompletableFuture<>();
         getPlugin().getLogHandler().getShopTransactions(owner,
                 System.currentTimeMillis() - 86_400_000L * 365,
                 System.currentTimeMillis(),
                 new TransactionLookupFilter(null, null, null, null),
-                records -> {
-                    box[0] = records;
-                    delivered.incrementAndGet();
-                    readQueriesInFlight.decrementAndGet();
-                });
-        drain();
-
-        if (delivered.get() == 0) {
-            throw new IllegalStateException("The query never delivered; the async hops were not drained");
-        }
-        return box[0];
+                result::complete);
+        await(result::isDone, "transaction query callback");
+        return result.get();
     }
 
-    @SuppressWarnings("unchecked")
-    private List<PlayerTransactionRecord>[] newBox() {
-        return new List[1];
-    }
-
-    /**
-     * Pumps ticks until the in-flight work settles.
-     *
-     * <p>The query is double-hopped ({@code runAsync} then {@code runNextTick}), so a single
-     * {@code performTicks(2)} is not enough — and when it is not enough the result is an empty list
-     * rather than a failure, which is how a broken fixture masquerades as "no sales recorded".
-     *
-     * <p>MockBukkit's {@code waitAsyncTasksFinished()} processes scheduled tasks <em>before</em>
-     * waiting for the async pool, but does not pump ticks <em>during</em> the wait. When an async
-     * task completes and schedules a {@code runNextTick} callback, that callback lands in the
-     * scheduler queue for the next tick, but the main thread is asleep in the pool wait loop.
-     * We therefore pump ticks both before and after the wait, with enough iterations to cover
-     * load-induced delays on busy CI runners.
-     */
-    protected void drain() {
-        int idle = 0;
-        for (int i = 0; i < DRAIN_ITERATIONS; i++) {
-            // waitAsyncTasksFinished drains the current batch of async work and may take
-            // up to executorTimeout (60s). After it returns the pool is idle but any
-            // runNextTick callbacks scheduled by the just-finished tasks are queued for
-            // the next tick — pump ticks so they fire.
-            getServer().getScheduler().waitAsyncTasksFinished();
-            getServer().getScheduler().performTicks(TICKS_PER_DRAIN);
-
-            // Stop once the tracked work has settled, instead of running all 120 cycles
-            // every time. The tracked work includes both seedSales and readSales calls.
-            if (completed.get() == 0 && readQueriesInFlight.get() == 0) {
-                if (++idle >= IDLE_RUNS_TO_SETTLE) {
-                    return;
-                }
-            } else {
-                idle = 0;
+    /** Observes committed writes only; all seeding and result assertions use production methods. */
+    private int countSales(UUID owner) throws SQLException {
+        try (Connection connection = getPlugin().getLogHandler().getDataSourceForTesting().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT COUNT(*) FROM shop_action WHERE owner_uuid = ? AND player_action = 'TRANSACT'")) {
+            statement.setString(1, owner.toString());
+            try (ResultSet rows = statement.executeQuery()) {
+                rows.next();
+                return rows.getInt(1);
             }
         }
+    }
+
+    /** Advances ticks and yields to workers until completion, failing after five seconds. */
+    private void await(Callable<Boolean> completed, String description) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            getServer().getScheduler().performTicks(10);
+            if (completed.call()) {
+                return;
+            }
+            Thread.sleep(1);
+        }
+        throw new IllegalStateException(description + " did not complete within five seconds");
     }
 
     /**
