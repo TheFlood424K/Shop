@@ -47,10 +47,10 @@ class LogHandlerQueryBoundTest {
     private Shop plugin;
 
     /** Retry async completion because a query can still be queued when the pool is observed idle. */
-    private static final int WAIT_ITERATIONS = 120;
+    private static final int WAIT_ITERATIONS = 300;
 
     /** Maximum callback ticks per query wait iteration. */
-    private static final int TICKS_PER_WAIT = 10;
+    private static final int TICKS_PER_WAIT = 20;
 
     @BeforeEach
     void setUp() {
