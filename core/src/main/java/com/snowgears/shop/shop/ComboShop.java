@@ -58,14 +58,16 @@ public class ComboShop extends AbstractShop {
             return stock;
         }
         else {
-            double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
-            // Calculate buying capacity from available funds
-            stock = (int) Math.floor(funds / this.getPrice());
-            // Check if we should show partial buying capacity
-            if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
-                if (funds >= this.getPricePerItem()) {
-                    stock = 1;
-                    return stock;
+            stock = 0;
+            // A zero buy price has no funds-based capacity; still check sell-side inventory.
+            if (this.getPrice() > 0) {
+                double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
+                stock = (int) Math.floor(funds / this.getPrice());
+                if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
+                    if (funds >= this.getPricePerItem()) {
+                        stock = 1;
+                        return stock;
+                    }
                 }
             }
 
@@ -74,9 +76,9 @@ public class ComboShop extends AbstractShop {
                 int itemsToSell = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
                 stock = itemsToSell / this.getAmount();
                 // Check if we should show partial stock
-                if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
+                if (stock == 0 && this.getPriceSell() > 0 && Shop.getPlugin().getAllowPartialSales()) {
                     // Calculate the minimum items required to show as in stock
-                    int minItemAmountRequired = (int) Math.ceil(1 / this.getPricePerItem());
+                    int minItemAmountRequired = (int) Math.ceil(this.getAmount() / this.getPriceSell());
                     int itemsInShop = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
 
                     if(itemsInShop >= minItemAmountRequired){
