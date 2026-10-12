@@ -41,6 +41,13 @@ class ZeroPriceStockTest extends BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Verifies that combo shops with a zero buy price calculate sell stock without querying funds.
+     *
+     * @param partialSales whether partial sales are enabled
+     * @param items the sellable item count
+     * @param expectedStock the expected stock after recalculation
+     */
     @ParameterizedTest
     @CsvSource({"false, 8, 2", "true, 8, 2", "false, 1, 0", "true, 1, 1", "true, 0, 0"})
     void zeroBuyPriceStillCountsSellInventory(boolean partialSales, int items, int expectedStock) {
@@ -64,6 +71,12 @@ class ZeroPriceStockTest extends BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Verifies that admin shops retain unlimited stock at zero prices without querying funds.
+     *
+     * @param combo whether to exercise a combo shop instead of a buy shop
+     * @param partialSales whether partial sales are enabled
+     */
     @ParameterizedTest
     @CsvSource({"false, false", "false, true", "true, false", "true, true"})
     void adminZeroPriceKeepsUnlimitedStock(boolean combo, boolean partialSales) {
@@ -82,6 +95,16 @@ class ZeroPriceStockTest extends BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Verifies full and partial sell stock with no buying funds, ignoring unrelated items
+     * and rounding the partial threshold up from the sell price.
+     *
+     * @param buyPrice the shop's buy price
+     * @param sellPrice the price for a full selling transaction
+     * @param partialSales whether partial sales are enabled
+     * @param items the sellable item count
+     * @param expectedStock the stock expected after recalculation
+     */
     @ParameterizedTest
     @CsvSource({
             "0, 3, true, 2, 0", "0, 3, true, 3, 1",

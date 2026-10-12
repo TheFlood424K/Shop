@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("integration")
 class ShopOwnershipByUUIDTest extends BaseMockBukkitTest {
 
+    /** Verifies that the owner can destroy a shop while a namesake with another UUID cannot. */
     @Test
     @DisplayName("Shop destruction ownership check uses UUID comparison")
     void shopDestroyOwnershipCheckUsesUUID() {

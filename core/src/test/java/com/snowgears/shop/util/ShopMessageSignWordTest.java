@@ -14,6 +14,11 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class ShopMessageSignWordTest extends BaseMockBukkitTest {
+    /**
+     * Verifies localized sign words, literal chat branding, and preservation of the cached sign template.
+     *
+     * @param type a shop type with a configured sign template
+     */
     @ParameterizedTest
     // GAMBLE has no sign template in the test configuration.
     @EnumSource(value = ShopType.class, names = "GAMBLE", mode = EnumSource.Mode.EXCLUDE)
@@ -48,6 +53,11 @@ class ShopMessageSignWordTest extends BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Verifies that missing or empty sign words fall back to the lowercase lookup key.
+     *
+     * @param configuredWord the absent or empty configuration value
+     */
     @ParameterizedTest
     @NullAndEmptySource
     void absentOrEmptySignWordFallsBackToLowercaseKey(String configuredWord) {

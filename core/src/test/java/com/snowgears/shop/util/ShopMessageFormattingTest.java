@@ -23,24 +23,42 @@ class ShopMessageFormattingTest extends BaseMockBukkitTest {
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.builder()
             .character('§').hexColors().build();
 
+    /**
+     * Verifies that standalone legacy, hex and formatting codes are recognized as directives.
+     *
+     * @param code the standalone directive text
+     */
     @ParameterizedTest
     @ValueSource(strings = {"#12AbEf", "#000000", "#FFFFFF", "&a", "§4", "&L", "&r"})
     void bareColorAndFormattingComponentsAreDirectives(String code) {
         assertTrue(ShopMessage.isColorDirective(Component.text(code)));
     }
 
+    /**
+     * Verifies that invalid codes and codes mixed with text remain ordinary content.
+     *
+     * @param text the content that must not be treated as a directive
+     */
     @ParameterizedTest
     @ValueSource(strings = {"", "#12345", "#1234567", "#GG0000", " #123456", "#123456 label", "&z"})
     void ordinaryOrMalformedTextIsNotAColorDirective(String text) {
         assertFalse(ShopMessage.isColorDirective(Component.text(text)));
     }
 
+    /** Verifies that child-bearing and translatable components are not standalone color directives. */
     @Test
     void componentsWithChildrenAndTranslationsRemainContent() {
         assertFalse(ShopMessage.isColorDirective(Component.text("#123456").append(Component.text(" label"))));
         assertFalse(ShopMessage.isColorDirective(Component.translatable("#123456")));
     }
 
+    /**
+     * Verifies that stock selects a hex color which styles the following text without appearing literally.
+     *
+     * @param stock the shop's reported stock
+     * @param admin whether the shop is an admin shop
+     * @param expectedHex the expected color of the visible text
+     */
     @ParameterizedTest
     @CsvSource({"1, false, #12AbEf", "0, false, #654321", "-1, false, #654321", "0, true, #12AbEf"})
     void stockHexColorStylesFollowingTextWithoutPrintingTheCode(int stock, boolean admin, String expectedHex) {
@@ -65,6 +83,7 @@ class ShopMessageFormattingTest extends BaseMockBukkitTest {
         }
     }
 
+    /** Verifies that a hex placeholder preserves bold formatting until a reset restores plain white text. */
     @Test
     void hexPlaceholderPreservesFormattingUntilAReset() {
         String key = "[test color directive]";
@@ -84,6 +103,11 @@ class ShopMessageFormattingTest extends BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Verifies that creation prompts resolve each shop type through the configured chat vocabulary.
+     *
+     * @param type the shop type requested by the creation process
+     */
     @ParameterizedTest
     @EnumSource(ShopType.class)
     void creationPromptUsesTheConfiguredChatWord(ShopType type) {
@@ -103,6 +127,12 @@ class ShopMessageFormattingTest extends BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Compares visible text and styling through legacy serialization, independent of component layout.
+     *
+     * @param expected the expected styled component
+     * @param actual the component produced by formatting
+     */
     private static void assertStyledEquals(Component expected, Component actual) {
         // Serialization compares visible styling without depending on the component tree layout.
         assertEquals(LEGACY.serialize(expected), LEGACY.serialize(actual));

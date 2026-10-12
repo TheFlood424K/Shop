@@ -45,6 +45,11 @@ class SharedCreationPriceValidationTest extends BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Verifies that every shop type rejects a negative secondary price before accessing either block.
+     *
+     * @param type the requested shop type
+     */
     @ParameterizedTest
     @EnumSource(ShopType.class)
     void negativeSecondaryPriceIsRejectedBeforeTouchingContainers(ShopType type) {

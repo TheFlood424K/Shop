@@ -84,6 +84,13 @@ class StockCountingSemanticsTest extends BaseMockBukkitTest {
         return chest.getBlockInventory();
     }
 
+    /**
+     * Verifies that a zero buy price uses sell inventory and clears stock after that inventory is emptied.
+     *
+     * @param funds the currency items placed in the chest
+     * @param items the sellable item count
+     * @param expectedStock the expected number of transactions, including partial sales
+     */
     @ParameterizedTest
     @CsvSource({"0, 0, 0", "10, 0, 0", "0, 32, 2", "10, 32, 2", "0, 4, 1", "10, 4, 1"})
     void zeroBuyPriceFallsBackToSellInventory(int funds, int items, int expectedStock) {

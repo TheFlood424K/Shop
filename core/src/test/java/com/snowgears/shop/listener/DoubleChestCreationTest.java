@@ -28,6 +28,7 @@ class DoubleChestCreationTest {
     private Block first;
     private Block second;
 
+    /** Builds a listener fixture whose two chest blocks share one double-chest inventory. */
     @BeforeEach
     void setUp() {
         Shop plugin = mock(Shop.class);
@@ -57,6 +58,15 @@ class DoubleChestCreationTest {
         when(handler.isChest(second)).thenReturn(true);
     }
 
+    /**
+     * Verifies that clicking either inventory half reaches validation with the same primary chest.
+     *
+     * @param firstX the first chest's X coordinate
+     * @param firstZ the first chest's Z coordinate
+     * @param secondX the second chest's X coordinate
+     * @param secondZ the second chest's Z coordinate
+     * @param clickSecond whether to click the second chest
+     */
     @ParameterizedTest
     @CsvSource({"10, 10, 11, 10, false", "10, 10, 11, 10, true",
             "10, 10, 10, 11, false", "10, 10, 10, 11, true",
@@ -75,6 +85,11 @@ class DoubleChestCreationTest {
         verify(handler).getShopByChest(second);
     }
 
+    /**
+     * Verifies that an existing shop on the mate blocks creation before container validation.
+     *
+     * @param clickSecond whether to click the second chest
+     */
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void occupiedMatePreventsCreationFromEitherHalf(boolean clickSecond) {

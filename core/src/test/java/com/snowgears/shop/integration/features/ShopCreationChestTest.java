@@ -123,6 +123,7 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         return created;
     }
 
+    /** Verifies that interacting with an existing shop chest does not start another creation flow. */
     @Test
     void preventCreationOnExistingChest_interactEarlyReturn() {
         ServerMock server = getServer();

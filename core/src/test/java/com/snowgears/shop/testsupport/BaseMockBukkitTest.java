@@ -238,6 +238,13 @@ public abstract class BaseMockBukkitTest {
         }
     }
 
+    /**
+     * Polls and consumes the player's next message, advancing the scheduler by one
+     * tick after each empty poll, up to 1,000 attempts.
+     *
+     * @param player the player whose message queue is polled
+     * @return the next queued message, or null if the polling budget is exhausted
+     */
     public static String waitForNextMessage(PlayerMock player) {
         String nextMessage = null;
         int attempts = 0;
