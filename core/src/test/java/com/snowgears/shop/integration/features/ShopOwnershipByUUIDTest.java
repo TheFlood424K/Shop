@@ -30,6 +30,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.block.BlockFace;
 import com.snowgears.shop.util.ShopClickType;
+import com.snowgears.shop.util.InventoryUtils;
 
 import java.util.UUID;
 
@@ -232,7 +233,8 @@ class ShopOwnershipByUUIDTest extends BaseMockBukkitTest {
 
         // Create true owner first
         UUID trueOwnerUUID = UUID.randomUUID();
-        Player trueOwner = StubbedPlayers.add(getServer(), "Owner");
+        StubbedPlayerMock trueOwner = new StubbedPlayerMock(getServer(), "Owner", trueOwnerUUID);
+        getServer().addPlayer(trueOwner);
         trueOwner.setOp(true);
 
         Location signLoc = new Location(world, 300, 64, 300);
@@ -248,45 +250,58 @@ class ShopOwnershipByUUIDTest extends BaseMockBukkitTest {
 
         // Verify the shop's ownership UUID is correctly set
         assertEquals(trueOwnerUUID, shop.getOwnerUUID());
+        assertEquals(trueOwnerUUID, trueOwner.getUniqueId());
+        assertEquals(trueOwner.getName(), impostor.getName());
         assertNotEquals(impostor.getUniqueId(), trueOwnerUUID, "Impostor should have different UUID");
 
-        // Create a TransactionHandler to test
-        TransactionHandler transactionHandler = getPlugin().getTransactionHelper();
-
-        // Test 1: True owner can buy from shop (when stock available)
-        // First restock the shop
+        // Load and restock the chest behind the north-facing sign.
+        Block signBlock = shop.getSignLocation().getBlock();
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        signBlock.setBlockData(Material.OAK_WALL_SIGN.createBlockData());
         Block chestBlock = world.getBlockAt(shop.getSignLocation().getBlockX(),
             shop.getSignLocation().getBlockY(),
-            shop.getSignLocation().getBlockZ() - 1);
+            shop.getSignLocation().getBlockZ() + 1);
         chestBlock.setType(Material.CHEST);
+        world.getChunkAt(signLoc).load(true);
+        assertTrue(shop.load(), "Shop should be loaded before testing transactions");
         InventoryHolder holder = (InventoryHolder) chestBlock.getState();
         holder.getInventory().addItem(new ItemStack(Material.DIAMOND, 8));
         shop.updateStock();
+        assertEquals(8, shop.getStock());
 
-        // Create a buyer with funds
-        Player buyer = StubbedPlayers.add(getServer(), "Buyer");
-        buyer.setOp(true);
-        buyer.getInventory().addItem(new ItemStack(Material.EMERALD, 10));
-
-        // Test that impostor (same name, different UUID) cannot perform transactions
-        // because ownership is checked by UUID
-        Block signBlock = shop.getSignLocation().getBlock();
-        signBlock.setBlockData(Material.OAK_WALL_SIGN.createBlockData());
-
-        // Test that impostor (same name, different UUID) cannot perform transactions
-        // because ownership is checked by UUID
-        PlayerInteractEvent impostorEvent = new PlayerInteractEvent(
-            impostor, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.EMERALD),
-            shop.getSignLocation().getBlock(), BlockFace.NORTH, EquipmentSlot.HAND);
+        // Fund both players so only UUID ownership prevents the owner's purchase.
+        trueOwner.getInventory().addItem(new ItemStack(Material.EMERALD, 10));
+        impostor.getInventory().addItem(new ItemStack(Material.EMERALD, 10));
 
         TransactionHandler handler = getPlugin().getTransactionHelper();
-        // This should fail because impostor is not the owner
-        // The transaction handler should check ownership by UUID
+        PlayerInteractEvent trueOwnerEvent = new PlayerInteractEvent(
+            trueOwner, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.EMERALD),
+            signBlock, BlockFace.NORTH, EquipmentSlot.HAND);
+        trueOwnerEvent.setCancelled(false);
+        handler.executeTransactionFromEvent(trueOwnerEvent, shop, false);
+
+        assertTrue(trueOwnerEvent.isCancelled(), "True owner's click should be cancelled");
+        assertEquals(8, shop.getStock(), "True owner should not change shop stock");
+        assertEquals(8, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.DIAMOND)));
+        assertEquals(0, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.EMERALD)));
+        assertEquals(0, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.EMERALD_BLOCK)));
+        assertEquals(0, InventoryUtils.getAmount(trueOwner.getInventory(), new ItemStack(Material.DIAMOND)));
+        assertEquals(10, InventoryUtils.getAmount(trueOwner.getInventory(), new ItemStack(Material.EMERALD)));
+
+        // The same name with a different UUID must be allowed to purchase.
+        PlayerInteractEvent impostorEvent = new PlayerInteractEvent(
+            impostor, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.EMERALD),
+            signBlock, BlockFace.NORTH, EquipmentSlot.HAND);
+
         handler.executeTransactionFromEvent(impostorEvent, shop, false);
 
-        // Verify the shop's ownership UUID is correctly set
-        assertEquals(trueOwnerUUID, shop.getOwnerUUID());
-        assertNotEquals(impostor.getUniqueId(), trueOwnerUUID, "Impostor should have different UUID");
+        assertEquals(7, shop.getStock(), "Impostor should purchase one diamond");
+        assertEquals(7, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.DIAMOND)));
+        // Item currency deposits compress nine emeralds into one block.
+        assertEquals(1, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.EMERALD_BLOCK)));
+        assertEquals(1, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.EMERALD)));
+        assertEquals(1, InventoryUtils.getAmount(impostor.getInventory(), new ItemStack(Material.DIAMOND)));
+        assertEquals(0, InventoryUtils.getAmount(impostor.getInventory(), new ItemStack(Material.EMERALD)));
 
         // Clean up
         getPlugin().getShopHandler().removeShop(shop, false);
