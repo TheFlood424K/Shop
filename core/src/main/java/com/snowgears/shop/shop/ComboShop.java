@@ -59,10 +59,11 @@ public class ComboShop extends AbstractShop {
         }
         else {
             stock = 0;
-            // A zero buy price has no funds-based capacity; still check sell-side inventory.
-            if (this.getPrice() > 0) {
+            // A zero buy price disables buying capacity, but the shop may still sell items.
+            if (this.getPrice() != 0) {
                 double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
                 stock = (int) Math.floor(funds / this.getPrice());
+                // Check if we should show partial buying capacity
                 if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
                     if (funds >= this.getPricePerItem()) {
                         stock = 1;
