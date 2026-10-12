@@ -94,6 +94,42 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertEquals(clicked.getLocation(), process.getClickedChest().getLocation());
     }
 
+    @Test
+    void doubleChestMateUsesInventoryHalves() throws Exception {
+        Block leftBlock = mock(Block.class);
+        Block rightBlock = mock(Block.class);
+        Block unrelatedChest = mock(Block.class);
+        org.bukkit.block.Chest left = mock(org.bukkit.block.Chest.class);
+        org.bukkit.block.Chest right = mock(org.bukkit.block.Chest.class);
+        org.bukkit.inventory.Inventory inventory = mock(org.bukkit.inventory.Inventory.class);
+        org.bukkit.block.DoubleChest doubleChest = mock(org.bukkit.block.DoubleChest.class);
+        when(leftBlock.getState()).thenReturn(left);
+        when(rightBlock.getState()).thenReturn(right);
+        when(unrelatedChest.getState()).thenReturn(left);
+        when(left.getInventory()).thenReturn(inventory);
+        when(right.getInventory()).thenReturn(inventory);
+        when(inventory.getHolder()).thenReturn(doubleChest);
+        when(doubleChest.getLeftSide()).thenReturn(left);
+        when(doubleChest.getRightSide()).thenReturn(right);
+        when(left.getBlock()).thenReturn(leftBlock);
+        when(right.getBlock()).thenReturn(rightBlock);
+        when(leftBlock.getRelative(BlockFace.NORTH)).thenReturn(unrelatedChest);
+
+        var getMate = MiscListener.class.getDeclaredMethod("getDoubleChestMate", Block.class);
+        getMate.setAccessible(true);
+        assertSame(rightBlock, getMate.invoke(miscListener, leftBlock));
+        assertSame(leftBlock, getMate.invoke(miscListener, rightBlock));
+        assertNull(getMate.invoke(miscListener, unrelatedChest));
+
+        when(doubleChest.getRightSide()).thenReturn(left);
+        assertNull(getMate.invoke(miscListener, leftBlock), "The mate must be distinct");
+        when(doubleChest.getRightSide()).thenReturn(null);
+        assertNull(getMate.invoke(miscListener, leftBlock), "Missing halves have no mate");
+        when(inventory.getHolder()).thenReturn(left);
+        assertNull(getMate.invoke(miscListener, leftBlock), "Single chests have no mate");
+        assertNull(getMate.invoke(miscListener, world.getBlockAt(0, 0, 0)));
+    }
+
     // ============================================================
     // WALL SIGN CREATION TESTS (all 4 cardinal directions)
     // ============================================================

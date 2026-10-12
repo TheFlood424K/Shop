@@ -16,7 +16,7 @@ import static org.mockito.Mockito.mockStatic;
 class ZeroPriceStockTest extends BaseMockBukkitTest {
 
     /**
-     * Verifies that a stored zero buy price clears stock regardless of funds or partial sales.
+     * Verifies that a stored zero buy price cannot create buying capacity.
      *
      * @param combo whether to exercise a combo shop instead of a buy shop
      * @param partialSales whether partial sales are enabled
@@ -40,4 +40,28 @@ class ZeroPriceStockTest extends BaseMockBukkitTest {
             assertEquals(0, shop.getStock());
         }
     }
+
+    @ParameterizedTest
+    @CsvSource({"false, 8, 2", "true, 8, 2", "false, 1, 0", "true, 1, 1", "true, 0, 0"})
+    void zeroBuyPriceStillCountsSellInventory(boolean partialSales, int items, int expectedStock) {
+        setConfig("allowPartialSales", partialSales);
+        var owner = addStubbedPlayer("Owner");
+        Location sign = new Location(getServer().addSimpleWorld("world"), 10, 65, 10);
+        sign.getWorld().loadChunk(sign.getBlockX() >> 4, sign.getBlockZ() >> 4);
+        var chest = sign.getBlock().getRelative(BlockFace.SOUTH);
+        chest.setType(Material.CHEST);
+        ComboShop shop = new ComboShop(sign, owner.getUniqueId(), 0, 5, 4, false, BlockFace.NORTH);
+        shop.chestLocation = chest.getLocation();
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+        if (items > 0) {
+            shop.getInventory().addItem(new ItemStack(Material.DIAMOND, items));
+        }
+        shop.setStock(5);
+        try (MockedStatic<EconomyUtils> economy = mockStatic(EconomyUtils.class)) {
+            assertEquals(expectedStock, shop.calculateStock());
+            assertEquals(expectedStock, shop.getStock());
+            economy.verifyNoInteractions();
+        }
+    }
+
 }

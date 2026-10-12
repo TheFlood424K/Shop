@@ -289,7 +289,6 @@ public class CommandHandler extends BukkitCommand {
             results.add("list");
             results.add("currency");
             results.add("help");
-            results.add("transactions");
 
             boolean showOperatorCommands = false;
             if(sender instanceof Player){

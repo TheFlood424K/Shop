@@ -44,7 +44,6 @@ class TransactionHandlerTest extends BaseMockBukkitTest {
 
     @BeforeEach
     void setUp() {
-        plugin = MockBukkit.loadSimple(Shop.class);
         transactionHandler = plugin.getTransactionHelper();
     }
 

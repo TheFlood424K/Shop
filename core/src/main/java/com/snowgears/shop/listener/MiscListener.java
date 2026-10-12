@@ -228,20 +228,21 @@ public class MiscListener implements Listener {
         }
     }
 
-    /**
-     * Checks if the given chest block has an adjacent chest block that would form a double chest.
-     * Returns the adjacent chest block if found and the clicked chest is part of a DoubleChest,
-     * null otherwise. Only checks horizontal neighbors (NORTH, SOUTH, EAST, WEST).
-     */
+    /** Returns the other half of this chest's combined inventory, if one exists. */
     private Block getDoubleChestMate(Block chest) {
-        // Only look for a double chest mate if this chest is part of a DoubleChest
-        if (!(chest.getState() instanceof InventoryHolder holder) || !(holder instanceof DoubleChest)) {
+        if (!(chest.getState() instanceof InventoryHolder holder)
+                || !(holder.getInventory().getHolder() instanceof DoubleChest doubleChest)) {
             return null;
         }
-        for (BlockFace face : CARDINAL_FACES) {
-            Block neighbor = chest.getRelative(face);
-            if (plugin.getShopHandler().isChest(neighbor)) {
-                return neighbor;
+        if (doubleChest.getLeftSide() instanceof org.bukkit.block.Chest left
+                && doubleChest.getRightSide() instanceof org.bukkit.block.Chest right) {
+            Block leftBlock = left.getBlock();
+            Block rightBlock = right.getBlock();
+            if (chest.equals(leftBlock) && !chest.equals(rightBlock)) {
+                return rightBlock;
+            }
+            if (chest.equals(rightBlock) && !chest.equals(leftBlock)) {
+                return leftBlock;
             }
         }
         return null;
