@@ -70,6 +70,30 @@ class MiscListenerTest extends BaseMockBukkitTest {
         setConfig("debug_shopInitTimeout", 0); // Disable initialization timeout for tests
     }
 
+    /**
+     * Verifies that an adjacent, unconnected chest does not move the shop creation location.
+     *
+     * @param material the clicked container type
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = Material.class,
+            names = {"CHEST", "BARREL", "WHITE_SHULKER_BOX"})
+    void adjacentContainersDoNotMoveCreationLocation(Material material) {
+        Block clicked = world.getBlockAt(10, 65, 10);
+        clicked.setType(material);
+        clicked.getRelative(BlockFace.WEST).setType(Material.CHEST);
+        player.setSneaking(true);
+        ItemStack item = new ItemStack(Material.DIAMOND);
+        player.getInventory().setItemInMainHand(item);
+        stubCalculateBlockFaceForSign(BlockFace.NORTH);
+
+        miscListener.handleShopLeftClick(player, clicked, item, BlockFace.NORTH);
+
+        var process = miscListener.getShopCreationProcess(player);
+        assertNotNull(process);
+        assertEquals(clicked.getLocation(), process.getClickedChest().getLocation());
+    }
+
     // ============================================================
     // WALL SIGN CREATION TESTS (all 4 cardinal directions)
     // ============================================================
@@ -98,6 +122,11 @@ class MiscListenerTest extends BaseMockBukkitTest {
         testWallSignCreation(BlockFace.WEST);
     }
 
+    /**
+     * Verifies that a wall sign creates an uninitialized shop on the chest behind it.
+     *
+     * @param signFacing the horizontal direction the sign faces
+     */
     private void testWallSignCreation(BlockFace signFacing) {
         // Use unique location per test to avoid interference
         int offset = signFacing.ordinal() * 10;
@@ -139,7 +168,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertEquals(chestBlock, signBlock.getRelative(attachedFace), "Chest should be at sign.getRelative(facing.getOppositeFace())");
 
         // Fire SignChangeEvent with proper lines (using String[] constructor for MockBukkit compatibility)
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -169,6 +198,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertFalse(shop.isInitialized(), "Shop should not be initialized yet");
     }
 
+    /** Verifies that a sign without the configured creation word creates no shop and sends no message. */
     @Test
     @DisplayName("Sign without creation word is ignored")
     void testNonShopSignIgnored() {
@@ -186,7 +216,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
 
         // Use String[] constructor for MockBukkit compatibility
         String[] lines = {
-            "Not a shop",
+            "Not a store sign",
             "1",
             "10",
             "sell"
@@ -199,6 +229,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertNull(shopHandler.getShop(signLoc), "No shop should be created");
     }
 
+    /** Verifies that disabling sign creation ignores an otherwise valid shop sign. */
     @Test
     @DisplayName("Sign creation disabled prevents shop creation")
     void testSignCreationDisabled() {
@@ -217,7 +248,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -249,6 +280,12 @@ class MiscListenerTest extends BaseMockBukkitTest {
         testInvalidSignLine("abc", "positive number");
     }
 
+    /**
+     * Submits a sign with an invalid amount and checks that creation is rejected.
+     *
+     * @param amount the invalid amount text to place on the sign
+     * @param expectedError the fragment expected in the validation message
+     */
     private void testInvalidSignLine(String amount, String expectedError) {
         Location signLoc = new Location(world, 100, 64, 100);
         Block signBlock = world.getBlockAt(signLoc);
@@ -263,7 +300,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             amount,
@@ -279,6 +316,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertNull(shopHandler.getShop(signLoc), "No shop should be created");
     }
 
+    /** Verifies that a nonnumeric sign price produces a validation message. */
     @Test
     @DisplayName("Invalid price on line 3 rejects creation")
     void testInvalidPrice() {
@@ -295,7 +333,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -310,6 +348,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertTrue(msg.contains("price") || msg.contains("number"), "Should reject invalid price: " + msg);
     }
 
+    /** Verifies that the admin keyword on the shop-type line creates an admin shop. */
     @Test
     @DisplayName("Admin shop creation via 'admin' keyword on line 3")
     void testAdminShopCreation() {
@@ -326,7 +365,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -345,6 +384,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertTrue(shop.isAdmin(), "Shop should be admin");
     }
 
+    /** Verifies that the lowercase sign creation word creates a shop and prompts for initialization. */
     @Test
     @DisplayName("Case-insensitive [shop] tag works")
     void testCaseInsensitiveShopTag() {
@@ -361,7 +401,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord.toLowerCase(),
             "1",
@@ -379,6 +419,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertNotNull(shopHandler.getShop(signLoc), "Shop should be created from a lowercase tag");
     }
 
+    /** Verifies that a standing sign is ignored even when it contains valid shop creation text. */
     @Test
     @DisplayName("Ground sign (non-wall) is ignored")
     void testGroundSignIgnored() {
@@ -387,7 +428,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         signBlock.setType(Material.OAK_SIGN); // Ground sign, not wall sign
 
         // Use String[] constructor for MockBukkit compatibility
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",
@@ -1008,6 +1049,11 @@ class MiscListenerTest extends BaseMockBukkitTest {
     // HELPER METHODS
     // ============================================================
 
+    /**
+     * Creates a shop through sign editing and initializes it with a diamond via a left-click event.
+     *
+     * @return the shop registered at the test sign location
+     */
     private AbstractShop createInitializedShopViaSign() {
         // Create via sign method
         Location signLoc = new Location(world, 100, 64, 100);
@@ -1025,7 +1071,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         chestBlock.setType(Material.CHEST);
 
         // Fire SignChangeEvent with proper lines (using String[] constructor for MockBukkit compatibility)
-        String creationWord = ShopMessage.getCreationWord("SHOP");
+        String creationWord = ShopMessage.getSignCreationWord("SHOP");
         String[] lines = {
             creationWord,
             "1",

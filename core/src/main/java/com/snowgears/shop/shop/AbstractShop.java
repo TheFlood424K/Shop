@@ -927,10 +927,14 @@ public abstract class AbstractShop {
             case CYCLE_DISPLAY:
                 // UUID, not name: names are not unique (see MiscListener#shopDestroy).
                 if (!this.getOwnerUUID().equals(player.getUniqueId())) {
+                    // Non-owners can only cycle display if they are operators
                     if((!Shop.getPlugin().usePerms() && player.isOp()) || (Shop.getPlugin().usePerms() && player.hasPermission("shop.operator"))) {
                         this.getDisplay().cycleType(player);
+                    } else {
+                        return false; // Non-owner, non-operator cannot cycle display
                     }
                 } else {
+                    // Owner can cycle display if they have the setdisplay permission
                     if(Shop.getPlugin().usePerms() && !player.hasPermission("shop.setdisplay"))
                         return false;
 
