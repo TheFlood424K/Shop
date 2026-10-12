@@ -15,7 +15,7 @@
     </parent>
 
     <properties>
-        <paper.version>26.2.build.129-stable</paper.version>
+        <paper.version>26.2.build.133-stable</paper.version>
         <!-- Adventure version matching paper-api 26.2 -->
         <adventure.version>5.2.0</adventure.version>
         <!-- PINNED. Do not bump without a CI run that reports a non-zero test count.
