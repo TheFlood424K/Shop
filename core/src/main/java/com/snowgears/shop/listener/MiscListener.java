@@ -107,6 +107,13 @@ public class MiscListener implements Listener {
             event.setCancelled(true);
     }
 
+    /**
+     * Starts sign-based shop creation, when enabled, for a wall sign attached to a supported
+     * container whose first sign line contains the configured creation word, ignoring case.
+     * Invalid amounts, prices, or rejected creation cancel the sign change. On success,
+     * prompts for an item and schedules deletion if the configured initialization timeout
+     * is positive and expires before initialization.
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onShopCreation(SignChangeEvent event) {
         final Block b = event.getBlock();
@@ -347,9 +354,14 @@ public class MiscListener implements Listener {
     }
 
     /**
+     * Initializes an existing shop sign with the held item, or starts or advances chest-based
+     * creation when that creation method is enabled. Chest creation requires both halves of
+     * a double chest to be free of existing shops. Starting a process requires sneaking;
+     * an empty hand can open creative item selection when enabled.
+     *
      * @param event the originating interact event, when there is one. A single left-click fires
      *              PlayerInteractEvent and then BlockBreakEvent, so without cancelling the
-     *              interact the sign we just initialised is destroyed by the break half of the
+     *              interact the sign we just initialized is destroyed by the break half of the
      *              same click. Null for callers with no event (spear attacks).
      */
     public void handleShopLeftClick(Player player, Block clicked, ItemStack itemInHand, BlockFace blockFace,
