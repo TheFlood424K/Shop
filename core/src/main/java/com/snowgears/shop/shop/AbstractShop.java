@@ -906,6 +906,14 @@ public abstract class AbstractShop {
         this.fakeSign = fakeSign;
     }
 
+    /**
+     * Dispatches the configured click action for this shop and refreshes stock after a
+     * transaction attempt. Cycling the display requires ownership or operator access;
+     * owners also need {@code shop.setdisplay} when permissions are enabled.
+     *
+     * @return false if no action is mapped or display cycling is denied; true otherwise,
+     *         even if a transaction attempt fails
+     */
     public boolean executeClickAction(PlayerInteractEvent event, ShopClickType clickType){
         ShopAction action = Shop.getPlugin().getShopAction(clickType);
         if(action == null)

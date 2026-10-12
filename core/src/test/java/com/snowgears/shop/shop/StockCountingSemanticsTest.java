@@ -13,6 +13,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockbukkit.mockbukkit.world.WorldMock;
 
 import java.lang.reflect.Field;
@@ -64,7 +66,7 @@ class StockCountingSemanticsTest extends BaseMockBukkitTest {
     }
 
     /** Links a chest to the shop so calculateStock() can actually read an inventory. */
-    private Inventory attachChest(SellShop shop, int x, int z, int diamondCount) {
+    private Inventory attachChest(AbstractShop shop, int x, int z, int diamondCount) {
         Block chestBlock = world.getBlockAt(x, 64, z + 1);
         chestBlock.setType(Material.CHEST);
         Chest chest = (Chest) chestBlock.getState();
@@ -80,6 +82,32 @@ class StockCountingSemanticsTest extends BaseMockBukkitTest {
             throw new IllegalStateException("Failed to attach chest to shop", e);
         }
         return chest.getBlockInventory();
+    }
+
+    /**
+     * Verifies that a zero buy price uses sell inventory and clears stock after that inventory is emptied.
+     *
+     * @param funds the currency items placed in the chest
+     * @param items the sellable item count
+     * @param expectedStock the expected number of transactions, including partial sales
+     */
+    @ParameterizedTest
+    @CsvSource({"0, 0, 0", "10, 0, 0", "0, 32, 2", "10, 32, 2", "0, 4, 1", "10, 4, 1"})
+    void zeroBuyPriceFallsBackToSellInventory(int funds, int items, int expectedStock) {
+        setConfig("allowPartialSales", true);
+        ComboShop shop = new ComboShop(new Location(world, 100, 64, 100),
+                UUID.randomUUID(), 0.0, 8.0, 16, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+        Inventory inventory = attachChest(shop, 100, 100, items);
+        if (funds > 0) {
+            ItemStack currency = getPlugin().getItemCurrency().clone();
+            currency.setAmount(funds);
+            inventory.addItem(currency);
+        }
+
+        assertEquals(expectedStock, shop.calculateStock());
+        inventory.clear();
+        assertEquals(0, shop.calculateStock(), "Recalculation must not retain stale stock");
     }
 
     /**

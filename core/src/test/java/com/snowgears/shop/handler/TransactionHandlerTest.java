@@ -42,9 +42,9 @@ class TransactionHandlerTest extends BaseMockBukkitTest {
 
     private TransactionHandler transactionHandler;
 
+    /** Uses the transaction handler from the plugin initialized by the shared test fixture. */
     @BeforeEach
     void setUp() {
-        plugin = MockBukkit.loadSimple(Shop.class);
         transactionHandler = plugin.getTransactionHelper();
     }
 
@@ -54,6 +54,7 @@ class TransactionHandlerTest extends BaseMockBukkitTest {
         // The extension handles the MockBukkit lifecycle automatically.
     }
 
+    /** Verifies that an interaction with an unloaded shop's null chest location does not throw. */
     @Test
     void testExecuteTransactionFromEventHandlesNullChestLocation() {
         // Create a test shop
@@ -89,6 +90,7 @@ class TransactionHandlerTest extends BaseMockBukkitTest {
         });
     }
 
+    /** Verifies that a shop location without a chest is handled without throwing. */
     @Test
     void testExecuteTransactionFromEventHandlesNullChestBlock() {
         // Create a test shop

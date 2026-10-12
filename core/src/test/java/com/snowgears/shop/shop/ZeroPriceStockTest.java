@@ -16,7 +16,7 @@ import static org.mockito.Mockito.mockStatic;
 class ZeroPriceStockTest extends BaseMockBukkitTest {
 
     /**
-     * Verifies that a stored zero buy price clears stock regardless of funds or partial sales.
+     * Verifies that a stored zero buy price cannot create buying capacity.
      *
      * @param combo whether to exercise a combo shop instead of a buy shop
      * @param partialSales whether partial sales are enabled
@@ -40,4 +40,102 @@ class ZeroPriceStockTest extends BaseMockBukkitTest {
             assertEquals(0, shop.getStock());
         }
     }
+
+    /**
+     * Verifies that combo shops with a zero buy price calculate sell stock without querying funds.
+     *
+     * @param partialSales whether partial sales are enabled
+     * @param items the sellable item count
+     * @param expectedStock the expected stock after recalculation
+     */
+    @ParameterizedTest
+    @CsvSource({"false, 8, 2", "true, 8, 2", "false, 1, 0", "true, 1, 1", "true, 0, 0"})
+    void zeroBuyPriceStillCountsSellInventory(boolean partialSales, int items, int expectedStock) {
+        setConfig("allowPartialSales", partialSales);
+        var owner = addStubbedPlayer("Owner");
+        Location sign = new Location(getServer().addSimpleWorld("world"), 10, 65, 10);
+        sign.getWorld().loadChunk(sign.getBlockX() >> 4, sign.getBlockZ() >> 4);
+        var chest = sign.getBlock().getRelative(BlockFace.SOUTH);
+        chest.setType(Material.CHEST);
+        ComboShop shop = new ComboShop(sign, owner.getUniqueId(), 0, 5, 4, false, BlockFace.NORTH);
+        shop.chestLocation = chest.getLocation();
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+        if (items > 0) {
+            shop.getInventory().addItem(new ItemStack(Material.DIAMOND, items));
+        }
+        shop.setStock(5);
+        try (MockedStatic<EconomyUtils> economy = mockStatic(EconomyUtils.class)) {
+            assertEquals(expectedStock, shop.calculateStock());
+            assertEquals(expectedStock, shop.getStock());
+            economy.verifyNoInteractions();
+        }
+    }
+
+    /**
+     * Verifies that admin shops retain unlimited stock at zero prices without querying funds.
+     *
+     * @param combo whether to exercise a combo shop instead of a buy shop
+     * @param partialSales whether partial sales are enabled
+     */
+    @ParameterizedTest
+    @CsvSource({"false, false", "false, true", "true, false", "true, true"})
+    void adminZeroPriceKeepsUnlimitedStock(boolean combo, boolean partialSales) {
+        setConfig("allowPartialSales", partialSales);
+        var owner = addStubbedPlayer("Owner");
+        Location sign = new Location(getServer().addSimpleWorld("world"), 10, 65, 10);
+        AbstractShop shop = combo
+                ? new ComboShop(sign, owner.getUniqueId(), 0, 0, 4, true, BlockFace.NORTH)
+                : new BuyShop(sign, owner.getUniqueId(), 0, 4, true, BlockFace.NORTH);
+        shop.setStock(0);
+
+        try (MockedStatic<EconomyUtils> economy = mockStatic(EconomyUtils.class)) {
+            assertEquals(Integer.MAX_VALUE, shop.calculateStock());
+            assertEquals(Integer.MAX_VALUE, shop.getStock());
+            economy.verifyNoInteractions();
+        }
+    }
+
+    /**
+     * Verifies full and partial sell stock with no buying funds, ignoring unrelated items
+     * and rounding the partial threshold up from the sell price.
+     *
+     * @param buyPrice the shop's buy price
+     * @param sellPrice the price for a full selling transaction
+     * @param partialSales whether partial sales are enabled
+     * @param items the sellable item count
+     * @param expectedStock the stock expected after recalculation
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "0, 3, true, 2, 0", "0, 3, true, 3, 1",
+            "0, 3, false, 3, 0", "0, 3, false, 8, 1",
+            "0, 3, true, 16, 2", "0, 0, true, 1, 0",
+            "0, -3, true, 1, 0", "0, 0, true, 8, 1",
+            "100, 3, true, 2, 0", "100, 3, true, 3, 1"
+    })
+    void partialSellingStockUsesSellPriceAndRoundsUp(double buyPrice, double sellPrice,
+                                                    boolean partialSales, int items, int expectedStock) {
+        setConfig("allowPartialSales", partialSales);
+        var owner = addStubbedPlayer("Owner");
+        var world = getServer().addSimpleWorld("world");
+        Location sign = new Location(world, 10, 65, 10);
+        world.loadChunk(0, 0);
+        var chest = sign.getBlock().getRelative(BlockFace.SOUTH);
+        chest.setType(Material.CHEST);
+        ComboShop shop = new ComboShop(sign, owner.getUniqueId(), buyPrice, sellPrice, 8, false, BlockFace.NORTH);
+        shop.chestLocation = chest.getLocation();
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+        shop.getInventory().addItem(new ItemStack(Material.DIAMOND, items));
+        // Unrelated items must not satisfy the partial-selling threshold.
+        shop.getInventory().addItem(new ItemStack(Material.DIRT, 64));
+        shop.setStock(99);
+
+        // Default zero funds forces the sell-stock fallback even with a positive buy price.
+        try (MockedStatic<EconomyUtils> economy = mockStatic(EconomyUtils.class)) {
+            assertEquals(expectedStock, shop.calculateStock());
+            assertEquals(expectedStock, shop.getStock());
+            if (buyPrice == 0) economy.verifyNoInteractions();
+        }
+    }
+
 }

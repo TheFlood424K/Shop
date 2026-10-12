@@ -94,6 +94,125 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertEquals(clicked.getLocation(), process.getClickedChest().getLocation());
     }
 
+    /**
+     * Verifies that a chest mate comes from the combined inventory's distinct halves,
+     * and that unrelated blocks, missing halves and single chests have no mate.
+     *
+     * @throws Exception if reflective access to the chest-mate helper fails
+     */
+    @Test
+    void doubleChestMateUsesInventoryHalves() throws Exception {
+        Block leftBlock = mock(Block.class);
+        Block rightBlock = mock(Block.class);
+        Block unrelatedChest = mock(Block.class);
+        org.bukkit.block.Chest left = mock(org.bukkit.block.Chest.class);
+        org.bukkit.block.Chest right = mock(org.bukkit.block.Chest.class);
+        org.bukkit.inventory.Inventory inventory = mock(org.bukkit.inventory.Inventory.class);
+        org.bukkit.block.DoubleChest doubleChest = mock(org.bukkit.block.DoubleChest.class);
+        when(leftBlock.getState()).thenReturn(left);
+        when(rightBlock.getState()).thenReturn(right);
+        when(unrelatedChest.getState()).thenReturn(left);
+        when(left.getInventory()).thenReturn(inventory);
+        when(right.getInventory()).thenReturn(inventory);
+        when(inventory.getHolder()).thenReturn(doubleChest);
+        when(doubleChest.getLeftSide()).thenReturn(left);
+        when(doubleChest.getRightSide()).thenReturn(right);
+        when(left.getBlock()).thenReturn(leftBlock);
+        when(right.getBlock()).thenReturn(rightBlock);
+        when(leftBlock.getRelative(BlockFace.NORTH)).thenReturn(unrelatedChest);
+
+        var getMate = MiscListener.class.getDeclaredMethod("getDoubleChestMate", Block.class);
+        getMate.setAccessible(true);
+        assertSame(rightBlock, getMate.invoke(miscListener, leftBlock));
+        assertSame(leftBlock, getMate.invoke(miscListener, rightBlock));
+        assertNull(getMate.invoke(miscListener, unrelatedChest));
+
+        when(doubleChest.getRightSide()).thenReturn(left);
+        assertNull(getMate.invoke(miscListener, leftBlock), "The mate must be distinct");
+        when(doubleChest.getRightSide()).thenReturn(null);
+        assertNull(getMate.invoke(miscListener, leftBlock), "Missing halves have no mate");
+        when(inventory.getHolder()).thenReturn(left);
+        assertNull(getMate.invoke(miscListener, leftBlock), "Single chests have no mate");
+        assertNull(getMate.invoke(miscListener, world.getBlockAt(0, 0, 0)));
+    }
+
+    /** Both halves must use the same primary chest when checking whether creation is allowed. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"10, 10, 11, 10", "10, 10, 10, 11"})
+    void doubleChestSelectionChecksSamePrimaryFromEitherHalf(int primaryX, int primaryZ, int mateX, int mateZ) {
+        Block primary = mock(Block.class);
+        Block mate = mock(Block.class);
+        when(primary.getLocation()).thenReturn(new Location(world, primaryX, 65, primaryZ));
+        when(mate.getLocation()).thenReturn(new Location(world, mateX, 65, mateZ));
+        org.bukkit.block.Chest left = mock(org.bukkit.block.Chest.class);
+        org.bukkit.block.Chest right = mock(org.bukkit.block.Chest.class);
+        org.bukkit.inventory.Inventory inventory = mock(org.bukkit.inventory.Inventory.class);
+        org.bukkit.block.DoubleChest doubleChest = mock(org.bukkit.block.DoubleChest.class);
+        when(primary.getState()).thenReturn(left);
+        when(mate.getState()).thenReturn(right);
+        when(left.getInventory()).thenReturn(inventory);
+        when(right.getInventory()).thenReturn(inventory);
+        when(inventory.getHolder()).thenReturn(doubleChest);
+        when(doubleChest.getLeftSide()).thenReturn(left);
+        when(doubleChest.getRightSide()).thenReturn(right);
+        when(left.getBlock()).thenReturn(primary);
+        when(right.getBlock()).thenReturn(mate);
+        ShopHandler handler = mock(ShopHandler.class);
+        when(handler.isChest(primary)).thenReturn(true);
+        when(handler.isChest(mate)).thenReturn(true);
+        setPluginField("shopHandler", handler);
+        com.snowgears.shop.util.ShopCreationUtil creationUtil = mock(com.snowgears.shop.util.ShopCreationUtil.class);
+        setPluginField("shopCreationUtil", creationUtil);
+
+        miscListener.handleShopLeftClick(player, primary, null, BlockFace.NORTH);
+        miscListener.handleShopLeftClick(player, mate, null, BlockFace.NORTH);
+
+        verify(creationUtil, Mockito.times(2)).shopCanBeCreated(player, primary);
+        verify(creationUtil, Mockito.never()).shopCanBeCreated(player, mate);
+    }
+
+    /**
+     * Verifies case-insensitive recognition of the configured sign word without accepting the chat brand tag.
+     *
+     * @param firstLine the text on the sign's first line
+     * @param recognized whether the text should enter shop validation
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"[MaRkEt], true", "[ChatBrand], false", "unrelated, false"})
+    void signCreationRecognizesTheConfiguredSignWord(String firstLine, boolean recognized) {
+        var signConfig = ShopMessage.getSignConfig();
+        Object previousSignWord = signConfig.get("sign_creation.SHOP");
+        String previousChatWord = ShopMessage.getCreationWords().put("SHOP", "[ChatBrand]");
+        var originalCreationUtil = plugin.getShopCreationUtil();
+        var creation = mock(com.snowgears.shop.util.ShopCreationUtil.class);
+        com.snowgears.shop.testsupport.TestReflection.setField(plugin, "shopCreationUtil", creation);
+        try {
+            signConfig.set("sign_creation.SHOP", "market");
+            Block sign = world.getBlockAt(10, 65, 10);
+            sign.setType(Material.OAK_WALL_SIGN);
+            WallSign data = (WallSign) sign.getBlockData();
+            data.setFacing(BlockFace.NORTH);
+            sign.setBlockData(data);
+            world.setBlockData(sign.getLocation(), data);
+            Block chest = sign.getRelative(BlockFace.SOUTH);
+            chest.setType(Material.CHEST);
+            SignChangeEvent event = new SignChangeEvent(sign, player,
+                    new String[]{firstLine, "1", "5", "sell"});
+
+            // Validation returns false so this isolates recognition from the creation pipeline.
+            miscListener.onShopCreation(event);
+
+            assertEquals(recognized, event.isCancelled());
+            if (recognized) verify(creation).shopCanBeCreated(player, chest);
+            else Mockito.verifyNoInteractions(creation);
+        } finally {
+            com.snowgears.shop.testsupport.TestReflection.setField(plugin, "shopCreationUtil", originalCreationUtil);
+            signConfig.set("sign_creation.SHOP", previousSignWord);
+            if (previousChatWord == null) ShopMessage.getCreationWords().remove("SHOP");
+            else ShopMessage.getCreationWords().put("SHOP", previousChatWord);
+        }
+    }
+
     // ============================================================
     // WALL SIGN CREATION TESTS (all 4 cardinal directions)
     // ============================================================

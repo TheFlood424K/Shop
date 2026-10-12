@@ -107,6 +107,13 @@ public class MiscListener implements Listener {
             event.setCancelled(true);
     }
 
+    /**
+     * Starts sign-based shop creation, when enabled, for a wall sign attached to a supported
+     * container whose first sign line contains the configured creation word, ignoring case.
+     * Invalid amounts, prices, or rejected creation cancel the sign change. On success,
+     * prompts for an item and schedules deletion if the configured initialization timeout
+     * is positive and expires before initialization.
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onShopCreation(SignChangeEvent event) {
         final Block b = event.getBlock();
@@ -228,20 +235,21 @@ public class MiscListener implements Listener {
         }
     }
 
-    /**
-     * Checks if the given chest block has an adjacent chest block that would form a double chest.
-     * Returns the adjacent chest block if found and the clicked chest is part of a DoubleChest,
-     * null otherwise. Only checks horizontal neighbors (NORTH, SOUTH, EAST, WEST).
-     */
+    /** Returns the other half of this chest's combined inventory, if one exists. */
     private Block getDoubleChestMate(Block chest) {
-        // Only look for a double chest mate if this chest is part of a DoubleChest
-        if (!(chest.getState() instanceof InventoryHolder holder) || !(holder instanceof DoubleChest)) {
+        if (!(chest.getState() instanceof InventoryHolder holder)
+                || !(holder.getInventory().getHolder() instanceof DoubleChest doubleChest)) {
             return null;
         }
-        for (BlockFace face : CARDINAL_FACES) {
-            Block neighbor = chest.getRelative(face);
-            if (plugin.getShopHandler().isChest(neighbor)) {
-                return neighbor;
+        if (doubleChest.getLeftSide() instanceof org.bukkit.block.Chest left
+                && doubleChest.getRightSide() instanceof org.bukkit.block.Chest right) {
+            Block leftBlock = left.getBlock();
+            Block rightBlock = right.getBlock();
+            if (chest.equals(leftBlock) && !chest.equals(rightBlock)) {
+                return rightBlock;
+            }
+            if (chest.equals(rightBlock) && !chest.equals(leftBlock)) {
+                return leftBlock;
             }
         }
         return null;
@@ -346,9 +354,16 @@ public class MiscListener implements Listener {
     }
 
     /**
+     * Initializes an existing shop sign with the held item, or starts or advances chest-based
+     * creation when that creation method is enabled. Chest creation requires both halves of
+     * a double chest to be free of existing shops and uses the half with the lower X
+     * coordinate, then lower Z coordinate, as the primary chest regardless of the half clicked.
+     * Starting a process requires sneaking;
+     * an empty hand can open creative item selection when enabled.
+     *
      * @param event the originating interact event, when there is one. A single left-click fires
      *              PlayerInteractEvent and then BlockBreakEvent, so without cancelling the
-     *              interact the sign we just initialised is destroyed by the break half of the
+     *              interact the sign we just initialized is destroyed by the break half of the
      *              same click. Null for callers with no event (spear attacks).
      */
     public void handleShopLeftClick(Player player, Block clicked, ItemStack itemInHand, BlockFace blockFace,
@@ -406,7 +421,7 @@ public class MiscListener implements Listener {
                     return;
                 }
                 // Use the first chest as the primary location for consistency
-                clicked = clicked.getLocation().getBlockX() <= doubleChestMate.getLocation().getBlockX()
+                clicked = clicked.getLocation().getBlockX() < doubleChestMate.getLocation().getBlockX()
                         || (clicked.getLocation().getBlockX() == doubleChestMate.getLocation().getBlockX()
                         && clicked.getLocation().getBlockZ() <= doubleChestMate.getLocation().getBlockZ())
                         ? clicked : doubleChestMate;

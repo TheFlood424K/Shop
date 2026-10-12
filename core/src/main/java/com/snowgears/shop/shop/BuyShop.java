@@ -21,6 +21,12 @@ public class BuyShop extends AbstractShop {
         this.signLines = ShopMessage.getSignLines(this, this.type);
     }
 
+    /**
+     * Updates and returns buying stock as the number of full transactions the owner's
+     * funds can cover. With partial sales enabled and an item configured, reports one
+     * when funds cover at least one item but not a full transaction. A zero price gives
+     * non-admin shops zero stock; admin shops always report {@link Integer#MAX_VALUE}.
+     */
     @Override
     protected int calculateStock(){
         if(this.isAdmin) {

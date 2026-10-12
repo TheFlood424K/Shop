@@ -224,7 +224,8 @@ public class ShopMessage {
     }
 
     /**
-     * Get the placeholders map for testing purposes.
+     * Returns the live, mutable placeholder registry for testing purposes.
+     * Changes to this map affect subsequent placeholder resolution.
      * Not for production use.
      */
     public static Map<String, Function<PlaceholderContext, Component>> getPlaceholders() {
@@ -232,9 +233,10 @@ public class ShopMessage {
     }
 
     /**
-     * True when a placeholder's component is nothing but a colour/formatting code, i.e. a
-     * directive that tints the text after it rather than content in its own right.
-     * Supports both legacy (&) codes and hex (#RRGGBB) codes.
+     * True when a text component has no children and contains only a color/formatting code,
+     * a directive that styles the text after it rather than content in its own right.
+     * Supports legacy {@code &} and section-sign codes and hex {@code #RRGGBB} codes.
+     * Returns false for null or non-text components.
      * <p>
      * Made package-private for test access.
      */
@@ -276,6 +278,17 @@ public class ShopMessage {
     // format() — builds an Adventure Component from a legacy-style string
     // -----------------------------------------------------------------------
 
+    /**
+     * Formats legacy color/decoration codes, hex colors, and registered placeholders into
+     * a component. Placeholders containing only a color/formatting directive style the
+     * following text; null placeholder results contribute no text, and unknown placeholders
+     * remain literal. Reset codes restore white and clear decorations.
+     *
+     * @param context the context passed to registered placeholder functions
+     * @return the formatted component, or an empty component for a null message
+     * @throws RuntimeException if a registered placeholder function throws one; placeholder
+     *                          failures, including errors, propagate to the caller
+     */
     public static Component format(String message, PlaceholderContext context) {
         if (message == null) return Component.empty();
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
@@ -576,6 +589,11 @@ public class ShopMessage {
     // Placeholder loaders
     // -----------------------------------------------------------------------
 
+    /**
+     * Registers the built-in placeholder functions, replacing entries with the same keys
+     * while retaining other registered placeholders. Values are resolved from the supplied
+     * context and current configuration when each placeholder is used.
+     */
     public static void loadPlaceholders() {
         registerPlaceholder("[plugin]", context -> Component.text(plugin.getCommandAlias()));
         registerPlaceholder("[server name]", context -> Component.text(ShopMessage.getServerDisplayName()));
@@ -919,13 +937,10 @@ public class ShopMessage {
     }
 
     /**
-     * The shop-type word used by the "[shop]" and "[&lt;type&gt; shop]" sign tags.
-     * <p>
-     * Reads the {@code sign_creation} table in signConfig.yml, NOT {@link #getCreationWord}.
-     * The two deliberately differ: {@code creation_words} in chatConfig.yml is written for
-     * chat, where {@code SHOP} is the brand tag "[Shop]", while {@code sign_creation} holds the
-     * word to print on a sign ("sell", "buy", ...). Using the chat table here would rewrite the
-     * literal "[Shop]" in shipped owner-notification messages into the word "sell".
+     * Resolves {@code [shop]} to the literal {@code [Shop]} brand tag in chat or to
+     * {@code sign_creation.SHOP} from signConfig.yml on signs, with a fallback of "shop".
+     * Sign text uses this table rather than {@link #getCreationWord} from chatConfig.yml.
+     * Returns null for a sign context without a shop or shop type.
      */
     private static Component getShopNameWord(PlaceholderContext context) {
         // Only meaningful on a sign. In chat text "[Shop]" is the plugin's brand tag — it comes
@@ -1228,7 +1243,9 @@ public class ShopMessage {
     }
 
     /**
-     * Compat overload: returns sign lines for a named key, with a shop for placeholder context.
+     * Compat overload: returns legacy-formatted sign lines for a named key, resolving
+     * placeholders in sign context. A null shop returns the unformatted template lines.
+     * Exceptions and errors from placeholder functions propagate to the caller.
      */
     public static String[] getSignLines(String key, AbstractShop shop) {
         String[] rawLines = getShopSignText(key);
@@ -1299,7 +1316,9 @@ public class ShopMessage {
     public static String getServerDisplayName() { return serverDisplayName != null ? serverDisplayName : "Server"; }
     public static String getStockColorInStock() { return stockColorInStock != null ? stockColorInStock : "&a"; }
     public static String getStockColorOutOfStock() { return stockColorOutOfStock != null ? stockColorOutOfStock : "&4"; }
+    /** Sets the raw color directive used by {@code [stock color]} for positive stock. */
     public static void setStockColorInStock(String color) { stockColorInStock = color; }
+    /** Sets the raw color directive used by {@code [stock color]} for zero or negative stock. */
     public static void setStockColorOutOfStock(String color) { stockColorOutOfStock = color; }
     public static HashMap<String, String> getCreationWords() { return creationWords; }
     public static String getCreationWord(String key) {
@@ -1313,9 +1332,8 @@ public class ShopMessage {
      * This reads from signConfig.yml, NOT chatConfig.yml. The two tables are deliberately
      * different: {@code creation_words} in chatConfig.yml is written for chat messages where
      * {@code SHOP} is the brand tag "[Shop]", while {@code sign_creation} holds the word to
-     * print on a sign ("shop", "sell", "buy", ...). Using the chat table for sign validation
-     * would rewrite the literal "[Shop]" in shipped owner-notification messages into the word
-     * "sell".
+     * print on a sign ("shop", "sell", "buy", ...). The lookup also accepts {@code SHOP}
+     * for the general shop creation word; missing or empty entries use the lowercase key.
      */
     public static String getSignCreationWord(String key) {
         if (signConfig != null) {

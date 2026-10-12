@@ -10,6 +10,7 @@
   "license": "UNLICENSED",
   "dependencies": {
     "mineflayer": "^4.39.0",
-    "mineflayer-pathfinder": "^2.4.5"
+    "mineflayer-pathfinder": "^2.4.5",
+    "uuid": "^14.0.3"
   }
 }
