@@ -270,15 +270,6 @@ public class CommandHandler extends BukkitCommand {
         return true;
     }
 
-    /**
-     * Suggests command arguments matching the current prefix, including operator options
-     * when the sender has operator access.
-     *
-     * @param sender the sender requesting completions
-     * @param alias the command alias used
-     * @param args the arguments entered so far
-     * @return the available completions for the current argument
-     */
     @Override
     public List<String> tabComplete(CommandSender sender, String alias, String[] args) throws IllegalArgumentException {
         List<String> results = new ArrayList<>();
@@ -289,7 +280,6 @@ public class CommandHandler extends BukkitCommand {
             results.add("list");
             results.add("currency");
             results.add("help");
-            results.add("transactions");
 
             boolean showOperatorCommands = false;
             if(sender instanceof Player){

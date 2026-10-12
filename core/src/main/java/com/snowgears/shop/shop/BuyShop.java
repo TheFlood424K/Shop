@@ -28,11 +28,6 @@ public class BuyShop extends AbstractShop {
             return stock;
         }
         else {
-            // Handle stored zero prices: if price is zero, stock is zero (free items not allowed)
-            if (this.getPrice() == 0) {
-                stock = 0;
-                return stock;
-            }
             double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
             // Check if the player has enough funds to cover a full transaction
             stock = (int) Math.floor(funds / this.getPrice());

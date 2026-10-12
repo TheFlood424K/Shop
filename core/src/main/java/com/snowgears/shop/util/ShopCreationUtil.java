@@ -147,32 +147,10 @@ public class ShopCreationUtil {
         return true;
     }
 
-    /**
-     * Creates a shop after checking its secondary price, permissions, funds and container ownership.
-     * For a container and wall sign, loads the shop, fires the creation event and registers it
-     * unless creation is rejected. Gamble shops are also initialized immediately.
-     *
-     * @param player the player creating the shop
-     * @param chestBlock the intended shop container
-     * @param signBlock the block used for the shop sign
-     * @param pricePair the primary and secondary prices; the secondary price must be nonnegative
-     *                  and must be positive for combo shops
-     * @param amount the number of items per transaction
-     * @param isAdmin whether admin status is requested, subject to operator permission
-     * @param type the shop type, or null to default to a selling shop
-     * @param signDirection the direction the sign faces
-     * @param isFakeSign whether the shop uses a virtual sign
-     * @return the created shop, or null if creation is rejected or a gamble shop is initialized
-     */
     public AbstractShop createShop(Player player, Block chestBlock, Block signBlock, PricePair pricePair, int amount, boolean isAdmin, ShopType type, BlockFace signDirection, boolean isFakeSign){
         String playerMessage = null;
         if(type == null)
             type = ShopType.SELL;
-
-        if (pricePair.getPriceCombo() < 0 || (pricePair.getPriceCombo() == 0 && type == ShopType.COMBO)) {
-            ShopMessage.sendMessage("interaction_issue", "line3", player, null);
-            return null;
-        }
 
         // The admin flag arrives from the player's own creation input (see getShopIsAdmin), so it is a
         // request, not a fact. Honour it only for a player entitled to it, and coerce rather than
@@ -186,15 +164,6 @@ public class ShopCreationUtil {
 
         final AbstractShop shop = AbstractShop.create(signBlock.getLocation(), player.getUniqueId(), pricePair.getPrice(), pricePair.getPriceCombo(), amount, isAdmin, type, signDirection);
         shop.setFakeSign(isFakeSign);
-
-        // Validate secondary price for COMBO shops: reject negative and zero
-        if (type == ShopType.COMBO) {
-            double priceCombo = pricePair.getPriceCombo();
-            if (priceCombo <= 0) {
-                ShopMessage.sendMessage("interaction_issue", "line3", player, null);
-                return null;
-            }
-        }
 
         if (plugin.usePerms()) {
             if (!(player.hasPermission("shop.create." + type.toString().toLowerCase()) || player.hasPermission("shop.create")))

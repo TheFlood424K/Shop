@@ -58,11 +58,6 @@ public class ComboShop extends AbstractShop {
             return stock;
         }
         else {
-            // Handle stored zero prices: if buy price is zero, stock is zero (free items not allowed)
-            if (this.getPrice() == 0) {
-                stock = 0;
-                return stock;
-            }
             double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
             // Calculate buying capacity from available funds
             stock = (int) Math.floor(funds / this.getPrice());

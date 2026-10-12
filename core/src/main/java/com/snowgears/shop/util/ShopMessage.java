@@ -224,25 +224,13 @@ public class ShopMessage {
     }
 
     /**
-     * Get the placeholders map for testing purposes.
-     * Not for production use.
-     */
-    public static Map<String, Function<PlaceholderContext, Component>> getPlaceholders() {
-        return placeholders;
-    }
-
-    /**
      * True when a placeholder's component is nothing but a colour/formatting code, i.e. a
      * directive that tints the text after it rather than content in its own right.
-     * Supports both legacy (&) codes and hex (#RRGGBB) codes.
-     * <p>
-     * Made package-private for test access.
      */
-    static boolean isColorDirective(Component component) {
+    private static boolean isColorDirective(Component component) {
         if (!(component instanceof TextComponent text)) return false;
         String content = text.content();
-        if (content == null || !text.children().isEmpty()) return false;
-        return content.matches(COLOR_CODE_REGEX) || content.matches(HEX_CODE_REGEX);
+        return content != null && content.matches(COLOR_CODE_REGEX) && text.children().isEmpty();
     }
 
     public static Component replacePlaceholder(String placeholder, PlaceholderContext context) {
@@ -336,49 +324,36 @@ public class ShopMessage {
                     // follows; appending it as content dropped the colour entirely, leaving
                     // out-of-stock shops with no colour on the sign.
                     String code = ((TextComponent) placeholderResult).content();
-                    if (code.matches(COLOR_CODE_REGEX)) {
-                        char c = Character.toLowerCase(code.charAt(1));
-                        if (c == 'r') {
-                            latestColor = NamedTextColor.WHITE;
-                            isBold = isItalic = isStrikethrough = isUnderlined = isObfuscated = false;
-                        } else if (isFormattingCode(code)) {
-                            TextDecoration dec = getDecoration(c);
-                            if (dec == TextDecoration.BOLD)          isBold = true;
-                            else if (dec == TextDecoration.ITALIC)   isItalic = true;
-                            else if (dec == TextDecoration.STRIKETHROUGH) isStrikethrough = true;
-                            else if (dec == TextDecoration.UNDERLINED) isUnderlined = true;
-                            else if (dec == TextDecoration.OBFUSCATED) isObfuscated = true;
-                        } else {
-                            TextColor color = getTextColor(code);
-                            if (color != null) latestColor = color;
-                        }
-                    } else if (code.matches(HEX_CODE_REGEX)) {
-                        // Hex color code
+                    char c = Character.toLowerCase(code.charAt(1));
+                    if (c == 'r') {
+                        latestColor = NamedTextColor.WHITE;
+                        isBold = isItalic = isStrikethrough = isUnderlined = isObfuscated = false;
+                    } else if (isFormattingCode(code)) {
+                        TextDecoration dec = getDecoration(c);
+                        if (dec == TextDecoration.BOLD)          isBold = true;
+                        else if (dec == TextDecoration.ITALIC)   isItalic = true;
+                        else if (dec == TextDecoration.STRIKETHROUGH) isStrikethrough = true;
+                        else if (dec == TextDecoration.UNDERLINED) isUnderlined = true;
+                        else if (dec == TextDecoration.OBFUSCATED) isObfuscated = true;
+                    } else {
                         TextColor color = getTextColor(code);
                         if (color != null) latestColor = color;
                     }
                     partComponent = Component.empty();
-                } else if (placeholderResult instanceof String && (((String) placeholderResult).matches(COLOR_CODE_REGEX) || ((String) placeholderResult).matches(HEX_CODE_REGEX))) {
-                    String code = (String) placeholderResult;
-                    if (code.matches(COLOR_CODE_REGEX)) {
-                        char c = Character.toLowerCase(code.charAt(1));
-                        if (c == 'r') {
-                            latestColor = NamedTextColor.WHITE;
-                            isBold = isItalic = isStrikethrough = isUnderlined = isObfuscated = false;
-                        } else if (isFormattingCode(code)) {
-                            TextDecoration dec = getDecoration(c);
-                            if (dec == TextDecoration.BOLD)          isBold = true;
-                            else if (dec == TextDecoration.ITALIC)   isItalic = true;
-                            else if (dec == TextDecoration.STRIKETHROUGH) isStrikethrough = true;
-                            else if (dec == TextDecoration.UNDERLINED) isUnderlined = true;
-                            else if (dec == TextDecoration.OBFUSCATED) isObfuscated = true;
-                        } else {
-                            TextColor color = getTextColor(code);
-                            if (color != null) latestColor = color;
-                        }
+                } else if (placeholderResult instanceof String && ((String) placeholderResult).matches(COLOR_CODE_REGEX)) {
+                    char c = Character.toLowerCase(((String) placeholderResult).charAt(1));
+                    if (c == 'r') {
+                        latestColor = NamedTextColor.WHITE;
+                        isBold = isItalic = isStrikethrough = isUnderlined = isObfuscated = false;
+                    } else if (isFormattingCode((String) placeholderResult)) {
+                        TextDecoration dec = getDecoration(c);
+                        if (dec == TextDecoration.BOLD)          isBold = true;
+                        else if (dec == TextDecoration.ITALIC)   isItalic = true;
+                        else if (dec == TextDecoration.STRIKETHROUGH) isStrikethrough = true;
+                        else if (dec == TextDecoration.UNDERLINED) isUnderlined = true;
+                        else if (dec == TextDecoration.OBFUSCATED) isObfuscated = true;
                     } else {
-                        // Hex color code
-                        TextColor color = getTextColor(code);
+                        TextColor color = getTextColor((String) placeholderResult);
                         if (color != null) latestColor = color;
                     }
                     partComponent = Component.text(""); // empty component, color applied via latestColor
@@ -517,7 +492,7 @@ public class ShopMessage {
      */
     public static void sendMessage(ShopType type, String section, String subkey, Player player, AbstractShop shop) {
         String message = getShopMessage(type, section, subkey);
-        plugin.getLogger().debug("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
+        plugin.getLogger().info("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
         if (message != null && !message.isEmpty())
             sendMessage(message, player, shop);
     }
@@ -534,7 +509,7 @@ public class ShopMessage {
      */
     public static void sendMessage(ShopType type, String section, String subkey, ShopCreationProcess process, Player player) {
         String message = getShopMessage(type, section, subkey);
-        plugin.getLogger().debug("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
+        plugin.getLogger().info("[DEBUG sendMessage] type=" + type + " section=" + section + " subkey=" + subkey + " fullKey=" + (section + "." + type.name() + "." + subkey) + " message=" + message + " player=" + player.getName());
         if (message != null && !message.isEmpty())
             sendMessage(message, process, player);
     }
@@ -590,14 +565,14 @@ public class ShopMessage {
         });
         registerPlaceholder("[shop type]", context -> {
             if (context.getProcess() != null && context.getProcess().getShopType() != null)
-                return Component.text(ShopMessage.getCreationWord(context.getProcess().getShopType().getConfigKey()));
+                return Component.text(context.getProcess().getShopType().getConfigKey());
             if (context.getShop() != null)
                 return Component.text(ShopMessage.getCreationWord(context.getShop().getType().getConfigKey()));
             return null;
         });
         registerPlaceholder("[shop types]", ShopMessage::getShopTypesPlaceholder);
         // "[shop]" and the per-type "[<type> shop]" tags appear on line 1 of every sign_text
-        // block in signConfig.yml. They are now registered above.
+        // block in signConfig.yml, but were never registered, so signs rendered them literally.
         registerPlaceholder("[shop]", ShopMessage::getShopNameWord);
         for (ShopType shopType : ShopType.values()) {
             registerPlaceholder("[" + shopType.name().toLowerCase() + " shop]", context -> shopNameWord(context, shopType));
@@ -933,7 +908,7 @@ public class ShopMessage {
         // word there would rewrite the brand tag in the shipped owner notifications.
         if (!context.isForSign()) return Component.text("[Shop]");
         if (context.getShop() == null || context.getShop().getType() == null) return null;
-        return Component.text(getSignCreationWord("SHOP"));
+        return shopNameWord(context, context.getShop().getType());
     }
 
     private static Component shopNameWord(PlaceholderContext context, ShopType type) {
@@ -944,6 +919,18 @@ public class ShopMessage {
             return null;
         }
         return Component.text(getSignCreationWord(type.name()));
+    }
+
+    /**
+     * The word for a shop type as it should appear on a sign, from signConfig.yml's
+     * {@code sign_creation} table, falling back to the lowercase type name.
+     */
+    private static String getSignCreationWord(String key) {
+        if (signConfig != null) {
+            String word = signConfig.getString("sign_creation." + key.toUpperCase());
+            if (word != null && !word.isEmpty()) return word;
+        }
+        return key.toLowerCase();
     }
 
     private static Component getShopTypesPlaceholder(PlaceholderContext context) {
@@ -1235,7 +1222,6 @@ public class ShopMessage {
         if (shop == null) return rawLines;
         PlaceholderContext context = new PlaceholderContext();
         context.setShop(shop);
-        context.setForSign(true);
         String[] formatted = new String[rawLines.length];
         for (int i = 0; i < rawLines.length; i++) {
             formatted[i] = toLegacy(format(rawLines[i], context));
@@ -1299,32 +1285,10 @@ public class ShopMessage {
     public static String getServerDisplayName() { return serverDisplayName != null ? serverDisplayName : "Server"; }
     public static String getStockColorInStock() { return stockColorInStock != null ? stockColorInStock : "&a"; }
     public static String getStockColorOutOfStock() { return stockColorOutOfStock != null ? stockColorOutOfStock : "&4"; }
-    public static void setStockColorInStock(String color) { stockColorInStock = color; }
-    public static void setStockColorOutOfStock(String color) { stockColorOutOfStock = color; }
     public static HashMap<String, String> getCreationWords() { return creationWords; }
     public static String getCreationWord(String key) {
         return creationWords.getOrDefault(key.toUpperCase(), key.toLowerCase());
     }
-
-    /**
-     * The word for a shop type as it should appear on a sign, from signConfig.yml's
-     * {@code sign_creation} table, falling back to the lowercase type name.
-     * <p>
-     * This reads from signConfig.yml, NOT chatConfig.yml. The two tables are deliberately
-     * different: {@code creation_words} in chatConfig.yml is written for chat messages where
-     * {@code SHOP} is the brand tag "[Shop]", while {@code sign_creation} holds the word to
-     * print on a sign ("shop", "sell", "buy", ...). Using the chat table for sign validation
-     * would rewrite the literal "[Shop]" in shipped owner-notification messages into the word
-     * "sell".
-     */
-    public static String getSignCreationWord(String key) {
-        if (signConfig != null) {
-            String word = signConfig.getString("sign_creation." + key.toUpperCase());
-            if (word != null && !word.isEmpty()) return word;
-        }
-        return key.toLowerCase();
-    }
-
     public static int getTargetMaxLength() { return targetMaxLength; }
     public static YamlConfiguration getChatConfig() { return chatConfig; }
     public static YamlConfiguration getSignConfig() { return signConfig; }

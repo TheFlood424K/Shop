@@ -149,7 +149,6 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
 
         // Assert: no creation prompts/messages should be sent
         server.getScheduler().performTicks(5);
-        server.getScheduler().waitAsyncTasksFinished();
         assertNull(player.nextMessage(), "No creation messages should be sent when interacting with an existing shop chest");
     }
 
