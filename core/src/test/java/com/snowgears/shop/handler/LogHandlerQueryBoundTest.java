@@ -144,6 +144,10 @@ class LogHandlerQueryBoundTest {
 
             assertTrue(waitForQuery(result),
                     "A query with filter " + filter + " did not answer within the retry budget");
+
+            // Ensure each query's async work fully drains before the next one starts
+            server.getScheduler().waitAsyncTasksFinished();
+            server.getScheduler().performTicks(5);
         }
     }
 
