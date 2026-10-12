@@ -389,7 +389,7 @@
         <dependency>
             <groupId>org.mockbukkit.mockbukkit</groupId>
             <artifactId>mockbukkit-v26.2</artifactId>
-            <version>4.116.1</version>
+            <version>4.117.0</version>
             <scope>test</scope>
         </dependency>
         <!-- Override byte-buddy for Java 25 compatibility -->
