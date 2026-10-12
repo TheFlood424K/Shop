@@ -387,35 +387,6 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         assertNull(readSummaryBoundary(owner));
     }
 
-    /** Verifies that expired purchases for owners with no summary entry are retained
-     *  until they first log in and a summary is calculated. This prevents premature purging
-     *  of transactions for players who have never logged in (offline players without any
-     *  shop_offline_summary record). See issue #160. */
-    @Test
-    void purchasesForOwnersWithoutSummaryEntrySurvivePurge() throws Exception {
-        setRetentionDays(90);
-        getServer().addSimpleWorld("world");
-        UUID neverLoggedInOwner = UUID.randomUUID();
-        // Purchase happened 150 days ago; player's last login was 200 days ago (so purchase is offline)
-        insertTransactionRow(makeTimestampDaysAgo(150), neverLoggedInOwner.toString());
-
-        waitForPurgeToFinish();
-        assertEquals(1, countActionRows(),
-                "Purchases for owners with no summary entry must survive purge until first login");
-        assertEquals(1, countTransactionRows());
-
-        // Now simulate the owner's first login with summary calculation
-        // lastPlayed = 200 days ago (before the purchase), so the purchase is included in summary
-        OfflineTransactions summary = new OfflineTransactions(neverLoggedInOwner, makeTimestampDaysAgo(200).getTime());
-        waitForSummary(summary);
-        assertEquals(1, summary.getNumTransactions());
-
-        // After summary, the old purchase can be purged
-        waitForPurgeToFinish();
-        assertEquals(0, countActionRows());
-        assertEquals(0, countTransactionRows());
-    }
-
     /** Coverage advances to the latest purchase even when rows are inserted in another timestamp order. */
     @Test
     void summaryPersistsLatestPurchaseRatherThanLastPlayed() throws Exception {

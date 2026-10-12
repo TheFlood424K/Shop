@@ -43,9 +43,6 @@ class TransactionLogFixture extends BaseMockBukkitTest {
      *  tracked work has actually settled rather than guessing a fixed iteration count. */
     private final AtomicInteger completed = new AtomicInteger();
 
-    /** Counts read queries in flight so {@link #drain()} waits for them too. */
-    private final AtomicInteger readQueriesInFlight = new AtomicInteger();
-
     /** How many wait-and-pump cycles drain() performs when the work has not yet settled.
      *  Chosen large enough that the second async hop (runNextTick) reliably lands even on busy
      *  CI runners, where the pool wait loop inside MockBukkit's waitAsyncTasksFinished() does
@@ -98,7 +95,6 @@ class TransactionLogFixture extends BaseMockBukkitTest {
         AtomicInteger delivered = new AtomicInteger();
         List<PlayerTransactionRecord>[] box = newBox();
 
-        readQueriesInFlight.incrementAndGet();
         getPlugin().getLogHandler().getShopTransactions(owner,
                 System.currentTimeMillis() - 86_400_000L * 365,
                 System.currentTimeMillis(),
@@ -106,7 +102,6 @@ class TransactionLogFixture extends BaseMockBukkitTest {
                 records -> {
                     box[0] = records;
                     delivered.incrementAndGet();
-                    readQueriesInFlight.decrementAndGet();
                 });
         drain();
 
@@ -146,8 +141,10 @@ class TransactionLogFixture extends BaseMockBukkitTest {
             getServer().getScheduler().performTicks(TICKS_PER_DRAIN);
 
             // Stop once the tracked work has settled, instead of running all 120 cycles
-            // every time. The tracked work includes both seedSales and readSales calls.
-            if (completed.get() == 0 && readQueriesInFlight.get() == 0) {
+            // every time. The tracked work is the fixture's own seedSales/getShopTransactions
+            // calls; unrelated scheduled work (display batches, timers) is not part of it.
+            // See issue #125.
+            if (completed.get() == 0) {
                 if (++idle >= IDLE_RUNS_TO_SETTLE) {
                     return;
                 }

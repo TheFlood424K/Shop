@@ -19,7 +19,7 @@ ai_persona:
 tech_stack:
   framework: bukkit/spigot
   build_tool: Maven
-  java_version: 25
+  java_version: 23
   dependencies:
     - Eclipse Collections
     - Commons Lang3
