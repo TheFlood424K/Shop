@@ -31,6 +31,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.block.BlockFace;
 import com.snowgears.shop.util.ShopClickType;
 import com.snowgears.shop.util.EconomyUtils;
+import com.snowgears.shop.util.InventoryUtils;
 
 import java.util.UUID;
 
@@ -263,6 +264,7 @@ class ShopOwnershipByUUIDTest extends BaseMockBukkitTest {
         PlayerMock impostor = StubbedPlayers.add(getServer(), "Owner");
         impostor.setOp(true);
         giveCurrency(impostor, 10);
+        assertEquals(trueOwnerUUID, shop.getOwnerUUID());
         assertEquals(trueOwner.getName(), impostor.getName());
         assertEquals(trueOwnerUUID, trueOwner.getUniqueId());
         assertNotEquals(trueOwnerUUID, impostor.getUniqueId());
@@ -271,11 +273,17 @@ class ShopOwnershipByUUIDTest extends BaseMockBukkitTest {
         PlayerInteractEvent ownerEvent = new PlayerInteractEvent(
             trueOwner, Action.RIGHT_CLICK_BLOCK, new ItemStack(Material.EMERALD),
             signBlock, BlockFace.NORTH, EquipmentSlot.HAND);
+        ownerEvent.setCancelled(false);
         handler.executeTransactionFromEvent(ownerEvent, shop, false);
         assertTrue(ownerEvent.isCancelled());
         assertFalse(trueOwner.getInventory().contains(Material.DIAMOND), "Owner cannot buy from own shop");
         assertTrue(trueOwner.getInventory().contains(Material.EMERALD, 10));
-        assertEquals(8, holder.getInventory().getItem(0).getAmount());
+        assertEquals(8, shop.getStock(), "True owner should not change shop stock");
+        assertEquals(8, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.DIAMOND)));
+        assertEquals(0, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.EMERALD)));
+        assertEquals(0, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.EMERALD_BLOCK)));
+        assertEquals(0, InventoryUtils.getAmount(trueOwner.getInventory(), new ItemStack(Material.DIAMOND)));
+        assertEquals(10, InventoryUtils.getAmount(trueOwner.getInventory(), new ItemStack(Material.EMERALD)));
         String ownerMessage = waitForNextMessage(trueOwner);
         assertNotNull(ownerMessage);
         assertTrue(ownerMessage.contains("own shop"), "Owner should receive the ownership rejection: " + ownerMessage);
@@ -288,7 +296,13 @@ class ShopOwnershipByUUIDTest extends BaseMockBukkitTest {
         assertTrue(impostor.getInventory().contains(Material.DIAMOND, 1),
             "Same-name player with a different UUID should be able to buy");
         assertFalse(impostor.getInventory().contains(Material.EMERALD), "Purchase should charge the buyer");
-        assertEquals(7, holder.getInventory().getItem(0).getAmount());
+        assertEquals(7, shop.getStock(), "Impostor should purchase one diamond");
+        assertEquals(7, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.DIAMOND)));
+        // Item currency deposits compress nine emeralds into one block.
+        assertEquals(1, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.EMERALD_BLOCK)));
+        assertEquals(1, InventoryUtils.getAmount(holder.getInventory(), new ItemStack(Material.EMERALD)));
+        assertEquals(1, InventoryUtils.getAmount(impostor.getInventory(), new ItemStack(Material.DIAMOND)));
+        assertEquals(0, InventoryUtils.getAmount(impostor.getInventory(), new ItemStack(Material.EMERALD)));
         assertEquals(10.0, EconomyUtils.getFunds(shop.getOwner(), holder.getInventory()),
             "Shop should receive payment, including compressed currency blocks");
 
