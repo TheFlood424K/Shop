@@ -356,7 +356,9 @@ public class MiscListener implements Listener {
     /**
      * Initializes an existing shop sign with the held item, or starts or advances chest-based
      * creation when that creation method is enabled. Chest creation requires both halves of
-     * a double chest to be free of existing shops. Starting a process requires sneaking;
+     * a double chest to be free of existing shops and uses the half with the lower X
+     * coordinate, then lower Z coordinate, as the primary chest regardless of the half clicked.
+     * Starting a process requires sneaking;
      * an empty hand can open creative item selection when enabled.
      *
      * @param event the originating interact event, when there is one. A single left-click fires

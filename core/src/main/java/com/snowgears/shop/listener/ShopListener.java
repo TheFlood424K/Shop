@@ -90,6 +90,12 @@ public class ShopListener implements Listener {
         return playerBuildLimit;
     }
 
+    /**
+     * Dispatches left- or right-click actions on initialized wall or standing shop signs,
+     * using the player's sneaking state to select the action. Off-hand clicks are ignored
+     * when the server exposes the hand. Cancels the interaction when an action is performed
+     * or mapped, including mapped actions denied by permission checks.
+     */
     @EventHandler (ignoreCancelled = true, priority = EventPriority.LOW)
     public void onShopSignClick(PlayerInteractEvent event) {
         try {
