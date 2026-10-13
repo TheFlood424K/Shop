@@ -149,7 +149,7 @@ public class ShopCreationUtil {
 
     /**
      * Creates a shop after checking its secondary price, permissions, funds and container ownership.
-     * For a container and wall sign, loads the shop, fires the creation event and registers it
+     * For a container and wall or standing sign, loads the shop, fires the creation event and registers it
      * unless creation is rejected. Gamble shops are also initialized immediately.
      *
      * @param player the player creating the shop
@@ -249,13 +249,9 @@ public class ShopCreationUtil {
                 }
             }
 
-            // Creation is wall-sign only, deliberately. A standing sign has to be reliably associated
-            // with the container it belongs to, and "the block below" is ambiguous once another
-            // shop is placed in between — the association is what identifies a shop, so getting it
-            // wrong is worse than declining to create one. Interaction with existing sign-post
-            // shops is supported and is not restricted by this guard; see the sign checks in
-            // ShopListener, which accept WALL_SIGNS and STANDING_SIGNS alike.
-            if (!(signBlock.getBlockData() instanceof WallSign)) {
+            // Only wall and standing signs are supported by the shop loading path.
+            if (!(signBlock.getBlockData() instanceof WallSign)
+                    && !(signBlock.getBlockData() instanceof org.bukkit.block.data.type.Sign)) {
                 return null;
             }
             Sign signBlockState = (Sign) shop.getSignLocation().getBlock().getState();

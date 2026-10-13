@@ -7,6 +7,7 @@ import com.snowgears.shop.shop.ShopType;
 import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 import com.snowgears.shop.testsupport.ShopCreationFlowTestUtil;
 import com.snowgears.shop.util.ShopMessage;
+import com.snowgears.shop.util.PricePair;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -23,6 +24,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockbukkit.mockbukkit.simulate.entity.PlayerSimulation;
@@ -538,7 +541,36 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertNotNull(shopHandler.getShop(signLoc), "Shop should be created from a lowercase tag");
     }
 
-    /** Verifies that a standing sign is ignored even when it contains valid shop creation text. */
+    @ParameterizedTest
+    @CsvSource({"OAK_WALL_SIGN, NORTH, true", "OAK_SIGN, UP, true",
+            "OAK_HANGING_SIGN, UP, false", "OAK_WALL_HANGING_SIGN, NORTH, false"})
+    void testCreationSignTypesAndTouchingBlockLookup(Material material, BlockFace signFace, boolean supported) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(signFace);
+        sign.setType(material);
+        if (sign.getBlockData() instanceof WallSign) {
+            WallSign data = (WallSign) sign.getBlockData();
+            data.setFacing(BlockFace.NORTH);
+            sign.setBlockData(data);
+        }
+
+        AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, sign,
+                new PricePair(10, 0), 1, false, ShopType.SELL, BlockFace.NORTH, false);
+
+        if (supported) {
+            assertNotNull(shop);
+            assertEquals(chest.getLocation(), shop.getChestLocation());
+            assertSame(shop, shopHandler.getShop(sign.getLocation()));
+            assertSame(shop, shopHandler.getShopTouchingBlock(chest.getRelative(BlockFace.EAST)));
+        } else {
+            assertNull(shop);
+            assertNull(shopHandler.getShop(sign.getLocation()));
+            assertEquals(material, sign.getType());
+        }
+    }
+
+    /** Verifies that a standing sign without a container below it cannot create a shop. */
     @Test
     @DisplayName("Ground sign (non-wall) is ignored")
     void testGroundSignIgnored() {

@@ -209,7 +209,7 @@ public class ShopHandler {
         for(BlockFace face : faces){
             if(this.isChest(block.getRelative(face))){
                 Block shopChest = block.getRelative(face);
-                for(BlockFace newFace : faces){
+                for(BlockFace newFace : directionsWithVertical){
                     Material signType = shopChest.getRelative(newFace).getType();
                     if(Tag.WALL_SIGNS.isTagged(signType) || Tag.STANDING_SIGNS.isTagged(signType)){
                         AbstractShop shop = getShop(shopChest.getRelative(newFace).getLocation());
