@@ -70,6 +70,7 @@ class ItemCurrencyDepositTest {
     @MockBukkitInject
     private PlayerMock seller;
 
+    /** Loads the plugin and resolves the private item-currency deposit method. */
     @BeforeEach
     void setUp() throws Exception {
         plugin = MockBukkit.loadSimple(Shop.class);
@@ -78,16 +79,19 @@ class ItemCurrencyDepositTest {
         addItemCurrency.setAccessible(true);
     }
 
+    /** Releases the mocked Bukkit server after each test. */
     @AfterEach
     void tearDown() {
         MockBukkit.unmock();
     }
 
+    /** Deposits wheat currency through the production helper into the player's inventory. */
     private boolean deposit(Player player, int amount) throws Exception {
         return (boolean) addItemCurrency.invoke(null, player.getInventory(),
                 new ItemStack(SINGULAR, 1), amount);
     }
 
+    /** Counts all items of the given material in the player's inventory. */
     private int countOf(Player player, Material material) {
         int total = 0;
         for (ItemStack stack : player.getInventory().getContents()) {
@@ -98,6 +102,7 @@ class ItemCurrencyDepositTest {
         return total;
     }
 
+    /** Verifies that payouts exceeding one stack still deposit their full value. */
     @Test
     @DisplayName("A large payout is split across stacks rather than built as one oversized stack")
     void largePayoutIsSplitAcrossStacks() throws Exception {
@@ -112,6 +117,7 @@ class ItemCurrencyDepositTest {
         assertEquals(645, countOf(seller, BLOCK));
     }
 
+    /** Verifies that a large payout produces only valid stack sizes. */
     @Test
     @DisplayName("No stack handed to the inventory exceeds the material's max stack size")
     void noStackExceedsMaxStackSize() throws Exception {
@@ -126,6 +132,7 @@ class ItemCurrencyDepositTest {
         }
     }
 
+    /** Verifies that units left after block compression are deposited as wheat. */
     @Test
     @DisplayName("The remainder stays as singular units")
     void remainderStaysSingular() throws Exception {
@@ -134,6 +141,7 @@ class ItemCurrencyDepositTest {
         assertEquals(1, countOf(seller, SINGULAR), "with one loose wheat left over");
     }
 
+    /** Verifies that a failed large payout restores blocks and preserves existing wheat. */
     @Test
     @DisplayName("A failed payout does not remove the seller's existing stock (#92)")
     void failedPayoutDoesNotDestroySellerStock() throws Exception {
@@ -150,6 +158,7 @@ class ItemCurrencyDepositTest {
                 "All deposited blocks must be rolled back even above the removal helper's limit");
     }
 
+    /** Verifies that a failed singular remainder restores the original block balance. */
     @Test
     void ordinaryRollbackPreservesExistingBlocks() throws Exception {
         Inventory inventory = server.createInventory(null, 9);
@@ -166,6 +175,7 @@ class ItemCurrencyDepositTest {
         assertEquals(8 * 64, InventoryUtils.getAmount(inventory, new ItemStack(Material.STONE)));
     }
 
+    /** Verifies rollback of a partial block stack, including any earlier full chunks. */
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
     void partialBlockInsertionRollsBackAndPreservesExistingStock(int emptySlots) throws Exception {
@@ -177,15 +187,18 @@ class ItemCurrencyDepositTest {
 
         // Capacity is one block, plus a full stack when an empty slot is available.
         // The next chunk inserts one block before failing, with another chunk still pending.
+        // There is also no space for the singular remainder.
         int blocksToDeposit = (emptySlots + 1) * 64 + 5;
         assertFalse((boolean) addItemCurrency.invoke(null, inventory,
-                new ItemStack(SINGULAR), blocksToDeposit * 9));
+                new ItemStack(SINGULAR), blocksToDeposit * 9 + 1));
         assertEquals(63, InventoryUtils.getAmount(inventory, new ItemStack(BLOCK)),
                 "Rollback must remove partial and complete chunks and preserve existing blocks");
+        assertEquals(0, InventoryUtils.getAmount(inventory, new ItemStack(SINGULAR)));
         assertEquals((8 - emptySlots) * 64,
                 InventoryUtils.getAmount(inventory, new ItemStack(Material.STONE)));
     }
 
+    /** Verifies that rollback attempts every chunk and logs the accumulated removal shortfall. */
     @Test
     void rollbackContinuesAfterRemovalShortfallAndReportsTotal() throws Exception {
         Inventory inventory = mock(Inventory.class);
@@ -220,6 +233,7 @@ class ItemCurrencyDepositTest {
         }
     }
 
+    /** Verifies that an unplaceable payout returns a failure result. */
     @Test
     @DisplayName("A failed payout reports false rather than throwing")
     void failedPayoutReportsFalse() throws Exception {
@@ -227,6 +241,7 @@ class ItemCurrencyDepositTest {
                 "An unplaceable payout must be reported as a failure so the caller can reverse");
     }
 
+    /** Verifies that transaction parties propagate the deposit helper's failure result. */
     @Test
     @DisplayName("depositFunds propagates the failure instead of reporting success (#86)")
     void depositFundsPropagatesFailure() {
