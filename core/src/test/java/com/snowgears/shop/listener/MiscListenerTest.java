@@ -1,6 +1,7 @@
 package com.snowgears.shop.listener;
 
 import com.snowgears.shop.Shop;
+import com.snowgears.shop.display.DisplayType;
 import com.snowgears.shop.handler.ShopHandler;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ShopType;
@@ -15,6 +16,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.type.WallSign;
+import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.sign.Side;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.SignChangeEvent;
@@ -568,6 +570,98 @@ class MiscListenerTest extends BaseMockBukkitTest {
             assertNull(shopHandler.getShop(sign.getLocation()));
             assertEquals(material, sign.getType());
         }
+    }
+
+    /** All sixteen standing-sign rotations produce a cardinal shop and creation-process facing. */
+    @ParameterizedTest
+    @CsvSource({
+            "NORTH, NORTH", "NORTH_NORTH_EAST, NORTH", "NORTH_EAST, EAST", "EAST_NORTH_EAST, EAST",
+            "EAST, EAST", "EAST_SOUTH_EAST, EAST", "SOUTH_EAST, SOUTH", "SOUTH_SOUTH_EAST, SOUTH",
+            "SOUTH, SOUTH", "SOUTH_SOUTH_WEST, SOUTH", "SOUTH_WEST, WEST", "WEST_SOUTH_WEST, WEST",
+            "WEST, WEST", "WEST_NORTH_WEST, WEST", "NORTH_WEST, NORTH", "NORTH_NORTH_WEST, NORTH"
+    })
+    void standingSignCreationUsesCardinalDirection(BlockFace rotation, BlockFace expected) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(BlockFace.UP);
+        sign.setType(Material.OAK_SIGN);
+        Rotatable data = (Rotatable) sign.getBlockData();
+        data.setRotation(rotation);
+        // Keep MockBukkit's cached state in sync; createShop updates this state.
+        Sign state = (Sign) sign.getState();
+        state.setBlockData(data);
+        state.update();
+        setConfig("displayLightLevel", 15);
+
+        SignChangeEvent event = new SignChangeEvent(sign, player, new String[]{
+                ShopMessage.getSignCreationWord("SHOP"), "1", "10", ShopMessage.getCreationWord("SELL")
+        });
+        miscListener.onShopCreation(event);
+
+        assertFalse(event.isCancelled());
+        AbstractShop shop = shopHandler.getShop(sign.getLocation());
+        assertNotNull(shop);
+        assertEquals(chest.getLocation(), shop.getChestLocation());
+        assertEquals(expected, shop.getFacing());
+        assertEquals(expected, miscListener.getShopCreationProcess(player).getClickedFace());
+        assertEquals(Material.OAK_SIGN, sign.getType(), "Display lighting must preserve the sign");
+        assertEquals(rotation, ((Rotatable) sign.getBlockData()).getRotation());
+    }
+
+    /** The shop's own standing sign allows initialization regardless of the obstruction policy. */
+    @ParameterizedTest
+    @CsvSource({"true", "false"})
+    void ownStandingSignDoesNotBlockInitialization(boolean forceNone) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(BlockFace.UP);
+        sign.setType(Material.OAK_SIGN);
+        AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, sign,
+                new PricePair(10, 0), 1, false, ShopType.SELL, BlockFace.NORTH, false);
+        assertNotNull(shop);
+        setConfig("displayType", DisplayType.ITEM);
+        setConfig("forceDisplayToNoneIfBlocked", forceNone);
+        setConfig("creationCost", 0);
+        shop.getDisplay().setType(DisplayType.ITEM, false);
+
+        assertTrue(plugin.getShopCreationUtil().initializeShop(shop, player, new ItemStack(Material.DIAMOND), null));
+
+        assertEquals(Material.DIAMOND, shop.getItemStack().getType());
+        assertEquals(DisplayType.ITEM, shop.getDisplay().getType());
+        assertEquals(Material.OAK_SIGN, sign.getType());
+    }
+
+    /** Other occupied display blocks still disable the display or reject initialization. */
+    @ParameterizedTest
+    @CsvSource({
+            "STONE, true, true, NONE", "STONE, false, false, ITEM",
+            "OAK_SIGN, true, true, NONE", "OAK_SIGN, false, false, ITEM",
+            "OAK_WALL_SIGN, true, true, NONE", "OAK_WALL_SIGN, false, false, ITEM",
+            "AIR, true, true, ITEM", "AIR, false, true, ITEM",
+            "WATER, true, true, ITEM", "WATER, false, true, ITEM"
+    })
+    void displayObstructionPolicyIsPreserved(Material obstruction, boolean forceNone,
+                                            boolean initialized, DisplayType expectedDisplay) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(BlockFace.NORTH);
+        sign.setType(Material.OAK_WALL_SIGN);
+        AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, sign,
+                new PricePair(10, 0), 1, false, ShopType.SELL, BlockFace.NORTH, false);
+        assertNotNull(shop);
+        Block aboveChest = chest.getRelative(BlockFace.UP);
+        aboveChest.setType(obstruction);
+        setConfig("displayType", DisplayType.ITEM);
+        setConfig("forceDisplayToNoneIfBlocked", forceNone);
+        setConfig("creationCost", 0);
+        shop.getDisplay().setType(DisplayType.ITEM, false);
+
+        assertEquals(initialized, plugin.getShopCreationUtil().initializeShop(shop, player,
+                new ItemStack(Material.DIAMOND), null));
+
+        assertEquals(expectedDisplay, shop.getDisplay().getType());
+        assertEquals(initialized, shop.getItemStack() != null);
+        assertEquals(obstruction, aboveChest.getType());
     }
 
     /** Verifies that a standing sign without a container below it cannot create a shop. */

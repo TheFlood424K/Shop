@@ -376,7 +376,9 @@ public class ShopCreationUtil {
         if(plugin.getDisplayType() != DisplayType.NONE) {
             //make sure there is room above the shop for the display
             Block aboveShop = shop.getChestLocation().getBlock().getRelative(BlockFace.UP);
-            if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
+            boolean ownStandingSign = aboveShop.getLocation().equals(shop.getSignLocation())
+                    && aboveShop.getBlockData() instanceof org.bukkit.block.data.type.Sign;
+            if (!ownStandingSign && !UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
                 if(plugin.forceDisplayToNoneIfBlocked()){
                     shop.getDisplay().setType(DisplayType.NONE, false);
                 }

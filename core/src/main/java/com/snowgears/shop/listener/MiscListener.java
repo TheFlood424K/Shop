@@ -114,15 +114,14 @@ public class MiscListener implements Listener {
     }
 
     /**
-     * Starts sign-based shop creation, when enabled, for a wall sign attached to a supported
+     * Starts sign-based shop creation, when enabled, for a wall or standing sign on a supported
      * container whose first sign line contains the configured creation word, ignoring case.
      * Invalid amounts, prices, or rejected creation cancel the sign change. On success,
      * prompts for an item and schedules deletion if the configured initialization timeout
      * is positive and expires before initialization.
      *
-     * <p>Rotatable signs are checked against the container directly below them. Matching
-     * creation text on such a container also attempts creation, but the creation utility
-     * currently rejects non-wall signs and the sign change is canceled.
+     * <p>Rotatable signs are checked against the container directly below them, and their
+     * rotation is snapped to a cardinal direction for display orientation and offsets.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onShopCreation(SignChangeEvent event) {
@@ -145,7 +144,13 @@ public class MiscListener implements Listener {
         }
         else if (b.getBlockData() instanceof Rotatable) {
             // Standing sign (sign post) — the chest is directly below the sign.
-            signDirection = ((Rotatable) b.getBlockData()).getRotation();
+            signDirection = switch (((Rotatable) b.getBlockData()).getRotation()) {
+                case NORTH, NORTH_NORTH_EAST, NORTH_NORTH_WEST, NORTH_WEST -> BlockFace.NORTH;
+                case EAST, EAST_NORTH_EAST, EAST_SOUTH_EAST, NORTH_EAST -> BlockFace.EAST;
+                case SOUTH, SOUTH_SOUTH_EAST, SOUTH_SOUTH_WEST, SOUTH_EAST -> BlockFace.SOUTH;
+                case WEST, WEST_NORTH_WEST, WEST_SOUTH_WEST, SOUTH_WEST -> BlockFace.WEST;
+                default -> BlockFace.NORTH;
+            };
             chest = b.getRelative(BlockFace.DOWN);
         }
         else
