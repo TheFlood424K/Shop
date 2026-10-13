@@ -51,6 +51,15 @@ public class ComboShop extends AbstractShop {
         this.priceSell = priceSell;
     }
 
+    /**
+     * Updates and returns stock in transactions, using the owner's buying funds first
+     * and sellable inventory only when buying stock is zero. A zero buy price disables
+     * buying stock. With partial sales enabled, reports one for an affordable item or,
+     * on the selling fallback with a positive sell price, enough items worth at least
+     * one currency unit. Admin shops always report {@link Integer#MAX_VALUE}.
+     *
+     * @throws ArithmeticException if the transaction amount is zero when counting selling stock
+     */
     @Override
     protected int calculateStock(){
         if(this.isAdmin) {
@@ -58,19 +67,17 @@ public class ComboShop extends AbstractShop {
             return stock;
         }
         else {
-            // Handle stored zero prices: if buy price is zero, stock is zero (free items not allowed)
-            if (this.getPrice() == 0) {
-                stock = 0;
-                return stock;
-            }
-            double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
-            // Calculate buying capacity from available funds
-            stock = (int) Math.floor(funds / this.getPrice());
-            // Check if we should show partial buying capacity
-            if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
-                if (funds >= this.getPricePerItem()) {
-                    stock = 1;
-                    return stock;
+            stock = 0;
+            // A zero buy price disables buying capacity, but the shop may still sell items.
+            if (this.getPrice() != 0) {
+                double funds = EconomyUtils.getFunds(this.getOwner(), this.getInventory());
+                stock = (int) Math.floor(funds / this.getPrice());
+                // Check if we should show partial buying capacity
+                if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
+                    if (funds >= this.getPricePerItem()) {
+                        stock = 1;
+                        return stock;
+                    }
                 }
             }
 
@@ -79,9 +86,9 @@ public class ComboShop extends AbstractShop {
                 int itemsToSell = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
                 stock = itemsToSell / this.getAmount();
                 // Check if we should show partial stock
-                if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
+                if (stock == 0 && this.getPriceSell() > 0 && Shop.getPlugin().getAllowPartialSales()) {
                     // Calculate the minimum items required to show as in stock
-                    int minItemAmountRequired = (int) Math.ceil(1 / this.getPricePerItem());
+                    int minItemAmountRequired = (int) Math.ceil(this.getAmount() / this.getPriceSell());
                     int itemsInShop = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
 
                     if(itemsInShop >= minItemAmountRequired){

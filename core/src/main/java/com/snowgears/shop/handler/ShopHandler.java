@@ -60,6 +60,8 @@ public class ShopHandler {
     private ConcurrentHashMap<String, Set<Location>> unloadedShopsByChunk = new ConcurrentHashMap<>();
     private UUID adminUUID;
     private BlockFace[] directions = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
+    // For standing signs (sign posts), the sign is ABOVE the chest, so we also check UP
+    private BlockFace[] directionsWithVertical = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST, BlockFace.UP};
 
     private ArrayList<ItemStack> itemListItems = new ArrayList<>();
 
@@ -153,7 +155,7 @@ public class ShopHandler {
                         Chest leftChest = (Chest) dc.getLeftSide();
                         Chest rightChest = (Chest) dc.getRightSide();
 
-                        for (BlockFace direction : directions) {
+                        for (BlockFace direction : directionsWithVertical) {
                             shop = this.getShop(leftChest.getBlock().getRelative(direction).getLocation());
                             if (shop != null) {
                                 //make sure the shop sign you found is actually attached to the correct shop
@@ -171,7 +173,7 @@ public class ShopHandler {
                     }
                 }
 
-                for (BlockFace direction : directions) {
+                for (BlockFace direction : directionsWithVertical) {
                     shop = this.getShop(shopChest.getRelative(direction).getLocation());
                     if (shop != null) {
                         //make sure the shop sign you found is actually attached to the correct shop
@@ -193,7 +195,7 @@ public class ShopHandler {
                 Block shopChest = block.getRelative(face);
                 for(BlockFace newFace : faces){
                     Material signType = shopChest.getRelative(newFace).getType();
-                    if(Tag.WALL_SIGNS.isTagged(signType)){
+                    if(Tag.WALL_SIGNS.isTagged(signType) || Tag.STANDING_SIGNS.isTagged(signType)){
                         AbstractShop shop = getShop(shopChest.getRelative(newFace).getLocation());
                         if(shop != null)
                             return shop;

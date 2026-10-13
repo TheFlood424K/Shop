@@ -14,6 +14,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.block.data.type.WallSign;
+import org.bukkit.Tag;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -51,7 +52,7 @@ public class DisplayListener implements Listener {
                                         try {
                                             Block block = player.getTargetBlockExact(8);
                                             if (block != null &&
-                                                    block.getBlockData() instanceof WallSign) {
+                                                    (Tag.WALL_SIGNS.isTagged(block.getType()) || Tag.STANDING_SIGNS.isTagged(block.getType()))) {
 
                                                 AbstractShop shop =
                                                         plugin.getShopHandler()

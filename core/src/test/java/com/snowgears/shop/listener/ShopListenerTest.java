@@ -7,6 +7,8 @@ import com.snowgears.shop.shop.SellShop;
 import com.snowgears.shop.shop.ShopType;
 import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 import com.snowgears.shop.util.ShopLogger;
+import com.snowgears.shop.util.ShopAction;
+import com.snowgears.shop.util.ShopClickType;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -20,9 +22,12 @@ import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import java.util.UUID;
+import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -173,5 +178,42 @@ class ShopListenerTest extends BaseMockBukkitTest {
         assertDoesNotThrow(() -> {
             shopListener.onShopSignClick(event);
         });
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "RIGHT_CLICK_SIGN, RIGHT_CLICK_BLOCK, false, OAK_WALL_SIGN, true",
+            "LEFT_CLICK_SIGN, LEFT_CLICK_BLOCK, false, OAK_SIGN, true",
+            "SHIFT_RIGHT_CLICK_SIGN, RIGHT_CLICK_BLOCK, true, OAK_SIGN, true",
+            "SHIFT_LEFT_CLICK_SIGN, LEFT_CLICK_BLOCK, true, OAK_WALL_SIGN, true",
+            "RIGHT_CLICK_SIGN, RIGHT_CLICK_BLOCK, false, OAK_WALL_SIGN, false",
+            "LEFT_CLICK_SIGN, LEFT_CLICK_BLOCK, false, OAK_SIGN, false",
+            "SHIFT_RIGHT_CLICK_SIGN, RIGHT_CLICK_BLOCK, true, OAK_SIGN, false",
+            "SHIFT_LEFT_CLICK_SIGN, LEFT_CLICK_BLOCK, true, OAK_WALL_SIGN, false"
+    })
+    void testOnShopSignClickCancelsDeniedMappedActions(ShopClickType clickType, Action action,
+                                                      boolean sneaking, Material signType,
+                                                      boolean mapped) {
+        HashMap<ShopClickType, ShopAction> mappings = new HashMap<>();
+        if (mapped) mappings.put(clickType, ShopAction.CYCLE_DISPLAY);
+        setConfig("clickTypeActionMap", mappings);
+
+        World world = getServer().addSimpleWorld("world");
+        Location signLoc = new Location(world, 100, 64, 100);
+        SellShop shop = new SellShop(signLoc, UUID.randomUUID(), 10.0, 1, false, BlockFace.NORTH);
+        shop.setItemStack(new ItemStack(Material.DIAMOND));
+        shopHandler.addShop(shop);
+        Block sign = world.getBlockAt(signLoc);
+        sign.setType(signType);
+
+        PlayerMock player = addStubbedPlayer("NonOwner");
+        player.setSneaking(sneaking);
+        PlayerInteractEvent event = new PlayerInteractEvent(player, action, new ItemStack(Material.DIRT),
+                sign, BlockFace.UP, EquipmentSlot.HAND);
+
+        assertFalse(shop.executeClickAction(event, clickType), "Denied or unmapped actions return false");
+        assertFalse(event.isCancelled());
+        shopListener.onShopSignClick(event);
+        assertEquals(mapped, event.isCancelled(), "Only mapped sign actions consume denied clicks");
     }
 }

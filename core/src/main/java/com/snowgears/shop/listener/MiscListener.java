@@ -20,6 +20,7 @@ import org.bukkit.block.DoubleChest;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.data.type.WallSign;
+import org.bukkit.Tag;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -96,7 +97,7 @@ public class MiscListener implements Listener {
 
         Block b = event.getBlockClicked();
 
-        if (b.getBlockData() instanceof WallSign) {
+        if (Tag.WALL_SIGNS.isTagged(b.getType()) || Tag.STANDING_SIGNS.isTagged(b.getType())) {
             AbstractShop shop = plugin.getShopHandler().getShop(b.getLocation());
             if (shop != null)
                 event.setCancelled(true);
@@ -107,6 +108,13 @@ public class MiscListener implements Listener {
             event.setCancelled(true);
     }
 
+    /**
+     * Starts sign-based shop creation, when enabled, for a wall sign attached to a supported
+     * container whose first sign line contains the configured creation word, ignoring case.
+     * Invalid amounts, prices, or rejected creation cancel the sign change. On success,
+     * prompts for an item and schedules deletion if the configured initialization timeout
+     * is positive and expires before initialization.
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onShopCreation(SignChangeEvent event) {
         final Block b = event.getBlock();
@@ -125,6 +133,11 @@ public class MiscListener implements Listener {
             // Wall sign is mounted ON the chest block; the sign's text faces AWAY from the chest.
             // The chest is BEHIND the sign, in the OPPOSITE direction of the sign's facing.
             chest = b.getRelative(signDirection.getOppositeFace());
+        }
+        else if (b.getBlockData() instanceof Rotatable) {
+            // Standing sign (sign post) — the chest is directly below the sign.
+            signDirection = ((Rotatable) b.getBlockData()).getRotation();
+            chest = b.getRelative(BlockFace.DOWN);
         }
         else
             return;
@@ -212,7 +225,7 @@ public class MiscListener implements Listener {
                             // types including freestanding sign-post shops, not only wall signs.
                             String[] lines = ShopMessage.getSignLines("timeout", shop);
                             Block timeoutSignBlock = signLocation.getBlock();
-                            if (timeoutSignBlock.getBlockData() instanceof WallSign) {
+                            if (Tag.WALL_SIGNS.isTagged(timeoutSignBlock.getType()) || Tag.STANDING_SIGNS.isTagged(timeoutSignBlock.getType())) {
                                 Sign sign = (Sign) timeoutSignBlock.getState();
                                 sign.setLine(0, lines[0]);
                                 sign.setLine(1, lines[1]);
@@ -228,20 +241,21 @@ public class MiscListener implements Listener {
         }
     }
 
-    /**
-     * Checks if the given chest block has an adjacent chest block that would form a double chest.
-     * Returns the adjacent chest block if found and the clicked chest is part of a DoubleChest,
-     * null otherwise. Only checks horizontal neighbors (NORTH, SOUTH, EAST, WEST).
-     */
+    /** Returns the other half of this chest's combined inventory, if one exists. */
     private Block getDoubleChestMate(Block chest) {
-        // Only look for a double chest mate if this chest is part of a DoubleChest
-        if (!(chest.getState() instanceof InventoryHolder holder) || !(holder instanceof DoubleChest)) {
+        if (!(chest.getState() instanceof InventoryHolder holder)
+                || !(holder.getInventory().getHolder() instanceof DoubleChest doubleChest)) {
             return null;
         }
-        for (BlockFace face : CARDINAL_FACES) {
-            Block neighbor = chest.getRelative(face);
-            if (plugin.getShopHandler().isChest(neighbor)) {
-                return neighbor;
+        if (doubleChest.getLeftSide() instanceof org.bukkit.block.Chest left
+                && doubleChest.getRightSide() instanceof org.bukkit.block.Chest right) {
+            Block leftBlock = left.getBlock();
+            Block rightBlock = right.getBlock();
+            if (chest.equals(leftBlock) && !chest.equals(rightBlock)) {
+                return rightBlock;
+            }
+            if (chest.equals(rightBlock) && !chest.equals(leftBlock)) {
+                return leftBlock;
             }
         }
         return null;
@@ -281,7 +295,7 @@ public class MiscListener implements Listener {
             return false;
         }
 
-        if (target.getBlockData() instanceof WallSign) {
+        if (Tag.WALL_SIGNS.isTagged(target.getType()) || Tag.STANDING_SIGNS.isTagged(target.getType())) {
             AbstractShop shop = plugin.getShopHandler().getShop(target.getLocation());
             return shop != null && !shop.isInitialized();
         }
@@ -346,14 +360,21 @@ public class MiscListener implements Listener {
     }
 
     /**
+     * Initializes an existing shop sign with the held item, or starts or advances chest-based
+     * creation when that creation method is enabled. Chest creation requires both halves of
+     * a double chest to be free of existing shops and uses the half with the lower X
+     * coordinate, then lower Z coordinate, as the primary chest regardless of the half clicked.
+     * Starting a process requires sneaking;
+     * an empty hand can open creative item selection when enabled.
+     *
      * @param event the originating interact event, when there is one. A single left-click fires
      *              PlayerInteractEvent and then BlockBreakEvent, so without cancelling the
-     *              interact the sign we just initialised is destroyed by the break half of the
+     *              interact the sign we just initialized is destroyed by the break half of the
      *              same click. Null for callers with no event (spear attacks).
      */
     public void handleShopLeftClick(Player player, Block clicked, ItemStack itemInHand, BlockFace blockFace,
                                      PlayerInteractEvent event) {
-        if (clicked.getBlockData() instanceof WallSign) {
+        if (Tag.WALL_SIGNS.isTagged(clicked.getType()) || Tag.STANDING_SIGNS.isTagged(clicked.getType())) {
 
             if(!plugin.getAllowCreationMethodSign())
                 return;
@@ -406,7 +427,7 @@ public class MiscListener implements Listener {
                     return;
                 }
                 // Use the first chest as the primary location for consistency
-                clicked = clicked.getLocation().getBlockX() <= doubleChestMate.getLocation().getBlockX()
+                clicked = clicked.getLocation().getBlockX() < doubleChestMate.getLocation().getBlockX()
                         || (clicked.getLocation().getBlockX() == doubleChestMate.getLocation().getBlockX()
                         && clicked.getLocation().getBlockZ() <= doubleChestMate.getLocation().getBlockZ())
                         ? clicked : doubleChestMate;
@@ -679,7 +700,7 @@ public class MiscListener implements Listener {
         Block b = event.getBlock();
         Player player = event.getPlayer();
 
-        if (b.getBlockData() instanceof WallSign) {
+        if (Tag.WALL_SIGNS.isTagged(b.getType()) || Tag.STANDING_SIGNS.isTagged(b.getType())) {
             AbstractShop shop = plugin.getShopHandler().getShop(b.getLocation());
             if (shop == null)
                 return;

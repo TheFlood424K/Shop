@@ -188,8 +188,13 @@ public abstract class AbstractShop {
                 // The chest is BEHIND the sign, in the OPPOSITE direction of the sign's facing.
                 chestBlock = signBlock.getRelative(effectiveFacing.getOppositeFace());
                 Shop.getPlugin().getLogger().info("[DEBUG load] chestBlock=" + chestBlock.getLocation() + " chestType=" + chestBlock.getType());
+            } else if (signBlock.getBlockData() instanceof org.bukkit.block.data.type.Sign) {
+                // Standing sign (sign post) — the chest is directly below the sign.
+                Shop.getPlugin().getLogger().info("[DEBUG load] Standing sign detected at " + signLocation);
+                chestBlock = signBlock.getRelative(BlockFace.DOWN);
+                Shop.getPlugin().getLogger().info("[DEBUG load] chestBlock=" + chestBlock.getLocation() + " chestType=" + chestBlock.getType());
             } else {
-                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign (detected: " + signBlock.getType() + "), deleting shop: " + this);
+                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign or standing Sign (detected: " + signBlock.getType() + "), deleting shop: " + this);
                 this.delete();
                 return false;
             }
@@ -443,14 +448,24 @@ public abstract class AbstractShop {
 
     public double getPricePerItem() {
         // Calculate pricePerItem for partial sales, round up!
-        double pricePer = this.getPrice() / this.getAmount();
+        int amount = this.getAmount();
+        if (amount == 0) {
+            Shop.getPlugin().getLogger().warning("getPricePerItem() called with amount=0 for shop: " + this + " — returning 0 to avoid division by zero");
+            return 0.0;
+        }
+        double pricePer = this.getPrice() / amount;
 
         return pricePer;
     }
 
     public double getItemsPerPriceUnit() {
         // Calculate items you can get for each price unit, round down!
-        double pricePer = this.getAmount() / this.getPrice();
+        double price = this.getPrice();
+        if (price == 0.0) {
+            Shop.getPlugin().getLogger().warning("getItemsPerPriceUnit() called with price=0 for shop: " + this + " — returning 0 to avoid division by zero");
+            return 0.0;
+        }
+        double pricePer = this.getAmount() / price;
 
         return pricePer;
     }
@@ -906,6 +921,14 @@ public abstract class AbstractShop {
         this.fakeSign = fakeSign;
     }
 
+    /**
+     * Dispatches the configured click action for this shop and refreshes stock after a
+     * transaction attempt. Cycling the display requires ownership or operator access;
+     * owners also need {@code shop.setdisplay} when permissions are enabled.
+     *
+     * @return false if no action is mapped or display cycling is denied; true otherwise,
+     *         even if a transaction attempt fails
+     */
     public boolean executeClickAction(PlayerInteractEvent event, ShopClickType clickType){
         ShopAction action = Shop.getPlugin().getShopAction(clickType);
         if(action == null)
