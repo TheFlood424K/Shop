@@ -262,6 +262,21 @@ public abstract class AbstractShop {
         // corrupt the displayed stock count and trigger spurious saves.
         int newStock = this.calculateStock();
         if (newStock == STOCK_UNAVAILABLE) {
+            // The inventory or item could not be read — rather than leaving the `stock`
+            // field at its last known value (which could be a stale positive number,
+            // causing signs to show stock that cannot actually be sold), reset to 0 so
+            // callers see an out-of-stock state. The cache is invalidated so the next
+            // successful calculateStock() repopulates it with the true count.
+            if (stock > 0) {
+                stock = 0;
+                // Force a sign refresh so the displayed count drops to 0.
+                signLinesRequireRefresh = true;
+                this.updateSign(true);
+                if(Shop.getPlugin().getBluemapHookListener() != null) {
+                    Shop.getPlugin().getBluemapHookListener().updateMarker(this);
+                }
+                needsSave = true;
+            }
             invalidateStockCache();
             return;
         }
