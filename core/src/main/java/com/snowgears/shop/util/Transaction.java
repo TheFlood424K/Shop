@@ -270,7 +270,10 @@ public class Transaction {
                 if (!itemRestored || !buyerRefunded) {
                     Shop.getPlugin().getLogger().severe("Transaction rollback partially failed for shop "
                             + shop.getSignLocation() + ": itemRestored=" + itemRestored
-                            + ", buyerRefunded=" + buyerRefunded + ". Manual intervention may be required.");
+                            + ", buyerRefunded=" + buyerRefunded
+                            + (!buyerRefunded ? ", buyerUUID=" + player.getUniqueId() + ", price=" + price
+                                    + ", itemType=" + itemSold.getType() + ", quantity=" + itemSold.getAmount() : "")
+                            + ". Manual intervention may be required.");
                 }
                 return this.setError(TransactionError.INVENTORY_FULL_SHOP);
             }
