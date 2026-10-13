@@ -106,6 +106,7 @@ public class EconomyUtils {
         int singularsToAdd = amount - blocksToAdd * ratio;
 
         int unadded = 0;
+        int blocksSuccessfullyAdded = 0;
         if (blocksToAdd > 0) {
             // Split across stacks: a single ItemStack above the material's max stack size is not a
             // quantity any inventory can hold, and the server's handling of one is undefined.
@@ -118,6 +119,7 @@ public class EconomyUtils {
                     unadded += leftover * ratio;
                     break;
                 }
+                blocksSuccessfullyAdded += chunk;
                 remaining -= chunk;
             }
         }
@@ -128,9 +130,12 @@ public class EconomyUtils {
         }
 
         if (unadded > 0) {
-            // Report the shortfall and stop. Do NOT remove anything from `inventory`: that is the
-            // destination the payment was being placed into, so removing from it destroys stock the
-            // seller already held. Nothing was placed beyond what fit, so there is nothing to undo.
+            // Partial deposit failed — roll back any blocks that were successfully added
+            // to prevent currency duplication. The transaction will be rolled back by the caller.
+            if (blocksSuccessfullyAdded > 0) {
+                ItemStack blockStack = new ItemStack(blockForm, blocksSuccessfullyAdded);
+                InventoryUtils.removeItem(inventory, blockStack);
+            }
             return false;
         }
         return true;
