@@ -47,6 +47,26 @@ public class TransactionParty {
 
     public boolean isPlayer() { return this.isPlayer; }
 
+    boolean usesItemCurrency() {
+        return this.currencyItem != null || Shop.getPlugin().getCurrencyType() == CurrencyType.ITEM;
+    }
+
+    // Deep copies are required: removeItem can mutate the stacks returned by getContents().
+    ItemStack[] snapshotInventory() {
+        if (this.isAdmin || this.inventory == null) { return null; }
+        ItemStack[] contents = this.inventory.getContents().clone();
+        for (int i = 0; i < contents.length; i++) {
+            if (contents[i] != null) { contents[i] = contents[i].clone(); }
+        }
+        return contents;
+    }
+
+    void restoreInventory(ItemStack[] contents) {
+        if (contents == null) { return; }
+        this.inventory.setContents(contents);
+        notifyInventoryChanged();
+    }
+
     public int getInventoryQuantity(ItemStack item) {
         // If we are an admin, don't check the shop for inventory
         if (this.isAdmin) { return Integer.MAX_VALUE; }

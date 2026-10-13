@@ -228,12 +228,10 @@ public class Transaction {
 
     /**
      * Verifies the negotiated transaction, then transfers payment and items between the buyer and seller.
-     * If a chest seller cannot accept payment, attempts to restore the sold items and refund the buyer,
-     * logging a severe message if either rollback step fails.
+     * Item-currency transactions restore both inventories from snapshots if any transfer fails.
+     * A refused economy deposit leaves stock untouched and attempts to refund the buyer.
      *
-     * @return {@link TransactionError#NONE} on success, or the error that prevented completion;
-     *         {@link TransactionError#INVENTORY_FULL_SHOP} when a chest seller cannot accept payment,
-     *         even if rollback fails
+     * @return {@link TransactionError#NONE} on success, or the error that prevented completion
      */
     public TransactionError execute() {
         // Check to see if we had any errors, you must do this before performing the transaction!
@@ -243,53 +241,30 @@ public class Transaction {
         ItemStack itemSold = this.itemBeingSold.clone();
         itemSold.setAmount(this.amountBeingSold);
 
-        // Step 1: Deduct the payment from the buyer.
-        boolean paymentSuccessful = this.buyer.deductFunds(this.price);
-        if (!paymentSuccessful) {
-            if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
-            else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
-        }
-
-        // Step 2: For non-player (chest) sellers, remove the sold item from the chest BEFORE depositing
-        // the payment. verify() already confirmed space via canAcceptPaymentAfterRemoval(), which simulates
-        // the chest state after removal. Executing in this order guarantees the freed slot is actually
-        // available when depositFunds() runs, preventing item-currency overflow/loss.
-        // For player sellers the original order (pay → receive item) is unchanged.
-        if (!this.seller.isPlayer()) {
-            // Remove the sold item first to free up space in the chest.
-            this.seller.deductItem(itemSold);
-
-            // Now deposit the payment into the (now partially-emptied) chest.
-            boolean depositSuccessful = this.seller.depositFunds(this.price);
-            if (!depositSuccessful) {
-                // Rollback: restore the sold item to the chest and refund the buyer.
-                // verify() confirmed space post-removal, so this should only happen due to
-                // a race condition or edge case. Check rollback results and log failures.
-                boolean itemRestored = this.seller.depositItem(itemSold);
-                boolean buyerRefunded = this.buyer.depositFunds(this.price);
-                if (!itemRestored || !buyerRefunded) {
-                    Shop.getPlugin().getLogger().severe("Transaction rollback partially failed for shop "
-                            + shop.getSignLocation() + ": itemRestored=" + itemRestored
-                            + ", buyerRefunded=" + buyerRefunded
-                            + ", itemType=" + itemSold.getType() + ", quantity=" + itemSold.getAmount()
-                            + (!buyerRefunded ? ", buyerUUID=" + player.getUniqueId() + ", price=" + price : "")
-                            + ". Manual intervention may be required.");
-                }
-                return this.setError(TransactionError.INVENTORY_FULL_SHOP);
+        if (this.buyer.usesItemCurrency()) {
+            TransactionError transferError = this.transferItemCurrency(itemSold);
+            if (transferError != TransactionError.NONE) { return this.setError(transferError); }
+        } else {
+            // Step 1: Deduct the payment from the buyer.
+            boolean paymentSuccessful = this.buyer.deductFunds(this.price);
+            if (!paymentSuccessful) {
+                if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
+                else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
             }
 
-            // Give the sold item to the buyer.
-            this.buyer.depositItem(itemSold);
-        } else {
-            // Player seller — original order: pay seller, then transfer item.
-            // The result matters: a Vault deposit can be refused (balance cap, bank limit, provider
-            // failure), and addFunds reports that as false. Discarding it completes a sale the seller
-            // was never paid for — goods gone, money retained by the buyer.
+            // Vault and experience deposits do not need inventory space. Accept payment before
+            // removing stock so a refused deposit cannot require an item refund.
             if (!this.seller.depositFunds(this.price)) {
-                // Refund the buyer and leave the shop's stock untouched. Nothing has moved yet, so
-                // this is a clean reversal rather than the partial rollback the chest path needs.
-                this.buyer.depositFunds(this.price);
-                return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP);
+                boolean buyerRefunded = this.buyer.depositFunds(this.price);
+                if (!buyerRefunded) {
+                    Shop.getPlugin().getLogger().severe("Transaction refund failed for shop "
+                            + shop.getSignLocation() + ", buyerUUID=" + player.getUniqueId()
+                            + ", price=" + price + ", itemType=" + itemSold.getType()
+                            + ", quantity=" + itemSold.getAmount()
+                            + ". Manual intervention may be required.");
+                }
+                return this.setError(this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_SHOP
+                        : TransactionError.INVENTORY_FULL_SHOP);
             }
             this.seller.deductItem(itemSold);
             this.buyer.depositItem(itemSold);
@@ -310,6 +285,42 @@ public class Transaction {
 
         // Successful!
         return this.setError(TransactionError.NONE);
+    }
+
+    // Inventory writes run synchronously with no transaction events between the snapshot and commit.
+    // Restore slots directly on failure, rather than trying deposits that can overflow or be refused.
+    private TransactionError transferItemCurrency(ItemStack itemSold) {
+        ItemStack[] buyerContents = this.buyer.snapshotInventory();
+        ItemStack[] sellerContents = this.seller.snapshotInventory();
+        boolean committed = false;
+        try {
+            if (!this.buyer.deductFunds(this.price)) {
+                return this.buyer.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_PLAYER
+                        : TransactionError.INSUFFICIENT_FUNDS_SHOP;
+            }
+            if (!this.seller.deductItem(itemSold)) {
+                return this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_PLAYER
+                        : TransactionError.INSUFFICIENT_FUNDS_SHOP;
+            }
+            if (!this.seller.depositFunds(this.price)) {
+                return this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_SHOP
+                        : TransactionError.INVENTORY_FULL_SHOP;
+            }
+            if (!this.buyer.depositItem(itemSold)) {
+                return this.buyer.isPlayer() ? TransactionError.INVENTORY_FULL_PLAYER
+                        : TransactionError.INVENTORY_FULL_SHOP;
+            }
+            committed = true;
+            return TransactionError.NONE;
+        } finally {
+            if (!committed) {
+                try {
+                    this.seller.restoreInventory(sellerContents);
+                } finally {
+                    this.buyer.restoreInventory(buyerContents);
+                }
+            }
+        }
     }
 
     public Player getPlayer() {
