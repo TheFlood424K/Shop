@@ -238,7 +238,13 @@ public class ShopHandler {
                 // Defer GUI operations to the main thread to avoid Bukkit API access off-thread.
                 // If called from the async loadShops() pass, this will be drained in the
                 // main-thread pass below (see pendingHeadIcons handling).
-                pendingHeadIcons.put(shop, Boolean.TRUE);
+                // Only defer if we're actually off the main thread; synchronous callers
+                // (e.g., shop creation, tests) should reload immediately.
+                if (!Bukkit.isPrimaryThread()) {
+                    pendingHeadIcons.put(shop, Boolean.TRUE);
+                } else {
+                    plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
+                }
             }
         }
 
