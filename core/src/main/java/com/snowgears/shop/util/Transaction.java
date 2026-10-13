@@ -286,6 +286,15 @@ public class Transaction {
             return this.setError(TransactionError.NONE);
         }
 
+        // Invalidate the stock cache directly before recomputing. The TransactionParty
+        // notifyInventoryChanged() helper is a fragile lookup (it resolves the shop from
+        // the inventory's block position, which can miss on double chests or unloaded
+        // chunks), so the cache could be left stale if that path silently failed. The
+        // Transaction already holds the shop reference, so invalidate here on the
+        // authoritative thread to guarantee freshness regardless of how the chest was
+        // mutated above.
+        shop.invalidateStockCache();
+
         // Recompute stock from the inventory. This is the authoritative update: an incremental
         // counter cannot stand in for it, because it would have to account for every way a chest
         // can change (hoppers, player edits, other plugins) to stay correct.
