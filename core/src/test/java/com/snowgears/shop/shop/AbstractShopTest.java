@@ -9,11 +9,15 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.Sign;
+import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.data.type.WallSign;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
@@ -42,6 +46,45 @@ class AbstractShopTest extends BaseMockBukkitTest {
 
     private Location loc(int x, int y, int z) {
         return new Location(world, x, y, z);
+    }
+
+    /** Restored standing-sign shops resolve the chest below and normalize all sixteen rotations. */
+    @ParameterizedTest
+    @CsvSource({
+            "NORTH, NORTH", "NORTH_NORTH_EAST, NORTH", "NORTH_EAST, EAST", "EAST_NORTH_EAST, EAST",
+            "EAST, EAST", "EAST_SOUTH_EAST, EAST", "SOUTH_EAST, SOUTH", "SOUTH_SOUTH_EAST, SOUTH",
+            "SOUTH, SOUTH", "SOUTH_SOUTH_WEST, SOUTH", "SOUTH_WEST, WEST", "WEST_SOUTH_WEST, WEST",
+            "WEST, WEST", "WEST_NORTH_WEST, WEST", "NORTH_WEST, NORTH", "NORTH_NORTH_WEST, NORTH"
+    })
+    void loadRestoredStandingSignNormalizesFacing(BlockFace rotation, BlockFace expected) {
+        // Reconstruct the persisted shop before world loading, with a missing or legacy facing.
+        for (BlockFace savedFacing : new BlockFace[]{null, rotation}) {
+            Block chest = world.getBlockAt(loc(savedFacing == null ? 100 : 104, 64, 100));
+            chest.setType(Material.CHEST);
+            Block sign = chest.getRelative(BlockFace.UP);
+            sign.setType(Material.OAK_SIGN);
+            Rotatable data = (Rotatable) sign.getBlockData();
+            data.setRotation(rotation);
+            Sign state = (Sign) sign.getState();
+            state.setBlockData(data);
+            state.update();
+
+            AbstractShop shop = AbstractShop.create(sign.getLocation(), UUID.randomUUID(),
+                    10, 0, 1, false, ShopType.SELL, savedFacing);
+            assertNotNull(shop);
+            shop.setItemStack(new ItemStack(Material.DIAMOND));
+            shop.setStockOnLoad(0);
+            shopHandler.addShop(shop);
+            assertNull(shop.getChestLocation());
+
+            assertTrue(shop.load());
+
+            assertEquals(chest.getLocation(), shop.getChestLocation());
+            assertEquals(expected, shop.getFacing());
+            assertSame(shop, shopHandler.getShop(sign.getLocation()), "Loading must retain the shop");
+            assertSame(shop, shopHandler.getShopByChest(chest));
+            assertEquals(rotation, ((Rotatable) sign.getBlockData()).getRotation());
+        }
     }
 
     @Test

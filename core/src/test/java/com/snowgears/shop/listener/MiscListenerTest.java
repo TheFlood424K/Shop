@@ -543,6 +543,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertNotNull(shopHandler.getShop(signLoc), "Shop should be created from a lowercase tag");
     }
 
+    /** Wall and standing signs create discoverable shops; hanging signs remain unsupported. */
     @ParameterizedTest
     @CsvSource({"OAK_WALL_SIGN, NORTH, true", "OAK_SIGN, UP, true",
             "OAK_HANGING_SIGN, UP, false", "OAK_WALL_HANGING_SIGN, NORTH, false"})
