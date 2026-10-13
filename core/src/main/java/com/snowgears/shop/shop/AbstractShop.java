@@ -443,14 +443,24 @@ public abstract class AbstractShop {
 
     public double getPricePerItem() {
         // Calculate pricePerItem for partial sales, round up!
-        double pricePer = this.getPrice() / this.getAmount();
+        int amount = this.getAmount();
+        if (amount == 0) {
+            Shop.getPlugin().getLogger().warning("getPricePerItem() called with amount=0 for shop: " + this + " — returning 0 to avoid division by zero");
+            return 0.0;
+        }
+        double pricePer = this.getPrice() / amount;
 
         return pricePer;
     }
 
     public double getItemsPerPriceUnit() {
         // Calculate items you can get for each price unit, round down!
-        double pricePer = this.getAmount() / this.getPrice();
+        double price = this.getPrice();
+        if (price == 0.0) {
+            Shop.getPlugin().getLogger().warning("getItemsPerPriceUnit() called with price=0 for shop: " + this + " — returning 0 to avoid division by zero");
+            return 0.0;
+        }
+        double pricePer = this.getAmount() / price;
 
         return pricePer;
     }
