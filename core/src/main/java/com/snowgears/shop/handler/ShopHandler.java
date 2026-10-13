@@ -251,11 +251,12 @@ public class ShopHandler {
     //This method should only be used by AbstractShop object to delete
     public void removeShop(AbstractShop shop, boolean forceSave) {
             boolean changed = false;
-            // Atomic conditional remove: only remove if the shop at this location is the same instance
-            // Using identity check to avoid issues with Mockito spies or equals() overrides
-            AbstractShop current = allShops.get(shop.getSignLocation());
-            if (current != null && current == shop) {
-                allShops.remove(shop.getSignLocation(), shop);
+            // Atomic remove by location (the unique key). The location is the unique identifier
+            // for a shop, so we remove by location regardless of object identity.
+            // This handles cases where a spy/wrapper is used in tests, or a shop is
+            // replaced by a new instance at the same location.
+            AbstractShop removed = allShops.remove(shop.getSignLocation());
+            if (removed != null) {
                 changed = true;
             }
             if(playerShops.containsKey(shop.getOwnerUUID())) {
