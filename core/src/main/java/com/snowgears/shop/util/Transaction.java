@@ -271,8 +271,8 @@ public class Transaction {
                     Shop.getPlugin().getLogger().severe("Transaction rollback partially failed for shop "
                             + shop.getSignLocation() + ": itemRestored=" + itemRestored
                             + ", buyerRefunded=" + buyerRefunded
-                            + (!buyerRefunded ? ", buyerUUID=" + player.getUniqueId() + ", price=" + price
-                                    + ", itemType=" + itemSold.getType() + ", quantity=" + itemSold.getAmount() : "")
+                            + ", itemType=" + itemSold.getType() + ", quantity=" + itemSold.getAmount()
+                            + (!buyerRefunded ? ", buyerUUID=" + player.getUniqueId() + ", price=" + price : "")
                             + ". Manual intervention may be required.");
                 }
                 return this.setError(TransactionError.INVENTORY_FULL_SHOP);
