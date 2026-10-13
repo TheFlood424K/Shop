@@ -289,7 +289,10 @@ public class ShopCreationUtil {
             if (type == ShopType.GAMBLE) {
                 shop.setItemStack(plugin.getGambleDisplayItem());
                 shop.setAmount(1);
-                plugin.getShopHandler().addShop(shop);
+                AbstractShop existing = plugin.getShopHandler().addShop(shop);
+                if (existing != null) {
+                    return null; // Race condition: another thread already added this shop
+                }
                 shop.getDisplay().setType(DisplayType.LARGE_ITEM, false);
 
                 plugin.getShopCreationUtil().sendCreationSuccess(player, shop);
@@ -297,7 +300,10 @@ public class ShopCreationUtil {
                 return null;
             }
 
-            plugin.getShopHandler().addShop(shop);
+            AbstractShop existing = plugin.getShopHandler().addShop(shop);
+            if (existing != null) {
+                return null; // Race condition: another thread already added this shop
+            }
             Shop.getPlugin().getLogger().trace("[ShopCreationUtil.createShop] updateSign");
             shop.updateSign();
         }

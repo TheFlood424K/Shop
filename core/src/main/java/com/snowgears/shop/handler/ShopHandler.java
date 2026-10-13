@@ -225,15 +225,16 @@ public class ShopHandler {
     //This method should only be used by AbstractShop object to delete
     public void removeShop(AbstractShop shop, boolean forceSave) {
             boolean changed = false;
-            if (allShops.containsKey(shop.getSignLocation())) {
-                allShops.remove(shop.getSignLocation());
+            // Atomic remove: only remove if the shop at this location matches the given shop
+            AbstractShop removed = allShops.remove(shop.getSignLocation(), shop);
+            if (removed != null) {
                 changed = true;
             }
             if(playerShops.containsKey(shop.getOwnerUUID())) {
                 ConcurrentLinkedQueue<Location> playerShopLocations = playerShops.get(shop.getOwnerUUID());
                 if(playerShopLocations != null && playerShopLocations.remove(shop.getSignLocation())) {
                     if (playerShopLocations.isEmpty()) {
-                        playerShops.remove(shop.getOwnerUUID());
+                        playerShops.remove(shop.getOwnerUUID(), playerShopLocations);
                     }
                 }
             }
@@ -241,7 +242,7 @@ public class ShopHandler {
             ConcurrentLinkedQueue<Location> chunkShopLocations = chunkShops.get(chunkKey);
             if(chunkShopLocations != null && chunkShopLocations.remove(shop.getSignLocation())) {
                 if (chunkShopLocations.isEmpty()) {
-                    chunkShops.remove(chunkKey);
+                    chunkShops.remove(chunkKey, chunkShopLocations);
                 }
                 changed = true;
             }
