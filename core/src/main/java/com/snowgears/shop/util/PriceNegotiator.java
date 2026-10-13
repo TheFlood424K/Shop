@@ -211,16 +211,22 @@ public class PriceNegotiator {
     }
     
     /**
-     * Calculates how many items equal one price unit.
+     * Calculates the item ratio used to express purchase quantities.
+     *
+     * @param pricePerItem The price of one item in currency units
+     * @return The reciprocal of the price when it is greater than zero and less than one;
+     *         otherwise 1, including for NaN and infinite prices. The reciprocal can overflow
+     *         to positive infinity for extremely small positive prices.
      */
     private double calculateItemsPerPrice(double pricePerItem) {
         double itemsPerPrice = DEFAULT_ITEM_RATIO;
-        
+
         // If our price is less than 1, then we are buying multiple items with each order
-        if (pricePerItem < DEFAULT_ITEM_RATIO) {
+        // Guard against division by zero when pricePerItem is 0 (e.g., price=0 shops)
+        if (pricePerItem > 0 && pricePerItem < DEFAULT_ITEM_RATIO) {
             itemsPerPrice = DEFAULT_ITEM_RATIO / pricePerItem;
         }
-        
+
         return itemsPerPrice;
     }
     
@@ -354,16 +360,37 @@ public class PriceNegotiator {
     }
     
     /**
-     * Handles the case where partial sales are not allowed.
+     * Updates the working sale quantity and price after rounding purchase capacity down
+     * to whole multiples of the original sale quantity.
+     * <p>
+     * Sets both values to zero if the item ratio or the original sale quantity expressed
+     * in that ratio is nonpositive or nonfinite, or if capacity is below one original sale.
+     * Otherwise, the price is rounded according to the payment mode and is -1 when the
+     * calculated or rounded price is below 0.01 currency units.
+     *
+     * @param maxPurchasableQuantity The capacity allowed by funds and inventory, expressed
+     *                              in groups of {@code itemsPerPrice} items
+     * @param itemsPerPrice The number of items represented by each unit of capacity
+     * @param pricePerItem The price of one item in currency units
+     * @throws NumberFormatException if the calculated price passed to rounding is NaN or infinite
      */
     private void handleNoPartialSales(double maxPurchasableQuantity, double itemsPerPrice, double pricePerItem) {
         // Multiple Quantity of original amount sales code (for full stack sales)
+        // Guard against division by zero or Infinity when itemsPerPrice is Infinity
+        // (which happens when pricePerItem == 0, e.g., price=0 shops).
+        if (itemsPerPrice <= 0 || Double.isInfinite(itemsPerPrice) || Double.isNaN(itemsPerPrice)) {
+            this.amountBeingSold = 0;
+            this.price = 0;
+            return;
+        }
+
         double quantityPerOriginalAmount = originalAmountBeingSold / itemsPerPrice;
         // If the player cannot afford even one multiple of the shop's amount, the division below
         // is by zero or floors to zero. Say so explicitly rather than leaving the fields at
         // whatever they held before — the caller reads them back as the negotiated result, and
         // a stale value here is what produced "bought 0 items for -1 currency".
-        if (quantityPerOriginalAmount <= 0 || maxPurchasableQuantity < quantityPerOriginalAmount) {
+        if (Double.isNaN(quantityPerOriginalAmount) || Double.isInfinite(quantityPerOriginalAmount)
+                || quantityPerOriginalAmount <= 0 || maxPurchasableQuantity < quantityPerOriginalAmount) {
             this.amountBeingSold = 0;
             this.price = 0;
             return;
