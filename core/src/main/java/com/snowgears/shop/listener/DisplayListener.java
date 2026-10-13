@@ -38,6 +38,12 @@ public class DisplayListener implements Listener {
     private WrappedTask repeatingViewTask;
     private WrappedTask repeatingDisplayTask;
 
+    /**
+     * Starts periodic processing of nearby shop displays. With {@code VIEW_SIGN}, also
+     * checks every 15 ticks for online players targeting a wall or standing shop sign
+     * within 8 blocks and requests its display tags. Exceptions during a player's sign
+     * lookup or tag display are ignored for that check.
+     */
     public void startRepeatingDisplayViewTask() {
         if (plugin.getDisplayTagOption() == DisplayTagOption.VIEW_SIGN) {
             repeatingViewTask =

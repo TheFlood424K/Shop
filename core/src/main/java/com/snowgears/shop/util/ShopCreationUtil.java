@@ -50,6 +50,11 @@ public class ShopCreationUtil {
     }
 
     public boolean shopCanBeCreated(Player player, Block chest) {
+        return shopCanBeCreated(player, chest, null);
+    }
+
+    /** Checks the chest and an existing sign, or candidate horizontal neighbours when sign is null. */
+    public boolean shopCanBeCreated(Player player, Block chest, Block sign) {
         int numberOfShops = plugin.getShopHandler().getNumberOfShops(player);
         int buildPermissionNumber = plugin.getShopListener().getBuildLimit(player);
 
@@ -94,8 +99,9 @@ public class ShopCreationUtil {
         // returned true (e.g. GriefPrevention failing-open because GP isn't installed) would
         // silently erase a deny that an earlier check (e.g. WorldGuard) had already set.
         //
-        // A shop occupies two blocks - a sign and a container. The sign goes on whichever adjacent
-        // wall face has room, so the candidate sign blocks are the chest's horizontal neighbours.
+        // A shop occupies two blocks - a sign and a container. Sign-driven creation checks the
+        // actual sign, including standing signs above the chest. Chest-driven creation checks
+        // candidate sign blocks among the chest's horizontal neighbours.
         // Regions are volumetric, so a chest and its sign can sit either side of a WorldGuard or
         // Towny boundary. Checking only the chest let a shop straddle that boundary, while every
         // other region check in the plugin (ShopListener, TransactionHandler, MiscListener) uses
@@ -106,10 +112,9 @@ public class ShopCreationUtil {
         try {
             if(plugin.worldGuardExists()) {
                 canCreateShopInRegion &= WorldGuardHook.canCreateShop(player, chest.getLocation());
-                // The sign is placed on whichever adjacent wall face has room, so the candidate
-                // sign blocks are every horizontal neighbour of the chest. A shop whose chest is
-                // allowed but every possible sign position is denied cannot be created anywhere.
-                canCreateShopInRegion &= WorldGuardHook.canCreateShopOnAnyNeighbour(player, chest);
+                canCreateShopInRegion &= sign == null
+                        ? WorldGuardHook.canCreateShopOnAnyNeighbour(player, chest)
+                        : WorldGuardHook.canCreateShop(player, sign.getLocation());
             }
         } catch (NoClassDefFoundError e) {
             //tried to hook world guard but it was not registered
@@ -120,19 +125,24 @@ public class ShopCreationUtil {
         try {
             if(plugin.hookTowny()) {
                 canCreateShopInRegion &= TownyHook.canCreateShop(player, chest.getLocation());
-                canCreateShopInRegion &= TownyHook.canCreateShopOnAnyNeighbour(player, chest);
+                canCreateShopInRegion &= sign == null
+                        ? TownyHook.canCreateShopOnAnyNeighbour(player, chest)
+                        : TownyHook.canCreateShop(player, sign.getLocation());
             }
         } catch (NoClassDefFoundError e) {
             //tried to hook towny but it was not registered
             e.printStackTrace();
         }
 
-        // GriefPrevention build-rights check at the chest location.
+        // GriefPrevention build-rights check at the chest and any existing sign.
         // Runs before any block mutations (sign type conversion) so GP never fires its own
         // "can't build here" denial message mid-creation.
         try {
             if (plugin.isGriefPreventionTrustIntegrationEnabled()) {
                 canCreateShopInRegion &= GriefPreventionTrustListener.canPlayerBuildAt(player, chest.getLocation());
+                if (sign != null) {
+                    canCreateShopInRegion &= GriefPreventionTrustListener.canPlayerBuildAt(player, sign.getLocation());
+                }
             }
         } catch (NoClassDefFoundError e) {
             // GriefPrevention was not registered — ignore.
@@ -149,7 +159,7 @@ public class ShopCreationUtil {
 
     /**
      * Creates a shop after checking its secondary price, permissions, funds and container ownership.
-     * For a container and wall sign, loads the shop, fires the creation event and registers it
+     * For a container and wall or standing sign, loads the shop, fires the creation event and registers it
      * unless creation is rejected. Gamble shops are also initialized immediately.
      *
      * @param player the player creating the shop
@@ -249,13 +259,9 @@ public class ShopCreationUtil {
                 }
             }
 
-            // Creation is wall-sign only, deliberately. A standing sign has to be reliably associated
-            // with the container it belongs to, and "the block below" is ambiguous once another
-            // shop is placed in between — the association is what identifies a shop, so getting it
-            // wrong is worse than declining to create one. Interaction with existing sign-post
-            // shops is supported and is not restricted by this guard; see the sign checks in
-            // ShopListener, which accept WALL_SIGNS and STANDING_SIGNS alike.
-            if (!(signBlock.getBlockData() instanceof WallSign)) {
+            // Only wall and standing signs are supported by the shop loading path.
+            if (!(signBlock.getBlockData() instanceof WallSign)
+                    && !(signBlock.getBlockData() instanceof org.bukkit.block.data.type.Sign)) {
                 return null;
             }
             Sign signBlockState = (Sign) shop.getSignLocation().getBlock().getState();
@@ -350,6 +356,20 @@ public class ShopCreationUtil {
         return true;
     }
 
+    /**
+     * Sets a shop's primary item or completes barter item selection after checking ownership,
+     * container readiness, display space, item restrictions and any creation cost. The shop's
+     * own standing sign is allowed above its container; other display obstructions disable
+     * displays or reject initialization according to configuration. Item changes fire a
+     * cancelable {@link PlayerInitializeShopEvent}.
+     *
+     * @param shop the shop to initialize
+     * @param player the owner or authorized operator initializing the shop
+     * @param item the non-null primary item to sell or buy
+     * @param barterItem the secondary barter item, or null during primary item selection
+     * @return true when a non-barter shop is initialized or secondary item selection completes;
+     *         false on rejection, cancellation, incomplete barter selection or no item change
+     */
     public boolean initializeShop(AbstractShop shop, Player player , ItemStack item, ItemStack barterItem){
         if (!player.getUniqueId().equals(shop.getOwnerUUID())) {
             //do not allow non operators to initialize other player's shops
@@ -380,7 +400,9 @@ public class ShopCreationUtil {
         if(plugin.getDisplayType() != DisplayType.NONE) {
             //make sure there is room above the shop for the display
             Block aboveShop = shop.getChestLocation().getBlock().getRelative(BlockFace.UP);
-            if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
+            boolean ownStandingSign = aboveShop.getLocation().equals(shop.getSignLocation())
+                    && aboveShop.getBlockData() instanceof org.bukkit.block.data.type.Sign;
+            if (!ownStandingSign && !UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
                 if(plugin.forceDisplayToNoneIfBlocked()){
                     shop.getDisplay().setType(DisplayType.NONE, false);
                 }

@@ -13,6 +13,8 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
+import java.util.logging.Level;
 
 public class Transaction {
     boolean TX_DEBUG_LOGGING = false;
@@ -226,6 +228,18 @@ public class Transaction {
         return this.setError(TransactionError.NONE);
     }
 
+    /**
+     * Verifies the negotiated transaction, then transfers payment and items between the buyer and seller.
+     * Item-currency transactions attempt to restore both non-admin inventories from snapshots
+     * if any transfer fails or throws.
+     * A refused economy deposit leaves stock untouched and attempts to refund the buyer.
+     * A failed item transfer after economy payment attempts to restore both inventories and reverse
+     * the seller payment before refunding the buyer, logging each failed recovery step.
+     * Verification may fire a cancellable exchange event; success updates shop stock or the gamble display.
+     *
+     * @return {@link TransactionError#NONE} on success, or the error that prevented completion
+     * @throws RuntimeException if verification, transfer, inventory restoration, or a shop update throws
+     */
     public TransactionError execute() {
         // Check to see if we had any errors, you must do this before performing the transaction!
         if (this.verify() != TransactionError.NONE) { return this.error; }
@@ -234,48 +248,62 @@ public class Transaction {
         ItemStack itemSold = this.itemBeingSold.clone();
         itemSold.setAmount(this.amountBeingSold);
 
-        // Step 1: Deduct the payment from the buyer.
-        boolean paymentSuccessful = this.buyer.deductFunds(this.price);
-        if (!paymentSuccessful) {
-            if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
-            else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
-        }
-
-        // Step 2: For non-player (chest) sellers, remove the sold item from the chest BEFORE depositing
-        // the payment. verify() already confirmed space via canAcceptPaymentAfterRemoval(), which simulates
-        // the chest state after removal. Executing in this order guarantees the freed slot is actually
-        // available when depositFunds() runs, preventing item-currency overflow/loss.
-        // For player sellers the original order (pay → receive item) is unchanged.
-        if (!this.seller.isPlayer()) {
-            // Remove the sold item first to free up space in the chest.
-            this.seller.deductItem(itemSold);
-
-            // Now deposit the payment into the (now partially-emptied) chest.
-            boolean depositSuccessful = this.seller.depositFunds(this.price);
-            if (!depositSuccessful) {
-                // Rollback: restore the sold item to the chest and refund the buyer.
-                // This should never happen in practice (verify() already confirmed space
-                // post-removal), but guards against any race condition or edge case.
-                this.seller.depositItem(itemSold);
-                this.buyer.depositFunds(this.price);
-                return this.setError(TransactionError.INVENTORY_FULL_SHOP);
-            }
-
-            // Give the sold item to the buyer.
-            this.buyer.depositItem(itemSold);
+        if (this.buyer.usesItemCurrency()) {
+            TransactionError transferError = this.transferItemCurrency(itemSold);
+            if (transferError != TransactionError.NONE) { return this.setError(transferError); }
         } else {
-            // Player seller — original order: pay seller, then transfer item.
-            // The result matters: a Vault deposit can be refused (balance cap, bank limit, provider
-            // failure), and addFunds reports that as false. Discarding it completes a sale the seller
-            // was never paid for — goods gone, money retained by the buyer.
-            if (!this.seller.depositFunds(this.price)) {
-                // Refund the buyer and leave the shop's stock untouched. Nothing has moved yet, so
-                // this is a clean reversal rather than the partial rollback the chest path needs.
-                this.buyer.depositFunds(this.price);
-                return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP);
+            // Capture items before payment so a snapshot failure cannot leave either party charged.
+            ItemStack[] buyerContents = this.buyer.snapshotInventory();
+            ItemStack[] sellerContents = this.seller.snapshotInventory();
+            // Step 1: Deduct the payment from the buyer.
+            boolean paymentSuccessful = this.buyer.deductFunds(this.price);
+            if (!paymentSuccessful) {
+                if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
+                else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
             }
-            this.seller.deductItem(itemSold);
-            this.buyer.depositItem(itemSold);
+
+            // Vault and experience deposits do not need inventory space. Accept payment before
+            // removing stock so a refused deposit cannot require an item refund.
+            if (!this.seller.depositFunds(this.price)) {
+                boolean buyerRefunded = this.buyer.depositFunds(this.price);
+                if (!buyerRefunded) {
+                    Shop.getPlugin().getLogger().severe("Transaction refund failed for shop "
+                            + shop.getSignLocation() + ", buyerUUID=" + player.getUniqueId()
+                            + ", price=" + price + ", itemType=" + itemSold.getType()
+                            + ", quantity=" + itemSold.getAmount()
+                            + ". Manual intervention may be required.");
+                }
+                return this.setError(this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_SHOP
+                        : TransactionError.INVENTORY_FULL_SHOP);
+            }
+            boolean itemsTransferred = false;
+            try {
+                if (!this.seller.deductItem(itemSold)) {
+                    return this.setError(this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_PLAYER
+                            : TransactionError.INSUFFICIENT_FUNDS_SHOP);
+                }
+                if (!this.buyer.depositItem(itemSold)) {
+                    return this.setError(this.buyer.isPlayer() ? TransactionError.INVENTORY_FULL_PLAYER
+                            : TransactionError.INVENTORY_FULL_SHOP);
+                }
+                itemsTransferred = true;
+            } finally {
+                if (!itemsTransferred) {
+                    this.attemptRecovery("seller inventory restoration", itemSold, () -> {
+                        this.seller.restoreInventory(sellerContents);
+                        return true;
+                    });
+                    this.attemptRecovery("buyer inventory restoration", itemSold, () -> {
+                        this.buyer.restoreInventory(buyerContents);
+                        return true;
+                    });
+                    if (this.attemptRecovery("seller payment withdrawal", itemSold,
+                            () -> this.seller.deductFunds(this.price))) {
+                        this.attemptRecovery("buyer refund", itemSold,
+                                () -> this.buyer.depositFunds(this.price));
+                    }
+                }
+            }
         }
 
         // Special handling for Gamble shops!
@@ -293,6 +321,66 @@ public class Transaction {
 
         // Successful!
         return this.setError(TransactionError.NONE);
+    }
+
+    /** Attempts one recovery step, logging failure and returning whether it succeeded. */
+    private boolean attemptRecovery(String step, ItemStack itemSold, BooleanSupplier recovery) {
+        RuntimeException failure = null;
+        try {
+            if (recovery.getAsBoolean()) { return true; }
+        } catch (RuntimeException exception) {
+            failure = exception;
+        }
+        Shop.getPlugin().getLogger().log(Level.SEVERE, "Transaction recovery failed: " + step
+                + " for shop " + shop.getSignLocation() + ", playerUUID=" + player.getUniqueId()
+                + ", price=" + price + ", itemType=" + itemSold.getType()
+                + ", quantity=" + itemSold.getAmount() + ". Manual intervention may be required.", failure);
+        return false;
+    }
+
+    /**
+     * Transfers item payment and stock synchronously, attempting to restore both non-admin
+     * inventory snapshots if a transfer fails or throws. No transaction events run between
+     * the snapshots and commit. Buyer restoration is attempted even if seller restoration throws.
+     * Restoration writes slots directly so recovery cannot overflow through a refund deposit.
+     *
+     * @param itemSold the item stack and quantity to deliver to the buyer
+     * @return {@link TransactionError#NONE} on commit, or the error from the failed transfer
+     * @throws RuntimeException if a snapshot, transfer, or restoration operation throws;
+     *         a restoration exception can replace the original transfer exception
+     */
+    private TransactionError transferItemCurrency(ItemStack itemSold) {
+        ItemStack[] buyerContents = this.buyer.snapshotInventory();
+        ItemStack[] sellerContents = this.seller.snapshotInventory();
+        boolean committed = false;
+        try {
+            if (!this.buyer.deductFunds(this.price)) {
+                return this.buyer.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_PLAYER
+                        : TransactionError.INSUFFICIENT_FUNDS_SHOP;
+            }
+            if (!this.seller.deductItem(itemSold)) {
+                return this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_PLAYER
+                        : TransactionError.INSUFFICIENT_FUNDS_SHOP;
+            }
+            if (!this.seller.depositFunds(this.price)) {
+                return this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_SHOP
+                        : TransactionError.INVENTORY_FULL_SHOP;
+            }
+            if (!this.buyer.depositItem(itemSold)) {
+                return this.buyer.isPlayer() ? TransactionError.INVENTORY_FULL_PLAYER
+                        : TransactionError.INVENTORY_FULL_SHOP;
+            }
+            committed = true;
+            return TransactionError.NONE;
+        } finally {
+            if (!committed) {
+                try {
+                    this.seller.restoreInventory(sellerContents);
+                } finally {
+                    this.buyer.restoreInventory(buyerContents);
+                }
+            }
+        }
     }
 
     public Player getPlayer() {

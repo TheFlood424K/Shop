@@ -89,6 +89,11 @@ public class MiscListener implements Listener {
 
     //prevent emptying of bucket when player clicks on shop sign
     //also prevent when emptying on display item itself
+    /**
+     * Cancels bucket emptying when the clicked block is a wall or standing shop sign,
+     * or the destination block is directly above a shop container. Already canceled
+     * events are left untouched.
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBucketEmpty(PlayerBucketEmptyEvent event) {
         if (event.isCancelled()) {
@@ -109,14 +114,20 @@ public class MiscListener implements Listener {
     }
 
     /**
-     * Starts sign-based shop creation, when enabled, for a wall sign attached to a supported
+     * Starts sign-based shop creation, when enabled, for a wall or standing sign on a supported
      * container whose first sign line contains the configured creation word, ignoring case.
      * Invalid amounts, prices, or rejected creation cancel the sign change. On success,
      * prompts for an item and schedules deletion if the configured initialization timeout
      * is positive and expires before initialization.
+     *
+     * <p>Rotatable signs are checked against the container directly below them, and their
+     * rotation is snapped to a cardinal direction for display orientation and offsets.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onShopCreation(SignChangeEvent event) {
+        if (event.isCancelled())
+            return;
+
         final Block b = event.getBlock();
         final Player player = event.getPlayer();
 
@@ -136,7 +147,13 @@ public class MiscListener implements Listener {
         }
         else if (b.getBlockData() instanceof Rotatable) {
             // Standing sign (sign post) — the chest is directly below the sign.
-            signDirection = ((Rotatable) b.getBlockData()).getRotation();
+            signDirection = switch (((Rotatable) b.getBlockData()).getRotation()) {
+                case NORTH, NORTH_NORTH_EAST, NORTH_NORTH_WEST, NORTH_WEST -> BlockFace.NORTH;
+                case EAST, EAST_NORTH_EAST, EAST_SOUTH_EAST, NORTH_EAST -> BlockFace.EAST;
+                case SOUTH, SOUTH_SOUTH_EAST, SOUTH_SOUTH_WEST, SOUTH_EAST -> BlockFace.SOUTH;
+                case WEST, WEST_NORTH_WEST, WEST_SOUTH_WEST, SOUTH_WEST -> BlockFace.WEST;
+                default -> BlockFace.NORTH;
+            };
             chest = b.getRelative(BlockFace.DOWN);
         }
         else
@@ -147,10 +164,9 @@ public class MiscListener implements Listener {
         boolean isAdmin = false;
         if (plugin.getShopHandler().isChest(chest)) {
             plugin.getLogger().info("[DEBUG onShopCreation] Chest detected, proceeding with shop creation");
-            final Sign signBlock = (Sign) b.getState();
             if (event.getLine(0).toLowerCase().contains(ShopMessage.getSignCreationWord("SHOP").toLowerCase())) {
 
-                if(!plugin.getShopCreationUtil().shopCanBeCreated(player, chest)){
+                if(!plugin.getShopCreationUtil().shopCanBeCreated(player, chest, b)){
                     // cancelShopCreationProcess() already sends the "createCancel" message
                     // internally, so we must NOT send it manually here (Bug 1 fix).
                     cancelShopCreationProcess(player);
@@ -189,7 +205,7 @@ public class MiscListener implements Listener {
                     return;
                 }
 
-                AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, signBlock.getBlock(), pricePair, amount, isAdmin, type, signDirection, false);
+                AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, b, pricePair, amount, isAdmin, type, signDirection, false);
                 if(shop == null) {
                     event.setCancelled(true);
                     return;
@@ -289,6 +305,12 @@ public class MiscListener implements Listener {
         }
     }
 
+    /**
+     * Checks the player's exact target block within 5 blocks for a creation candidate.
+     *
+     * @return true for an uninitialized wall or standing shop sign, or a supported
+     *         container with no registered shop; false for no target or other blocks
+     */
     public boolean isPlayerTargetingShopCreationBlock(Player player) {
         Block target = player.getTargetBlockExact(5);
         if (target == null) {
@@ -694,6 +716,18 @@ public class MiscListener implements Listener {
     }
 
     //player destroys shop, call PlayerDestroyShopEvent or PlayerResizeShopEvent
+    /**
+     * Handles breaking wall or standing shop signs and containers. Sign destruction
+     * requires initialization, any configured sneaking requirement, authorization, and
+     * an uncanceled {@link PlayerDestroyShopEvent}. Owners pay any positive destruction
+     * cost before that event and may receive the configured creation-cost refund.
+     *
+     * <p>Protects the primary shop container and permits authorized removal of a double
+     * chest's expansion half unless {@link PlayerResizeShopEvent} is canceled. During
+     * chest-based creation, the owner can cancel creation and break the chest with two
+     * deliberate break attempts after item selection; other pending creation is protected.
+     * Fake shop signs do not drop sign items.
+     */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void shopDestroy(BlockBreakEvent event) {
 

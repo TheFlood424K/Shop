@@ -55,6 +55,12 @@ public class CreativeSelectionListener implements Listener {
     }
 
     //this method calls PlayerCreateShopEvent
+    /**
+     * Handles left-clicks on uninitialized wall or standing shop signs when creative
+     * selection is enabled, canceling those interactions. Authorized players with an
+     * empty main hand enter creative selection for buy or combo shops, or for a barter
+     * shop's missing secondary item after its primary item is set.
+     */
     @EventHandler
     public void onPreShopSignClick(PlayerInteractEvent event) {
         final Player player = event.getPlayer();
