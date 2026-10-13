@@ -37,7 +37,14 @@ public class TransactionHandler {
         boolean canUseShopInRegion = true;
         try {
             canUseShopInRegion = WorldGuardHook.canUseShop(player, shop.getSignLocation());
-        } catch(NoClassDefFoundError e) {}
+        } catch(NoClassDefFoundError e) {
+            // Fail closed: a broken WorldGuard hook must not silently allow shop use.
+            // Previously this was an empty catch, which meant a corrupted or incompatible
+            // WorldGuard installation let every shop in a region bypass its flags.
+            Shop.getPlugin().getLogger().warning("WorldGuard hook failed (NoClassDefFoundError) for shop at " +
+                shop.getSignLocation() + " — denying shop use to fail closed: " + e.getMessage());
+            canUseShopInRegion = false;
+        }
 
         //check that player can use the shop if it is in a WorldGuard region
         if(!canUseShopInRegion){
