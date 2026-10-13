@@ -13,6 +13,8 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
+import java.util.logging.Level;
 
 public class Transaction {
     boolean TX_DEBUG_LOGGING = false;
@@ -230,6 +232,7 @@ public class Transaction {
      * Verifies the negotiated transaction, then transfers payment and items between the buyer and seller.
      * Item-currency transactions restore both inventories from snapshots if any transfer fails.
      * A refused economy deposit leaves stock untouched and attempts to refund the buyer.
+     * Failed item transfers after payment restore both inventories and attempt to reverse payment.
      *
      * @return {@link TransactionError#NONE} on success, or the error that prevented completion
      */
@@ -266,8 +269,35 @@ public class Transaction {
                 return this.setError(this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_SHOP
                         : TransactionError.INVENTORY_FULL_SHOP);
             }
-            this.seller.deductItem(itemSold);
-            this.buyer.depositItem(itemSold);
+            ItemStack[] sellerContents = this.seller.snapshotInventory();
+            ItemStack[] buyerContents = this.buyer.snapshotInventory();
+            boolean committed = false;
+            try {
+                if (!this.seller.deductItem(itemSold)) {
+                    return this.setError(this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_PLAYER
+                            : TransactionError.INSUFFICIENT_FUNDS_SHOP);
+                }
+                if (!this.buyer.depositItem(itemSold)) {
+                    return this.setError(this.buyer.isPlayer() ? TransactionError.INVENTORY_FULL_PLAYER
+                            : TransactionError.INVENTORY_FULL_SHOP);
+                }
+                committed = true;
+            } finally {
+                if (!committed) {
+                    this.recoverTransferStep("seller inventory restore", () -> {
+                        this.seller.restoreInventory(sellerContents);
+                        return true;
+                    }, itemSold);
+                    this.recoverTransferStep("buyer inventory restore", () -> {
+                        this.buyer.restoreInventory(buyerContents);
+                        return true;
+                    }, itemSold);
+                    this.recoverTransferStep("seller payment withdrawal",
+                            () -> this.seller.deductFunds(this.price), itemSold);
+                    this.recoverTransferStep("buyer payment refund",
+                            () -> this.buyer.depositFunds(this.price), itemSold);
+                }
+            }
         }
 
         // Special handling for Gamble shops!
@@ -285,6 +315,20 @@ public class Transaction {
 
         // Successful!
         return this.setError(TransactionError.NONE);
+    }
+
+    private void recoverTransferStep(String step, BooleanSupplier recovery, ItemStack itemSold) {
+        RuntimeException failure = null;
+        try {
+            if (recovery.getAsBoolean()) { return; }
+        } catch (RuntimeException exception) {
+            failure = exception;
+        }
+        Shop.getPlugin().getLogger().log(Level.SEVERE, "Transaction recovery failed (" + step + ") for shop "
+                + shop.getSignLocation() + ", playerUUID=" + player.getUniqueId()
+                + ", price=" + price + ", itemType=" + itemSold.getType()
+                + ", quantity=" + itemSold.getAmount()
+                + ". Manual intervention may be required.", failure);
     }
 
     // Inventory writes run synchronously with no transaction events between the snapshot and commit.

@@ -15,10 +15,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.Level;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -246,6 +254,151 @@ class TransactionRollbackTest {
         verify(seller, never()).depositItem(any(ItemStack.class));
         verify(buyer).depositFunds(5.0);
         verify(economy, times(2)).depositPlayer(any(OfflinePlayer.class), eq(5.0));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "SELL, STOCK_REMOVAL, INSUFFICIENT_FUNDS_SHOP",
+            "BUY, STOCK_REMOVAL, INSUFFICIENT_FUNDS_PLAYER",
+            "SELL, ITEM_DELIVERY, INVENTORY_FULL_PLAYER",
+            "BUY, ITEM_DELIVERY, INVENTORY_FULL_SHOP"
+    })
+    void paidItemTransferFailureRestoresInventoriesAndBalances(
+            ShopType type, FailedTransfer failure, TransactionError expected) {
+        Map<OfflinePlayer, Double> balances = createVaultTransaction(type);
+        Map<OfflinePlayer, Double> balancesBefore = new HashMap<>(balances);
+        ItemStack[] sellerBefore = copy(chest);
+        ItemStack[] buyerBefore = copy(player.getInventory());
+        Inventory source = type == ShopType.SELL ? chest : player.getInventory();
+        Inventory destination = type == ShopType.SELL ? player.getInventory() : chest;
+        if (failure == FailedTransfer.STOCK_REMOVAL) {
+            doAnswer(call -> {
+                InventoryUtils.removeItem(source, new ItemStack(Material.DIAMOND, 1));
+                return false;
+            }).when(seller).deductItem(any(ItemStack.class));
+        } else {
+            doAnswer(call -> {
+                InventoryUtils.addItem(destination, new ItemStack(Material.DIAMOND, 1));
+                return false;
+            }).when(buyer).depositItem(any(ItemStack.class));
+        }
+
+        assertEquals(expected, transaction.execute());
+        assertEquals(expected, transaction.getError());
+        assertArrayEquals(sellerBefore, chest.getContents());
+        assertArrayEquals(buyerBefore, player.getInventory().getContents());
+        assertEquals(balancesBefore, balances);
+        verify(seller).deductFunds(5.0);
+        verify(buyer).depositFunds(5.0);
+        if (failure == FailedTransfer.STOCK_REMOVAL) {
+            verify(buyer, never()).depositItem(any(ItemStack.class));
+        }
+        verify(shop, never()).updateStock();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void failedPaymentRecoveryStepsAreIndependentAndLogged(boolean throwsException) {
+        createVaultTransaction(ShopType.SELL);
+        ItemStack[] sellerBefore = copy(chest);
+        ItemStack[] buyerBefore = copy(player.getInventory());
+        doAnswer(call -> {
+            InventoryUtils.addItem(player.getInventory(), new ItemStack(Material.DIAMOND, 1));
+            return false;
+        }).when(buyer).depositItem(any(ItemStack.class));
+        if (throwsException) {
+            doThrow(new IllegalStateException("Withdrawal unavailable")).when(seller).deductFunds(5.0);
+            doThrow(new IllegalStateException("Refund unavailable")).when(buyer).depositFunds(5.0);
+        } else {
+            doReturn(false).when(seller).deductFunds(5.0);
+            doReturn(false).when(buyer).depositFunds(5.0);
+        }
+        Handler handler = mock(Handler.class);
+        plugin.getLogger().addHandler(handler);
+        try {
+            assertEquals(TransactionError.INVENTORY_FULL_PLAYER, transaction.execute());
+            assertArrayEquals(sellerBefore, chest.getContents());
+            assertArrayEquals(buyerBefore, player.getInventory().getContents());
+            verify(seller).deductFunds(5.0);
+            verify(buyer).depositFunds(5.0);
+            verify(handler).publish(argThat(record -> record.getLevel() == Level.SEVERE
+                    && record.getMessage().contains("seller payment withdrawal")
+                    && (record.getThrown() != null) == throwsException));
+            verify(handler).publish(argThat(record -> record.getLevel() == Level.SEVERE
+                    && record.getMessage().contains("buyer payment refund")
+                    && (record.getThrown() != null) == throwsException));
+            verify(shop, never()).updateStock();
+        } finally {
+            plugin.getLogger().removeHandler(handler);
+        }
+    }
+
+    @Test
+    void exceptionDuringPaidItemDeliveryAlsoReversesPayment() {
+        Map<OfflinePlayer, Double> balances = createVaultTransaction(ShopType.SELL);
+        Map<OfflinePlayer, Double> balancesBefore = new HashMap<>(balances);
+        ItemStack[] sellerBefore = copy(chest);
+        ItemStack[] buyerBefore = copy(player.getInventory());
+        doThrow(new IllegalStateException("Delivery unavailable")).when(buyer).depositItem(any(ItemStack.class));
+
+        assertThrows(IllegalStateException.class, transaction::execute);
+        assertArrayEquals(sellerBefore, chest.getContents());
+        assertArrayEquals(buyerBefore, player.getInventory().getContents());
+        assertEquals(balancesBefore, balances);
+        verify(shop, never()).updateStock();
+    }
+
+    @Test
+    void failedInventoryRestoreDoesNotPreventRemainingRecoverySteps() {
+        Map<OfflinePlayer, Double> balances = createVaultTransaction(ShopType.SELL);
+        Map<OfflinePlayer, Double> balancesBefore = new HashMap<>(balances);
+        ItemStack[] buyerBefore = copy(player.getInventory());
+        doAnswer(call -> {
+            InventoryUtils.addItem(player.getInventory(), new ItemStack(Material.DIAMOND, 1));
+            return false;
+        }).when(buyer).depositItem(any(ItemStack.class));
+        doThrow(new IllegalStateException("Inventory unavailable")).when(seller).restoreInventory(any());
+        Handler handler = mock(Handler.class);
+        plugin.getLogger().addHandler(handler);
+        try {
+            assertEquals(TransactionError.INVENTORY_FULL_PLAYER, transaction.execute());
+            assertArrayEquals(buyerBefore, player.getInventory().getContents());
+            assertEquals(balancesBefore, balances);
+            verify(handler).publish(argThat(record -> record.getLevel() == Level.SEVERE
+                    && record.getMessage().contains("seller inventory restore")
+                    && record.getThrown() instanceof IllegalStateException));
+        } finally {
+            plugin.getLogger().removeHandler(handler);
+        }
+    }
+
+    private Map<OfflinePlayer, Double> createVaultTransaction(ShopType type) {
+        when(shop.getType()).thenReturn(type);
+        OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.randomUUID());
+        when(shop.getOwner()).thenReturn(owner);
+        player.getInventory().setItem(1, new ItemStack(Material.DIAMOND, 4));
+        Map<OfflinePlayer, Double> balances = new HashMap<>();
+        balances.put(player, 10.0);
+        balances.put(owner, 10.0);
+        Economy economy = mock(Economy.class);
+        TestReflection.setField(plugin, "econ", economy);
+        when(economy.getBalance(any(OfflinePlayer.class))).thenAnswer(call -> balances.get(call.getArgument(0)));
+        when(economy.withdrawPlayer(any(OfflinePlayer.class), anyDouble())).thenAnswer(call -> {
+            OfflinePlayer party = call.getArgument(0);
+            double amount = call.getArgument(1);
+            double remaining = balances.get(party) - amount;
+            balances.put(party, remaining);
+            return new EconomyResponse(amount, remaining, EconomyResponse.ResponseType.SUCCESS, null);
+        });
+        when(economy.depositPlayer(any(OfflinePlayer.class), anyDouble())).thenAnswer(call -> {
+            OfflinePlayer party = call.getArgument(0);
+            double amount = call.getArgument(1);
+            double remaining = balances.get(party) + amount;
+            balances.put(party, remaining);
+            return new EconomyResponse(amount, remaining, EconomyResponse.ResponseType.SUCCESS, null);
+        });
+        createTransaction(type);
+        return balances;
     }
 
     private ItemStack[] copy(Inventory inventory) {
