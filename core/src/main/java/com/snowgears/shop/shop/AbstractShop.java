@@ -16,6 +16,7 @@ import org.bukkit.Sound;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.data.type.WallSign;
+import org.bukkit.block.data.type.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
@@ -188,8 +189,13 @@ public abstract class AbstractShop {
                 // The chest is BEHIND the sign, in the OPPOSITE direction of the sign's facing.
                 chestBlock = signBlock.getRelative(effectiveFacing.getOppositeFace());
                 Shop.getPlugin().getLogger().info("[DEBUG load] chestBlock=" + chestBlock.getLocation() + " chestType=" + chestBlock.getType());
+            } else if (signBlock.getBlockData() instanceof Sign) {
+                // Standing sign (sign post) — the chest is directly below the sign.
+                Shop.getPlugin().getLogger().info("[DEBUG load] Standing sign detected at " + signLocation);
+                chestBlock = signBlock.getRelative(BlockFace.DOWN);
+                Shop.getPlugin().getLogger().info("[DEBUG load] chestBlock=" + chestBlock.getLocation() + " chestType=" + chestBlock.getType());
             } else {
-                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign (detected: " + signBlock.getType() + "), deleting shop: " + this);
+                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign or standing Sign (detected: " + signBlock.getType() + "), deleting shop: " + this);
                 this.delete();
                 return false;
             }

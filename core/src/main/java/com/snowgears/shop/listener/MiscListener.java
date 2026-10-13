@@ -20,6 +20,7 @@ import org.bukkit.block.DoubleChest;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.data.type.WallSign;
+import org.bukkit.Tag;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -96,7 +97,7 @@ public class MiscListener implements Listener {
 
         Block b = event.getBlockClicked();
 
-        if (b.getBlockData() instanceof WallSign) {
+        if (Tag.WALL_SIGNS.isTagged(b.getType()) || Tag.STANDING_SIGNS.isTagged(b.getType())) {
             AbstractShop shop = plugin.getShopHandler().getShop(b.getLocation());
             if (shop != null)
                 event.setCancelled(true);
@@ -132,6 +133,11 @@ public class MiscListener implements Listener {
             // Wall sign is mounted ON the chest block; the sign's text faces AWAY from the chest.
             // The chest is BEHIND the sign, in the OPPOSITE direction of the sign's facing.
             chest = b.getRelative(signDirection.getOppositeFace());
+        }
+        else if (b.getBlockData() instanceof Rotatable) {
+            // Standing sign (sign post) — the chest is directly below the sign.
+            signDirection = ((Rotatable) b.getBlockData()).getRotation();
+            chest = b.getRelative(BlockFace.DOWN);
         }
         else
             return;
@@ -219,7 +225,7 @@ public class MiscListener implements Listener {
                             // types including freestanding sign-post shops, not only wall signs.
                             String[] lines = ShopMessage.getSignLines("timeout", shop);
                             Block timeoutSignBlock = signLocation.getBlock();
-                            if (timeoutSignBlock.getBlockData() instanceof WallSign) {
+                            if (Tag.WALL_SIGNS.isTagged(timeoutSignBlock.getType()) || Tag.STANDING_SIGNS.isTagged(timeoutSignBlock.getType())) {
                                 Sign sign = (Sign) timeoutSignBlock.getState();
                                 sign.setLine(0, lines[0]);
                                 sign.setLine(1, lines[1]);
@@ -289,7 +295,7 @@ public class MiscListener implements Listener {
             return false;
         }
 
-        if (target.getBlockData() instanceof WallSign) {
+        if (Tag.WALL_SIGNS.isTagged(target.getType()) || Tag.STANDING_SIGNS.isTagged(target.getType())) {
             AbstractShop shop = plugin.getShopHandler().getShop(target.getLocation());
             return shop != null && !shop.isInitialized();
         }
@@ -368,7 +374,7 @@ public class MiscListener implements Listener {
      */
     public void handleShopLeftClick(Player player, Block clicked, ItemStack itemInHand, BlockFace blockFace,
                                      PlayerInteractEvent event) {
-        if (clicked.getBlockData() instanceof WallSign) {
+        if (Tag.WALL_SIGNS.isTagged(clicked.getType()) || Tag.STANDING_SIGNS.isTagged(clicked.getType())) {
 
             if(!plugin.getAllowCreationMethodSign())
                 return;
@@ -694,7 +700,7 @@ public class MiscListener implements Listener {
         Block b = event.getBlock();
         Player player = event.getPlayer();
 
-        if (b.getBlockData() instanceof WallSign) {
+        if (Tag.WALL_SIGNS.isTagged(b.getType()) || Tag.STANDING_SIGNS.isTagged(b.getType())) {
             AbstractShop shop = plugin.getShopHandler().getShop(b.getLocation());
             if (shop == null)
                 return;
