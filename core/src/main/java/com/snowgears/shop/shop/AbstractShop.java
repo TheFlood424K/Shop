@@ -262,6 +262,21 @@ public abstract class AbstractShop {
         // corrupt the displayed stock count and trigger spurious saves.
         int newStock = this.calculateStock();
         if (newStock == STOCK_UNAVAILABLE) {
+            // The inventory or item could not be read — rather than leaving the `stock`
+            // field at its last known value (which could be a stale positive number,
+            // causing signs to show stock that cannot actually be sold), reset to 0 so
+            // callers see an out-of-stock state. The cache is invalidated so the next
+            // successful calculateStock() repopulates it with the true count.
+            if (stock > 0) {
+                stock = 0;
+                // Force a sign refresh so the displayed count drops to 0.
+                signLinesRequireRefresh = true;
+                this.updateSign(true);
+                if(Shop.getPlugin().getBluemapHookListener() != null) {
+                    Shop.getPlugin().getBluemapHookListener().updateMarker(this);
+                }
+                needsSave = true;
+            }
             invalidateStockCache();
             return;
         }
@@ -272,6 +287,10 @@ public abstract class AbstractShop {
         // Update sign if needed
         boolean hasStockChange = stock != oldStock;
         if(hasStockChange){
+            // Invalidate cache BEFORE updateSign so the synchronous getSignLines() call
+            // inside updateSign() sees fresh data (not stale cached value).
+            invalidateStockCache();
+
             Shop.getPlugin().getLogger().trace("[AbstractShop.updateStock] updateSign, new stock != oldStock! newStock: " + stock + " old stock: " + oldStock + "\n" + this);
             this.updateSign(true);
 
@@ -281,7 +300,6 @@ public abstract class AbstractShop {
             }
 
             needsSave = true;
-            invalidateStockCache();
             return;
         }
 
@@ -293,7 +311,7 @@ public abstract class AbstractShop {
         if(isAdmin){
             return Integer.MAX_VALUE;
         }
-        return stock;
+        return getCachedStock();
     }
 
     /**
@@ -321,14 +339,18 @@ public abstract class AbstractShop {
         // Fallback: full calculation
         int calculated = calculateStock();
         // calculateStock() returns the sentinel when the inventory cannot be read (chunk
-        // unloaded, shop not yet initialised). getStock() never returns that, so callers of
-        // this method must not see it either -- propagating -1 to a sign line is the Bug 4
-        // regression this guard exists to prevent.
+        // unloaded, shop not yet initialised). Return the last known stock value instead
+        // of propagating the sentinel - this avoids the Bug 4 regression where -1 would
+        // reach sign lines. Since getStock() now calls this method, we must not call
+        // getStock() here (circular dependency) - read the field directly.
         if (calculated == STOCK_UNAVAILABLE) {
-            return getStock();
+            return stock;
         }
         cachedStock = calculated;
         stockCacheTimestamp = now;
+        // Keep the authoritative stock field in sync for persistence and callers that
+        // may read it directly (e.g., during save).
+        stock = calculated;
         return calculated;
     }
 
@@ -344,6 +366,9 @@ public abstract class AbstractShop {
     /** Alias for setStockOnLoad used during shop loading. */
     public void setStock(int stock) {
         this.stock = stock;
+        // Invalidate the cache so a manually-set stock value is not immediately
+        // shadowed by a stale cached value from a prior calculateStock() call.
+        this.invalidateStockCache();
     }
 
     public boolean isInitialized(){

@@ -200,7 +200,7 @@ class StockCountingSemanticsTest extends BaseMockBukkitTest {
     }
 
     /**
-     * The regression this deletion is really about.
+     * The regression this fix is about.
      *
      * <p>{@code adjustStock()} wrote {@code amountBeingSold} — an <em>item</em> count — into the
      * {@code stock} field, which {@code calculateStock()} denominates in <em>transactions</em>. Under
@@ -209,11 +209,17 @@ class StockCountingSemanticsTest extends BaseMockBukkitTest {
      * chest unreadable, {@code calculateStock()} returns the sentinel and {@code updateStock()} returns
      * early, so whatever was written survives into {@code getStock()} and onto the sign.
      *
+     * <p>FIX (issue #890): When the inventory becomes unreadable (e.g., chunk unloaded),
+     * {@code updateStock()} now resets the stock field to 0 instead of leaving a stale positive
+     * value. This prevents signs from showing phantom stock counts that cannot actually be sold.
+     * The cache is invalidated so the next successful {@code calculateStock()} will repopulate
+     * it with the true count.
+     *
      * <p>The rescan is failed here by detaching the chest location, which is the same state a shop is
      * in while its chunk is unloaded. Assertions are on the value that survives.
      */
     @Test
-    void unreadableInventoryLeavesLastKnownGoodTransactionCount() {
+    void unreadableInventoryResetsStockToZero() {
         SellShop shop = shopAt(180, 180, 16);
         attachChest(shop, 180, 180, 160);
 
@@ -221,14 +227,15 @@ class StockCountingSemanticsTest extends BaseMockBukkitTest {
         assertEquals(10, shop.getStock(), "Precondition: the shop holds 10 transactions");
 
         // Simulate an unresolvable inventory: calculateStock() returns STOCK_UNAVAILABLE and
-        // updateStock() returns early without touching `stock`.
+        // updateStock() should reset stock to 0 instead of leaving stale value.
         detachChest(shop);
 
         shop.updateStock();
 
-        assertEquals(10, shop.getStock(),
-                "When the inventory cannot be read, stock must still hold the last known-good "
-                        + "TRANSACTION count. An item-denominated write would surface as 160 here.");
+        assertEquals(0, shop.getStock(),
+                "When the inventory cannot be read, stock must be reset to 0 to prevent "
+                        + "showing phantom stock on signs. The cache is invalidated so the next "
+                        + "successful calculateStock() will repopulate with the true count.");
         assertNotEquals(AbstractShop.STOCK_UNAVAILABLE, shop.getStock(),
                 "The unavailable sentinel must never reach getStock()");
     }
