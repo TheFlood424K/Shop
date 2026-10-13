@@ -402,20 +402,25 @@ class TransactionRollbackTest {
         assertEquals(20.0, balance(owner, CurrencyType.VAULT));
     }
 
-    /** Each failed recovery must be logged, and cannot prevent the other recovery attempts. */
+    /** Recovery failures must be logged, and buyer refunds require a successful seller withdrawal. */
     @ParameterizedTest
-    @CsvSource({"false", "true"})
-    void recoveryFailuresAreLoggedIndependently(boolean throwsException) {
+    @CsvSource({"false, false", "false, true", "true, false", "true, true"})
+    void recoveryFailuresAreLoggedAndRefundRequiresSellerWithdrawal(boolean sellerWithdrawalFails,
+                                                                    boolean throwsException) {
         createPaidTransaction(CurrencyType.VAULT, ShopType.SELL);
         doReturn(false).when(buyer).depositItem(any(ItemStack.class));
         IllegalStateException exception = new IllegalStateException("Recovery unavailable");
         doThrow(exception).when(seller).restoreInventory(any(ItemStack[].class));
         doThrow(exception).when(buyer).restoreInventory(any(ItemStack[].class));
         if (throwsException) {
-            doThrow(exception).when(seller).deductFunds(anyDouble());
+            if (sellerWithdrawalFails) {
+                doThrow(exception).when(seller).deductFunds(anyDouble());
+            }
             doThrow(exception).when(buyer).depositFunds(anyDouble());
         } else {
-            doReturn(false).when(seller).deductFunds(anyDouble());
+            if (sellerWithdrawalFails) {
+                doReturn(false).when(seller).deductFunds(anyDouble());
+            }
             doReturn(false).when(buyer).depositFunds(anyDouble());
         }
         Handler handler = mock(Handler.class);
@@ -425,15 +430,19 @@ class TransactionRollbackTest {
             verify(seller).restoreInventory(any(ItemStack[].class));
             verify(buyer).restoreInventory(any(ItemStack[].class));
             verify(seller).deductFunds(5.0);
-            verify(buyer).depositFunds(5.0);
+            verify(buyer, times(sellerWithdrawalFails ? 0 : 1)).depositFunds(5.0);
+            assertEquals(15.0, balance(player, CurrencyType.VAULT));
+            assertEquals(sellerWithdrawalFails ? 25.0 : 20.0, balance(owner, CurrencyType.VAULT));
             for (String step : new String[]{"seller inventory restoration", "buyer inventory restoration",
-                    "seller payment withdrawal", "buyer refund"}) {
+                    sellerWithdrawalFails ? "seller payment withdrawal" : "buyer refund"}) {
                 verify(handler).publish(argThat(record -> record.getLevel() == Level.SEVERE
                         && record.getMessage().contains(step)
                         && record.getMessage().contains("price=5.0")
                         && record.getMessage().contains("itemType=DIAMOND")
                         && record.getMessage().contains("quantity=4")));
             }
+            verify(handler, never()).publish(argThat(record -> record.getMessage()
+                    .contains(sellerWithdrawalFails ? "buyer refund" : "seller payment withdrawal")));
         } finally {
             plugin.getLogger().removeHandler(handler);
         }

@@ -234,7 +234,7 @@ public class Transaction {
      * if any transfer fails or throws.
      * A refused economy deposit leaves stock untouched and attempts to refund the buyer.
      * A failed item transfer after economy payment attempts to restore both inventories and reverse
-     * both payments independently, logging each failed recovery step.
+     * the seller payment before refunding the buyer, logging each failed recovery step.
      * Verification may fire a cancellable exchange event; success updates shop stock or the gamble display.
      *
      * @return {@link TransactionError#NONE} on success, or the error that prevented completion
@@ -297,10 +297,11 @@ public class Transaction {
                         this.buyer.restoreInventory(buyerContents);
                         return true;
                     });
-                    this.attemptRecovery("seller payment withdrawal", itemSold,
-                            () -> this.seller.deductFunds(this.price));
-                    this.attemptRecovery("buyer refund", itemSold,
-                            () -> this.buyer.depositFunds(this.price));
+                    if (this.attemptRecovery("seller payment withdrawal", itemSold,
+                            () -> this.seller.deductFunds(this.price))) {
+                        this.attemptRecovery("buyer refund", itemSold,
+                                () -> this.buyer.depositFunds(this.price));
+                    }
                 }
             }
         }
@@ -322,11 +323,11 @@ public class Transaction {
         return this.setError(TransactionError.NONE);
     }
 
-    /** Attempts one recovery step without preventing the remaining steps from running. */
-    private void attemptRecovery(String step, ItemStack itemSold, BooleanSupplier recovery) {
+    /** Attempts one recovery step, logging failure and returning whether it succeeded. */
+    private boolean attemptRecovery(String step, ItemStack itemSold, BooleanSupplier recovery) {
         RuntimeException failure = null;
         try {
-            if (recovery.getAsBoolean()) { return; }
+            if (recovery.getAsBoolean()) { return true; }
         } catch (RuntimeException exception) {
             failure = exception;
         }
@@ -334,6 +335,7 @@ public class Transaction {
                 + " for shop " + shop.getSignLocation() + ", playerUUID=" + player.getUniqueId()
                 + ", price=" + price + ", itemType=" + itemSold.getType()
                 + ", quantity=" + itemSold.getAmount() + ". Manual intervention may be required.", failure);
+        return false;
     }
 
     /**
