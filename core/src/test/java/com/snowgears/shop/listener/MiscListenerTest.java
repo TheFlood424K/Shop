@@ -543,6 +543,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertNotNull(shopHandler.getShop(signLoc), "Shop should be created from a lowercase tag");
     }
 
+    /** Supported signs create discoverable shops; hanging signs remain unsupported. */
     @ParameterizedTest
     @CsvSource({"OAK_WALL_SIGN, NORTH, true", "OAK_SIGN, UP, true",
             "OAK_HANGING_SIGN, UP, false", "OAK_WALL_HANGING_SIGN, NORTH, false"})
@@ -606,6 +607,40 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertEquals(expected, miscListener.getShopCreationProcess(player).getClickedFace());
         assertEquals(Material.OAK_SIGN, sign.getType(), "Display lighting must preserve the sign");
         assertEquals(rotation, ((Rotatable) sign.getBlockData()).getRotation());
+    }
+
+    /** Reloading resolves the chest below and normalizes missing, raw or stale saved facings. */
+    @ParameterizedTest
+    @CsvSource({
+            "NORTH, NORTH", "NORTH_NORTH_EAST, NORTH", "NORTH_EAST, EAST", "EAST_NORTH_EAST, EAST",
+            "EAST, EAST", "EAST_SOUTH_EAST, EAST", "SOUTH_EAST, SOUTH", "SOUTH_SOUTH_EAST, SOUTH",
+            "SOUTH, SOUTH", "SOUTH_SOUTH_WEST, SOUTH", "SOUTH_WEST, WEST", "WEST_SOUTH_WEST, WEST",
+            "WEST, WEST", "WEST_NORTH_WEST, WEST", "NORTH_WEST, NORTH", "NORTH_NORTH_WEST, NORTH"
+    })
+    void standingSignLoadingUsesCardinalDirection(BlockFace rotation, BlockFace expected) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(BlockFace.UP);
+        sign.setType(Material.OAK_SIGN);
+        Rotatable data = (Rotatable) sign.getBlockData();
+        data.setRotation(rotation);
+        Sign state = (Sign) sign.getState();
+        state.setBlockData(data);
+        state.update();
+
+        for (BlockFace savedFacing : new BlockFace[]{null, rotation, expected.getOppositeFace()}) {
+            // Reconstruct from saved fields without going through shop creation, as on restart.
+            AbstractShop shop = AbstractShop.create(sign.getLocation(), player.getUniqueId(),
+                    10, 0, 1, false, ShopType.SELL, savedFacing);
+            assertNotNull(shop);
+            assertNull(shop.getChestLocation());
+
+            assertTrue(shop.load(), "Standing-sign shops must survive loading");
+
+            assertEquals(chest.getLocation(), shop.getChestLocation());
+            assertEquals(expected, shop.getFacing(), "Loading must use the current sign rotation");
+            assertEquals(rotation, ((Rotatable) sign.getBlockData()).getRotation());
+        }
     }
 
     /** The shop's own standing sign allows initialization regardless of the obstruction policy. */

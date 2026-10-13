@@ -346,6 +346,18 @@ public class ShopCreationUtil {
         return true;
     }
 
+    /**
+     * Assigns a shop's primary or barter item after checking authorization, item rules,
+     * funds and the initialization event. The shop's own standing sign is allowed above
+     * its container; other display obstructions disable displays or reject initialization
+     * according to configuration.
+     *
+     * @param shop the loaded shop to initialize
+     * @param player the owner or authorized operator selecting the items
+     * @param item the primary item, which must not be air
+     * @param barterItem the secondary barter item, or null during primary selection
+     * @return true when an item is assigned; false if rejected or already initialized
+     */
     public boolean initializeShop(AbstractShop shop, Player player , ItemStack item, ItemStack barterItem){
         if (!player.getUniqueId().equals(shop.getOwnerUUID())) {
             //do not allow non operators to initialize other player's shops
