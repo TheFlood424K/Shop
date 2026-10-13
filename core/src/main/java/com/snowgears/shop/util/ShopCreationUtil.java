@@ -349,8 +349,9 @@ public class ShopCreationUtil {
     /**
      * Sets a shop's primary item or completes barter item selection after checking ownership,
      * container readiness, display space, item restrictions and any creation cost. The shop's
-     * own standing sign is allowed above its container. Item changes fire a cancelable
-     * {@link PlayerInitializeShopEvent}.
+     * own standing sign is allowed above its container; other display obstructions disable
+     * displays or reject initialization according to configuration. Item changes fire a
+     * cancelable {@link PlayerInitializeShopEvent}.
      *
      * @param shop the shop to initialize
      * @param player the owner or authorized operator initializing the shop

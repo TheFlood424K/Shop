@@ -154,7 +154,7 @@ public abstract class AbstractShop {
      * Refreshes stock and schedules sign updates when stock is available, and caches
      * the container type when available.
      * Wall signs use the stored facing, falling back to the sign's facing when absent.
-     * Standing signs normalize their rotation to the cardinal facing used during creation.
+     * Standing signs normalize their current rotation to the cardinal facing used during creation.
      * Accessing the blocks may load their chunk.
      *
      * @return true after marking the shop loaded; false after attempting to delete the
