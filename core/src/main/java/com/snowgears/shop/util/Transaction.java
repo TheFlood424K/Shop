@@ -226,6 +226,15 @@ public class Transaction {
         return this.setError(TransactionError.NONE);
     }
 
+    /**
+     * Verifies the negotiated transaction, then transfers payment and items between the buyer and seller.
+     * If a chest seller cannot accept payment, attempts to restore the sold items and refund the buyer,
+     * logging a severe message if either rollback step fails.
+     *
+     * @return {@link TransactionError#NONE} on success, or the error that prevented completion;
+     *         {@link TransactionError#INVENTORY_FULL_SHOP} when a chest seller cannot accept payment,
+     *         even if rollback fails
+     */
     public TransactionError execute() {
         // Check to see if we had any errors, you must do this before performing the transaction!
         if (this.verify() != TransactionError.NONE) { return this.error; }
