@@ -47,11 +47,21 @@ public class TransactionParty {
 
     public boolean isPlayer() { return this.isPlayer; }
 
+    /**
+     * Determines whether payment uses barter items or the server's configured item currency.
+     *
+     * @return true when payment is transferred through inventories
+     */
     boolean usesItemCurrency() {
         return this.currencyItem != null || Shop.getPlugin().getCurrencyType() == CurrencyType.ITEM;
     }
 
-    // Deep copies are required: removeItem can mutate the stacks returned by getContents().
+    /**
+     * Copies every inventory slot and its stack for rollback. Deep copies prevent item removal
+     * from mutating the saved stacks returned by {@link Inventory#getContents()}.
+     *
+     * @return the independent snapshot, or null for an admin party or an absent inventory
+     */
     ItemStack[] snapshotInventory() {
         if (this.isAdmin || this.inventory == null) { return null; }
         ItemStack[] contents = this.inventory.getContents().clone();
@@ -61,6 +71,11 @@ public class TransactionParty {
         return contents;
     }
 
+    /**
+     * Restores saved slots directly and invalidates the associated shop's stock cache.
+     *
+     * @param contents the inventory snapshot to restore; null leaves the inventory unchanged
+     */
     void restoreInventory(ItemStack[] contents) {
         if (contents == null) { return; }
         this.inventory.setContents(contents);

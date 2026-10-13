@@ -34,6 +34,7 @@ class TransactionRollbackTest {
     private TransactionParty buyer;
     private TransactionParty seller;
 
+    /** Creates a barter fixture with chest stock, player payment, and an external default currency. */
     @BeforeEach
     void setUp() {
         ServerMock server = MockBukkit.mock();
@@ -56,6 +57,11 @@ class TransactionRollbackTest {
         createTransaction(ShopType.BARTER);
     }
 
+    /**
+     * Builds a transaction with spies on both parties so tests can inject transfer failures.
+     *
+     * @param type the transaction direction or shop type to exercise
+     */
     private void createTransaction(ShopType type) {
         transaction = new Transaction(player, shop, type);
         buyer = spy((TransactionParty) TestReflection.getField(transaction, "buyer"));
@@ -64,6 +70,7 @@ class TransactionRollbackTest {
         TestReflection.setField(transaction, "seller", seller);
     }
 
+    /** Releases the mocked Bukkit server after each test. */
     @AfterEach
     void tearDown() {
         MockBukkit.unmock();
@@ -71,6 +78,11 @@ class TransactionRollbackTest {
 
     enum FailedTransfer { PAYMENT_WITHDRAWAL, STOCK_REMOVAL, PAYMENT_DEPOSIT, ITEM_DELIVERY }
 
+    /**
+     * Verifies that each partially applied transfer restores both inventories without refund deposits.
+     *
+     * @param failure the transfer step that mutates inventory before reporting failure
+     */
     @ParameterizedTest
     @EnumSource(FailedTransfer.class)
     void partialTransferFailureRestoresBothInventories(FailedTransfer failure) {
@@ -121,6 +133,7 @@ class TransactionRollbackTest {
         verify(shop, never()).updateStock();
     }
 
+    /** Verifies that an exception during payment deposit restores both inventories before propagating. */
     @Test
     void exceptionDuringPaymentDepositAlsoRestoresBothInventories() {
         ItemStack[] buyerBefore = copy(player.getInventory());
@@ -132,6 +145,7 @@ class TransactionRollbackTest {
         assertArrayEquals(buyerBefore, player.getInventory().getContents());
     }
 
+    /** Verifies that a compressed currency deposit restores the original stacks when its remainder cannot fit. */
     @Test
     void compressedCurrencyPartialDepositRestoresOriginalStacks() {
         TestReflection.setField(plugin, "currencyType", CurrencyType.ITEM);
@@ -156,6 +170,7 @@ class TransactionRollbackTest {
         assertArrayEquals(buyerBefore, player.getInventory().getContents());
     }
 
+    /** Verifies that a full barter chest accepts payment in the slot freed by removing sold stock. */
     @Test
     void fullChestBarterCommitsUsingSlotFreedBySale() {
         for (int slot = 1; slot < chest.getSize(); slot++) {
@@ -176,6 +191,7 @@ class TransactionRollbackTest {
         verify(shop).updateStock();
     }
 
+    /** Verifies that admin barter consumes player payment and delivers items without changing the chest. */
     @Test
     void adminBarterConsumesPaymentAndProvidesItemsWithoutChangingChest() {
         when(shop.isAdmin()).thenReturn(true);
@@ -188,6 +204,7 @@ class TransactionRollbackTest {
         assertEquals(5, InventoryUtils.getAmount(player.getInventory(), new ItemStack(Material.EMERALD)));
     }
 
+    /** Verifies that a failed BUY shop payment restores player stock and chest currency without a refund deposit. */
     @Test
     void buyShopPaymentFailurePreservesPlayerItemsAndChestPayment() {
         TestReflection.setField(plugin, "currencyType", CurrencyType.ITEM);
@@ -209,6 +226,7 @@ class TransactionRollbackTest {
         verify(buyer, never()).depositFunds(anyDouble());
     }
 
+    /** Verifies that a successful BUY shop purchase transfers player items and chest payment in full. */
     @Test
     void buyShopCommitsPaymentAndItems() {
         TestReflection.setField(plugin, "currencyType", CurrencyType.ITEM);
@@ -224,6 +242,7 @@ class TransactionRollbackTest {
         assertEquals(15, InventoryUtils.getAmount(player.getInventory(), new ItemStack(Material.EMERALD)));
     }
 
+    /** Verifies that a refused Vault payment refunds the buyer before stock or items are transferred. */
     @Test
     void rejectedVaultDepositRefundsBuyerBeforeAnyStockIsRemoved() {
         when(shop.getType()).thenReturn(ShopType.SELL);
@@ -248,6 +267,12 @@ class TransactionRollbackTest {
         verify(economy, times(2)).depositPlayer(any(OfflinePlayer.class), eq(5.0));
     }
 
+    /**
+     * Deep copies inventory stacks so subsequent transfers cannot mutate the expected contents.
+     *
+     * @param inventory the inventory whose slots are captured
+     * @return an independent copy of its contents, preserving empty slots
+     */
     private ItemStack[] copy(Inventory inventory) {
         ItemStack[] contents = inventory.getContents();
         for (int i = 0; i < contents.length; i++) {
