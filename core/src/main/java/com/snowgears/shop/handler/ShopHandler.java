@@ -58,6 +58,10 @@ public class ShopHandler {
     //we will be loading these shops at time of chunkload and resaving them so they are saved with the 'facing' variable
     // Using Set<Location> with ConcurrentHashMap.newKeySet() for thread-safe unique entries
     private ConcurrentHashMap<String, Set<Location>> unloadedShopsByChunk = new ConcurrentHashMap<>();
+
+    // Shops that need their player head icons reloaded after async loading completes.
+    // Populated by the async loadShops() pass, drained on the main thread below.
+    private final java.util.concurrent.ConcurrentHashMap<AbstractShop, Object> pendingHeadIcons = new java.util.concurrent.ConcurrentHashMap<>();
     private UUID adminUUID;
     private BlockFace[] directions = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
 
@@ -248,8 +252,10 @@ public class ShopHandler {
     public void removeShop(AbstractShop shop, boolean forceSave) {
             boolean changed = false;
             // Atomic remove: only remove if the shop at this location matches the given shop
-            AbstractShop removed = allShops.remove(shop.getSignLocation(), shop);
-            if (removed != null) {
+            // ConcurrentHashMap.remove(key, value) returns boolean, so we check get first then remove
+            AbstractShop current = allShops.get(shop.getSignLocation());
+            if (current != null && current.equals(shop)) {
+                allShops.remove(shop.getSignLocation(), shop);
                 changed = true;
             }
             if(playerShops.containsKey(shop.getOwnerUUID())) {
