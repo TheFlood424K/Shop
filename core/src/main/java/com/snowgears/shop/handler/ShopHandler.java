@@ -251,10 +251,10 @@ public class ShopHandler {
     //This method should only be used by AbstractShop object to delete
     public void removeShop(AbstractShop shop, boolean forceSave) {
             boolean changed = false;
-            // Atomic remove: only remove if the shop at this location matches the given shop
-            // ConcurrentHashMap.remove(key, value) returns boolean, so we check get first then remove
+            // Atomic conditional remove: only remove if the shop at this location is the same instance
+            // Using identity check to avoid issues with Mockito spies or equals() overrides
             AbstractShop current = allShops.get(shop.getSignLocation());
-            if (current != null && current.equals(shop)) {
+            if (current != null && current == shop) {
                 allShops.remove(shop.getSignLocation(), shop);
                 changed = true;
             }
