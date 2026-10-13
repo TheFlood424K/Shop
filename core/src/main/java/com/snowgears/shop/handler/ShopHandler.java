@@ -204,14 +204,26 @@ public class ShopHandler {
         return null;
     }
 
-    public void addShop(AbstractShop shop) {
+    public AbstractShop addShop(AbstractShop shop) {
+        return addShop(shop, true);
+    }
+
+    /**
+     * Adds a shop to the internal maps.
+     *
+     * @param shop the shop to add
+     * @param reloadHeadIcon if true, reload the player head icon (deferred to main thread
+     *                       if called from async context via pendingHeadIcons)
+     * @return the existing shop if a concurrent addition occurred, or null if this shop was added
+     */
+    public AbstractShop addShop(AbstractShop shop, boolean reloadHeadIcon) {
 
             //this is to remove a bug that caused one shop to be saved to multiple files at one point
-            AbstractShop s = getShop(shop.getSignLocation());
-            if(s != null) {
-                return;
+            // Use putIfAbsent for atomic check-and-add to prevent race conditions
+            AbstractShop existing = allShops.putIfAbsent(shop.getSignLocation(), shop);
+            if (existing != null) {
+                return existing;
             }
-            allShops.put(shop.getSignLocation(), shop);
 
             // Directly use ConcurrentLinkedQueue for O(1) add
             playerShops.computeIfAbsent(shop.getOwnerUUID(), k -> new ConcurrentLinkedQueue<>()).add(shop.getSignLocation());
@@ -219,7 +231,17 @@ public class ShopHandler {
             String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
             chunkShops.computeIfAbsent(chunkKey, k -> new ConcurrentLinkedQueue<>()).add(shop.getSignLocation());
 
-            plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
+            if (reloadHeadIcon) {
+                // Defer GUI operations to the main thread to avoid Bukkit API access off-thread.
+                // If called from the async loadShops() pass, this will be drained in the
+                // main-thread pass below (see pendingHeadIcons handling).
+                if (!Bukkit.isPrimaryThread()) {
+                    pendingHeadIcons.put(shop, Boolean.TRUE);
+                } else {
+                    plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
+                }
+            }
+            return null;
         }
 
     //This method should only be used by AbstractShop object to delete
