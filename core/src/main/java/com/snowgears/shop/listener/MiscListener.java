@@ -89,6 +89,11 @@ public class MiscListener implements Listener {
 
     //prevent emptying of bucket when player clicks on shop sign
     //also prevent when emptying on display item itself
+    /**
+     * Cancels bucket emptying when the clicked block is a wall or standing shop sign,
+     * or the destination block is directly above a shop container. Already canceled
+     * events are left untouched.
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBucketEmpty(PlayerBucketEmptyEvent event) {
         if (event.isCancelled()) {
@@ -114,6 +119,10 @@ public class MiscListener implements Listener {
      * Invalid amounts, prices, or rejected creation cancel the sign change. On success,
      * prompts for an item and schedules deletion if the configured initialization timeout
      * is positive and expires before initialization.
+     *
+     * <p>Rotatable signs are checked against the container directly below them. Matching
+     * creation text on such a container also attempts creation, but the creation utility
+     * currently rejects non-wall signs and the sign change is canceled.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onShopCreation(SignChangeEvent event) {
@@ -289,6 +298,12 @@ public class MiscListener implements Listener {
         }
     }
 
+    /**
+     * Checks the player's exact target block within 5 blocks for a creation candidate.
+     *
+     * @return true for an uninitialized wall or standing shop sign, or a supported
+     *         container with no registered shop; false for no target or other blocks
+     */
     public boolean isPlayerTargetingShopCreationBlock(Player player) {
         Block target = player.getTargetBlockExact(5);
         if (target == null) {
@@ -694,6 +709,18 @@ public class MiscListener implements Listener {
     }
 
     //player destroys shop, call PlayerDestroyShopEvent or PlayerResizeShopEvent
+    /**
+     * Handles breaking wall or standing shop signs and containers. Sign destruction
+     * requires initialization, any configured sneaking requirement, authorization, and
+     * an uncanceled {@link PlayerDestroyShopEvent}. Owners pay any positive destruction
+     * cost before that event and may receive the configured creation-cost refund.
+     *
+     * <p>Protects the primary shop container and permits authorized removal of a double
+     * chest's expansion half unless {@link PlayerResizeShopEvent} is canceled. During
+     * chest-based creation, the owner can cancel creation and break the chest with two
+     * deliberate break attempts after item selection; other pending creation is protected.
+     * Fake shop signs do not drop sign items.
+     */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void shopDestroy(BlockBreakEvent event) {
 

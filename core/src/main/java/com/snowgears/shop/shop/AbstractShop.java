@@ -163,6 +163,16 @@ public abstract class AbstractShop {
     }
 
     //this calls BlockData which loads the chunk the shop is in by doing so
+    /**
+     * Resolves the container behind a wall sign or directly below a standing sign.
+     * Refreshes stock and schedules sign updates when stock is available, and caches
+     * the container type when available.
+     * Wall signs use the stored facing, falling back to the sign's facing when absent.
+     * Accessing the blocks may load their chunk.
+     *
+     * @return true after marking the shop loaded; false after attempting to delete the
+     *         shop for missing or unsupported blocks, or a caught exception or error
+     */
     public boolean load() {
         try {
             Block signBlock = signLocation.getBlock();

@@ -136,6 +136,14 @@ public class ShopHandler {
         return allShops.get(loc);
     }
 
+    /**
+     * Finds a registered shop whose container matches the supplied block or either half
+     * of its double chest, checking for signs beside and directly above the container.
+     *
+     * @param shopChest the container to check, or null
+     * @return the first matching shop, or null for an unsupported block, no match,
+     *         or a caught {@link NoClassDefFoundError}
+     */
     public AbstractShop getShopByChest(Block shopChest) {
 
         try {
@@ -188,6 +196,14 @@ public class ShopHandler {
         return null;
     }
 
+    /**
+     * Finds a registered shop sign beside a supported container neighboring the block.
+     * Both neighbor searches are limited to the four horizontal faces; the shop's
+     * recorded container location is not checked.
+     *
+     * @return the first shop found, or null if none is found
+     * @throws NullPointerException if block is null
+     */
     public AbstractShop getShopTouchingBlock(Block block){
         BlockFace[] faces = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
         for(BlockFace face : faces){
