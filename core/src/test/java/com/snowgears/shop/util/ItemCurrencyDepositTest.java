@@ -3,6 +3,7 @@ package com.snowgears.shop.util;
 import com.snowgears.shop.Shop;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,12 +15,22 @@ import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockbukkit.mockbukkit.MockBukkitInject;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
+import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Regression tests for the item-currency payout path (issues #86, #91, #92).
@@ -133,6 +144,58 @@ class ItemCurrencyDepositTest {
 
         assertEquals(64, countOf(seller, SINGULAR),
                 "The seller's existing wheat must survive a failed payout untouched");
+        assertEquals(0, countOf(seller, BLOCK),
+                "All deposited blocks must be rolled back even above the removal helper's limit");
+    }
+
+    @Test
+    void ordinaryRollbackPreservesExistingBlocks() throws Exception {
+        Inventory inventory = server.createInventory(null, 9);
+        inventory.setItem(0, new ItemStack(BLOCK, 3));
+        for (int slot = 1; slot < inventory.getSize(); slot++) {
+            inventory.setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+
+        // The five blocks fit, but the singular remainder does not.
+        assertFalse((boolean) addItemCurrency.invoke(null, inventory,
+                new ItemStack(SINGULAR), 46));
+        assertEquals(3, InventoryUtils.getAmount(inventory, new ItemStack(BLOCK)),
+                "An ordinary rollback must leave the pre-existing blocks untouched");
+        assertEquals(8 * 64, InventoryUtils.getAmount(inventory, new ItemStack(Material.STONE)));
+    }
+
+    @Test
+    void rollbackContinuesAfterRemovalShortfallAndReportsTotal() throws Exception {
+        Inventory inventory = mock(Inventory.class);
+        when(inventory.addItem(any(ItemStack.class))).thenAnswer(invocation -> {
+            ItemStack stack = invocation.getArgument(0);
+            HashMap<Integer, ItemStack> leftovers = new HashMap<>();
+            if (stack.getType() == SINGULAR) {
+                leftovers.put(0, stack);
+            }
+            return leftovers;
+        });
+        // The first removal can find only 60 of its 64 blocks. Later attempts still succeed.
+        when(inventory.getContents()).thenReturn(
+                new ItemStack[]{new ItemStack(BLOCK, 60)},
+                new ItemStack[]{new ItemStack(BLOCK, 64)},
+                new ItemStack[]{new ItemStack(BLOCK, 5)});
+
+        Handler handler = mock(Handler.class);
+        plugin.getLogger().addHandler(handler);
+        try {
+            assertFalse((boolean) addItemCurrency.invoke(null, inventory,
+                    new ItemStack(SINGULAR), 133 * 9 + 1));
+            verify(inventory, times(3)).getContents();
+
+            ArgumentCaptor<LogRecord> record = ArgumentCaptor.forClass(LogRecord.class);
+            verify(handler).publish(record.capture());
+            assertEquals(Level.WARNING, record.getValue().getLevel());
+            assertEquals("Item currency deposit rollback could not remove 4 HAY_BLOCK blocks.",
+                    record.getValue().getMessage());
+        } finally {
+            plugin.getLogger().removeHandler(handler);
+        }
     }
 
     @Test

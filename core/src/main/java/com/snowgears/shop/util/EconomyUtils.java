@@ -133,8 +133,17 @@ public class EconomyUtils {
             // Partial deposit failed — roll back any blocks that were successfully added
             // to prevent currency duplication. The transaction will be rolled back by the caller.
             if (blocksSuccessfullyAdded > 0) {
-                ItemStack blockStack = new ItemStack(blockForm, blocksSuccessfullyAdded);
-                InventoryUtils.removeItem(inventory, blockStack);
+                int remaining = blocksSuccessfullyAdded;
+                int unremoved = 0;
+                while (remaining > 0) {
+                    int chunk = Math.min(remaining, blockForm.getMaxStackSize());
+                    unremoved += InventoryUtils.removeItem(inventory, new ItemStack(blockForm, chunk));
+                    remaining -= chunk;
+                }
+                if (unremoved > 0) {
+                    Shop.getPlugin().getLogger().warning("Item currency deposit rollback could not remove "
+                            + unremoved + " " + blockForm + " blocks.");
+                }
             }
             return false;
         }
