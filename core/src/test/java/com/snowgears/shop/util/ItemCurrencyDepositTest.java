@@ -10,6 +10,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockbukkit.mockbukkit.MockBukkitInject;
@@ -162,6 +164,26 @@ class ItemCurrencyDepositTest {
         assertEquals(3, InventoryUtils.getAmount(inventory, new ItemStack(BLOCK)),
                 "An ordinary rollback must leave the pre-existing blocks untouched");
         assertEquals(8 * 64, InventoryUtils.getAmount(inventory, new ItemStack(Material.STONE)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void partialBlockInsertionRollsBackAndPreservesExistingStock(int emptySlots) throws Exception {
+        Inventory inventory = server.createInventory(null, 9);
+        inventory.setItem(0, new ItemStack(BLOCK, 63));
+        for (int slot = 1 + emptySlots; slot < inventory.getSize(); slot++) {
+            inventory.setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+
+        // Capacity is one block, plus a full stack when an empty slot is available.
+        // The next chunk inserts one block before failing, with another chunk still pending.
+        int blocksToDeposit = (emptySlots + 1) * 64 + 5;
+        assertFalse((boolean) addItemCurrency.invoke(null, inventory,
+                new ItemStack(SINGULAR), blocksToDeposit * 9));
+        assertEquals(63, InventoryUtils.getAmount(inventory, new ItemStack(BLOCK)),
+                "Rollback must remove partial and complete chunks and preserve existing blocks");
+        assertEquals((8 - emptySlots) * 64,
+                InventoryUtils.getAmount(inventory, new ItemStack(Material.STONE)));
     }
 
     @Test
