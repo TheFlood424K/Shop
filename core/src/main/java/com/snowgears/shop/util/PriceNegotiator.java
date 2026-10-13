@@ -215,12 +215,13 @@ public class PriceNegotiator {
      */
     private double calculateItemsPerPrice(double pricePerItem) {
         double itemsPerPrice = DEFAULT_ITEM_RATIO;
-        
+
         // If our price is less than 1, then we are buying multiple items with each order
-        if (pricePerItem < DEFAULT_ITEM_RATIO) {
+        // Guard against division by zero when pricePerItem is 0 (e.g., price=0 shops)
+        if (pricePerItem > 0 && pricePerItem < DEFAULT_ITEM_RATIO) {
             itemsPerPrice = DEFAULT_ITEM_RATIO / pricePerItem;
         }
-        
+
         return itemsPerPrice;
     }
     
@@ -358,12 +359,21 @@ public class PriceNegotiator {
      */
     private void handleNoPartialSales(double maxPurchasableQuantity, double itemsPerPrice, double pricePerItem) {
         // Multiple Quantity of original amount sales code (for full stack sales)
+        // Guard against division by zero or Infinity when itemsPerPrice is Infinity
+        // (which happens when pricePerItem == 0, e.g., price=0 shops).
+        if (itemsPerPrice <= 0 || Double.isInfinite(itemsPerPrice) || Double.isNaN(itemsPerPrice)) {
+            this.amountBeingSold = 0;
+            this.price = 0;
+            return;
+        }
+
         double quantityPerOriginalAmount = originalAmountBeingSold / itemsPerPrice;
         // If the player cannot afford even one multiple of the shop's amount, the division below
         // is by zero or floors to zero. Say so explicitly rather than leaving the fields at
         // whatever they held before — the caller reads them back as the negotiated result, and
         // a stale value here is what produced "bought 0 items for -1 currency".
-        if (quantityPerOriginalAmount <= 0 || maxPurchasableQuantity < quantityPerOriginalAmount) {
+        if (Double.isNaN(quantityPerOriginalAmount) || Double.isInfinite(quantityPerOriginalAmount)
+                || quantityPerOriginalAmount <= 0 || maxPurchasableQuantity < quantityPerOriginalAmount) {
             this.amountBeingSold = 0;
             this.price = 0;
             return;
