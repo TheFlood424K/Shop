@@ -49,7 +49,8 @@ public class ShopHandler {
     private ConcurrentHashMap<Location, AbstractShop> allShops = new ConcurrentHashMap<>();
     private ConcurrentHashMap<UUID, ConcurrentLinkedQueue<Location>> playerShops = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String, ConcurrentLinkedQueue<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
-    private ConcurrentHashMap<UUID, HashSet<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
+    // Inner sets are thread-safe: ConcurrentHashMap.newKeySet() returns a Set backed by ConcurrentHashMap
+    private ConcurrentHashMap<UUID, Set<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
     private Set<UUID> playersProcessingShopDisplays = ConcurrentHashMap.newKeySet();
     private ConcurrentHashMap<UUID, Location> playersActiveShopDisplayTag = new ConcurrentHashMap<>();
 
@@ -58,6 +59,10 @@ public class ShopHandler {
     //we will be loading these shops at time of chunkload and resaving them so they are saved with the 'facing' variable
     // Using Set<Location> with ConcurrentHashMap.newKeySet() for thread-safe unique entries
     private ConcurrentHashMap<String, Set<Location>> unloadedShopsByChunk = new ConcurrentHashMap<>();
+
+    // Shops that need their player head icons reloaded after async loading completes.
+    // Populated by the async loadShops() pass, drained on the main thread below.
+    private final java.util.concurrent.ConcurrentHashMap<AbstractShop, Object> pendingHeadIcons = new java.util.concurrent.ConcurrentHashMap<>();
     private UUID adminUUID;
     private BlockFace[] directions = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
 
@@ -205,6 +210,17 @@ public class ShopHandler {
     }
 
     public void addShop(AbstractShop shop) {
+        addShop(shop, true);
+    }
+
+    /**
+     * Adds a shop to the internal maps.
+     *
+     * @param shop the shop to add
+     * @param reloadHeadIcon if true, reload the player head icon (deferred to main thread
+     *                       if called from async context via pendingHeadIcons)
+     */
+    public void addShop(AbstractShop shop, boolean reloadHeadIcon) {
 
             //this is to remove a bug that caused one shop to be saved to multiple files at one point
             AbstractShop s = getShop(shop.getSignLocation());
@@ -219,7 +235,18 @@ public class ShopHandler {
             String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
             chunkShops.computeIfAbsent(chunkKey, k -> new ConcurrentLinkedQueue<>()).add(shop.getSignLocation());
 
-            plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
+            if (reloadHeadIcon) {
+                // Defer GUI operations to the main thread to avoid Bukkit API access off-thread.
+                // If called from the async loadShops() pass, this will be drained in the
+                // main-thread pass below (see pendingHeadIcons handling).
+                // Only defer if we're actually off the main thread; synchronous callers
+                // (e.g., shop creation, tests) should reload immediately.
+                if (!Bukkit.isPrimaryThread()) {
+                    pendingHeadIcons.put(shop, Boolean.TRUE);
+                } else {
+                    plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
+                }
+            }
         }
 
     //This method should only be used by AbstractShop object to delete
@@ -634,10 +661,14 @@ public class ShopHandler {
         
         // Also identify any current displays that are no longer in range
         if (playersWithActiveShopDisplays.containsKey(player.getUniqueId())) {
-            HashSet<Location> activeDisplays = new HashSet<>(playersWithActiveShopDisplays.get(player.getUniqueId()));
-            for (Location displayLocation : activeDisplays) {
-                if (!shopLocations.contains(displayLocation)) {
-                    displaysToRemove.add(displayLocation);
+            Set<Location> activeDisplays = playersWithActiveShopDisplays.get(player.getUniqueId());
+            if (activeDisplays != null) {
+                // Create a defensive copy to avoid ConcurrentModificationException during iteration
+                Set<Location> activeDisplaysCopy = new HashSet<>(activeDisplays);
+                for (Location displayLocation : activeDisplaysCopy) {
+                    if (!shopLocations.contains(displayLocation)) {
+                        displaysToRemove.add(displayLocation);
+                    }
                 }
             }
         }
@@ -747,32 +778,26 @@ public class ShopHandler {
     }
 
     public boolean hasActiveDisplay(Player player, Location shopSignLocation) {
-        HashSet<Location> shops = playersWithActiveShopDisplays.get(player.getUniqueId());
+        Set<Location> shops = playersWithActiveShopDisplays.get(player.getUniqueId());
         return shops != null && shops.contains(shopSignLocation);
     }
 
     public void addActiveShopDisplay(Player player, Location shopSignLocation){
-        HashSet<Location> shops;
-        if(playersWithActiveShopDisplays.containsKey(player.getUniqueId())){
-            shops = playersWithActiveShopDisplays.get(player.getUniqueId());
-        }
-        else{
-            shops = new HashSet<>();
-        }
+        // Use computeIfAbsent with ConcurrentHashMap.newKeySet() for thread-safe creation
+        Set<Location> shops = playersWithActiveShopDisplays.computeIfAbsent(
+                player.getUniqueId(), k -> ConcurrentHashMap.newKeySet());
         shops.add(shopSignLocation);
-        playersWithActiveShopDisplays.put(player.getUniqueId(), shops);
     }
 
     public void removeActiveShopDisplay(Player player, Location shopSignLocation){
-        HashSet<Location> shops;
-        if(playersWithActiveShopDisplays.containsKey(player.getUniqueId())){
-            shops = playersWithActiveShopDisplays.get(player.getUniqueId());
+        Set<Location> shops = playersWithActiveShopDisplays.get(player.getUniqueId());
+        if (shops != null) {
             shops.remove(shopSignLocation);
+            // Clean up empty sets to avoid memory leak
+            if (shops.isEmpty()) {
+                playersWithActiveShopDisplays.remove(player.getUniqueId(), shops);
+            }
         }
-        else{
-            shops = new HashSet<>();
-        }
-        playersWithActiveShopDisplays.put(player.getUniqueId(), shops);
     }
 
     public void addActiveShopDisplayTag(Player player, Location shopSignLocation) {
@@ -1230,8 +1255,8 @@ public class ShopHandler {
                             ((ComboShop) shop).setPriceSell(priceSell);
 
                         // 2. Register in map — shop is now fully initialised before anything
-                        //    can look it up.
-                        addShop(shop);
+                        //    can look it up. Use false to defer head icon reload to main thread.
+                        addShop(shop, false);
 
                         // 3. Defer the display type. setType(…, checkDisplayBlock=true) reads the
                         //    block above the chest, which is a synchronous block access — illegal
@@ -1240,6 +1265,9 @@ public class ShopHandler {
                         //    main-thread pass below applies it with getShop() and getItemStack()
                         //    already resolving.
                         if (displayType != null) pendingDisplayTypes.put(shop, displayType);
+
+                        // 4. Defer the head icon reload. reloadPlayerHeadIcon() must run on main thread.
+                        pendingHeadIcons.put(shop, Boolean.TRUE);
 
                         shopsLoaded++;
 
@@ -1280,6 +1308,26 @@ public class ShopHandler {
                 });
             }
             pendingDisplayTypes.clear();
+
+            // Apply deferred head icon reloads on the main thread.
+            for (Map.Entry<AbstractShop, Object> entry : pendingHeadIcons.entrySet()) {
+                AbstractShop deferredShop = entry.getKey();
+                // Use the sign location as the anchor; it is always present and in the same
+                // region as the chest, so Folia region ownership is correct.
+                Location anchor = deferredShop.getSignLocation();
+                if (anchor == null) {
+                    continue;
+                }
+                plugin.getFoliaLib().getScheduler().runAtLocation(anchor, regionTask -> {
+                    try {
+                        plugin.getGuiHandler().reloadPlayerHeadIcon(deferredShop);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Could not reload player head icon for shop "
+                                + deferredShop.getSignLocation() + ": " + e.getMessage());
+                    }
+                });
+            }
+            pendingHeadIcons.clear();
         });
     }
 
