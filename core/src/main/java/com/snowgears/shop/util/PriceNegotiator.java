@@ -211,7 +211,12 @@ public class PriceNegotiator {
     }
     
     /**
-     * Calculates how many items equal one price unit.
+     * Calculates the item ratio used to express purchase quantities.
+     *
+     * @param pricePerItem The price of one item in currency units
+     * @return The reciprocal of the price when it is greater than zero and less than one;
+     *         otherwise 1, including for NaN and infinite prices. The reciprocal can overflow
+     *         to positive infinity for extremely small positive prices.
      */
     private double calculateItemsPerPrice(double pricePerItem) {
         double itemsPerPrice = DEFAULT_ITEM_RATIO;
@@ -355,7 +360,19 @@ public class PriceNegotiator {
     }
     
     /**
-     * Handles the case where partial sales are not allowed.
+     * Updates the working sale quantity and price after rounding purchase capacity down
+     * to whole multiples of the original sale quantity.
+     * <p>
+     * Sets both values to zero if the item ratio or the original sale quantity expressed
+     * in that ratio is nonpositive or nonfinite, or if capacity is below one original sale.
+     * Otherwise, the price is rounded according to the payment mode and is -1 when the
+     * calculated or rounded price is below 0.01 currency units.
+     *
+     * @param maxPurchasableQuantity The capacity allowed by funds and inventory, expressed
+     *                              in groups of {@code itemsPerPrice} items
+     * @param itemsPerPrice The number of items represented by each unit of capacity
+     * @param pricePerItem The price of one item in currency units
+     * @throws NumberFormatException if the calculated price passed to rounding is NaN or infinite
      */
     private void handleNoPartialSales(double maxPurchasableQuantity, double itemsPerPrice, double pricePerItem) {
         // Multiple Quantity of original amount sales code (for full stack sales)
