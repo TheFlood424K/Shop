@@ -265,6 +265,8 @@ public class ShopCreationUtil {
             boolean loaded = shop.load();
             if (!loaded) {
                 plugin.getLogger().warning("Shop creation failed, unable to load the shop. Aborting shop creation."); // only seen this happen in tests
+                // Clean up the shop that was already added to the handler
+                plugin.getShopHandler().removeShop(shop, false);
                 return null;
             }
 
