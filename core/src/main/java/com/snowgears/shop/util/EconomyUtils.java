@@ -93,7 +93,8 @@ public class EconomyUtils {
     /**
      * Adds {@code amount} units of currency to {@code inventory}.
      * Deposits as many full blocks as possible, then the remainder as singulars.
-     * Returns {@code true} on success.
+     * Returns {@code true} on success, or {@code false} if the full deposit cannot fit.
+     * On failure, attempts to remove all blocks added by this deposit, including partial stacks.
      */
     private static boolean addItemCurrency(Inventory inventory, ItemStack singularCurrency, int amount) {
         ItemStack singular = singularCurrency.clone();
