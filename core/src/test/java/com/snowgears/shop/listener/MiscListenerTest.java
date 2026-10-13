@@ -2,6 +2,7 @@ package com.snowgears.shop.listener;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.DisplayType;
+import com.snowgears.shop.display.AbstractDisplay;
 import com.snowgears.shop.handler.ShopHandler;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ShopType;
@@ -208,7 +209,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
             miscListener.onShopCreation(event);
 
             assertEquals(recognized, event.isCancelled());
-            if (recognized) verify(creation).shopCanBeCreated(player, chest);
+            if (recognized) verify(creation).shopCanBeCreated(player, chest, sign);
             else Mockito.verifyNoInteractions(creation);
         } finally {
             com.snowgears.shop.testsupport.TestReflection.setField(plugin, "shopCreationUtil", originalCreationUtil);
@@ -221,6 +222,63 @@ class MiscListenerTest extends BaseMockBukkitTest {
     // ============================================================
     // WALL SIGN CREATION TESTS (all 4 cardinal directions)
     // ============================================================
+
+    /** Cancelled events must not create shops or alter signs, through either dispatch path. */
+    @ParameterizedTest
+    @CsvSource({"OAK_SIGN, true", "OAK_SIGN, false", "OAK_WALL_SIGN, true", "OAK_WALL_SIGN, false"})
+    void cancelledSignChangesAreIgnored(Material material, boolean dispatchEvent) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(material == Material.OAK_SIGN ? BlockFace.UP : BlockFace.NORTH);
+        sign.setType(material);
+        Sign state = (Sign) sign.getState();
+        state.setLine(0, "original");
+        state.update();
+        SignChangeEvent event = new SignChangeEvent(sign, player, new String[]{
+                ShopMessage.getSignCreationWord("SHOP"), "1", "10", ShopMessage.getCreationWord("SELL")
+        });
+        event.setCancelled(true);
+        var creation = Mockito.spy(plugin.getShopCreationUtil());
+        setPluginField("shopCreationUtil", creation);
+
+        if (dispatchEvent) getServer().getPluginManager().callEvent(event);
+        else miscListener.onShopCreation(event);
+
+        assertTrue(event.isCancelled());
+        Mockito.verifyNoInteractions(creation);
+        assertNull(shopHandler.getShop(sign.getLocation()));
+        assertNull(miscListener.getShopCreationProcess(player));
+        assertEquals("original", ((Sign) sign.getState()).getLine(0));
+        assertEquals(material, sign.getType());
+    }
+
+    /** Creation must receive exactly the sign that passed authorization. */
+    @ParameterizedTest
+    @CsvSource({"OAK_SIGN, true", "OAK_SIGN, false", "OAK_WALL_SIGN, true", "OAK_WALL_SIGN, false"})
+    void signCreationAuthorizesTheActualSign(Material material, boolean allowed) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(material == Material.OAK_SIGN ? BlockFace.UP : BlockFace.NORTH);
+        sign.setType(material);
+        var creation = mock(com.snowgears.shop.util.ShopCreationUtil.class);
+        when(creation.shopCanBeCreated(player, chest, sign)).thenReturn(allowed);
+        when(creation.getShopType(Mockito.anyString())).thenReturn(ShopType.SELL);
+        PricePair price = new PricePair(10, 0);
+        when(creation.getShopPricePair(Mockito.eq(player), Mockito.anyString(), Mockito.eq(ShopType.SELL)))
+                .thenReturn(price);
+        setPluginField("shopCreationUtil", creation);
+        SignChangeEvent event = new SignChangeEvent(sign, player, new String[]{
+                ShopMessage.getSignCreationWord("SHOP"), "1", "10", ShopMessage.getCreationWord("SELL")
+        });
+
+        miscListener.onShopCreation(event);
+
+        verify(creation).shopCanBeCreated(player, chest, sign);
+        verify(creation, Mockito.times(allowed ? 1 : 0)).createShop(player, chest, sign,
+                price, 1, false, ShopType.SELL, BlockFace.NORTH, false);
+        assertTrue(event.isCancelled(), "Denied authorization or the stubbed null shop cancels creation");
+        assertNull(shopHandler.getShop(sign.getLocation()));
+    }
 
     @Test
     @DisplayName("Wall sign facing SOUTH detects chest to the north")
@@ -664,6 +722,42 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertEquals(Material.DIAMOND, shop.getItemStack().getType());
         assertEquals(DisplayType.ITEM, shop.getDisplay().getType());
         assertEquals(Material.OAK_SIGN, sign.getType());
+    }
+
+    /** Setting and cycling displays allow only the shop's own standing sign or non-intrusive blocks. */
+    @ParameterizedTest
+    @CsvSource({
+            "OAK_SIGN, true, true", "OAK_SIGN, false, false",
+            "OAK_WALL_SIGN, true, false", "STONE, true, false",
+            "AIR, false, true", "WATER, false, true"
+    })
+    void displayChangesRespectStandingSignOwnership(Material material, boolean ownLocation, boolean allowed) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block aboveChest = chest.getRelative(BlockFace.UP);
+        aboveChest.setType(material);
+        AbstractShop shop = mock(AbstractShop.class);
+        when(shop.getChestLocation()).thenReturn(chest.getLocation());
+        when(shop.getSignLocation()).thenReturn(ownLocation ? aboveChest.getLocation()
+                : chest.getRelative(BlockFace.NORTH).getLocation());
+        when(shop.getFacing()).thenReturn(BlockFace.NORTH);
+        AbstractDisplay display = mock(AbstractDisplay.class, Mockito.withSettings()
+                .useConstructor(shop.getSignLocation()).defaultAnswer(Mockito.CALLS_REAL_METHODS));
+        Mockito.doReturn(shop).when(display).getShop();
+        Mockito.doReturn(true).when(display).isChunkLoaded();
+        Mockito.doNothing().when(display).spawn(player);
+
+        for (DisplayType previous : new DisplayType[]{DisplayType.NONE, DisplayType.ITEM_FRAME}) {
+            display.setType(previous, false);
+            display.setType(DisplayType.ITEM, true);
+            assertEquals(allowed ? DisplayType.ITEM : previous, display.getType());
+
+            display.setType(previous, false);
+            setConfig("displayCycle", new DisplayType[]{previous, DisplayType.ITEM});
+            display.cycleType(player);
+            assertEquals(allowed ? DisplayType.ITEM : previous, display.getType());
+        }
+        assertEquals(material, aboveChest.getType());
     }
 
     /** Other occupied display blocks still disable the display or reject initialization. */

@@ -50,6 +50,11 @@ public class ShopCreationUtil {
     }
 
     public boolean shopCanBeCreated(Player player, Block chest) {
+        return shopCanBeCreated(player, chest, null);
+    }
+
+    /** Checks the chest and an existing sign, or candidate horizontal neighbours when sign is null. */
+    public boolean shopCanBeCreated(Player player, Block chest, Block sign) {
         int numberOfShops = plugin.getShopHandler().getNumberOfShops(player);
         int buildPermissionNumber = plugin.getShopListener().getBuildLimit(player);
 
@@ -94,8 +99,9 @@ public class ShopCreationUtil {
         // returned true (e.g. GriefPrevention failing-open because GP isn't installed) would
         // silently erase a deny that an earlier check (e.g. WorldGuard) had already set.
         //
-        // A shop occupies two blocks - a sign and a container. The sign goes on whichever adjacent
-        // wall face has room, so the candidate sign blocks are the chest's horizontal neighbours.
+        // A shop occupies two blocks - a sign and a container. Sign-driven creation checks the
+        // actual sign, including standing signs above the chest. Chest-driven creation checks
+        // candidate sign blocks among the chest's horizontal neighbours.
         // Regions are volumetric, so a chest and its sign can sit either side of a WorldGuard or
         // Towny boundary. Checking only the chest let a shop straddle that boundary, while every
         // other region check in the plugin (ShopListener, TransactionHandler, MiscListener) uses
@@ -106,10 +112,9 @@ public class ShopCreationUtil {
         try {
             if(plugin.worldGuardExists()) {
                 canCreateShopInRegion &= WorldGuardHook.canCreateShop(player, chest.getLocation());
-                // The sign is placed on whichever adjacent wall face has room, so the candidate
-                // sign blocks are every horizontal neighbour of the chest. A shop whose chest is
-                // allowed but every possible sign position is denied cannot be created anywhere.
-                canCreateShopInRegion &= WorldGuardHook.canCreateShopOnAnyNeighbour(player, chest);
+                canCreateShopInRegion &= sign == null
+                        ? WorldGuardHook.canCreateShopOnAnyNeighbour(player, chest)
+                        : WorldGuardHook.canCreateShop(player, sign.getLocation());
             }
         } catch (NoClassDefFoundError e) {
             //tried to hook world guard but it was not registered
@@ -120,19 +125,24 @@ public class ShopCreationUtil {
         try {
             if(plugin.hookTowny()) {
                 canCreateShopInRegion &= TownyHook.canCreateShop(player, chest.getLocation());
-                canCreateShopInRegion &= TownyHook.canCreateShopOnAnyNeighbour(player, chest);
+                canCreateShopInRegion &= sign == null
+                        ? TownyHook.canCreateShopOnAnyNeighbour(player, chest)
+                        : TownyHook.canCreateShop(player, sign.getLocation());
             }
         } catch (NoClassDefFoundError e) {
             //tried to hook towny but it was not registered
             e.printStackTrace();
         }
 
-        // GriefPrevention build-rights check at the chest location.
+        // GriefPrevention build-rights check at the chest and any existing sign.
         // Runs before any block mutations (sign type conversion) so GP never fires its own
         // "can't build here" denial message mid-creation.
         try {
             if (plugin.isGriefPreventionTrustIntegrationEnabled()) {
                 canCreateShopInRegion &= GriefPreventionTrustListener.canPlayerBuildAt(player, chest.getLocation());
+                if (sign != null) {
+                    canCreateShopInRegion &= GriefPreventionTrustListener.canPlayerBuildAt(player, sign.getLocation());
+                }
             }
         } catch (NoClassDefFoundError e) {
             // GriefPrevention was not registered — ignore.

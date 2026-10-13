@@ -125,6 +125,9 @@ public class MiscListener implements Listener {
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onShopCreation(SignChangeEvent event) {
+        if (event.isCancelled())
+            return;
+
         final Block b = event.getBlock();
         final Player player = event.getPlayer();
 
@@ -161,10 +164,9 @@ public class MiscListener implements Listener {
         boolean isAdmin = false;
         if (plugin.getShopHandler().isChest(chest)) {
             plugin.getLogger().info("[DEBUG onShopCreation] Chest detected, proceeding with shop creation");
-            final Sign signBlock = (Sign) b.getState();
             if (event.getLine(0).toLowerCase().contains(ShopMessage.getSignCreationWord("SHOP").toLowerCase())) {
 
-                if(!plugin.getShopCreationUtil().shopCanBeCreated(player, chest)){
+                if(!plugin.getShopCreationUtil().shopCanBeCreated(player, chest, b)){
                     // cancelShopCreationProcess() already sends the "createCancel" message
                     // internally, so we must NOT send it manually here (Bug 1 fix).
                     cancelShopCreationProcess(player);
@@ -203,7 +205,7 @@ public class MiscListener implements Listener {
                     return;
                 }
 
-                AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, signBlock.getBlock(), pricePair, amount, isAdmin, type, signDirection, false);
+                AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, b, pricePair, amount, isAdmin, type, signDirection, false);
                 if(shop == null) {
                     event.setCancelled(true);
                     return;
