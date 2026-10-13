@@ -93,7 +93,8 @@ public class EconomyUtils {
     /**
      * Adds {@code amount} units of currency to {@code inventory}.
      * Deposits as many full blocks as possible, then the remainder as singulars.
-     * Returns {@code true} on success.
+     * Returns {@code true} on success, or {@code false} if the full deposit cannot fit.
+     * On failure, attempts to remove all items added by this deposit, including partial stacks.
      */
     private static boolean addItemCurrency(Inventory inventory, ItemStack singularCurrency, int amount) {
         ItemStack singular = singularCurrency.clone();
@@ -106,6 +107,7 @@ public class EconomyUtils {
         int singularsToAdd = amount - blocksToAdd * ratio;
 
         int unadded = 0;
+        int blocksSuccessfullyAdded = 0;
         if (blocksToAdd > 0) {
             // Split across stacks: a single ItemStack above the material's max stack size is not a
             // quantity any inventory can hold, and the server's handling of one is undefined.
@@ -114,6 +116,7 @@ public class EconomyUtils {
             while (remaining > 0) {
                 int chunk = Math.min(remaining, perStack);
                 int leftover = InventoryUtils.addItem(inventory, new ItemStack(blockForm, chunk));
+                blocksSuccessfullyAdded += chunk - leftover;
                 if (leftover > 0) {
                     unadded += leftover * ratio;
                     break;
@@ -121,16 +124,46 @@ public class EconomyUtils {
                 remaining -= chunk;
             }
         }
+        int singularsSuccessfullyAdded = 0;
         if (singularsToAdd > 0) {
             ItemStack singularStack = singular.clone();
             singularStack.setAmount(singularsToAdd);
-            unadded += InventoryUtils.addItem(inventory, singularStack);
+            int leftover = InventoryUtils.addItem(inventory, singularStack);
+            singularsSuccessfullyAdded = singularsToAdd - leftover;
+            unadded += leftover;
         }
 
         if (unadded > 0) {
-            // Report the shortfall and stop. Do NOT remove anything from `inventory`: that is the
-            // destination the payment was being placed into, so removing from it destroys stock the
-            // seller already held. Nothing was placed beyond what fit, so there is nothing to undo.
+            // Partial deposit failed — roll back any items that were successfully added
+            // to prevent currency duplication. The transaction will be rolled back by the caller.
+            if (blocksSuccessfullyAdded > 0) {
+                int remaining = blocksSuccessfullyAdded;
+                int unremoved = 0;
+                while (remaining > 0) {
+                    int chunk = Math.min(remaining, blockForm.getMaxStackSize());
+                    unremoved += InventoryUtils.removeItem(inventory, new ItemStack(blockForm, chunk));
+                    remaining -= chunk;
+                }
+                if (unremoved > 0) {
+                    Shop.getPlugin().getLogger().warning("Item currency deposit rollback could not remove "
+                            + unremoved + " " + blockForm + " blocks.");
+                }
+            }
+            if (singularsSuccessfullyAdded > 0) {
+                int remaining = singularsSuccessfullyAdded;
+                int unremoved = 0;
+                while (remaining > 0) {
+                    int chunk = Math.min(remaining, singular.getMaxStackSize());
+                    ItemStack toRemove = singular.clone();
+                    toRemove.setAmount(chunk);
+                    unremoved += InventoryUtils.removeItem(inventory, toRemove);
+                    remaining -= chunk;
+                }
+                if (unremoved > 0) {
+                    Shop.getPlugin().getLogger().warning("Item currency deposit rollback could not remove "
+                            + unremoved + " " + singular.getType() + " items.");
+                }
+            }
             return false;
         }
         return true;
