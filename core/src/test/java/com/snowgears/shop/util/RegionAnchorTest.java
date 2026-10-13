@@ -2,16 +2,22 @@ package com.snowgears.shop.util;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.hook.GriefPreventionTrustListener;
+import com.snowgears.shop.hook.TownyHook;
+import com.snowgears.shop.hook.WorldGuardHook;
 import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
 
 /**
  * Covers the shop-creation region anchor (issue #42) and the GriefPrevention destroy warning
@@ -25,6 +31,72 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * be a legal sign position.
  */
 class RegionAnchorTest extends BaseMockBukkitTest {
+
+    /** Each protection hook must authorize both occupied blocks and preserve any denial. */
+    @ParameterizedTest
+    @CsvSource({
+            "true, NONE, false, true", "false, NONE, false, true",
+            "true, WORLDGUARD, true, false", "true, WORLDGUARD, false, false",
+            "true, TOWNY, true, false", "true, TOWNY, false, false",
+            "true, GRIEFPREVENTION, true, false", "true, GRIEFPREVENTION, false, false",
+            "false, WORLDGUARD, true, false", "false, WORLDGUARD, false, false",
+            "false, TOWNY, true, false", "false, TOWNY, false, false",
+            "false, GRIEFPREVENTION, true, false"
+    })
+    void creationChecksTheSignOrHorizontalCandidates(boolean existingSign, String deniedHook,
+                                                    boolean denyChest, boolean expected) {
+        Shop plugin = spy(getPlugin());
+        doReturn(true).when(plugin).worldGuardExists();
+        doReturn(true).when(plugin).hookTowny();
+        doReturn(true).when(plugin).isGriefPreventionTrustIntegrationEnabled();
+        PlayerMock player = addStubbedOpPlayer("Builder");
+        Block chest = chestAt(100, 64, 100);
+        Block sign = chest.getRelative(BlockFace.UP);
+        sign.setType(Material.OAK_SIGN);
+        Location chestLocation = chest.getLocation();
+        Location signLocation = sign.getLocation();
+
+        try (var worldGuard = mockStatic(WorldGuardHook.class);
+             var towny = mockStatic(TownyHook.class);
+             var griefPrevention = mockStatic(GriefPreventionTrustListener.class);
+             var messages = mockStatic(ShopMessage.class)) {
+            worldGuard.when(() -> WorldGuardHook.canCreateShop(player, chestLocation))
+                    .thenReturn(!deniedHook.equals("WORLDGUARD") || !denyChest);
+            worldGuard.when(() -> WorldGuardHook.canCreateShop(player, signLocation))
+                    .thenReturn(!deniedHook.equals("WORLDGUARD") || denyChest);
+            worldGuard.when(() -> WorldGuardHook.canCreateShopOnAnyNeighbour(player, chest))
+                    .thenReturn(!deniedHook.equals("WORLDGUARD") || denyChest);
+            towny.when(() -> TownyHook.canCreateShop(player, chestLocation))
+                    .thenReturn(!deniedHook.equals("TOWNY") || !denyChest);
+            towny.when(() -> TownyHook.canCreateShop(player, signLocation))
+                    .thenReturn(!deniedHook.equals("TOWNY") || denyChest);
+            towny.when(() -> TownyHook.canCreateShopOnAnyNeighbour(player, chest))
+                    .thenReturn(!deniedHook.equals("TOWNY") || denyChest);
+            griefPrevention.when(() -> GriefPreventionTrustListener.canPlayerBuildAt(player, chestLocation))
+                    .thenReturn(!deniedHook.equals("GRIEFPREVENTION") || !denyChest);
+            griefPrevention.when(() -> GriefPreventionTrustListener.canPlayerBuildAt(player, signLocation))
+                    .thenReturn(!deniedHook.equals("GRIEFPREVENTION") || denyChest);
+
+            ShopCreationUtil creation = new ShopCreationUtil(plugin);
+            assertEquals(expected, existingSign ? creation.shopCanBeCreated(player, chest, sign)
+                    : creation.shopCanBeCreated(player, chest));
+
+            worldGuard.verify(() -> WorldGuardHook.canCreateShop(player, chestLocation));
+            towny.verify(() -> TownyHook.canCreateShop(player, chestLocation));
+            griefPrevention.verify(() -> GriefPreventionTrustListener.canPlayerBuildAt(player, chestLocation));
+            if (existingSign) {
+                worldGuard.verify(() -> WorldGuardHook.canCreateShop(player, signLocation));
+                towny.verify(() -> TownyHook.canCreateShop(player, signLocation));
+                griefPrevention.verify(() -> GriefPreventionTrustListener.canPlayerBuildAt(player, signLocation));
+            } else {
+                worldGuard.verify(() -> WorldGuardHook.canCreateShopOnAnyNeighbour(player, chest));
+                towny.verify(() -> TownyHook.canCreateShopOnAnyNeighbour(player, chest));
+            }
+            worldGuard.verifyNoMoreInteractions();
+            towny.verifyNoMoreInteractions();
+            griefPrevention.verifyNoMoreInteractions();
+        }
+    }
 
     private org.mockbukkit.mockbukkit.world.WorldMock cachedWorld;
 

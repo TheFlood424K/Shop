@@ -18,6 +18,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.WallSign;
+import org.bukkit.Tag;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -54,6 +55,12 @@ public class CreativeSelectionListener implements Listener {
     }
 
     //this method calls PlayerCreateShopEvent
+    /**
+     * Handles left-clicks on uninitialized wall or standing shop signs when creative
+     * selection is enabled, canceling those interactions. Authorized players with an
+     * empty main hand enter creative selection for buy or combo shops, or for a barter
+     * shop's missing secondary item after its primary item is set.
+     */
     @EventHandler
     public void onPreShopSignClick(PlayerInteractEvent event) {
         final Player player = event.getPlayer();
@@ -64,7 +71,7 @@ public class CreativeSelectionListener implements Listener {
         if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
             final Block clicked = event.getClickedBlock();
 
-            if (clicked.getBlockData() instanceof WallSign) {
+            if (Tag.WALL_SIGNS.isTagged(clicked.getType()) || Tag.STANDING_SIGNS.isTagged(clicked.getType())) {
                 AbstractShop shop = plugin.getShopHandler().getShop(clicked.getLocation());
                 if (shop == null) {
                     return;

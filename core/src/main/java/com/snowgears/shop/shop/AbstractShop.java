@@ -13,6 +13,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
 import org.bukkit.Sound;
+import org.bukkit.Tag;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.data.type.WallSign;
@@ -69,11 +70,6 @@ public abstract class AbstractShop {
      * partial-sales math (Bug 4 fix).
      */
     public static final int STOCK_UNAVAILABLE = -1;
-
-    /** The four cardinal faces — reused by load() for sign-post snapping (Bug 3 fix). */
-    private static final BlockFace[] CARDINAL_FACES = {
-        BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST
-    };
 
     /**
      * Matches a JSON-style font key inside a text component SNBT string, e.g.
@@ -139,30 +135,31 @@ public abstract class AbstractShop {
     }
 
     /**
-     * Snaps an arbitrary BlockFace (including the 16 Rotatable sign-post directions)
-     * to the nearest cardinal face (N/E/S/W).  Used by load() to resolve sign-post
-     * shops that were created with a Rotatable sign and saved to disk (Bug 3 fix).
+     * Snaps a standing sign's rotation to a cardinal face using the creation mapping.
+     * Exact diagonals round clockwise; unsupported faces default to north.
      */
     private static BlockFace snapToCardinal(BlockFace face) {
-        for (BlockFace cardinal : CARDINAL_FACES) {
-            if (face == cardinal) return face;
-        }
-        int faceOrd = face.ordinal();
-        BlockFace best = CARDINAL_FACES[0];
-        int bestDist = Integer.MAX_VALUE;
-        int enumSize = BlockFace.values().length;
-        for (BlockFace cardinal : CARDINAL_FACES) {
-            int diff = Math.abs(cardinal.ordinal() - faceOrd);
-            int wrappedDiff = Math.min(diff, enumSize - diff);
-            if (wrappedDiff < bestDist) {
-                bestDist = wrappedDiff;
-                best = cardinal;
-            }
-        }
-        return best;
+        return switch (face) {
+            case NORTH, NORTH_NORTH_EAST, NORTH_NORTH_WEST, NORTH_WEST -> BlockFace.NORTH;
+            case EAST, EAST_NORTH_EAST, EAST_SOUTH_EAST, NORTH_EAST -> BlockFace.EAST;
+            case SOUTH, SOUTH_SOUTH_EAST, SOUTH_SOUTH_WEST, SOUTH_EAST -> BlockFace.SOUTH;
+            case WEST, WEST_NORTH_WEST, WEST_SOUTH_WEST, SOUTH_WEST -> BlockFace.WEST;
+            default -> BlockFace.NORTH;
+        };
     }
 
     //this calls BlockData which loads the chunk the shop is in by doing so
+    /**
+     * Resolves the container behind a wall sign or directly below a standing sign.
+     * Refreshes stock and schedules sign updates when stock is available, and caches
+     * the container type when available.
+     * Wall signs use the stored facing, falling back to the sign's facing when absent.
+     * Standing signs normalize their current rotation to the cardinal facing used during creation.
+     * Accessing the blocks may load their chunk.
+     *
+     * @return true after marking the shop loaded; false after attempting to delete the
+     *         shop for missing or unsupported blocks, or a caught exception or error
+     */
     public boolean load() {
         try {
             Block signBlock = signLocation.getBlock();
@@ -188,8 +185,15 @@ public abstract class AbstractShop {
                 // The chest is BEHIND the sign, in the OPPOSITE direction of the sign's facing.
                 chestBlock = signBlock.getRelative(effectiveFacing.getOppositeFace());
                 Shop.getPlugin().getLogger().info("[DEBUG load] chestBlock=" + chestBlock.getLocation() + " chestType=" + chestBlock.getType());
+            } else if (signBlock.getBlockData() instanceof Rotatable standingSign
+                    && Tag.STANDING_SIGNS.isTagged(signBlock.getType())) {
+                // Standing sign (sign post) — the chest is directly below the sign.
+                facing = snapToCardinal(standingSign.getRotation());
+                Shop.getPlugin().getLogger().info("[DEBUG load] Standing sign detected at " + signLocation);
+                chestBlock = signBlock.getRelative(BlockFace.DOWN);
+                Shop.getPlugin().getLogger().info("[DEBUG load] chestBlock=" + chestBlock.getLocation() + " chestType=" + chestBlock.getType());
             } else {
-                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign (detected: " + signBlock.getType() + "), deleting shop: " + this);
+                Shop.getPlugin().getLogger().warning("Error attempting to load shop! Sign Block for Shop is not a WallSign or standing Sign (detected: " + signBlock.getType() + "), deleting shop: " + this);
                 this.delete();
                 return false;
             }

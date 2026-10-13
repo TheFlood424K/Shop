@@ -381,6 +381,12 @@ public abstract class AbstractDisplay {
         return Shop.getPlugin().getShopHandler().getShop(this.shopSignLocation);
     }
 
+    private boolean isDisplayBlocked(Block aboveShop) {
+        boolean ownStandingSign = aboveShop.getLocation().equals(getShop().getSignLocation())
+                && aboveShop.getBlockData() instanceof org.bukkit.block.data.type.Sign;
+        return !ownStandingSign && !UtilMethods.materialIsNonIntrusive(aboveShop.getType());
+    }
+
     public void setType(DisplayType type, boolean checkDisplayBlock){
         DisplayType oldType = this.type;
 
@@ -389,7 +395,7 @@ public abstract class AbstractDisplay {
                 if(this.isChunkLoaded()) {
                     //make sure there is room above the shop for the display
                     Block aboveShop = this.getShop().getChestLocation().getBlock().getRelative(BlockFace.UP);
-                    if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
+                    if (isDisplayBlocked(aboveShop)) {
                         return;
                     }
                 }
@@ -412,7 +418,7 @@ public abstract class AbstractDisplay {
         if(displayType == DisplayType.NONE){
             //make sure there is room above the shop for the display
             Block aboveShop = this.getShop().getChestLocation().getBlock().getRelative(BlockFace.UP);
-            if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
+            if (isDisplayBlocked(aboveShop)) {
                 //if the cycle contains the ITEM_FRAME display type
                 for(int i=0; i<cycle.length; i++){
                     if(cycle[i] == DisplayType.ITEM_FRAME){
@@ -427,7 +433,7 @@ public abstract class AbstractDisplay {
         else if(displayType == DisplayType.ITEM_FRAME){
             //make sure there is room above the shop for the display
             Block aboveShop = this.getShop().getChestLocation().getBlock().getRelative(BlockFace.UP);
-            if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
+            if (isDisplayBlocked(aboveShop)) {
                 //if the cycle contains the NONE display type
                 for(int i=0; i<cycle.length; i++){
                     if(cycle[i] == DisplayType.NONE){
