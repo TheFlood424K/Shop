@@ -94,7 +94,7 @@ public class EconomyUtils {
      * Adds {@code amount} units of currency to {@code inventory}.
      * Deposits as many full blocks as possible, then the remainder as singulars.
      * Returns {@code true} on success, or {@code false} if the full deposit cannot fit.
-     * On failure, attempts to remove all blocks added by this deposit, including partial stacks.
+     * On failure, attempts to remove all items added by this deposit, including partial stacks.
      */
     private static boolean addItemCurrency(Inventory inventory, ItemStack singularCurrency, int amount) {
         ItemStack singular = singularCurrency.clone();
@@ -124,14 +124,17 @@ public class EconomyUtils {
                 remaining -= chunk;
             }
         }
+        int singularsSuccessfullyAdded = 0;
         if (singularsToAdd > 0) {
             ItemStack singularStack = singular.clone();
             singularStack.setAmount(singularsToAdd);
-            unadded += InventoryUtils.addItem(inventory, singularStack);
+            int leftover = InventoryUtils.addItem(inventory, singularStack);
+            singularsSuccessfullyAdded = singularsToAdd - leftover;
+            unadded += leftover;
         }
 
         if (unadded > 0) {
-            // Partial deposit failed — roll back any blocks that were successfully added
+            // Partial deposit failed — roll back any items that were successfully added
             // to prevent currency duplication. The transaction will be rolled back by the caller.
             if (blocksSuccessfullyAdded > 0) {
                 int remaining = blocksSuccessfullyAdded;
@@ -144,6 +147,21 @@ public class EconomyUtils {
                 if (unremoved > 0) {
                     Shop.getPlugin().getLogger().warning("Item currency deposit rollback could not remove "
                             + unremoved + " " + blockForm + " blocks.");
+                }
+            }
+            if (singularsSuccessfullyAdded > 0) {
+                int remaining = singularsSuccessfullyAdded;
+                int unremoved = 0;
+                while (remaining > 0) {
+                    int chunk = Math.min(remaining, singular.getMaxStackSize());
+                    ItemStack toRemove = singular.clone();
+                    toRemove.setAmount(chunk);
+                    unremoved += InventoryUtils.removeItem(inventory, toRemove);
+                    remaining -= chunk;
+                }
+                if (unremoved > 0) {
+                    Shop.getPlugin().getLogger().warning("Item currency deposit rollback could not remove "
+                            + unremoved + " " + singular.getType() + " items.");
                 }
             }
             return false;

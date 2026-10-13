@@ -175,6 +175,67 @@ class ItemCurrencyDepositTest {
         assertEquals(8 * 64, InventoryUtils.getAmount(inventory, new ItemStack(Material.STONE)));
     }
 
+    /** Verifies that partial singular insertion restores both currency forms. */
+    @ParameterizedTest
+    @ValueSource(ints = {0, 5})
+    void partialSingularInsertionIsRolledBack(int blocksToDeposit) throws Exception {
+        Inventory inventory = server.createInventory(null, 9);
+        inventory.setItem(0, new ItemStack(BLOCK, 3));
+        inventory.setItem(1, new ItemStack(SINGULAR, 63));
+        for (int slot = 2; slot < inventory.getSize(); slot++) {
+            inventory.setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+
+        // Any requested blocks fit, but only one of the two singular units fits.
+        assertFalse((boolean) addItemCurrency.invoke(null, inventory,
+                new ItemStack(SINGULAR), blocksToDeposit * 9 + 2));
+        assertEquals(3, InventoryUtils.getAmount(inventory, new ItemStack(BLOCK)));
+        assertEquals(63, InventoryUtils.getAmount(inventory, new ItemStack(SINGULAR)),
+                "A failed deposit must remove its partially inserted singular units");
+        assertEquals(7 * 64, InventoryUtils.getAmount(inventory, new ItemStack(Material.STONE)));
+    }
+
+    /** Verifies that singular units are rolled back even when block insertion failed first. */
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2})
+    void singularInsertionAfterBlockFailureIsRolledBack(int singularsToDeposit) throws Exception {
+        Inventory inventory = server.createInventory(null, 9);
+        inventory.setItem(0, new ItemStack(BLOCK, 63));
+        inventory.setItem(1, new ItemStack(SINGULAR, 63));
+        for (int slot = 2; slot < inventory.getSize(); slot++) {
+            inventory.setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+
+        // Only one block fits. Singular insertion then fits either fully or partially.
+        assertFalse((boolean) addItemCurrency.invoke(null, inventory,
+                new ItemStack(SINGULAR), 65 * 9 + singularsToDeposit));
+        assertEquals(63, InventoryUtils.getAmount(inventory, new ItemStack(BLOCK)));
+        assertEquals(63, InventoryUtils.getAmount(inventory, new ItemStack(SINGULAR)),
+                "Block failure must also roll back singular units inserted afterward");
+        assertEquals(7 * 64, InventoryUtils.getAmount(inventory, new ItemStack(Material.STONE)));
+    }
+
+    /** Verifies rollback for currency without a block form, preserving its item metadata. */
+    @Test
+    void partialUncompressedCurrencyInsertionIsRolledBack() throws Exception {
+        Inventory inventory = server.createInventory(null, 9);
+        ItemStack currency = new ItemStack(Material.STRING);
+        var meta = currency.getItemMeta();
+        meta.setDisplayName("Shop currency");
+        currency.setItemMeta(meta);
+        ItemStack existing = currency.clone();
+        existing.setAmount(63);
+        inventory.setItem(0, existing);
+        for (int slot = 1; slot < inventory.getSize(); slot++) {
+            inventory.setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+
+        assertFalse((boolean) addItemCurrency.invoke(null, inventory, currency, 2));
+        assertEquals(63, InventoryUtils.getAmount(inventory, currency));
+        assertTrue(currency.isSimilar(inventory.getItem(0)));
+        assertEquals(8 * 64, InventoryUtils.getAmount(inventory, new ItemStack(Material.STONE)));
+    }
+
     /** Verifies rollback when the first or a later block chunk fits only partially. */
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
