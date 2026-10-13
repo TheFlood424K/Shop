@@ -13,6 +13,8 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
+import java.util.logging.Level;
 
 public class Transaction {
     boolean TX_DEBUG_LOGGING = false;
@@ -231,6 +233,8 @@ public class Transaction {
      * Item-currency transactions attempt to restore both non-admin inventories from snapshots
      * if any transfer fails or throws.
      * A refused economy deposit leaves stock untouched and attempts to refund the buyer.
+     * A failed item transfer after economy payment attempts to restore both inventories and reverse
+     * both payments independently, logging each failed recovery step.
      * Verification may fire a cancellable exchange event; success updates shop stock or the gamble display.
      *
      * @return {@link TransactionError#NONE} on success, or the error that prevented completion
@@ -248,6 +252,9 @@ public class Transaction {
             TransactionError transferError = this.transferItemCurrency(itemSold);
             if (transferError != TransactionError.NONE) { return this.setError(transferError); }
         } else {
+            // Capture items before payment so a snapshot failure cannot leave either party charged.
+            ItemStack[] buyerContents = this.buyer.snapshotInventory();
+            ItemStack[] sellerContents = this.seller.snapshotInventory();
             // Step 1: Deduct the payment from the buyer.
             boolean paymentSuccessful = this.buyer.deductFunds(this.price);
             if (!paymentSuccessful) {
@@ -269,8 +276,33 @@ public class Transaction {
                 return this.setError(this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_SHOP
                         : TransactionError.INVENTORY_FULL_SHOP);
             }
-            this.seller.deductItem(itemSold);
-            this.buyer.depositItem(itemSold);
+            boolean itemsTransferred = false;
+            try {
+                if (!this.seller.deductItem(itemSold)) {
+                    return this.setError(this.seller.isPlayer() ? TransactionError.INSUFFICIENT_FUNDS_PLAYER
+                            : TransactionError.INSUFFICIENT_FUNDS_SHOP);
+                }
+                if (!this.buyer.depositItem(itemSold)) {
+                    return this.setError(this.buyer.isPlayer() ? TransactionError.INVENTORY_FULL_PLAYER
+                            : TransactionError.INVENTORY_FULL_SHOP);
+                }
+                itemsTransferred = true;
+            } finally {
+                if (!itemsTransferred) {
+                    this.attemptRecovery("seller inventory restoration", itemSold, () -> {
+                        this.seller.restoreInventory(sellerContents);
+                        return true;
+                    });
+                    this.attemptRecovery("buyer inventory restoration", itemSold, () -> {
+                        this.buyer.restoreInventory(buyerContents);
+                        return true;
+                    });
+                    this.attemptRecovery("seller payment withdrawal", itemSold,
+                            () -> this.seller.deductFunds(this.price));
+                    this.attemptRecovery("buyer refund", itemSold,
+                            () -> this.buyer.depositFunds(this.price));
+                }
+            }
         }
 
         // Special handling for Gamble shops!
@@ -288,6 +320,20 @@ public class Transaction {
 
         // Successful!
         return this.setError(TransactionError.NONE);
+    }
+
+    /** Attempts one recovery step without preventing the remaining steps from running. */
+    private void attemptRecovery(String step, ItemStack itemSold, BooleanSupplier recovery) {
+        RuntimeException failure = null;
+        try {
+            if (recovery.getAsBoolean()) { return; }
+        } catch (RuntimeException exception) {
+            failure = exception;
+        }
+        Shop.getPlugin().getLogger().log(Level.SEVERE, "Transaction recovery failed: " + step
+                + " for shop " + shop.getSignLocation() + ", playerUUID=" + player.getUniqueId()
+                + ", price=" + price + ", itemType=" + itemSold.getType()
+                + ", quantity=" + itemSold.getAmount() + ". Manual intervention may be required.", failure);
     }
 
     /**

@@ -16,9 +16,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.Level;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -33,6 +40,8 @@ class TransactionRollbackTest {
     private Transaction transaction;
     private TransactionParty buyer;
     private TransactionParty seller;
+    private PlayerMock owner;
+    private Map<UUID, Double> balances;
 
     /** Creates a barter fixture with chest stock, player payment, and an external default currency. */
     @BeforeEach
@@ -265,6 +274,169 @@ class TransactionRollbackTest {
         verify(seller, never()).depositItem(any(ItemStack.class));
         verify(buyer).depositFunds(5.0);
         verify(economy, times(2)).depositPlayer(any(OfflinePlayer.class), eq(5.0));
+    }
+
+    /** Uses distinct accounts and real inventories for the external payment path. */
+    private void createPaidTransaction(CurrencyType currency, ShopType type) {
+        TestReflection.setField(plugin, "currencyType", currency);
+        owner = MockBukkit.getMock().addPlayer();
+        when(shop.getOwner()).thenReturn(owner);
+        when(shop.getType()).thenReturn(type);
+        if (type == ShopType.BUY) {
+            player.getInventory().setItem(1, new ItemStack(Material.DIAMOND, 4));
+        }
+        if (currency == CurrencyType.VAULT) {
+            balances = new HashMap<>();
+            balances.put(player.getUniqueId(), 20.0);
+            balances.put(owner.getUniqueId(), 20.0);
+            Economy economy = mock(Economy.class);
+            TestReflection.setField(plugin, "econ", economy);
+            when(economy.getBalance(any(OfflinePlayer.class)))
+                    .thenAnswer(call -> balances.get(((OfflinePlayer) call.getArgument(0)).getUniqueId()));
+            when(economy.withdrawPlayer(any(OfflinePlayer.class), anyDouble())).thenAnswer(call -> {
+                UUID account = ((OfflinePlayer) call.getArgument(0)).getUniqueId();
+                double amount = call.getArgument(1);
+                double balance = balances.get(account) - amount;
+                balances.put(account, balance);
+                return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
+            });
+            when(economy.depositPlayer(any(OfflinePlayer.class), anyDouble())).thenAnswer(call -> {
+                UUID account = ((OfflinePlayer) call.getArgument(0)).getUniqueId();
+                double amount = call.getArgument(1);
+                double balance = balances.get(account) + amount;
+                balances.put(account, balance);
+                return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
+            });
+        } else {
+            EconomyUtils.setTotalExperience(player, 20);
+            EconomyUtils.setTotalExperience(owner, 20);
+        }
+        createTransaction(type);
+    }
+
+    private double balance(PlayerMock account, CurrencyType currency) {
+        return currency == CurrencyType.VAULT ? balances.get(account.getUniqueId())
+                : EconomyUtils.getTotalExperience(account);
+    }
+
+    /** Partial item transfers must restore both inventories and both payment accounts. */
+    @ParameterizedTest
+    @CsvSource({"VAULT, SELL, STOCK_REMOVAL", "VAULT, SELL, ITEM_DELIVERY",
+            "VAULT, BUY, STOCK_REMOVAL", "VAULT, BUY, ITEM_DELIVERY",
+            "EXPERIENCE, SELL, STOCK_REMOVAL", "EXPERIENCE, SELL, ITEM_DELIVERY",
+            "EXPERIENCE, BUY, STOCK_REMOVAL", "EXPERIENCE, BUY, ITEM_DELIVERY"})
+    void paidItemFailureRestoresInventoriesAndBalances(CurrencyType currency, ShopType type,
+                                                      FailedTransfer failure) {
+        createPaidTransaction(currency, type);
+        ItemStack[] playerBefore = copy(player.getInventory());
+        ItemStack[] chestBefore = copy(chest);
+        TransactionError expected;
+        if (failure == FailedTransfer.STOCK_REMOVAL) {
+            Inventory inventory = type == ShopType.SELL ? chest : player.getInventory();
+            doAnswer(call -> {
+                InventoryUtils.removeItem(inventory, new ItemStack(Material.DIAMOND, 1));
+                return false;
+            }).when(seller).deductItem(any(ItemStack.class));
+            expected = type == ShopType.SELL ? TransactionError.INSUFFICIENT_FUNDS_SHOP
+                    : TransactionError.INSUFFICIENT_FUNDS_PLAYER;
+        } else {
+            Inventory inventory = type == ShopType.SELL ? player.getInventory() : chest;
+            doAnswer(call -> {
+                InventoryUtils.addItem(inventory, new ItemStack(Material.DIAMOND, 1));
+                return false;
+            }).when(buyer).depositItem(any(ItemStack.class));
+            expected = type == ShopType.SELL ? TransactionError.INVENTORY_FULL_PLAYER
+                    : TransactionError.INVENTORY_FULL_SHOP;
+        }
+
+        assertEquals(expected, transaction.execute());
+        assertEquals(expected, transaction.getError());
+        assertArrayEquals(playerBefore, player.getInventory().getContents());
+        assertArrayEquals(chestBefore, chest.getContents());
+        assertEquals(20.0, balance(player, currency));
+        assertEquals(20.0, balance(owner, currency));
+        verify(seller).deductFunds(5.0);
+        verify(buyer).depositFunds(5.0);
+        verify(shop, never()).updateStock();
+        if (failure == FailedTransfer.STOCK_REMOVAL) {
+            verify(buyer, never()).depositItem(any(ItemStack.class));
+        }
+    }
+
+    /** Successful external payment transfers must commit instead of running recovery. */
+    @ParameterizedTest
+    @CsvSource({"VAULT, SELL", "VAULT, BUY", "EXPERIENCE, SELL", "EXPERIENCE, BUY"})
+    void paidItemTransferCommits(CurrencyType currency, ShopType type) {
+        createPaidTransaction(currency, type);
+
+        assertEquals(TransactionError.NONE, transaction.execute());
+        assertEquals(type == ShopType.SELL ? 15.0 : 25.0, balance(player, currency));
+        assertEquals(type == ShopType.SELL ? 25.0 : 15.0, balance(owner, currency));
+        assertEquals(type == ShopType.SELL ? 4 : 0,
+                InventoryUtils.getAmount(player.getInventory(), new ItemStack(Material.DIAMOND)));
+        assertEquals(type == ShopType.SELL ? 0 : 8,
+                InventoryUtils.getAmount(chest, new ItemStack(Material.DIAMOND)));
+        verify(seller, never()).deductFunds(anyDouble());
+        verify(buyer, never()).depositFunds(anyDouble());
+        verify(shop).updateStock();
+    }
+
+    /** Transfer exceptions also trigger recovery before the original exception propagates. */
+    @ParameterizedTest
+    @EnumSource(value = FailedTransfer.class, names = {"STOCK_REMOVAL", "ITEM_DELIVERY"})
+    void paidItemExceptionRestoresInventoriesAndBalances(FailedTransfer failure) {
+        createPaidTransaction(CurrencyType.VAULT, ShopType.SELL);
+        ItemStack[] playerBefore = copy(player.getInventory());
+        ItemStack[] chestBefore = copy(chest);
+        IllegalStateException exception = new IllegalStateException("Item transfer unavailable");
+        if (failure == FailedTransfer.STOCK_REMOVAL) {
+            doThrow(exception).when(seller).deductItem(any(ItemStack.class));
+        } else {
+            doThrow(exception).when(buyer).depositItem(any(ItemStack.class));
+        }
+
+        assertSame(exception, assertThrows(IllegalStateException.class, transaction::execute));
+        assertArrayEquals(playerBefore, player.getInventory().getContents());
+        assertArrayEquals(chestBefore, chest.getContents());
+        assertEquals(20.0, balance(player, CurrencyType.VAULT));
+        assertEquals(20.0, balance(owner, CurrencyType.VAULT));
+    }
+
+    /** Each failed recovery must be logged, and cannot prevent the other recovery attempts. */
+    @ParameterizedTest
+    @CsvSource({"false", "true"})
+    void recoveryFailuresAreLoggedIndependently(boolean throwsException) {
+        createPaidTransaction(CurrencyType.VAULT, ShopType.SELL);
+        doReturn(false).when(buyer).depositItem(any(ItemStack.class));
+        IllegalStateException exception = new IllegalStateException("Recovery unavailable");
+        doThrow(exception).when(seller).restoreInventory(any(ItemStack[].class));
+        doThrow(exception).when(buyer).restoreInventory(any(ItemStack[].class));
+        if (throwsException) {
+            doThrow(exception).when(seller).deductFunds(anyDouble());
+            doThrow(exception).when(buyer).depositFunds(anyDouble());
+        } else {
+            doReturn(false).when(seller).deductFunds(anyDouble());
+            doReturn(false).when(buyer).depositFunds(anyDouble());
+        }
+        Handler handler = mock(Handler.class);
+        plugin.getLogger().addHandler(handler);
+        try {
+            assertEquals(TransactionError.INVENTORY_FULL_PLAYER, transaction.execute());
+            verify(seller).restoreInventory(any(ItemStack[].class));
+            verify(buyer).restoreInventory(any(ItemStack[].class));
+            verify(seller).deductFunds(5.0);
+            verify(buyer).depositFunds(5.0);
+            for (String step : new String[]{"seller inventory restoration", "buyer inventory restoration",
+                    "seller payment withdrawal", "buyer refund"}) {
+                verify(handler).publish(argThat(record -> record.getLevel() == Level.SEVERE
+                        && record.getMessage().contains(step)
+                        && record.getMessage().contains("price=5.0")
+                        && record.getMessage().contains("itemType=DIAMOND")
+                        && record.getMessage().contains("quantity=4")));
+            }
+        } finally {
+            plugin.getLogger().removeHandler(handler);
+        }
     }
 
     /**
