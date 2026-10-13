@@ -254,10 +254,15 @@ public class Transaction {
             boolean depositSuccessful = this.seller.depositFunds(this.price);
             if (!depositSuccessful) {
                 // Rollback: restore the sold item to the chest and refund the buyer.
-                // This should never happen in practice (verify() already confirmed space
-                // post-removal), but guards against any race condition or edge case.
-                this.seller.depositItem(itemSold);
-                this.buyer.depositFunds(this.price);
+                // verify() confirmed space post-removal, so this should only happen due to
+                // a race condition or edge case. Check rollback results and log failures.
+                boolean itemRestored = this.seller.depositItem(itemSold);
+                boolean buyerRefunded = this.buyer.depositFunds(this.price);
+                if (!itemRestored || !buyerRefunded) {
+                    Shop.getPlugin().getLogger().severe("Transaction rollback partially failed for shop "
+                            + shop.getSignLocation() + ": itemRestored=" + itemRestored
+                            + ", buyerRefunded=" + buyerRefunded + ". Manual intervention may be required.");
+                }
                 return this.setError(TransactionError.INVENTORY_FULL_SHOP);
             }
 
