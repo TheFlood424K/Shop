@@ -331,8 +331,14 @@ public class Transaction {
                 + ". Manual intervention may be required.", failure);
     }
 
-    // Inventory writes run synchronously with no transaction events between the snapshot and commit.
-    // Restore slots directly on failure, rather than trying deposits that can overflow or be refused.
+    /**
+     * Transfers item payment and stock synchronously, restoring both inventory snapshots if a
+     * transfer fails or throws. No transaction events run between the snapshots and commit.
+     * Restoration writes slots directly so recovery cannot overflow through a refund deposit.
+     *
+     * @param itemSold the item stack and quantity to deliver to the buyer
+     * @return {@link TransactionError#NONE} on commit, or the error from the failed transfer
+     */
     private TransactionError transferItemCurrency(ItemStack itemSold) {
         ItemStack[] buyerContents = this.buyer.snapshotInventory();
         ItemStack[] sellerContents = this.seller.snapshotInventory();
