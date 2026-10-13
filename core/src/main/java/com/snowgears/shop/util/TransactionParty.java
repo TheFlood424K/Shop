@@ -151,8 +151,11 @@ public class TransactionParty {
         if (this.currencyItem != null) {
             ItemStack payment = this.currencyItem.clone();
             payment.setAmount((int) paymentAmount);
-            InventoryUtils.removeItem(inventory, payment);
-            return true;
+            int leftover = InventoryUtils.removeItem(inventory, payment);
+            if (leftover == 0) {
+                notifyInventoryChanged();
+            }
+            return leftover == 0;
         }
 
         // We are being paid using our normal currency
