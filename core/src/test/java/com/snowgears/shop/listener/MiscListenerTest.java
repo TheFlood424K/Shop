@@ -1,12 +1,15 @@
 package com.snowgears.shop.listener;
 
 import com.snowgears.shop.Shop;
+import com.snowgears.shop.display.DisplayType;
+import com.snowgears.shop.display.AbstractDisplay;
 import com.snowgears.shop.handler.ShopHandler;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ShopType;
 import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 import com.snowgears.shop.testsupport.ShopCreationFlowTestUtil;
 import com.snowgears.shop.util.ShopMessage;
+import com.snowgears.shop.util.PricePair;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -14,6 +17,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.type.WallSign;
+import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.sign.Side;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.SignChangeEvent;
@@ -23,6 +27,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockbukkit.mockbukkit.simulate.entity.PlayerSimulation;
@@ -203,7 +209,7 @@ class MiscListenerTest extends BaseMockBukkitTest {
             miscListener.onShopCreation(event);
 
             assertEquals(recognized, event.isCancelled());
-            if (recognized) verify(creation).shopCanBeCreated(player, chest);
+            if (recognized) verify(creation).shopCanBeCreated(player, chest, sign);
             else Mockito.verifyNoInteractions(creation);
         } finally {
             com.snowgears.shop.testsupport.TestReflection.setField(plugin, "shopCreationUtil", originalCreationUtil);
@@ -216,6 +222,63 @@ class MiscListenerTest extends BaseMockBukkitTest {
     // ============================================================
     // WALL SIGN CREATION TESTS (all 4 cardinal directions)
     // ============================================================
+
+    /** Cancelled events must not create shops or alter signs, through either dispatch path. */
+    @ParameterizedTest
+    @CsvSource({"OAK_SIGN, true", "OAK_SIGN, false", "OAK_WALL_SIGN, true", "OAK_WALL_SIGN, false"})
+    void cancelledSignChangesAreIgnored(Material material, boolean dispatchEvent) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(material == Material.OAK_SIGN ? BlockFace.UP : BlockFace.NORTH);
+        sign.setType(material);
+        Sign state = (Sign) sign.getState();
+        state.setLine(0, "original");
+        state.update();
+        SignChangeEvent event = new SignChangeEvent(sign, player, new String[]{
+                ShopMessage.getSignCreationWord("SHOP"), "1", "10", ShopMessage.getCreationWord("SELL")
+        });
+        event.setCancelled(true);
+        var creation = Mockito.spy(plugin.getShopCreationUtil());
+        setPluginField("shopCreationUtil", creation);
+
+        if (dispatchEvent) getServer().getPluginManager().callEvent(event);
+        else miscListener.onShopCreation(event);
+
+        assertTrue(event.isCancelled());
+        Mockito.verifyNoInteractions(creation);
+        assertNull(shopHandler.getShop(sign.getLocation()));
+        assertNull(miscListener.getShopCreationProcess(player));
+        assertEquals("original", ((Sign) sign.getState()).getLine(0));
+        assertEquals(material, sign.getType());
+    }
+
+    /** Creation must receive exactly the sign that passed authorization. */
+    @ParameterizedTest
+    @CsvSource({"OAK_SIGN, true", "OAK_SIGN, false", "OAK_WALL_SIGN, true", "OAK_WALL_SIGN, false"})
+    void signCreationAuthorizesTheActualSign(Material material, boolean allowed) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(material == Material.OAK_SIGN ? BlockFace.UP : BlockFace.NORTH);
+        sign.setType(material);
+        var creation = mock(com.snowgears.shop.util.ShopCreationUtil.class);
+        when(creation.shopCanBeCreated(player, chest, sign)).thenReturn(allowed);
+        when(creation.getShopType(Mockito.anyString())).thenReturn(ShopType.SELL);
+        PricePair price = new PricePair(10, 0);
+        when(creation.getShopPricePair(Mockito.eq(player), Mockito.anyString(), Mockito.eq(ShopType.SELL)))
+                .thenReturn(price);
+        setPluginField("shopCreationUtil", creation);
+        SignChangeEvent event = new SignChangeEvent(sign, player, new String[]{
+                ShopMessage.getSignCreationWord("SHOP"), "1", "10", ShopMessage.getCreationWord("SELL")
+        });
+
+        miscListener.onShopCreation(event);
+
+        verify(creation).shopCanBeCreated(player, chest, sign);
+        verify(creation, Mockito.times(allowed ? 1 : 0)).createShop(player, chest, sign,
+                price, 1, false, ShopType.SELL, BlockFace.NORTH, false);
+        assertTrue(event.isCancelled(), "Denied authorization or the stubbed null shop cancels creation");
+        assertNull(shopHandler.getShop(sign.getLocation()));
+    }
 
     @Test
     @DisplayName("Wall sign facing SOUTH detects chest to the north")
@@ -538,7 +601,199 @@ class MiscListenerTest extends BaseMockBukkitTest {
         assertNotNull(shopHandler.getShop(signLoc), "Shop should be created from a lowercase tag");
     }
 
-    /** Verifies that a standing sign is ignored even when it contains valid shop creation text. */
+    /** Wall and standing signs create discoverable shops; hanging signs remain unsupported. */
+    @ParameterizedTest
+    @CsvSource({"OAK_WALL_SIGN, NORTH, true", "OAK_SIGN, UP, true",
+            "OAK_HANGING_SIGN, UP, false", "OAK_WALL_HANGING_SIGN, NORTH, false"})
+    void testCreationSignTypesAndTouchingBlockLookup(Material material, BlockFace signFace, boolean supported) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(signFace);
+        sign.setType(material);
+        if (sign.getBlockData() instanceof WallSign) {
+            WallSign data = (WallSign) sign.getBlockData();
+            data.setFacing(BlockFace.NORTH);
+            sign.setBlockData(data);
+        }
+
+        AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, sign,
+                new PricePair(10, 0), 1, false, ShopType.SELL, BlockFace.NORTH, false);
+
+        if (supported) {
+            assertNotNull(shop);
+            assertEquals(chest.getLocation(), shop.getChestLocation());
+            assertSame(shop, shopHandler.getShop(sign.getLocation()));
+            assertSame(shop, shopHandler.getShopTouchingBlock(chest.getRelative(BlockFace.EAST)));
+        } else {
+            assertNull(shop);
+            assertNull(shopHandler.getShop(sign.getLocation()));
+            assertEquals(material, sign.getType());
+        }
+    }
+
+    /** All sixteen standing-sign rotations produce a cardinal shop and creation-process facing. */
+    @ParameterizedTest
+    @CsvSource({
+            "NORTH, NORTH", "NORTH_NORTH_EAST, NORTH", "NORTH_EAST, EAST", "EAST_NORTH_EAST, EAST",
+            "EAST, EAST", "EAST_SOUTH_EAST, EAST", "SOUTH_EAST, SOUTH", "SOUTH_SOUTH_EAST, SOUTH",
+            "SOUTH, SOUTH", "SOUTH_SOUTH_WEST, SOUTH", "SOUTH_WEST, WEST", "WEST_SOUTH_WEST, WEST",
+            "WEST, WEST", "WEST_NORTH_WEST, WEST", "NORTH_WEST, NORTH", "NORTH_NORTH_WEST, NORTH"
+    })
+    void standingSignCreationUsesCardinalDirection(BlockFace rotation, BlockFace expected) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(BlockFace.UP);
+        sign.setType(Material.OAK_SIGN);
+        Rotatable data = (Rotatable) sign.getBlockData();
+        data.setRotation(rotation);
+        // Keep MockBukkit's cached state in sync; createShop updates this state.
+        Sign state = (Sign) sign.getState();
+        state.setBlockData(data);
+        state.update();
+        setConfig("displayLightLevel", 15);
+
+        SignChangeEvent event = new SignChangeEvent(sign, player, new String[]{
+                ShopMessage.getSignCreationWord("SHOP"), "1", "10", ShopMessage.getCreationWord("SELL")
+        });
+        miscListener.onShopCreation(event);
+
+        assertFalse(event.isCancelled());
+        AbstractShop shop = shopHandler.getShop(sign.getLocation());
+        assertNotNull(shop);
+        assertEquals(chest.getLocation(), shop.getChestLocation());
+        assertEquals(expected, shop.getFacing());
+        assertEquals(expected, miscListener.getShopCreationProcess(player).getClickedFace());
+        assertEquals(Material.OAK_SIGN, sign.getType(), "Display lighting must preserve the sign");
+        assertEquals(rotation, ((Rotatable) sign.getBlockData()).getRotation());
+    }
+
+    /** Reloading resolves the chest below and normalizes missing, raw or stale saved facings. */
+    @ParameterizedTest
+    @CsvSource({
+            "NORTH, NORTH", "NORTH_NORTH_EAST, NORTH", "NORTH_EAST, EAST", "EAST_NORTH_EAST, EAST",
+            "EAST, EAST", "EAST_SOUTH_EAST, EAST", "SOUTH_EAST, SOUTH", "SOUTH_SOUTH_EAST, SOUTH",
+            "SOUTH, SOUTH", "SOUTH_SOUTH_WEST, SOUTH", "SOUTH_WEST, WEST", "WEST_SOUTH_WEST, WEST",
+            "WEST, WEST", "WEST_NORTH_WEST, WEST", "NORTH_WEST, NORTH", "NORTH_NORTH_WEST, NORTH"
+    })
+    void standingSignLoadingUsesCardinalDirection(BlockFace rotation, BlockFace expected) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(BlockFace.UP);
+        sign.setType(Material.OAK_SIGN);
+        Rotatable data = (Rotatable) sign.getBlockData();
+        data.setRotation(rotation);
+        Sign state = (Sign) sign.getState();
+        state.setBlockData(data);
+        state.update();
+
+        for (BlockFace savedFacing : new BlockFace[]{null, rotation, expected.getOppositeFace()}) {
+            // Reconstruct from saved fields without going through shop creation, as on restart.
+            AbstractShop shop = AbstractShop.create(sign.getLocation(), player.getUniqueId(),
+                    10, 0, 1, false, ShopType.SELL, savedFacing);
+            assertNotNull(shop);
+            assertNull(shop.getChestLocation());
+
+            assertTrue(shop.load(), "Standing-sign shops must survive loading");
+
+            assertEquals(chest.getLocation(), shop.getChestLocation());
+            assertEquals(expected, shop.getFacing(), "Loading must use the current sign rotation");
+            assertEquals(rotation, ((Rotatable) sign.getBlockData()).getRotation());
+        }
+    }
+
+    /** The shop's own standing sign allows initialization regardless of the obstruction policy. */
+    @ParameterizedTest
+    @CsvSource({"true", "false"})
+    void ownStandingSignDoesNotBlockInitialization(boolean forceNone) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(BlockFace.UP);
+        sign.setType(Material.OAK_SIGN);
+        AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, sign,
+                new PricePair(10, 0), 1, false, ShopType.SELL, BlockFace.NORTH, false);
+        assertNotNull(shop);
+        setConfig("displayType", DisplayType.ITEM);
+        setConfig("forceDisplayToNoneIfBlocked", forceNone);
+        setConfig("creationCost", 0);
+        shop.getDisplay().setType(DisplayType.ITEM, false);
+
+        assertTrue(plugin.getShopCreationUtil().initializeShop(shop, player, new ItemStack(Material.DIAMOND), null));
+
+        assertEquals(Material.DIAMOND, shop.getItemStack().getType());
+        assertEquals(DisplayType.ITEM, shop.getDisplay().getType());
+        assertEquals(Material.OAK_SIGN, sign.getType());
+    }
+
+    /** Setting and cycling displays allow only the shop's own standing sign or non-intrusive blocks. */
+    @ParameterizedTest
+    @CsvSource({
+            "OAK_SIGN, true, true", "OAK_SIGN, false, false",
+            "OAK_WALL_SIGN, true, false", "STONE, true, false",
+            "AIR, false, true", "WATER, false, true"
+    })
+    void displayChangesRespectStandingSignOwnership(Material material, boolean ownLocation, boolean allowed) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block aboveChest = chest.getRelative(BlockFace.UP);
+        aboveChest.setType(material);
+        AbstractShop shop = mock(AbstractShop.class);
+        when(shop.getChestLocation()).thenReturn(chest.getLocation());
+        when(shop.getSignLocation()).thenReturn(ownLocation ? aboveChest.getLocation()
+                : chest.getRelative(BlockFace.NORTH).getLocation());
+        when(shop.getFacing()).thenReturn(BlockFace.NORTH);
+        AbstractDisplay display = mock(AbstractDisplay.class, Mockito.withSettings()
+                .useConstructor(shop.getSignLocation()).defaultAnswer(Mockito.CALLS_REAL_METHODS));
+        Mockito.doReturn(shop).when(display).getShop();
+        Mockito.doReturn(true).when(display).isChunkLoaded();
+        Mockito.doNothing().when(display).spawn(player);
+
+        for (DisplayType previous : new DisplayType[]{DisplayType.NONE, DisplayType.ITEM_FRAME}) {
+            display.setType(previous, false);
+            display.setType(DisplayType.ITEM, true);
+            assertEquals(allowed ? DisplayType.ITEM : previous, display.getType());
+
+            display.setType(previous, false);
+            setConfig("displayCycle", new DisplayType[]{previous, DisplayType.ITEM});
+            display.cycleType(player);
+            assertEquals(allowed ? DisplayType.ITEM : previous, display.getType());
+        }
+        assertEquals(material, aboveChest.getType());
+    }
+
+    /** Other occupied display blocks still disable the display or reject initialization. */
+    @ParameterizedTest
+    @CsvSource({
+            "STONE, true, true, NONE", "STONE, false, false, ITEM",
+            "OAK_SIGN, true, true, NONE", "OAK_SIGN, false, false, ITEM",
+            "OAK_WALL_SIGN, true, true, NONE", "OAK_WALL_SIGN, false, false, ITEM",
+            "AIR, true, true, ITEM", "AIR, false, true, ITEM",
+            "WATER, true, true, ITEM", "WATER, false, true, ITEM"
+    })
+    void displayObstructionPolicyIsPreserved(Material obstruction, boolean forceNone,
+                                            boolean initialized, DisplayType expectedDisplay) {
+        Block chest = world.getBlockAt(100, 64, 100);
+        chest.setType(Material.CHEST);
+        Block sign = chest.getRelative(BlockFace.NORTH);
+        sign.setType(Material.OAK_WALL_SIGN);
+        AbstractShop shop = plugin.getShopCreationUtil().createShop(player, chest, sign,
+                new PricePair(10, 0), 1, false, ShopType.SELL, BlockFace.NORTH, false);
+        assertNotNull(shop);
+        Block aboveChest = chest.getRelative(BlockFace.UP);
+        aboveChest.setType(obstruction);
+        setConfig("displayType", DisplayType.ITEM);
+        setConfig("forceDisplayToNoneIfBlocked", forceNone);
+        setConfig("creationCost", 0);
+        shop.getDisplay().setType(DisplayType.ITEM, false);
+
+        assertEquals(initialized, plugin.getShopCreationUtil().initializeShop(shop, player,
+                new ItemStack(Material.DIAMOND), null));
+
+        assertEquals(expectedDisplay, shop.getDisplay().getType());
+        assertEquals(initialized, shop.getItemStack() != null);
+        assertEquals(obstruction, aboveChest.getType());
+    }
+
+    /** Verifies that a standing sign without a container below it cannot create a shop. */
     @Test
     @DisplayName("Ground sign (non-wall) is ignored")
     void testGroundSignIgnored() {

@@ -14,6 +14,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.block.data.type.WallSign;
+import org.bukkit.Tag;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -37,6 +38,12 @@ public class DisplayListener implements Listener {
     private WrappedTask repeatingViewTask;
     private WrappedTask repeatingDisplayTask;
 
+    /**
+     * Starts periodic processing of nearby shop displays. With {@code VIEW_SIGN}, also
+     * checks every 15 ticks for online players targeting a wall or standing shop sign
+     * within 8 blocks and requests its display tags. Exceptions during a player's sign
+     * lookup or tag display are ignored for that check.
+     */
     public void startRepeatingDisplayViewTask() {
         if (plugin.getDisplayTagOption() == DisplayTagOption.VIEW_SIGN) {
             repeatingViewTask =
@@ -51,7 +58,7 @@ public class DisplayListener implements Listener {
                                         try {
                                             Block block = player.getTargetBlockExact(8);
                                             if (block != null &&
-                                                    block.getBlockData() instanceof WallSign) {
+                                                    (Tag.WALL_SIGNS.isTagged(block.getType()) || Tag.STANDING_SIGNS.isTagged(block.getType()))) {
 
                                                 AbstractShop shop =
                                                         plugin.getShopHandler()
