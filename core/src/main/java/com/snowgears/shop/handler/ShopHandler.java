@@ -49,7 +49,8 @@ public class ShopHandler {
     private ConcurrentHashMap<Location, AbstractShop> allShops = new ConcurrentHashMap<>();
     private ConcurrentHashMap<UUID, ConcurrentLinkedQueue<Location>> playerShops = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String, ConcurrentLinkedQueue<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
-    private ConcurrentHashMap<UUID, HashSet<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
+    // Inner sets are thread-safe: ConcurrentHashMap.newKeySet() returns a Set backed by ConcurrentHashMap
+    private ConcurrentHashMap<UUID, Set<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
     private Set<UUID> playersProcessingShopDisplays = ConcurrentHashMap.newKeySet();
     private ConcurrentHashMap<UUID, Location> playersActiveShopDisplayTag = new ConcurrentHashMap<>();
 
@@ -634,10 +635,14 @@ public class ShopHandler {
         
         // Also identify any current displays that are no longer in range
         if (playersWithActiveShopDisplays.containsKey(player.getUniqueId())) {
-            HashSet<Location> activeDisplays = new HashSet<>(playersWithActiveShopDisplays.get(player.getUniqueId()));
-            for (Location displayLocation : activeDisplays) {
-                if (!shopLocations.contains(displayLocation)) {
-                    displaysToRemove.add(displayLocation);
+            Set<Location> activeDisplays = playersWithActiveShopDisplays.get(player.getUniqueId());
+            if (activeDisplays != null) {
+                // Create a defensive copy to avoid ConcurrentModificationException during iteration
+                Set<Location> activeDisplaysCopy = new HashSet<>(activeDisplays);
+                for (Location displayLocation : activeDisplaysCopy) {
+                    if (!shopLocations.contains(displayLocation)) {
+                        displaysToRemove.add(displayLocation);
+                    }
                 }
             }
         }
@@ -747,32 +752,26 @@ public class ShopHandler {
     }
 
     public boolean hasActiveDisplay(Player player, Location shopSignLocation) {
-        HashSet<Location> shops = playersWithActiveShopDisplays.get(player.getUniqueId());
+        Set<Location> shops = playersWithActiveShopDisplays.get(player.getUniqueId());
         return shops != null && shops.contains(shopSignLocation);
     }
 
     public void addActiveShopDisplay(Player player, Location shopSignLocation){
-        HashSet<Location> shops;
-        if(playersWithActiveShopDisplays.containsKey(player.getUniqueId())){
-            shops = playersWithActiveShopDisplays.get(player.getUniqueId());
-        }
-        else{
-            shops = new HashSet<>();
-        }
+        // Use computeIfAbsent with ConcurrentHashMap.newKeySet() for thread-safe creation
+        Set<Location> shops = playersWithActiveShopDisplays.computeIfAbsent(
+                player.getUniqueId(), k -> ConcurrentHashMap.newKeySet());
         shops.add(shopSignLocation);
-        playersWithActiveShopDisplays.put(player.getUniqueId(), shops);
     }
 
     public void removeActiveShopDisplay(Player player, Location shopSignLocation){
-        HashSet<Location> shops;
-        if(playersWithActiveShopDisplays.containsKey(player.getUniqueId())){
-            shops = playersWithActiveShopDisplays.get(player.getUniqueId());
+        Set<Location> shops = playersWithActiveShopDisplays.get(player.getUniqueId());
+        if (shops != null) {
             shops.remove(shopSignLocation);
+            // Clean up empty sets to avoid memory leak
+            if (shops.isEmpty()) {
+                playersWithActiveShopDisplays.remove(player.getUniqueId(), shops);
+            }
         }
-        else{
-            shops = new HashSet<>();
-        }
-        playersWithActiveShopDisplays.put(player.getUniqueId(), shops);
     }
 
     public void addActiveShopDisplayTag(Player player, Location shopSignLocation) {
