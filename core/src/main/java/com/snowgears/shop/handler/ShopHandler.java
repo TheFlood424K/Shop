@@ -239,7 +239,15 @@ public class ShopHandler {
                 // Defer GUI operations to the main thread to avoid Bukkit API access off-thread.
                 // If called from the async loadShops() pass, this will be drained in the
                 // main-thread pass below (see pendingHeadIcons handling).
-                if (!Bukkit.isPrimaryThread()) {
+                boolean onPrimaryThread;
+                try {
+                    onPrimaryThread = Bukkit.isPrimaryThread();
+                } catch (Throwable t) {
+                    // Bukkit.server may be null in test environments without a running server.
+                    // Treat as async to queue the reload rather than crash.
+                    onPrimaryThread = false;
+                }
+                if (!onPrimaryThread) {
                     pendingHeadIcons.put(shop, Boolean.TRUE);
                 } else {
                     plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
@@ -1260,8 +1268,12 @@ public class ShopHandler {
                             ((ComboShop) shop).setPriceSell(priceSell);
 
                         // 2. Register in map — shop is now fully initialised before anything
-                        //    can look it up.
-                        addShop(shop);
+                        //    can look it up. Use return value to detect concurrent duplicate loads.
+                        AbstractShop registeredShop = addShop(shop);
+
+                        // If a concurrent load already registered this shop, use the registered
+                        // instance for display-type scheduling and skip head-icon reload.
+                        AbstractShop shopForDisplay = registeredShop != null ? registeredShop : shop;
 
                         // 3. Defer the display type. setType(…, checkDisplayBlock=true) reads the
                         //    block above the chest, which is a synchronous block access — illegal
@@ -1269,7 +1281,9 @@ public class ShopHandler {
                         //    shop is fully initialised here, so deferring loses nothing: the
                         //    main-thread pass below applies it with getShop() and getItemStack()
                         //    already resolving.
-                        if (displayType != null) pendingDisplayTypes.put(shop, displayType);
+                        if (displayType != null) {
+                            pendingDisplayTypes.put(shopForDisplay, displayType);
+                        }
 
                         shopsLoaded++;
 
@@ -1310,6 +1324,24 @@ public class ShopHandler {
                 });
             }
             pendingDisplayTypes.clear();
+
+            // Drain pending head icon reloads that were queued during the async pass.
+            // Each is dispatched to the shop's region so the GUI update stays legal on Folia.
+            for (AbstractShop headShop : pendingHeadIcons.keySet()) {
+                Location headAnchor = headShop.getChestLocation() != null
+                        ? headShop.getChestLocation()
+                        : headShop.getSignLocation();
+                if (headAnchor == null) continue;
+                plugin.getFoliaLib().getScheduler().runAtLocation(headAnchor, locTask -> {
+                    try {
+                        plugin.getGuiHandler().reloadPlayerHeadIcon(headShop);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Could not reload head icon for shop "
+                                + headShop.getSignLocation() + ": " + e.getMessage());
+                    }
+                });
+            }
+            pendingHeadIcons.clear();
         });
     }
 
