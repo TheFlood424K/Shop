@@ -72,7 +72,8 @@ public class TransactionParty {
     }
 
     /**
-     * Restores saved slots directly and invalidates the associated shop's stock cache.
+     * Restores saved slots directly and attempts to invalidate the associated shop's stock cache.
+     * Cache invalidation failures are ignored; errors writing inventory contents propagate.
      *
      * @param contents the inventory snapshot to restore; null leaves the inventory unchanged
      */

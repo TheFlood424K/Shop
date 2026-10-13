@@ -228,10 +228,13 @@ public class Transaction {
 
     /**
      * Verifies the negotiated transaction, then transfers payment and items between the buyer and seller.
-     * Item-currency transactions restore both inventories from snapshots if any transfer fails.
+     * Item-currency transactions attempt to restore both non-admin inventories from snapshots
+     * if any transfer fails or throws.
      * A refused economy deposit leaves stock untouched and attempts to refund the buyer.
+     * Verification may fire a cancellable exchange event; success updates shop stock or the gamble display.
      *
      * @return {@link TransactionError#NONE} on success, or the error that prevented completion
+     * @throws RuntimeException if verification, transfer, inventory restoration, or a shop update throws
      */
     public TransactionError execute() {
         // Check to see if we had any errors, you must do this before performing the transaction!
@@ -288,12 +291,15 @@ public class Transaction {
     }
 
     /**
-     * Transfers item payment and stock synchronously, restoring both inventory snapshots if a
-     * transfer fails or throws. No transaction events run between the snapshots and commit.
+     * Transfers item payment and stock synchronously, attempting to restore both non-admin
+     * inventory snapshots if a transfer fails or throws. No transaction events run between
+     * the snapshots and commit. Buyer restoration is attempted even if seller restoration throws.
      * Restoration writes slots directly so recovery cannot overflow through a refund deposit.
      *
      * @param itemSold the item stack and quantity to deliver to the buyer
      * @return {@link TransactionError#NONE} on commit, or the error from the failed transfer
+     * @throws RuntimeException if a snapshot, transfer, or restoration operation throws;
+     *         a restoration exception can replace the original transfer exception
      */
     private TransactionError transferItemCurrency(ItemStack itemSold) {
         ItemStack[] buyerContents = this.buyer.snapshotInventory();
