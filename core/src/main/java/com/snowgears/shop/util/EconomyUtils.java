@@ -115,11 +115,11 @@ public class EconomyUtils {
             while (remaining > 0) {
                 int chunk = Math.min(remaining, perStack);
                 int leftover = InventoryUtils.addItem(inventory, new ItemStack(blockForm, chunk));
+                blocksSuccessfullyAdded += chunk - leftover;
                 if (leftover > 0) {
                     unadded += leftover * ratio;
                     break;
                 }
-                blocksSuccessfullyAdded += chunk;
                 remaining -= chunk;
             }
         }
