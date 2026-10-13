@@ -11,6 +11,7 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -261,6 +262,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         when(nextSummary.getPlayerUUID()).thenReturn(owner);
         when(nextSummary.getLastPlayed()).thenReturn(makeTimestampDaysAgo(200).getTime());
         logHandler.calculateOfflineTransactions(nextSummary);
+        getServer().getScheduler().performOneTick();
         verify(nextSummary, timeout(5000)).setIsCalculating(false);
         waitForPurgeToFinish();
         assertEquals(0, countActionRows());
@@ -280,6 +282,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
                 .when(summary).setItemsSold(org.mockito.ArgumentMatchers.anyMap());
 
         logHandler.calculateOfflineTransactions(summary);
+        getServer().getScheduler().performOneTick();
         verify(summary, timeout(5000)).setIsCalculating(false);
         waitForPurgeToFinish();
         assertEquals(1, countActionRows());
@@ -441,6 +444,7 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
         when(summary.getPlayerUUID()).thenReturn(owner);
         when(summary.getLastPlayed()).thenReturn(lastPlayed);
         logHandler.calculateOfflineTransactions(summary);
+        getServer().getScheduler().performOneTick();
         verify(summary, timeout(5000)).setIsCalculating(false);
         return summary;
     }
@@ -464,6 +468,8 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
      * @throws InterruptedException if the polling sleep is interrupted
      */
     private void waitForSummary(OfflineTransactions summary) throws InterruptedException {
+        // MockBukkit 4.117.0 queues async work until the next simulated tick.
+        getServer().getScheduler().performOneTick();
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (summary.isCalculating() && System.nanoTime() < deadline) {
             Thread.sleep(10);
@@ -544,7 +550,9 @@ class LogHandlerRetentionTest extends BaseMockBukkitTest {
 
     /** Wait for both deletion statements, including when neither changes a row count. */
     private void waitForPurgeToFinish() throws Exception {
-        logHandler.purgeOldActionsAsync().get(5, TimeUnit.SECONDS);
+        CompletableFuture<Void> completion = logHandler.purgeOldActionsAsync();
+        getServer().getScheduler().performOneTick();
+        completion.get(5, TimeUnit.SECONDS);
     }
 
     /** Verifies that cleanup deletes expired actions and the transactions they leave unreferenced. */
