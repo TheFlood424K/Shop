@@ -282,6 +282,10 @@ public class ShopHandler {
     //This method should only be used by AbstractShop object to delete
     public void removeShop(AbstractShop shop, boolean forceSave) {
             boolean changed = false;
+            // Remove by key. addShop() now returns the shop that is actually registered when a
+            // concurrent addition wins, so callers that honour that return value always hold the
+            // registered instance; a remove(key, value) would silently no-op on a Mockito spy
+            // (a distinct wrapper instance) and break load-failure cleanup.
             if (allShops.containsKey(shop.getSignLocation())) {
                 allShops.remove(shop.getSignLocation());
                 changed = true;

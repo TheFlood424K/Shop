@@ -224,4 +224,33 @@ class ShopHandlerRegistrationTest {
         assertEquals(shop, result);
         assertEquals(1, shopHandler.getNumberOfShops());
     }
+
+    @Test
+    void addShopReturnsTheRegisteredInstanceSoCallersNeverHoldAStaleObject() {
+        // addShop() rejects a duplicate registration and returns the shop that is actually
+        // registered. A caller that honours that return value always removes the instance that
+        // is in the map, so removeShop() can stay a plain key removal — a remove(key, value)
+        // would silently no-op on a Mockito spy (a distinct wrapper instance) and break
+        // load-failure cleanup. The invariant this test pins is the addShop return value.
+        UUID ownerId = UUID.randomUUID();
+        Location loc = new Location(world, 6, 64, 6);
+        AbstractShop registered = makeMockShop(loc, ownerId);
+        AbstractShop stale = makeMockShop(loc, ownerId);
+
+        assertNull(shopHandler.addShop(registered, false));
+        assertEquals(1, shopHandler.getNumberOfShops());
+        assertSame(registered, shopHandler.getShop(loc));
+
+        AbstractShop returned = shopHandler.addShop(stale, false);
+        assertSame(registered, returned,
+                "a duplicate add must return the already-registered instance");
+        assertEquals(1, shopHandler.getNumberOfShops(),
+                "a duplicate add must not register a second shop");
+        assertSame(registered, shopHandler.getShop(loc),
+                "the registered shop must still be reachable at its sign location");
+
+        // The caller removes the instance addShop() handed back, which is the registered one.
+        shopHandler.removeShop(returned, false);
+        assertEquals(0, shopHandler.getNumberOfShops());
+    }
 }
