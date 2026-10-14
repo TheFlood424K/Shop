@@ -680,6 +680,9 @@ public class MiscListener implements Listener {
                             ShopMessage.sendMessage("interaction_issue", "createLine2", player, null);
                             ShopMessage.sendMessage("interaction_issue", "createCancel", player, null);
                             event.setCancelled(true);
+                            // cleanup() touches player entity tracking — must run on main thread
+                            process.cleanupAsync();
+                            playerChatCreationSteps.remove(player.getUniqueId());
                             return;
                         }
                     } catch (NumberFormatException e) {
