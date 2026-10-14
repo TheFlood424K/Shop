@@ -555,7 +555,15 @@ public class MiscListener implements Listener {
             final UUID originalProcessUUID = process.getUniqueID();
             int initTimeout = plugin.getDebug_shopInitTimeout();
             if (initTimeout > 0) {
-                plugin.getFoliaLib().getScheduler().runLater(() -> {
+                // Dispatch to the chest's own region. runLater is the GLOBAL scheduler, and the
+                // chest sits at an arbitrary world location owned by some other region, so the
+                // cleanup below (which touches the chest block and the player's creative
+                // selection) was an illegal cross-region access on Folia. Every other sign
+                // mutation in AbstractShop already uses runAtLocationLater for this reason; this
+                // path duplicated the operation without the guard. The Location is captured here
+                // because dereferencing the Block on another thread is the same problem.
+                final Location chestLocation = clicked.getLocation();
+                plugin.getFoliaLib().getScheduler().runAtLocationLater(chestLocation, task -> {
                     //the shop has still not been initialized with an item from a player
                     ShopCreationProcess currentProcess = playerChatCreationSteps.get(player.getUniqueId());
                     if (currentProcess != null && currentProcess.getUniqueID().equals(originalProcessUUID)) {
