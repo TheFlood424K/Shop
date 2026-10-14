@@ -85,15 +85,16 @@ public class UtilMethods {
      */
     public static void copy(InputStream in, File file) {
         if (in == null) return;
-        try {
-            OutputStream out = new FileOutputStream(file);
+        // try-with-resources closes both streams on any path, including the exception path.
+        // A bare try/close-after-loop leaks the FileOutputStream and the InputStream when the
+        // write loop throws (disk full, etc.), and the plugin has no other reference to close
+        // them, so the file handle and the source stream stay open until JVM exit.
+        try (OutputStream out = new FileOutputStream(file)) {
             byte[] buf = new byte[1024];
             int len;
             while ((len = in.read(buf)) > 0) {
                 out.write(buf, 0, len);
             }
-            out.close();
-            in.close();
         } catch (Exception e) {
             Shop.getPlugin().getLogger().warning("Error copying resource file to " + file.getPath() + ": " + e.getMessage());
         }

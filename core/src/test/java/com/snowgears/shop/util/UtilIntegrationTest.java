@@ -14,6 +14,15 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.MockBukkitExtension;
 import org.mockbukkit.mockbukkit.MockBukkitInject;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -146,6 +155,41 @@ class UtilIntegrationTest {
         // Test ShopClickType enum values
         for (ShopClickType type : ShopClickType.values()) {
             assertNotNull(type.name());
+        }
+    }
+
+    @Test
+    void copyWritesTheFullInputStreamAndClosesBothStreams() throws IOException {
+        Path path = Files.createTempFile("shop-copy-test", ".dat");
+        try {
+            InputStream in = new ByteArrayInputStream(new byte[]{1, 2, 3, 4, 5});
+            UtilMethods.copy(in, path.toFile());
+            assertArrayEquals(new byte[]{1, 2, 3, 4, 5}, Files.readAllBytes(path));
+        } finally {
+            assertDoesNotThrow(() -> Files.deleteIfExists(path));
+        }
+    }
+
+    @Test
+    void copyClosesTheOutputStreamEvenWhenTheWriteLoopThrows() throws IOException {
+        // UtilMethods.copy() catches and logs the read exception rather than propagating it,
+        // so the assertion here is about resource hygiene, not exception propagation. The
+        // old implementation closed the FileOutputStream only on the happy path, after the
+        // write loop, so a mid-copy failure leaked the file handle. With try-with-resources
+        // the handle is released regardless, and the temp file is deletable immediately.
+        InputStream badSource = new ByteArrayInputStream(new byte[0]) {
+            @Override
+            public int read(byte[] b, int off, int len) {
+                throw new RuntimeException("source refused");
+            }
+        };
+        Path path = Files.createTempFile("shop-copy-test", ".dat");
+        try {
+            UtilMethods.copy(badSource, path.toFile());
+        } finally {
+            // A closed FileOutputStream releases the handle, so the temp file is
+            // deletable right away. An unclosed stream holds the handle on Windows.
+            assertDoesNotThrow(() -> Files.deleteIfExists(path));
         }
     }
 }
