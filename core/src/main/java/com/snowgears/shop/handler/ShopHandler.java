@@ -61,8 +61,12 @@ public class ShopHandler {
     private ConcurrentHashMap<String, Set<Location>> unloadedShopsByChunk = new ConcurrentHashMap<>();
 
     // Shops that need their player head icons reloaded after async loading completes.
-    // Populated by the async loadShops() pass, drained on the main thread below.
+    // Populated by the async loadShops() pass and by addShop() when it runs off the
+    // primary thread. Drained by drainPendingHeadIcons(), which loadShops() calls at the
+    // end of the load pass and which a repeating timer keeps running afterwards so a
+    // request that arrives once loading is finished is not stranded here forever.
     private final java.util.concurrent.ConcurrentHashMap<AbstractShop, Object> pendingHeadIcons = new java.util.concurrent.ConcurrentHashMap<>();
+    private com.tcoded.folialib.wrapper.task.WrappedTask pendingHeadIconDrainTask;
     private UUID adminUUID;
     private BlockFace[] directions = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
     // For standing signs (sign posts), the sign is ABOVE the chest, so we also check UP
@@ -87,6 +91,12 @@ public class ShopHandler {
         plugin.getFoliaLib().getScheduler().runLater(() -> {
             loadShops();
         }, 10);
+        // Keep draining head-icon reloads that were queued off the primary thread after the
+        // load pass finishes. Without this a shop registered on the main thread while loading
+        // is still running (or created after loading completes) stays in pendingHeadIcons
+        // forever and its owner's head is never refreshed. Cancelled by Shop.onDisable()
+        // via FoliaLib.cancelAllTasks().
+        pendingHeadIconDrainTask = plugin.getFoliaLib().getScheduler().runTimer(this::drainPendingHeadIcons, 20L, 20L);
     }
 
     public void disableDisplayClass() {
@@ -227,8 +237,8 @@ public class ShopHandler {
         return null;
     }
 
-    public void addShop(AbstractShop shop) {
-        addShop(shop, true);
+    public AbstractShop addShop(AbstractShop shop) {
+        return addShop(shop, true);
     }
 
     /**
@@ -237,15 +247,16 @@ public class ShopHandler {
      * @param shop the shop to add
      * @param reloadHeadIcon if true, reload the player head icon (deferred to main thread
      *                       if called from async context via pendingHeadIcons)
+     * @return the existing shop if a concurrent addition occurred, or null if this shop was added
      */
-    public void addShop(AbstractShop shop, boolean reloadHeadIcon) {
+    public AbstractShop addShop(AbstractShop shop, boolean reloadHeadIcon) {
 
             //this is to remove a bug that caused one shop to be saved to multiple files at one point
-            AbstractShop s = getShop(shop.getSignLocation());
-            if(s != null) {
-                return;
+            // Use putIfAbsent for atomic check-and-add to prevent race conditions
+            AbstractShop existing = allShops.putIfAbsent(shop.getSignLocation(), shop);
+            if (existing != null) {
+                return existing;
             }
-            allShops.put(shop.getSignLocation(), shop);
 
             // Directly use ConcurrentLinkedQueue for O(1) add
             playerShops.computeIfAbsent(shop.getOwnerUUID(), k -> new ConcurrentLinkedQueue<>()).add(shop.getSignLocation());
@@ -265,6 +276,7 @@ public class ShopHandler {
                     plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
                 }
             }
+            return null;
         }
 
     //This method should only be used by AbstractShop object to delete
@@ -1327,26 +1339,43 @@ public class ShopHandler {
             }
             pendingDisplayTypes.clear();
 
-            // Apply deferred head icon reloads on the main thread.
-            for (Map.Entry<AbstractShop, Object> entry : pendingHeadIcons.entrySet()) {
-                AbstractShop deferredShop = entry.getKey();
-                // Use the sign location as the anchor; it is always present and in the same
-                // region as the chest, so Folia region ownership is correct.
-                Location anchor = deferredShop.getSignLocation();
-                if (anchor == null) {
-                    continue;
-                }
-                plugin.getFoliaLib().getScheduler().runAtLocation(anchor, regionTask -> {
-                    try {
-                        plugin.getGuiHandler().reloadPlayerHeadIcon(deferredShop);
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("Could not reload player head icon for shop "
-                                + deferredShop.getSignLocation() + ": " + e.getMessage());
-                    }
-                });
-            }
-            pendingHeadIcons.clear();
+            // Drain pending head icon reloads that were queued during the async pass.
+            // Each is dispatched to the shop's region so the GUI update stays legal on Folia.
+            drainPendingHeadIcons();
         });
+    }
+
+    /**
+     * Drains every shop that requested a head-icon reload while off the primary thread and
+     * dispatched each one to its own region. Called from the end of {@link #loadShops()} and
+     * again on a repeating timer so requests that arrive <em>after</em> the load pass (a shop
+     * created on the main thread while loading is still running) are not stranded in
+     * {@code pendingHeadIcons} forever.
+     */
+    private void drainPendingHeadIcons() {
+        if (pendingHeadIcons.isEmpty()) {
+            return;
+        }
+        // Snapshot and clear atomically so a request that races this drain is handled by the
+        // next tick rather than being dropped.
+        java.util.Map<AbstractShop, Object> batch = new java.util.concurrent.ConcurrentHashMap<>();
+        batch.putAll(pendingHeadIcons);
+        pendingHeadIcons.clear();
+
+        for (AbstractShop headShop : batch.keySet()) {
+            Location headAnchor = headShop.getChestLocation() != null
+                    ? headShop.getChestLocation()
+                    : headShop.getSignLocation();
+            if (headAnchor == null) continue;
+            plugin.getFoliaLib().getScheduler().runAtLocation(headAnchor, locTask -> {
+                try {
+                    plugin.getGuiHandler().reloadPlayerHeadIcon(headShop);
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Could not reload head icon for shop "
+                            + headShop.getSignLocation() + ": " + e.getMessage());
+                }
+            });
+        }
     }
 
     private Location getLocationFromString(String locationString) {

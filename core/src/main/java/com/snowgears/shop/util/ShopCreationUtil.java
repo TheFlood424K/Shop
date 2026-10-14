@@ -292,20 +292,44 @@ public class ShopCreationUtil {
                 }
             }
 
+            // Register the shop only once every preceding step has succeeded. addShop() is the
+            // point of no return for creation: once the shop is in the handler's maps, a later
+            // failure has to roll it back explicitly or the chest is left registered as a shop
+            // with no sign, no display, and no log entry. The registration itself is wrapped so
+            // an exception from updateSign()/sendCreationSuccess() removes the shop again.
             if (type == ShopType.GAMBLE) {
                 shop.setItemStack(plugin.getGambleDisplayItem());
                 shop.setAmount(1);
-                plugin.getShopHandler().addShop(shop);
-                shop.getDisplay().setType(DisplayType.LARGE_ITEM, false);
+                AbstractShop existing = plugin.getShopHandler().addShop(shop);
+                if (existing != null) {
+                    return null; // Race condition: another thread already added this shop
+                }
+                try {
+                    shop.getDisplay().setType(DisplayType.LARGE_ITEM, false);
 
-                plugin.getShopCreationUtil().sendCreationSuccess(player, shop);
-                plugin.getLogHandler().logAction(player, shop, ShopActionType.INIT);
+                    plugin.getShopCreationUtil().sendCreationSuccess(player, shop);
+                    plugin.getLogHandler().logAction(player, shop, ShopActionType.INIT);
+                } catch (RuntimeException createFailure) {
+                    // A post-registration failure must not leave a half-created shop behind.
+                    plugin.getShopHandler().removeShop(shop, false);
+                    throw createFailure;
+                }
                 return null;
             }
 
-            plugin.getShopHandler().addShop(shop);
-            Shop.getPlugin().getLogger().trace("[ShopCreationUtil.createShop] updateSign");
-            shop.updateSign();
+            AbstractShop existing = plugin.getShopHandler().addShop(shop);
+            if (existing != null) {
+                return null; // Race condition: another thread already added this shop
+            }
+            try {
+                Shop.getPlugin().getLogger().trace("[ShopCreationUtil.createShop] updateSign");
+                shop.updateSign();
+            } catch (RuntimeException createFailure) {
+                // updateSign() can throw (chunk unloaded, block access denied on Folia); the
+                // shop is already registered, so roll it back rather than leaving a dangling entry.
+                plugin.getShopHandler().removeShop(shop, false);
+                throw createFailure;
+            }
         }
         return shop;
     }
