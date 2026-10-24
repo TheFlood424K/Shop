@@ -2,12 +2,16 @@ package com.snowgears.shop.handler;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.gui.ShopGuiWindow;
+import com.snowgears.shop.shop.ShopType;
 import com.snowgears.shop.util.CurrencyType;
 import com.snowgears.shop.util.ItemListType;
 import com.snowgears.shop.util.PlayerSettings;
 import com.snowgears.shop.util.ShopMessage;
+import com.snowgears.shop.util.TransactionLookupFilter;
+import com.snowgears.shop.util.Transaction;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.defaults.BukkitCommand;
@@ -19,6 +23,10 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 
 public class CommandHandler extends BukkitCommand {
 
@@ -85,6 +93,18 @@ public class CommandHandler extends BukkitCommand {
                 }
                 else
                     sender.sendMessage("[Shop] There are " + plugin.getShopHandler().getNumberOfShops() + " shops registered on the server.");
+            }
+            else if (args[0].equalsIgnoreCase("transactions") || args[0].equalsIgnoreCase("trans")) {
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage("[Shop] This command can only be run as a player.");
+                    return true;
+                }
+                Player player = (Player) sender;
+                if ((plugin.usePerms() && !player.hasPermission("shop.operator")) || (!plugin.usePerms() && !player.isOp())) {
+                    sendCommandMessage("not_authorized", player);
+                    return true;
+                }
+                handleTransactionLookup(player, player.getUniqueId(), 0, 0, new TransactionLookupFilter(ShopType.BUY, new HashSet<>(), new HashSet<>(), null, null));
             }
             else if (args[0].equalsIgnoreCase("reload")) {
                 if (sender instanceof Player) {
@@ -211,7 +231,74 @@ public class CommandHandler extends BukkitCommand {
                 }
             }
         }
+        else if (args.length >= 2 && (args[0].equalsIgnoreCase("transactions") || args[0].equalsIgnoreCase("trans"))) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("[Shop] This command can only be run as a player.");
+                return true;
+            }
+            Player player = (Player) sender;
+            if ((plugin.usePerms() && !player.hasPermission("shop.operator")) || (!plugin.usePerms() && !player.isOp())) {
+                sendCommandMessage("not_authorized", player);
+                return true;
+            }
+            handleTransactionLookupWithArgs(player, args);
+        }
         return true;
+    }
+
+    private void handleTransactionLookup(Player player, UUID ownerUUID, long startTime, long endTime, TransactionLookupFilter filter) {
+        plugin.getLogHandler().getShopTransactions(ownerUUID, startTime, endTime, filter, transactions -> {
+            if (transactions.isEmpty()) {
+                player.sendMessage(ShopMessage.getUnformattedMessage("command", "transaction_none"));
+                return;
+            }
+
+            player.sendMessage(ShopMessage.getUnformattedMessage("command", "transaction_header"));
+            for (Transaction tx : transactions) {
+                String message = ShopMessage.getMessageFromOrders(filter.getAction(), "user", tx.getPrice(), tx.getAmount());
+                if (message != null && !message.isEmpty()) {
+                    player.sendMessage(message);
+                }
+            }
+            String footer = ShopMessage.getUnformattedMessage("command", "transaction_footer");
+            footer = footer.replace("[count]", String.valueOf(transactions.size()));
+            player.sendMessage(footer);
+        });
+    }
+
+    private void handleTransactionLookupWithArgs(Player player, String[] args) {
+        // Parse arguments: /shop trans [owner] [action] [item] [customer] [start] [end]
+        // For now, simple implementation with owner UUID
+        UUID ownerUUID = player.getUniqueId(); // Default to player's own shops
+        long startTime = 0;
+        long endTime = 0;
+        ShopType action = ShopType.BUY; // Default action
+        Set<Material> includeItems = new HashSet<>();
+        Set<Material> excludeItems = new HashSet<>();
+        String customerName = null;
+
+        // Parse simple owner argument (can be UUID or player name)
+        if (args.length >= 2) {
+            String ownerArg = args[1];
+            if (!ownerArg.equalsIgnoreCase("all")) {
+                OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(ownerArg);
+                if (offlinePlayer != null && offlinePlayer.getUniqueId() != null) {
+                    ownerUUID = offlinePlayer.getUniqueId();
+                } else {
+                    try {
+                        ownerUUID = UUID.fromString(ownerArg);
+                    } catch (IllegalArgumentException e) {
+                        player.sendMessage("§cInvalid owner: " + ownerArg);
+                        return;
+                    }
+                }
+            } else {
+                ownerUUID = null; // All owners
+            }
+        }
+
+        TransactionLookupFilter filter = new TransactionLookupFilter(action, includeItems, excludeItems, customerName, ownerUUID);
+        handleTransactionLookup(player, ownerUUID, startTime, endTime, filter);
     }
 
     @Override
@@ -223,6 +310,7 @@ public class CommandHandler extends BukkitCommand {
         else if (args.length == 1) {
             results.add("list");
             results.add("currency");
+            results.add("transactions");
 
             boolean showOperatorCommands = false;
             if(sender instanceof Player){
@@ -253,6 +341,13 @@ public class CommandHandler extends BukkitCommand {
                 results.add("user");
                 results.add("owner");
                 results.add("stock");
+            }
+            else if (args[0].equalsIgnoreCase("transactions") || args[0].equalsIgnoreCase("trans")) {
+                results.add("all");
+                // Add online player names for owner filtering
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    results.add(p.getName());
+                }
             }
 
             boolean showOperatorCommands = false;
@@ -297,6 +392,61 @@ public class CommandHandler extends BukkitCommand {
                 sendCommandMessage("notify_stock", player);
                 break;
         }
+    }
+
+    private void handleTransactionLookup(Player player, UUID ownerUUID, long startTime, long endTime, TransactionLookupFilter filter) {
+        plugin.getLogHandler().getShopTransactions(ownerUUID, startTime, endTime, filter, transactions -> {
+            if (transactions.isEmpty()) {
+                player.sendMessage(ShopMessage.getUnformattedMessage("command", "transaction_none"));
+                return;
+            }
+
+            player.sendMessage(ShopMessage.getUnformattedMessage("command", "transaction_header"));
+            for (Transaction tx : transactions) {
+                String message = ShopMessage.getMessageFromOrders(filter.getAction(), "user", tx.getPrice(), tx.getAmount());
+                if (message != null && !message.isEmpty()) {
+                    player.sendMessage(message);
+                }
+            }
+            String footer = ShopMessage.getUnformattedMessage("command", "transaction_footer");
+            footer = footer.replace("[count]", String.valueOf(transactions.size()));
+            player.sendMessage(footer);
+        });
+    }
+
+    private void handleTransactionLookupWithArgs(Player player, String[] args) {
+        // Parse arguments: /shop trans [owner] [action] [item] [customer] [start] [end]
+        // For now, simple implementation with owner UUID
+        UUID ownerUUID = player.getUniqueId(); // Default to player's own shops
+        long startTime = 0;
+        long endTime = 0;
+        ShopType action = ShopType.BUY; // Default action
+        Set<Material> includeItems = new HashSet<>();
+        Set<Material> excludeItems = new HashSet<>();
+        String customerName = null;
+
+        // Parse simple owner argument (can be UUID or player name)
+        if (args.length >= 2) {
+            String ownerArg = args[1];
+            if (!ownerArg.equalsIgnoreCase("all")) {
+                OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(ownerArg);
+                if (offlinePlayer != null && offlinePlayer.getUniqueId() != null) {
+                    ownerUUID = offlinePlayer.getUniqueId();
+                } else {
+                    try {
+                        ownerUUID = UUID.fromString(ownerArg);
+                    } catch (IllegalArgumentException e) {
+                        player.sendMessage("§cInvalid owner: " + ownerArg);
+                        return;
+                    }
+                }
+            } else {
+                ownerUUID = null; // All owners
+            }
+        }
+
+        TransactionLookupFilter filter = new TransactionLookupFilter(action, includeItems, excludeItems, customerName, ownerUUID);
+        handleTransactionLookup(player, ownerUUID, startTime, endTime, filter);
     }
 
     private void register()

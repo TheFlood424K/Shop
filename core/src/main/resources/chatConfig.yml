@@ -307,3 +307,7 @@ command:
    notify_stock: "&7Your notifications for your shops running out of stock are now [notify stock]"
    notify_on: "&aON"
    notify_off: "&cOFF"
+   transaction: "&b/[plugin] transactions &7- view transaction history for shops"
+   transaction_header: "&d+---------------------------------------------------+"
+   transaction_footer: "&d| &7Showing [count] transaction(s)"
+   transaction_none: "&7No transactions found."

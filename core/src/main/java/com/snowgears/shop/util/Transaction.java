@@ -7,6 +7,7 @@ import com.snowgears.shop.shop.ComboShop;
 import com.snowgears.shop.shop.GambleShop;
 import com.snowgears.shop.shop.ShopType;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -39,6 +40,12 @@ public class Transaction {
     // The amount of the item being sold in the tx, might be a higher or lower quantity than originalAmountBeingSold
     private int amountBeingSold;
 
+    // For barter transactions - the item being used as currency
+    private ItemStack barterItem;
+
+    /**
+     * Constructor for live transactions during gameplay.
+     */
     public Transaction(Player player, AbstractShop shop, ShopType transactionType) {
         this.error = null;
         if (!TX_DEBUG_LOGGING) { TX_DEBUG_LOGGING = Shop.getPlugin().getDebug_transactionDebugLogs(); }
@@ -58,7 +65,7 @@ public class Transaction {
                 this.seller = new TransactionParty(true, false, player, player.getInventory());
                 // Player is selling to shop, so shop pays the buy price
                 this.price = ((ComboShop)shop).getPriceBuy();
-            } 
+            }
             // From players perspective, they are buying from the shop
             else if (transactionType == ShopType.SELL) {
                 this.buyer = new TransactionParty(true, false, player, player.getInventory());
@@ -80,6 +87,7 @@ public class Transaction {
             // The buyer is going to use an item for their currency/payment
             this.buyer = new TransactionParty(true, false, player, player.getInventory(), shop.getSecondaryItemStack());
             this.seller = new TransactionParty(false, shop.isAdmin(), shop.getOwner(), shop.getInventory(), shop.getSecondaryItemStack());
+            this.barterItem = shop.getSecondaryItemStack();
         }
         else if (transactionType == ShopType.BUY) {
             // Shop is buying from the player
@@ -97,6 +105,27 @@ public class Transaction {
         // i.e. a partial sale, or a sale of a full stack of items
         this.originalPrice = this.price;
         this.originalAmountBeingSold = this.amountBeingSold;
+    }
+
+    /**
+     * Constructor for reconstructing transactions from database records (for transaction lookup).
+     */
+    public Transaction(OfflinePlayer purchaser, AbstractShop shop, ShopType transactionType) {
+        this.error = null;
+        if (!TX_DEBUG_LOGGING) { TX_DEBUG_LOGGING = Shop.getPlugin().getDebug_transactionDebugLogs(); }
+
+        this.player = purchaser != null ? purchaser.getPlayer() : null;
+        this.shop = shop;
+        this.transactionType = transactionType;
+
+        this.price = 0;
+        this.itemBeingSold = null;
+        this.amountBeingSold = 0;
+        this.barterItem = null;
+        this.originalPrice = 0;
+        this.originalAmountBeingSold = 0;
+        this.buyer = null;
+        this.seller = null;
     }
 
     public void negotiatePurchase() {
@@ -276,11 +305,16 @@ public class Transaction {
         return price;
     }
 
+    public ItemStack getBarterItem() {
+        return barterItem;
+    }
+
     // Gets a Map of both items in the transaction, for logging purposes
     public Map<ItemStack, Integer> getItems() {
         Map<ItemStack, Integer> items = new HashMap<>();
         items.put(this.itemBeingSold, this.amountBeingSold);
-        if (shop.getSecondaryItemStack() != null) { items.put(shop.getSecondaryItemStack(), (int) this.price); }
+        if (barterItem != null) { items.put(barterItem, (int) this.price); }
+        else if (shop != null && shop.getSecondaryItemStack() != null) { items.put(shop.getSecondaryItemStack(), (int) this.price); }
         return items;
     }
 
@@ -288,6 +322,22 @@ public class Transaction {
         if (TX_DEBUG_LOGGING) { System.out.println("TX setError: TransactionError." + error.toString().toUpperCase()); }
         this.error = error;
         return this.error;
+    }
+
+    public void setPrice(double price) {
+        this.price = price;
+    }
+
+    public void setAmount(int amount) {
+        this.amountBeingSold = amount;
+    }
+
+    public void setItem(ItemStack item) {
+        this.itemBeingSold = item;
+    }
+
+    public void setBarterItem(ItemStack barterItem) {
+        this.barterItem = barterItem;
     }
 
     @Override

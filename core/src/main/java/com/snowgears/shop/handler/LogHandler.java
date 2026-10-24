@@ -378,6 +378,137 @@ public class LogHandler {
         });
     }
 
+    /**
+     * Retrieves shop transactions for a given owner UUID within a time range, filtered by the provided filter.
+     * Results are returned asynchronously via the callback.
+     *
+     * @param ownerUUID The UUID of the shop owner to filter transactions by (can be null for all owners)
+     * @param startTime The start timestamp (inclusive)
+     * @param endTime The end timestamp (inclusive)
+     * @param filter The filter to apply to transactions
+     * @param callback The callback to receive the list of transactions
+     */
+    public void getShopTransactions(UUID ownerUUID, long startTime, long endTime, TransactionLookupFilter filter, java.util.function.Consumer<java.util.List<Transaction>> callback) {
+        if (!enabled) {
+            callback.accept(new java.util.ArrayList<>());
+            return;
+        }
+
+        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+            StringBuilder queryBuilder = new StringBuilder();
+            queryBuilder.append("SELECT * FROM shop_action ");
+            queryBuilder.append("RIGHT JOIN shop_transaction ON shop_action.transaction_id = shop_transaction.id ");
+            queryBuilder.append("WHERE 1=1 ");
+
+            java.util.List<Object> params = new java.util.ArrayList<>();
+
+            if (ownerUUID != null) {
+                queryBuilder.append("AND owner_uuid = ? ");
+                params.add(ownerUUID.toString());
+            }
+
+            if (startTime > 0) {
+                queryBuilder.append("AND ts >= ? ");
+                params.add(new Timestamp(startTime));
+            }
+
+            if (endTime > 0) {
+                queryBuilder.append("AND ts <= ? ");
+                params.add(new Timestamp(endTime));
+            }
+
+            if (filter.getAction() != null) {
+                queryBuilder.append("AND t_type = ? ");
+                params.add(filter.getAction().toString().toUpperCase());
+            }
+
+            String query = queryBuilder.toString();
+
+            java.util.List<Transaction> transactions = new java.util.ArrayList<>();
+
+            try (
+                Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(query);
+            ) {
+                for (int i = 0; i < params.size(); i++) {
+                    stmt.setObject(i + 1, params.get(i));
+                }
+
+                ResultSet resultSet = stmt.executeQuery();
+
+                while (resultSet.next()) {
+                    String purchaserUUID = resultSet.getString("player_uuid");
+                    String tType = resultSet.getString("t_type");
+                    double price = resultSet.getDouble("price");
+                    int amount = resultSet.getInt("amount");
+                    String item = resultSet.getString("item");
+                    String barterItem = resultSet.getString("barter_item");
+
+                    String shopWorld = resultSet.getString("shop_world");
+                    int shopX = resultSet.getInt("shop_x");
+                    int shopY = resultSet.getInt("shop_y");
+                    int shopZ = resultSet.getInt("shop_z");
+
+                    Location loc = new Location(Bukkit.getWorld(shopWorld), shopX, shopY, shopZ);
+
+                    ItemStack itemstack = UtilMethods.itemStackFromBase64(item);
+                    ItemStack barterItemstack = null;
+                    if (barterItem != null && !barterItem.isEmpty()) {
+                        barterItemstack = UtilMethods.itemStackFromBase64(barterItem);
+                    }
+
+                    OfflinePlayer purchaser = null;
+                    if (purchaserUUID != null && !purchaserUUID.isEmpty()) {
+                        purchaser = Bukkit.getServer().getOfflinePlayer(UUID.fromString(purchaserUUID));
+                    }
+
+                    ShopType transactionType = ShopType.valueOf(tType);
+
+                    // Apply additional filters
+                    // Note: The query already filters by owner_uuid when ownerUUID is provided
+                    // This additional check ensures we match against the filter's ownerUUID if set
+                    String dbOwnerUUID = resultSet.getString("owner_uuid");
+                    if (filter.getOwnerUUID() != null && dbOwnerUUID != null) {
+                        UUID dbOwner = UUID.fromString(dbOwnerUUID);
+                        if (!filter.matchesOwner(dbOwner)) {
+                            continue;
+                        }
+                    }
+                    if (!filter.matchesCustomer(purchaser != null ? purchaser.getName() : "")) {
+                        continue;
+                    }
+                    if (!filter.matchesItem(itemstack)) {
+                        continue;
+                    }
+
+                    Transaction tx = new Transaction(purchaser, null, transactionType);
+                    tx.setPrice(price);
+                    tx.setAmount(amount);
+                    tx.setItem(itemstack);
+                    if (barterItemstack != null) {
+                        tx.setBarterItem(barterItemstack);
+                    }
+
+                    transactions.add(tx);
+                }
+
+                callback.accept(transactions);
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.WARNING, "SQL error occurred while trying to get shop transactions.");
+                e.printStackTrace();
+                callback.accept(new java.util.ArrayList<>());
+            } catch (IOException e) {
+                plugin.getLogger().log(Level.WARNING, "IOException occurred while trying to get shop transactions. Unable to parse itemstack from base64!");
+                e.printStackTrace();
+                callback.accept(new java.util.ArrayList<>());
+            } catch (ClassNotFoundException e) {
+                plugin.getLogger().log(Level.WARNING, "ClassNotFoundException occurred while trying to get shop transactions. Unable to parse itemstack from base64!");
+                e.printStackTrace();
+                callback.accept(new java.util.ArrayList<>());
+            }
+        });
+    }
+
     private void testDataSource() throws SQLException {
         // Connect to datasource & create statement in "try" to handle automatically closing the connection!
         try (Connection conn = dataSource.getConnection()) {
