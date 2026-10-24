@@ -9,6 +9,7 @@ public class SearchWindow extends ShopGuiWindow {
 
     public SearchWindow(UUID player){
         super(player);
+        this.title = "Search";
         this.page = Bukkit.createInventory(null, InventoryType.ANVIL, "Search");
         initInvContents();
     }
