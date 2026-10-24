@@ -152,36 +152,41 @@ public class Display extends AbstractDisplay {
     @Override
     public void removeDisplayEntities(Player player, boolean onlyDisplayTags) {
         if (onlyDisplayTags) {
-            Iterator<Entity> iterator = displayTagEntities.iterator();
-            while (iterator.hasNext()) {
-                Entity entity = iterator.next();
-                if (player != null) {
-                    player.hideEntity(Shop.getPlugin(), entity);
-                } else {
-                    // Remove for all players
-                    entity.remove();
-                }
-                iterator.remove();
-            }
             if (player != null) {
+                List<Entity> entities = displayTagEntities.remove(player.getUniqueId());
+                if (entities != null) {
+                    for (Entity entity : entities) {
+                        player.hideEntity(Shop.getPlugin(), entity);
+                    }
+                }
                 playersSeeingTags.remove(player.getUniqueId());
             } else {
+                // Remove for all players
+                for (List<Entity> entities : displayTagEntities.values()) {
+                    for (Entity entity : entities) {
+                        entity.remove();
+                    }
+                }
+                displayTagEntities.clear();
                 playersSeeingTags.clear();
             }
         } else {
-            Iterator<Entity> iterator = displayEntities.iterator();
-            while (iterator.hasNext()) {
-                Entity entity = iterator.next();
-                if (player != null) {
-                    player.hideEntity(Shop.getPlugin(), entity);
-                } else {
-                    entity.remove();
-                }
-                iterator.remove();
-            }
             if (player != null) {
+                List<Entity> entities = displayEntities.remove(player.getUniqueId());
+                if (entities != null) {
+                    for (Entity entity : entities) {
+                        player.hideEntity(Shop.getPlugin(), entity);
+                    }
+                }
                 playersSeeingDisplay.remove(player.getUniqueId());
             } else {
+                // Remove for all players
+                for (List<Entity> entities : displayEntities.values()) {
+                    for (Entity entity : entities) {
+                        entity.remove();
+                    }
+                }
+                displayEntities.clear();
                 playersSeeingDisplay.clear();
             }
         }

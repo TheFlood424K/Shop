@@ -25,17 +25,13 @@ public abstract class AbstractDisplay {
 
     protected Location shopSignLocation;
     protected DisplayType type;
-    protected ArrayList<Entity> displayEntities;
-    protected ArrayList<Entity> displayTagEntities;
-    protected HashSet<UUID> playersSeeingDisplay;
-    protected HashSet<UUID> playersSeeingTags;
+    protected Map<UUID, List<Entity>> displayEntities = new HashMap<>();
+    protected Map<UUID, List<Entity>> displayTagEntities = new HashMap<>();
+    protected HashSet<UUID> playersSeeingDisplay = new HashSet<>();
+    protected HashSet<UUID> playersSeeingTags = new HashSet<>();
 
     public AbstractDisplay(Location shopSignLocation) {
         this.shopSignLocation = shopSignLocation;
-        this.displayEntities = new ArrayList<>();
-        this.displayTagEntities = new ArrayList<>();
-        this.playersSeeingDisplay = new HashSet<>();
-        this.playersSeeingTags = new HashSet<>();
     }
 
     public boolean isEnabled() { return true; }
@@ -570,31 +566,56 @@ public abstract class AbstractDisplay {
     protected void addDisplayTag(Player player, Entity entity){
         if(player == null || entity == null)
             return;
-        displayTagEntities.add(entity);
+        displayTagEntities.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<>()).add(entity);
         playersSeeingTags.add(player.getUniqueId());
     }
 
     protected void addEntityID(Player player, Entity entity){
         if(player == null || entity == null)
             return;
-        displayEntities.add(entity);
+        displayEntities.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<>()).add(entity);
         playersSeeingDisplay.add(player.getUniqueId());
     }
 
-    protected ArrayList<Entity> getAllDisplayTagEntityIDs(){
-        return new ArrayList<>(displayTagEntities);
+    protected List<Entity> getAllDisplayTagEntityIDs(){
+        List<Entity> all = new ArrayList<>();
+        for (List<Entity> entities : displayTagEntities.values()) {
+            all.addAll(entities);
+        }
+        return all;
     }
 
-    protected ArrayList<Entity> getAllEntityIDs(){
-        return new ArrayList<>(displayEntities);
+    protected List<Entity> getAllEntityIDs(){
+        List<Entity> all = new ArrayList<>();
+        for (List<Entity> entities : displayEntities.values()) {
+            all.addAll(entities);
+        }
+        return all;
     }
 
     protected Iterator<Entity> getDisplayEntityIDIterator(Player player, boolean onlyDisplayTags){
+        if (player == null) {
+            if (onlyDisplayTags) {
+                List<Entity> all = new ArrayList<>();
+                for (List<Entity> entities : displayTagEntities.values()) {
+                    all.addAll(entities);
+                }
+                return all.iterator();
+            } else {
+                List<Entity> all = new ArrayList<>();
+                for (List<Entity> entities : displayEntities.values()) {
+                    all.addAll(entities);
+                }
+                return all.iterator();
+            }
+        }
         if(onlyDisplayTags){
-            return new ArrayList<>(displayTagEntities).iterator();
+            List<Entity> entities = displayTagEntities.get(player.getUniqueId());
+            return entities != null ? new ArrayList<>(entities).iterator() : Collections.emptyIterator();
         }
         else {
-            return new ArrayList<>(displayEntities).iterator();
+            List<Entity> entities = displayEntities.get(player.getUniqueId());
+            return entities != null ? new ArrayList<>(entities).iterator() : Collections.emptyIterator();
         }
     }
 

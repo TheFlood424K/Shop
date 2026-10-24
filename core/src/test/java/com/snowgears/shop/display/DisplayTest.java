@@ -249,6 +249,80 @@ class DisplayTest extends BaseMockBukkitTest {
     }
 
     @Test
+    void testRemoveDisplayEntitiesIsPlayerSpecific() {
+        // Create second player
+        Player player2 = getServer().addPlayer("TestPlayer2");
+
+        // Spawn displays for both players
+        display.spawn(player);
+        display.spawn(player2);
+
+        // Verify both have entities
+        List<Entity> allEntitiesBefore = display.getAllEntityIDs();
+        assertTrue(allEntitiesBefore.size() >= 2, "Should have entities for both players");
+
+        // Remove display entities for player1 only
+        display.removeDisplayEntities(player, false);
+
+        // Player1's entities should be removed
+        List<Entity> player1EntitiesAfter = new ArrayList<>();
+        for (Entity e : display.getDisplayEntityIDIterator(player, false)) {
+            player1EntitiesAfter.add(e);
+        }
+        assertTrue(player1EntitiesAfter.isEmpty(), "Player1's display entities should be removed");
+
+        // Player2's entities should still exist
+        List<Entity> player2EntitiesAfter = new ArrayList<>();
+        for (Entity e : display.getDisplayEntityIDIterator(player2, false)) {
+            player2EntitiesAfter.add(e);
+        }
+        assertFalse(player2EntitiesAfter.isEmpty(), "Player2's display entities should remain");
+
+        // getAllEntityIDs should still return player2's entities
+        List<Entity> allEntitiesAfter = display.getAllEntityIDs();
+        assertEquals(player2EntitiesAfter.size(), allEntitiesAfter.size(),
+            "getAllEntityIDs should only return remaining entities");
+    }
+
+    @Test
+    void testRemoveDisplayTagsIsPlayerSpecific() {
+        // Create second player
+        Player player2 = getServer().addPlayer("TestPlayer2");
+
+        // Spawn display tags for both players
+        ArmorStandData armorStandData = new ArmorStandData();
+        armorStandData.setLocation(chestLocation.clone().add(0.5, 1.5, 0.5));
+        display.spawnArmorStandPacket(player, armorStandData, "Tag for Player1");
+        display.spawnArmorStandPacket(player2, armorStandData, "Tag for Player2");
+
+        // Verify both have tag entities
+        List<Entity> allTagEntitiesBefore = display.getAllDisplayTagEntityIDs();
+        assertTrue(allTagEntitiesBefore.size() >= 2, "Should have tag entities for both players");
+
+        // Remove display tags for player1 only
+        display.removeDisplayEntities(player, true);
+
+        // Player1's tag entities should be removed
+        List<Entity> player1TagEntitiesAfter = new ArrayList<>();
+        for (Entity e : display.getDisplayEntityIDIterator(player, true)) {
+            player1TagEntitiesAfter.add(e);
+        }
+        assertTrue(player1TagEntitiesAfter.isEmpty(), "Player1's tag entities should be removed");
+
+        // Player2's tag entities should still exist
+        List<Entity> player2TagEntitiesAfter = new ArrayList<>();
+        for (Entity e : display.getDisplayEntityIDIterator(player2, true)) {
+            player2TagEntitiesAfter.add(e);
+        }
+        assertFalse(player2TagEntitiesAfter.isEmpty(), "Player2's tag entities should remain");
+
+        // getAllDisplayTagEntityIDs should still return player2's entities
+        List<Entity> allTagEntitiesAfter = display.getAllDisplayTagEntityIDs();
+        assertEquals(player2TagEntitiesAfter.size(), allTagEntitiesAfter.size(),
+            "getAllDisplayTagEntityIDs should only return remaining tag entities");
+    }
+
+    @Test
     void testItemDisplayConfiguration() {
         display.spawn(player);
 
