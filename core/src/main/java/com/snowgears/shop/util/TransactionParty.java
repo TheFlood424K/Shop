@@ -144,7 +144,7 @@ public class TransactionParty {
 
         // @TODO: Maybe check how many items were unable to be removed from the inv to verify tx occured successfully
         InventoryUtils.removeItem(inventory, item);
-        return true;
+        return false;
     }
 
     @Override

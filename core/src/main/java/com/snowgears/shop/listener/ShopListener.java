@@ -247,6 +247,10 @@ public class ShopListener implements Listener {
                 if (shop == null)
                     return;
 
+                if (!WorldGuardHook.canUseShop(player, event.getClickedBlock().getLocation())) {
+                    return;
+                }
+
                 boolean actionPerformed;
                 if (player.isSneaking()) {
                     actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_LEFT_CLICK_CHEST);
