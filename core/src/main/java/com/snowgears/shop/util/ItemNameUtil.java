@@ -77,7 +77,10 @@ public class ItemNameUtil {
                 name.setColor(net.md_5.bungee.api.ChatColor.YELLOW);
                 return name;
             }
-        } catch (Exception e) {} catch (Error e) {} // Backwards compatibility
+        } catch (Exception | Error e) {
+            // Backwards compatibility - OminousBottleMeta not available on older versions
+            Shop.getPlugin().getLogger().debug("OminousBottleMeta not available: " + e.getMessage());
+        }
 
         // Fallback to the material name
         return getNameTranslatable(item.getType());

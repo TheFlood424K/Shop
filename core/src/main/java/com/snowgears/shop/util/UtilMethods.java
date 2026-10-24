@@ -560,9 +560,15 @@ public class UtilMethods {
                             try {
                                 org.bukkit.block.data.type.Beehive beehiveData = (org.bukkit.block.data.type.Beehive) beehive.getBlockData();
                                 honeyLevel = beehiveData.getHoneyLevel();
-                            } catch (Exception e) { }
+                            } catch (Exception e) {
+                                Shop.getPlugin().getLogger().debug("Failed to get honey level: " + e.getMessage());
+                            }
                             // Get bee count (this is from the entity storage)
-                            try { beeCount = beehive.getEntityCount(); } catch (Exception e) {}
+                            try {
+                                beeCount = beehive.getEntityCount();
+                            } catch (Exception e) {
+                                Shop.getPlugin().getLogger().debug("Failed to get bee count: " + e.getMessage());
+                            }
                             
                             // Format the message
                             if(honeyLevel > 0 || beeCount > 0) {
@@ -577,7 +583,9 @@ public class UtilMethods {
                             }
                         }
                     }
-                } catch (Exception e) { /* Silently handle any exceptions for backward compatibility */ }
+                } catch (Exception e) {
+                    Shop.getPlugin().getLogger().debug("Failed to process bee nest/hive data: " + e.getMessage());
+                }
             }
         }
 
@@ -588,7 +596,10 @@ public class UtilMethods {
                 int level = ominousMeta.hasAmplifier() ? ominousMeta.getAmplifier() + 1 : 1; // zero based
                 formattedMessage.addExtra(" [Bad Omen" + formatRomanNumerals(level) + "]");
             }
-        } catch (Error e) {} catch (Exception e) {  /* This might happen on older versions where OminousBottleMeta isn't available */ }
+        } catch (Error | Exception e) {
+            // This might happen on older versions where OminousBottleMeta isn't available
+            Shop.getPlugin().getLogger().debug("OminousBottleMeta not available: " + e.getMessage());
+        }
 
         // Add custom potion formatting
         if(item.getItemMeta() != null && item.getItemMeta() instanceof PotionMeta){
@@ -831,8 +842,10 @@ public class UtilMethods {
             nonIntrusiveMaterials.add(Material.JUNGLE_WALL_SIGN);
             nonIntrusiveMaterials.add(Material.OAK_WALL_SIGN);
             nonIntrusiveMaterials.add(Material.SPRUCE_WALL_SIGN);
-        } catch(NoSuchFieldError e){
+        } catch (NoSuchFieldError e) {
+            // Legacy wall sign for older MC versions
             nonIntrusiveMaterials.add(Material.LEGACY_WALL_SIGN);
+            Shop.getPlugin().getLogger().debug("Using legacy wall sign material");
         }
         nonIntrusiveMaterials.remove(Material.WATER);
         nonIntrusiveMaterials.remove(Material.LAVA);
@@ -844,7 +857,12 @@ public class UtilMethods {
         nonIntrusiveMaterials.remove(Material.PLAYER_HEAD);
         nonIntrusiveMaterials.remove(Material.CREEPER_HEAD);
 
-        try{ nonIntrusiveMaterials.add(Material.LIGHT); } catch(NoSuchFieldError e){}
+        try {
+            nonIntrusiveMaterials.add(Material.LIGHT);
+        } catch (NoSuchFieldError e) {
+            // LIGHT not available on older MC versions
+            Shop.getPlugin().getLogger().debug("LIGHT material not available");
+        }
     }
 
     public static BlockFace getDirectionOfChest(Block block){
@@ -856,26 +874,24 @@ public class UtilMethods {
 
     //returns if Minecraft version 1.17 or above
     public static boolean isMCVersion17Plus(){
-        //LIGHT only available in MC 1.17+
+        // LIGHT only available in MC 1.17+
         try {
-            if(Material.LIGHT != null)
-                return true;
+            return Material.LIGHT != null;
         } catch (NoSuchFieldError e) {
+            Shop.getPlugin().getLogger().debug("LIGHT material not found, assuming pre-1.17 version");
             return false;
         }
-        return false;
     }
 
     //returns if Minecraft version 1.14 or above
     public static boolean isMCVersion14Plus(){
-        //LIGHT only available in MC 1.17+
+        // BARREL only available in MC 1.14+
         try {
-            if(Material.BARREL != null)
-                return true;
+            return Material.BARREL != null;
         } catch (NoSuchFieldError e) {
+            Shop.getPlugin().getLogger().debug("BARREL material not found, assuming pre-1.14 version");
             return false;
         }
-        return false;
     }
 
     //this takes a dirty (pre-cleaned) string and finds how much to multiply the final by
@@ -1003,7 +1019,7 @@ public class UtilMethods {
                 out.write(buf, 0, len);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Shop.getPlugin().getLogger().warning("Failed to copy input stream to file: " + e.getMessage());
         } finally {
             try { if (in != null) in.close(); } catch (Exception ignored) {}
         }

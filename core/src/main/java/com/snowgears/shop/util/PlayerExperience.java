@@ -43,8 +43,8 @@ public class PlayerExperience {
             config.set("player.experience", this.experience);
 
             config.save(playerDataFile);
-        } catch(Exception e){
-            e.printStackTrace();
+        } catch (Exception e) {
+            Shop.getPlugin().getLogger().warning("Failed to save experience data for " + this.playerUUID + ": " + e.getMessage());
         }
     }
 

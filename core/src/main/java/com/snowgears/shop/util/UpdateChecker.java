@@ -62,7 +62,7 @@ public class UpdateChecker {
                         spigotPluginVersion = new BufferedReader(new InputStreamReader(connection.getInputStream())).readLine();
                     } catch (final IOException e) {
                         Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', ERR_MSG));
-                        e.printStackTrace();
+                        Shop.getPlugin().getLogger().warning("Failed to check for updates: " + e.getMessage());
                         cancelTask();
                         return;
                     }

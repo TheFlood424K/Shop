@@ -64,10 +64,13 @@ public class DisplayUtil {
                 stand.getEquipment().setItemInMainHand(itemStack);
                 stand.setRightArmPose(getArmAngle(itemStack));
 
-                try{
+                try {
                     if(itemStack.getType() == Material.SHIELD)
                         stand.setSmall(true);
-                } catch (NoSuchFieldError e) {}
+                } catch (NoSuchFieldError e) {
+                    // SHIELD not available on older MC versions
+                    Shop.getPlugin().getLogger().debug("SHIELD material not available: " + e.getMessage());
+                }
 
                 break;
         }
@@ -100,10 +103,13 @@ public class DisplayUtil {
             case HAND:
                 armorStandData.setRightArmPose(getArmAngle(itemStack));
                 standLocation.setY(standLocation.getY() + 0.7);
-                try{
+                try {
                     if(itemStack.getType() == Material.SHIELD)
                         armorStandData.setSmall(true);
-                } catch (NoSuchFieldError e) {}
+                } catch (NoSuchFieldError e) {
+                    // SHIELD not available on older MC versions
+                    Shop.getPlugin().getLogger().debug("SHIELD material not available: " + e.getMessage());
+                }
 
                 break;
         }
@@ -118,10 +124,13 @@ public class DisplayUtil {
         armorStandData.setEquipmentSlot(equipmentSlot);
 
         boolean isShield = false;
-        try{
+        try {
             if(itemStack.getType() == Material.SHIELD)
                 isShield = true;
-        } catch (NoSuchFieldError e) {}
+        } catch (NoSuchFieldError e) {
+            // SHIELD not available on older MC versions
+            Shop.getPlugin().getLogger().debug("SHIELD material not available: " + e.getMessage());
+        }
 
         //make the stand face the correct direction when it spawns
         armorStandData.setYaw(blockfaceToYaw(facing));
@@ -299,15 +308,21 @@ public class DisplayUtil {
                                 break;
                         }
                     }
-                } catch (NoSuchFieldError e) {}
+                } catch (NoSuchFieldError e) {
+                    // SHIELD not available on older MC versions
+                    Shop.getPlugin().getLogger().debug("SHIELD material not available: " + e.getMessage());
+                }
                 break;
         }
 
         boolean isShield = false;
-        try{
+        try {
             if(material == Material.SHIELD)
                 isShield = true;
-        } catch (NoSuchFieldError e) {}
+        } catch (NoSuchFieldError e) {
+            // SHIELD not available on older MC versions
+            Shop.getPlugin().getLogger().debug("SHIELD material not available: " + e.getMessage());
+        }
 
         if(facing == null)
             facing = BlockFace.NORTH;
@@ -328,10 +343,13 @@ public class DisplayUtil {
         Material material = itemStack.getType();
 
         boolean isShield = false;
-        try{
+        try {
             if(material == Material.SHIELD)
                 isShield = true;
-        } catch (NoSuchFieldError e) {}
+        } catch (NoSuchFieldError e) {
+            // SHIELD not available on older MC versions
+            Shop.getPlugin().getLogger().debug("SHIELD material not available: " + e.getMessage());
+        }
 
         if(isTool(material) && !(material == Material.FISHING_ROD || material == Material.CARROT_ON_A_STICK)){
             return toolAngle;

@@ -103,8 +103,8 @@ public class PlayerSettings {
             }
 
             config.save(playerSettingsFile);
-        } catch(Exception e){
-            e.printStackTrace();
+        } catch (Exception e) {
+            Shop.getPlugin().getLogger().warning("Failed to save player settings for " + this.player + ": " + e.getMessage());
         }
     }
 

@@ -63,8 +63,8 @@ public class PlayerData {
             config.set("player.isFlying", isFlying);
             config.set("player.guiSearch", guiSearch);
             config.save(playerDataFile);
-        } catch(Exception e){
-            e.printStackTrace();
+        } catch (Exception e) {
+            Shop.getPlugin().getLogger().warning("Failed to save player data for " + this.playerUUID + ": " + e.getMessage());
         }
     }
 

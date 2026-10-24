@@ -85,8 +85,8 @@ public class ShopCreationUtil {
                 canCreateShopInRegion = WorldGuardHook.canCreateShop(player, chest.getLocation());
             }
         } catch (NoClassDefFoundError e) {
-            //tried to hook world guard but it was not registered
-            e.printStackTrace();
+            // tried to hook world guard but it was not registered
+            Shop.getPlugin().getLogger().debug("WorldGuard hook not available: " + e.getMessage());
         }
 
         //do a check for the Towny region (optional hook)
@@ -95,8 +95,8 @@ public class ShopCreationUtil {
                 canCreateShopInRegion = TownyHook.canCreateShop(player, chest.getLocation());
             }
         } catch (NoClassDefFoundError e) {
-            //tried to hook towny but it was not registered
-            e.printStackTrace();
+            // tried to hook towny but it was not registered
+            Shop.getPlugin().getLogger().debug("Towny hook not available: " + e.getMessage());
         }
 
         if (!canCreateShopInRegion) {
@@ -317,7 +317,10 @@ public class ShopCreationUtil {
                     return false;
                 }
             }
-        } catch (NoSuchFieldError e) {}
+        } catch (NoSuchFieldError e) {
+            // SHULKER_BOXES tag not available on older MC versions
+            Shop.getPlugin().getLogger().debug("SHULKER_BOXES tag not available: " + e.getMessage());
+        }
 
         if(!itemsCanBeInitialized(player, item, barterItem)){
             shop.sendEffects(false, player);

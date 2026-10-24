@@ -41,7 +41,7 @@ public class ItemStackUtils {
             item.addProperty("DataVersion", Bukkit.getUnsafe().getDataVersion());
             return item;
         } catch (Exception e) {
-            e.printStackTrace();
+            Shop.getPlugin().getLogger().warning("Failed to serialize ItemStack as JSON: " + e.getMessage());
         }
         return null;
     }
