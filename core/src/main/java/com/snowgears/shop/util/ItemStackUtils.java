@@ -37,7 +37,7 @@ public class ItemStackUtils {
         try {
             net.minecraft.world.item.ItemStack mcItem = Shop.getPlugin().getNmsBullshitHandler().getMCItemStack(itemStack);
             final Optional<JsonElement> encoded = net.minecraft.world.item.ItemStack.CODEC.encodeStart(itemSerializationCodec, mcItem).result();
-            item = encoded.get().getAsJsonObject();
+            item = encoded.orElseThrow(() -> new RuntimeException("Failed to encode ItemStack: codec returned empty")).getAsJsonObject();
             item.addProperty("DataVersion", Bukkit.getUnsafe().getDataVersion());
             return item;
         } catch (Exception e) {
@@ -51,7 +51,6 @@ public class ItemStackUtils {
         if (Shop.getPlugin().getFoliaLib().isPaper()) {
             return Bukkit.getUnsafe().deserializeItemFromJson(data);
         }
-        // TODO: Implement this for non-paper servers, not high priority
-        return null;
+        throw new UnsupportedOperationException("Item deserialization from JSON is only supported on Paper servers");
     }
 }

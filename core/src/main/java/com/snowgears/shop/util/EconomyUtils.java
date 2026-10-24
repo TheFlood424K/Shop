@@ -17,7 +17,9 @@ public class EconomyUtils {
                 double balance = Shop.getPlugin().getEconomy().getBalance(player);
                 return (balance >= amount);
             case ITEM:
-                ItemStack currency = Shop.getPlugin().getItemCurrency().clone();
+                ItemStack currencyTemplate = Shop.getPlugin().getItemCurrency();
+                if (currencyTemplate == null) return false;
+                ItemStack currency = currencyTemplate.clone();
                 currency.setAmount(1);
                 int stock = InventoryUtils.getAmount(inventory, currency);
                 return (stock >= amount);
@@ -37,7 +39,9 @@ public class EconomyUtils {
             case EXPERIENCE:
                 return true;
             case ITEM:
-                ItemStack currency = Shop.getPlugin().getItemCurrency().clone();
+                ItemStack currencyTemplate2 = Shop.getPlugin().getItemCurrency();
+                if (currencyTemplate2 == null) return false;
+                ItemStack currency = currencyTemplate2.clone();
                 currency.setAmount((int) amount);
 
                 return InventoryUtils.hasRoom(inventory, currency);
@@ -55,7 +59,9 @@ public class EconomyUtils {
             case EXPERIENCE:
                 return getExperience(player);
             case ITEM:
-                ItemStack currency = Shop.getPlugin().getItemCurrency().clone();
+                ItemStack currencyTemplate3 = Shop.getPlugin().getItemCurrency();
+                if (currencyTemplate3 == null) return 0;
+                ItemStack currency = currencyTemplate3.clone();
                 currency.setAmount(1);
                 int balanceInt = InventoryUtils.getAmount(inventory, currency);
                 return balanceInt;
@@ -89,7 +95,9 @@ public class EconomyUtils {
                     }
                 }
             case ITEM:
-                ItemStack currency = Shop.getPlugin().getItemCurrency().clone();
+                ItemStack currencyTemplate4 = Shop.getPlugin().getItemCurrency();
+                if (currencyTemplate4 == null) return false;
+                ItemStack currency = currencyTemplate4.clone();
                 currency.setAmount((int)amount);
                 int unremoved = InventoryUtils.removeItem(inventory, currency);
                 if(unremoved > 0){
@@ -127,7 +135,9 @@ public class EconomyUtils {
                     }
                 }
             case ITEM:
-                ItemStack currency = Shop.getPlugin().getItemCurrency().clone();
+                ItemStack currencyTemplate5 = Shop.getPlugin().getItemCurrency();
+                if (currencyTemplate5 == null) return false;
+                ItemStack currency = currencyTemplate5.clone();
                 currency.setAmount((int)amount);
                 int unadded = InventoryUtils.addItem(inventory, currency);
                 if(unadded > 0){

@@ -71,7 +71,6 @@ public class Transaction {
             this.buyer = new TransactionParty(true, false, player, player.getInventory());
             this.seller = new TransactionParty(false, shop.isAdmin(), shop.getOwner(), shop.getInventory());
 
-            ((GambleShop)shop).setGambleItem();
             this.itemBeingSold = ((GambleShop) shop).getGambleItem();
             this.amountBeingSold = ((GambleShop) shop).getGambleItem().getAmount();
         }
@@ -214,6 +213,12 @@ public class Transaction {
         // Check to see if we had any errors, you must do this before performing the transaction!
         if (this.verify() != TransactionError.NONE) { return this.error; }
 
+        if (shop.getType() == ShopType.GAMBLE && shop instanceof GambleShop) {
+            ((GambleShop) shop).setGambleItem();
+            this.itemBeingSold = ((GambleShop) shop).getGambleItem();
+            this.amountBeingSold = ((GambleShop) shop).getGambleItem().getAmount();
+        }
+
         // Perform the transaction, we are fully verified, so we can just directly run through the transaction
         ItemStack itemSold = this.itemBeingSold.clone();
         itemSold.setAmount(this.amountBeingSold);
@@ -229,7 +234,12 @@ public class Transaction {
         this.seller.depositFunds(this.price);
 
         // Swap Item
-        this.seller.deductItem(itemSold);
+        if (!this.seller.deductItem(itemSold)) {
+            // Rollback: return funds to buyer
+            this.buyer.depositFunds(this.price);
+            if (this.buyer.isPlayer()) { return this.setError(TransactionError.INVENTORY_FULL_PLAYER); }
+            else { return this.setError(TransactionError.INVENTORY_FULL_SHOP); }
+        }
         this.buyer.depositItem(itemSold);
 
         // Special handling for Gamble shops!
