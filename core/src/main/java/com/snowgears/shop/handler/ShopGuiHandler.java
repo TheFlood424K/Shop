@@ -7,6 +7,7 @@ import com.snowgears.shop.util.ConfigUpdater;
 import com.snowgears.shop.util.PlayerSettings;
 import com.snowgears.shop.util.ShopMessage;
 import com.snowgears.shop.util.UtilMethods;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
 import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
@@ -22,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 public class ShopGuiHandler {
@@ -54,6 +56,11 @@ public class ShopGuiHandler {
     // Owners whose head needs (re)building, with their latest shop. Filled from async shop loading.
     private Map<UUID, AbstractShop> staleHeads = new ConcurrentHashMap<>();
 
+    // Throttling queue for profile lookups to avoid Mojang session server rate limits
+    private final Queue<AbstractShop> pendingHeadLoads = new LinkedBlockingQueue<>();
+    private final Set<UUID> queuedHeadOwners = Collections.synchronizedSet(new HashSet<>());
+    private WrappedTask headQueueTask;
+
     public ShopGuiHandler(Shop instance){
         plugin = instance;
     }
@@ -84,11 +91,55 @@ public class ShopGuiHandler {
      * Marks the owner's GUI head for rebuilding the next time it is shown.
      * Heads are built lazily: each setItemMeta on a head without textures makes Paper send an uncached
      * Mojang profile lookup, so building one per loaded shop floods the session server at startup.
+     *
+     * To avoid rate limits, head rebuilds are queued and processed one at a time with a small delay.
      */
     public void reloadPlayerHeadIcon(AbstractShop shop){
         if(shop == null || shop.getOwnerUUID() == null)
             return;
+
+        UUID playerUUID = shop.getOwnerUUID();
+
+        // If head is already cached or it's the admin UUID, build immediately
+        if(playerHeads.containsKey(playerUUID) || playerUUID.equals(plugin.getShopHandler().getAdminUUID())){
+            doReloadPlayerHeadIcon(shop);
+            return;
+        }
+
+        // Queue the shop for throttled head loading
+        synchronized (pendingHeadLoads) {
+            if (queuedHeadOwners.add(playerUUID)) {
+                pendingHeadLoads.add(shop);
+            }
+            if (headQueueTask == null) {
+                startHeadQueueProcessor();
+            }
+        }
+    }
+
+    private void doReloadPlayerHeadIcon(AbstractShop shop){
+        if(shop == null || shop.getOwnerUUID() == null)
+            return;
         staleHeads.put(shop.getOwnerUUID(), shop);
+    }
+
+    private void startHeadQueueProcessor(){
+        headQueueTask = plugin.getFoliaLib().getScheduler().runTimer(task -> {
+            AbstractShop shop;
+            synchronized (pendingHeadLoads) {
+                shop = pendingHeadLoads.poll();
+                if (shop != null) {
+                    queuedHeadOwners.remove(shop.getOwnerUUID());
+                }
+            }
+            if (shop != null) {
+                doReloadPlayerHeadIcon(shop);
+            } else {
+                // Queue is empty, cancel the task
+                headQueueTask.cancel();
+                headQueueTask = null;
+            }
+        }, 20, 20); // Start after 1 second, then process one per second (20 ticks)
     }
 
     private void buildStaleHead(UUID playerUUID){
