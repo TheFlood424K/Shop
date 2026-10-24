@@ -658,8 +658,15 @@ public abstract class AbstractShop {
                 if (Shop.getPlugin().playSounds()) player.playSound(this.getSignLocation(), Sound.ITEM_SHIELD_BLOCK, 1.0F, 1.0F);
                 if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.STEP_SOUND, Material.REDSTONE_BLOCK);
             }
-        } catch (Error e){
-        } catch (Exception e) {}
+        } catch (Error e) {
+            if (Shop.getPlugin() != null) {
+                Shop.getPlugin().getLogger().debug("Error playing shop effects: " + e.getMessage());
+            }
+        } catch (Exception e) {
+            if (Shop.getPlugin() != null) {
+                Shop.getPlugin().getLogger().debug("Exception playing shop effects: " + e.getMessage());
+            }
+        }
     }
 
     @Override

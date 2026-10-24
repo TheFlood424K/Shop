@@ -1019,9 +1019,15 @@ public class UtilMethods {
                 out.write(buf, 0, len);
             }
         } catch (Exception e) {
-            Shop.getPlugin().getLogger().warning("Failed to copy input stream to file: " + e.getMessage());
+            if (Shop.getPlugin() != null) {
+                Shop.getPlugin().getLogger().warning("Failed to copy input stream to file: " + e.getMessage());
+            }
         } finally {
-            try { if (in != null) in.close(); } catch (Exception ignored) {}
+            try { if (in != null) in.close(); } catch (Exception e) {
+                if (Shop.getPlugin() != null) {
+                    Shop.getPlugin().getLogger().debug("Failed to close input stream: " + e.getMessage());
+                }
+            }
         }
     }
 
