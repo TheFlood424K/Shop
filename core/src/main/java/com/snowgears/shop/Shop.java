@@ -515,6 +515,9 @@ public class Shop extends JavaPlugin {
         // Load CommandHandler by initializing it once
         new CommandHandler(this, null, commandAlias, "Base command for the Shop plugin", "/shop", new ArrayList(Arrays.asList(commandAlias)));
 
+        // Load TransactionCommandHandler for /transactions command
+        new TransactionCommandHandler(this);
+
         guiHandler = new ShopGuiHandler(plugin);
         shopHandler = new ShopHandler(plugin);
         guiHandler.loadIconsAndTitles();
