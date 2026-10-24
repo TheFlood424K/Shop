@@ -312,7 +312,8 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- Toolchains plugin: ensure JDK 21 is available for tests because MockBukkit 4 requires 21, but we still want to compile with a lower Java target in mind -->
+            <!-- Toolchains plugin: ensure JDK 21 is available for tests because MockBukkit 4 requires 21, but we still want to compile with a lower Java target in mind.
+                 failIfMissing=false allows mvn validate (run by GitHub's maven-dependency-submission-action) to pass before the CI workflow creates toolchains.xml. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-toolchains-plugin</artifactId>
@@ -325,6 +326,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <failIfMissing>false</failIfMissing>
                     <toolchains>
                         <jdk>
                             <version>21</version>
