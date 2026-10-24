@@ -203,7 +203,7 @@ public class ShopLogger extends Logger {
         if (this.getLogLevel().intValue() > SPAM.intValue()) { return; }
         Bukkit.getConsoleSender().sendMessage(INTENSE_WHITE + "[" + plugin.getDescription().getName() + "] " + DIM_GREY + "[Spam] " + message + RESET);
     }
-    public void hyper(String message) { logFilterLevel(SPAM, addColor(ALMOST_BLACK, "[Hyper] " + message)); }
+    public void hyper(String message) { logFilterLevel(HYPER, addColor(ALMOST_BLACK, "[Hyper] " + message)); }
 
     public void setLogLevel(String level) {
         if (level == null) { setLevel(Level.INFO); return; }
