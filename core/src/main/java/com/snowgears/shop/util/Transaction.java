@@ -230,16 +230,18 @@ public class Transaction {
             if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
             else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
         }
-        // Pay the seller the funds
-        this.seller.depositFunds(this.price);
 
-        // Swap Item
+        // Remove sold item from seller first to free up space for payment
         if (!this.seller.deductItem(itemSold)) {
             // Rollback: return funds to buyer
             this.buyer.depositFunds(this.price);
             if (this.buyer.isPlayer()) { return this.setError(TransactionError.INVENTORY_FULL_PLAYER); }
             else { return this.setError(TransactionError.INVENTORY_FULL_SHOP); }
         }
+
+        // Pay the seller the funds
+        this.seller.depositFunds(this.price);
+
         this.buyer.depositItem(itemSold);
 
         // Special handling for Gamble shops!

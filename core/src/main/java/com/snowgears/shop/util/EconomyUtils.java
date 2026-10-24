@@ -22,10 +22,10 @@ public class EconomyUtils {
                 ItemStack currency = currencyTemplate.clone();
                 currency.setAmount(1);
                 int stock = InventoryUtils.getAmount(inventory, currency);
-                return (stock >= amount);
+                return (stock >= (int)Math.ceil(amount));
             case EXPERIENCE:
                 int exp = getExperience(player);
-                return (exp > amount);
+                return (exp >= (int)Math.ceil(amount));
             default:
                 return false;
         }
@@ -80,14 +80,15 @@ public class EconomyUtils {
                     return true;
                 return false;
             case EXPERIENCE:
+                int expToRemove = (int)Math.ceil(amount);
                 Player onlinePlayer = player.getPlayer();
                 if (onlinePlayer != null) {
-                    setTotalExperience(onlinePlayer, getTotalExperience(onlinePlayer) - (int)amount);
+                    setTotalExperience(onlinePlayer, getTotalExperience(onlinePlayer) - expToRemove);
                     return true;
                 } else {
                     PlayerExperience expData = PlayerExperience.loadFromFile(player);
                     if (expData != null) {
-                        expData.removeExperienceAmount((int)amount);
+                        expData.removeExperienceAmount(expToRemove);
                         return true;
                     }
                     else{
@@ -120,14 +121,15 @@ public class EconomyUtils {
                 if(response.transactionSuccess())
                     return true;
             case EXPERIENCE:
+                int expToAdd = (int)Math.ceil(amount);
                 Player onlinePlayer = player.getPlayer();
                 if (onlinePlayer != null) {
-                    setTotalExperience(onlinePlayer, getTotalExperience(onlinePlayer) + (int)amount);
+                    setTotalExperience(onlinePlayer, getTotalExperience(onlinePlayer) + expToAdd);
                     return true;
                 } else {
                     PlayerExperience expData = PlayerExperience.loadFromFile(player);
                     if (expData != null) {
-                        expData.addExperienceAmount((int)amount);
+                        expData.addExperienceAmount(expToAdd);
                         return true;
                     }
                     else{
