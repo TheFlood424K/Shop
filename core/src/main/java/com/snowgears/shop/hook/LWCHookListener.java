@@ -7,6 +7,7 @@ import com.snowgears.shop.Shop;
 import com.snowgears.shop.event.PlayerCreateShopEvent;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.util.ShopMessage;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -19,14 +20,20 @@ public class LWCHookListener implements Listener {
 
     public LWCHookListener(Shop instance) {
         plugin = instance;
-        lwc = ((LWCPlugin) plugin.getServer().getPluginManager().getPlugin("LWC")).getLWC();
+        LWCPlugin lwcPlugin = (LWCPlugin) plugin.getServer().getPluginManager().getPlugin("LWC");
+        if (lwcPlugin == null) {
+            plugin.getLogger().warning("LWC plugin not found, LWCHookListener will not function");
+            lwc = null;
+            return;
+        }
+        lwc = lwcPlugin.getLWC();
     }
 
     //because LWC events do not use the Spigot event system, they apparently cannot be listened for
     //this is dumb, but in order to not hard code all scenarios where an LWCProtectionRegisterEvent could be registered, we are just gonna remove protections on shops when their chests are clicked
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChestClick(PlayerInteractEvent event){
-        if (plugin == null || !plugin.isLwcIntegrationEnabled()) {
+        if (plugin == null || !plugin.isLwcIntegrationEnabled() || lwc == null) {
             return;
         }
         if(event.getClickedBlock() != null && plugin.getShopHandler().isChest(event.getClickedBlock())){
@@ -42,14 +49,18 @@ public class LWCHookListener implements Listener {
 
     @EventHandler
     public void onBlockPlace(PlayerCreateShopEvent event){
-        if (plugin == null || !plugin.isLwcIntegrationEnabled()) {
+        if (plugin == null || !plugin.isLwcIntegrationEnabled() || lwc == null) {
             return;
         }
         if(event.getShop().getChestLocation() != null){
             Protection protection = lwc.findProtection(event.getShop().getChestLocation());
             if(protection != null) {
                 //if the owner of the existing LWC protection is NOT the player creating the shop
-                if(!event.getPlayer().isOp() && !protection.getBukkitOwner().getUniqueId().equals(event.getPlayer().getUniqueId())) {
+                OfflinePlayer protectionOwner = protection.getBukkitOwner();
+                if(protectionOwner == null) {
+                    return;
+                }
+                if(!event.getPlayer().isOp() && !protectionOwner.getUniqueId().equals(event.getPlayer().getUniqueId())) {
                     event.setCancelled(true);
                     ShopMessage.sendMessage("interactionIssue", "createOtherPlayer", event.getPlayer(), event.getShop());
                 }

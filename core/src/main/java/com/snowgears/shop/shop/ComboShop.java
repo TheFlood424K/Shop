@@ -76,7 +76,8 @@ public class ComboShop extends AbstractShop {
                 // Check if we should show partial stock
                 if (stock == 0 && Shop.getPlugin().getAllowPartialSales()) {
                     // Calculate the minimum items required to show as in stock
-                    int minItemAmountRequired = (int) Math.ceil(1 / this.getPricePerItem());
+                    double sellPricePerItem = this.getPriceSell() / (double)this.getAmount();
+                    int minItemAmountRequired = (int) Math.ceil(1 / sellPricePerItem);
                     int itemsInShop = InventoryUtils.getAmount(this.getInventory(), this.getItemStack());
 
                     if(itemsInShop >= minItemAmountRequired){

@@ -83,9 +83,22 @@ public class PlayerData {
 
             YamlConfiguration config = YamlConfiguration.loadConfiguration(playerDataFile);
 
-            UUID uuid = UUID.fromString(config.getString("player.UUID"));
-            GameMode gamemode = GameMode.valueOf(config.getString("player.gamemode"));
-            Location signLoc = locationFromString(config.getString("player.shopSignLocation"));
+            String uuidStr = config.getString("player.UUID");
+            if (uuidStr == null) {
+                Shop.getPlugin().getLogger().warning("Missing player UUID in LimitedCreative data file");
+                return null;
+            }
+            UUID uuid = UUID.fromString(uuidStr);
+            String gamemodeStr = config.getString("player.gamemode");
+            if (gamemodeStr == null) {
+                return null;
+            }
+            GameMode gamemode = GameMode.valueOf(gamemodeStr);
+            String signLocStr = config.getString("player.shopSignLocation");
+            if (signLocStr == null) {
+                return null;
+            }
+            Location signLoc = locationFromString(signLocStr);
             boolean allowFlight = config.getBoolean("player.allowFlight");
             boolean isFlying = config.getBoolean("player.isFlying");
             boolean guiSearch = config.getBoolean("player.guiSearch");

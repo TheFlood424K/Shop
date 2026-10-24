@@ -45,8 +45,10 @@ public class WorldGuardHook {
 
         public WorldGuardConfig(YamlConfiguration config) {
             this.requireAllowShopFlag = config.getBoolean("worldGuard.requireAllowShopFlag", false);
-            this.createShopFlags = new FlagCheckConfig(config.getConfigurationSection("worldGuard.createShopFlagChecks"));
-            this.useShopFlags = new FlagCheckConfig(config.getConfigurationSection("worldGuard.useShopFlagChecks"));
+            ConfigurationSection createSection = config.getConfigurationSection("worldGuard.createShopFlagChecks");
+            this.createShopFlags = createSection != null ? new FlagCheckConfig(createSection) : new FlagCheckConfig(new YamlConfiguration());
+            ConfigurationSection useSection = config.getConfigurationSection("worldGuard.useShopFlagChecks");
+            this.useShopFlags = useSection != null ? new FlagCheckConfig(useSection) : new FlagCheckConfig(new YamlConfiguration());
         }
         public String toString() { return "WorldGuardConfig [requireAllowShopFlag=" + requireAllowShopFlag + ", createShopFlags=" + createShopFlags + ", useShopFlags=" + useShopFlags + "]"; }
 
