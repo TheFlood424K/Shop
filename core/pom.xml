@@ -302,37 +302,11 @@
                         <parallel>methods</parallel>
                         <forkCount>1</forkCount>
                         <reuseForks>true</reuseForks>
-                        <!-- Ensure JDK 21 is available for tests because MockBukkit 4 requires 21 -->
-                        <jdkToolchain>
-                            <version>21</version>
-                            <vendor>any</vendor>
-                        </jdkToolchain>
                     </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- Toolchains plugin: ensure JDK 21 is available for tests because MockBukkit 4 requires 21, but we still want to compile with a lower Java target in mind -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-toolchains-plugin</artifactId>
-                <version>3.2.0</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>toolchain</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <toolchains>
-                        <jdk>
-                            <version>21</version>
-                            <vendor>any</vendor>
-                        </jdk>
-                    </toolchains>
-                </configuration>
-            </plugin>
             <!-- Always enable JaCoCo agent and reporting by default -->
             <plugin>
                 <groupId>org.jacoco</groupId>
@@ -403,10 +377,6 @@
                     <parallel>methods</parallel>
                     <forkCount>1</forkCount>
                     <reuseForks>true</reuseForks>
-                    <jdkToolchain>
-                        <version>21</version>
-                        <vendor>any</vendor>
-                    </jdkToolchain>
                 </configuration>
             </plugin>
         </plugins>
