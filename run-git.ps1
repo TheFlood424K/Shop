@@ -1,1 +1,0 @@
-cd C:\Users\malex\Shop\.mcc-claude\worktrees\issue-5 && git add core\pom.xml && git commit -m "Fix maven toolchain failure in dependency submission CI job" && git push origin fix/issue-504-bug-cannot-read-world-asynchrono
