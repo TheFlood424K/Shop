@@ -581,14 +581,14 @@ public abstract class AbstractShop {
         if(chestLocation == null) {
             this.load();
             Location loc = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
-            player.teleport(loc);
+            Shop.getPlugin().getFoliaLib().getScheduler().teleportAsync(player, loc);
         }
         else {
             Location loc = this.getSignLocation().getBlock().getRelative(facing).getLocation().add(0.5, 0, 0.5);
             loc.setYaw(UtilMethods.faceToYaw(facing.getOppositeFace()));
             loc.setPitch(25.0f);
 
-            player.teleport(loc);
+            Shop.getPlugin().getFoliaLib().getScheduler().teleportAsync(player, loc);
         }
         Shop.getPlugin().getShopListener().addTeleportCooldown(player);
     }

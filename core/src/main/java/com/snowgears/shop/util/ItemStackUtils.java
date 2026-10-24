@@ -28,7 +28,7 @@ public class ItemStackUtils {
 
     // Serialize an ItemStack to a JsonObject
     public static JsonObject serializeItemAsJson(ItemStack itemStack) {
-        if (Shop.getPlugin().getFoliaLib().isPaper()) {
+        if (Shop.getPlugin().getFoliaLib().isPaper() || Shop.getPlugin().getFoliaLib().isFolia()) {
             return Bukkit.getUnsafe().serializeItemAsJson(itemStack);
         }
         init();
@@ -37,6 +37,9 @@ public class ItemStackUtils {
         try {
             net.minecraft.world.item.ItemStack mcItem = Shop.getPlugin().getNmsBullshitHandler().getMCItemStack(itemStack);
             final Optional<JsonElement> encoded = net.minecraft.world.item.ItemStack.CODEC.encodeStart(itemSerializationCodec, mcItem).result();
+            if (encoded.isEmpty()) {
+                return null;
+            }
             item = encoded.get().getAsJsonObject();
             item.addProperty("DataVersion", Bukkit.getUnsafe().getDataVersion());
             return item;

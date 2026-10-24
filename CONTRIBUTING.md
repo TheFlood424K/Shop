@@ -9,7 +9,7 @@ Thank you for your interest in contributing to Shop, the intuitive shop plugin f
 Before you begin, ensure you have the following requirements installed:
 
 - **Docker**: Install Docker from the [official website](https://www.docker.com/get-started)
-- **JDK 21**: Ensure you have JDK 21 installed. You can download it from the [Oracle website](https://www.oracle.com/java/technologies/downloads/#java21)
+- **JDK 25**: Ensure you have JDK 25 installed. You can download it from the [Oracle website](https://www.oracle.com/java/technologies/downloads/#java25)
 - **Maven**: Verify Maven is installed. You can download it from the [Maven website](https://maven.apache.org/download.cgi)
 
 ### Setting Up Your Development Environment
