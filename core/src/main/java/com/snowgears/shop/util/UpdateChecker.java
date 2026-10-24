@@ -46,11 +46,19 @@ public class UpdateChecker {
     private static final long CHECK_INTERVAL = 12_000; //In ticks.
     private WrappedTask task;
     private final List<Listener> registeredListeners = new ArrayList<>();
+    private final List<Listener> registeredListeners = new ArrayList<>();
 
 
     public UpdateChecker(final Shop plugin) {
         this.plugin = plugin;
-        this.localPluginVersion = plugin.getDescription() != null ? plugin.getDescription().getVersion() : "0.0.0";
+        String version = null;
+        try {
+            if (plugin != null && plugin.getDescription() != null) {
+                version = plugin.getDescription().getVersion();
+            }
+        } catch (Exception ignored) {
+        }
+        this.localPluginVersion = version == null || version.isEmpty() ? "0.0.0" : version;
     }
 
     public void checkForUpdate() {
@@ -60,16 +68,34 @@ public class UpdateChecker {
                 //The request is executed asynchronously as to not block the main thread.
                 plugin.getFoliaLib().getScheduler().runAsync(task -> {
                     //Request the current version of your plugin on SpigotMC.
+                    BufferedReader reader = null;
                     try {
                         final HttpsURLConnection connection = (HttpsURLConnection) new URL("https://api.spigotmc.org/legacy/update.php?resource=" + ID).openConnection();
                         connection.setRequestMethod("GET");
-                        String response = new BufferedReader(new InputStreamReader(connection.getInputStream())).readLine();
+                        reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                        String response = reader.readLine();
                         spigotPluginVersion = response == null ? null : response.trim();
-                    } catch (final IOException e) {
+                    } catch (final Exception e) {
                         Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', ERR_MSG));
-                        e.printStackTrace();
+                        try {
+                            e.printStackTrace();
+                        } catch (Exception ignored) {
+                        }
+                        if (reader != null) {
+                            try {
+                                reader.close();
+                            } catch (Exception ignored) {
+                            }
+                        }
                         cancelTask();
                         return;
+                    } finally {
+                        if (reader != null) {
+                            try {
+                                reader.close();
+                            } catch (Exception ignored) {
+                            }
+                        }
                     }
 
                     if (spigotPluginVersion == null || spigotPluginVersion.isEmpty()) {
@@ -88,42 +114,66 @@ public class UpdateChecker {
                     }
                     // Are we running an older verion?
                     if (compareVersions(localPluginVersion, spigotPluginVersion) < 0) {
-                        Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
+                        try {
+                            Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
+                        } catch (Exception ignored) {
+                        }
 
                         //Register the PlayerJoinEvent
-                        plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> {
-                            Listener listener = new Listener() {
-                                @EventHandler(priority = EventPriority.MONITOR)
-                                public void onPlayerJoin(final PlayerJoinEvent event) {
-                                    final Player player = event.getPlayer();
-                                    if (!player.isOp()) return;
-                                    TextComponent updateMsg = new TextComponent(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
-                                    updateMsg.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Click to open Shop plugin page").create()));
-                                    updateMsg.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/updates"));
-                                    player.spigot().sendMessage(updateMsg);
+                        try {
+                            plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> {
+                                try {
+                                    Listener listener = new Listener() {
+                                        @EventHandler(priority = EventPriority.MONITOR)
+                                        public void onPlayerJoin(final PlayerJoinEvent event) {
+                                            final Player player = event.getPlayer();
+                                            if (!player.isOp()) return;
+                                            try {
+                                                TextComponent updateMsg = new TextComponent(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
+                                                updateMsg.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Click to open Shop plugin page").create()));
+                                                updateMsg.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/updates"));
+                                                player.spigot().sendMessage(updateMsg);
+                                            } catch (Exception ignored) {
+                                            }
+                                        }
+                                    };
+                                    Bukkit.getPluginManager().registerEvents(listener, plugin);
+                                    registeredListeners.add(listener);
+                                } catch (Exception ignored) {
                                 }
-                            };
-                            Bukkit.getPluginManager().registerEvents(listener, plugin);
-                            registeredListeners.add(listener);
-                        });
+                            });
+                        } catch (Exception ignored) {
+                        }
                     }
                     /* RUNNING SHOP DEV VERSION */
                     if (compareVersions(localPluginVersion, spigotPluginVersion) > 0) {
-                        Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                        try {
+                            Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                        } catch (Exception ignored) {
+                        }
 
                         //Register the PlayerJoinEvent
-                        plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> {
-                            Listener listener = new Listener() {
-                                @EventHandler(priority = EventPriority.MONITOR)
-                                public void onPlayerJoin(final PlayerJoinEvent event) {
-                                    final Player player = event.getPlayer();
-                                    if (!player.isOp()) return;
-                                    player.sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                        try {
+                            plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> {
+                                try {
+                                    Listener listener = new Listener() {
+                                        @EventHandler(priority = EventPriority.MONITOR)
+                                        public void onPlayerJoin(final PlayerJoinEvent event) {
+                                            final Player player = event.getPlayer();
+                                            if (!player.isOp()) return;
+                                            try {
+                                                player.sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                                            } catch (Exception ignored) {
+                                            }
+                                        }
+                                    };
+                                    Bukkit.getPluginManager().registerEvents(listener, plugin);
+                                    registeredListeners.add(listener);
+                                } catch (Exception ignored) {
                                 }
-                            };
-                            Bukkit.getPluginManager().registerEvents(listener, plugin);
-                            registeredListeners.add(listener);
-                        });
+                            });
+                        } catch (Exception ignored) {
+                        }
                     }
 
                     cancelTask(); //Cancel the runnable as an update has been found.
@@ -134,11 +184,17 @@ public class UpdateChecker {
 
     public void cancelTask() {
         if (task != null) {
-            plugin.getFoliaLib().getScheduler().cancelTask(task);
+            try {
+                plugin.getFoliaLib().getScheduler().cancelTask(task);
+            } catch (Exception ignored) {
+            }
             task = null;
         }
         for (Listener listener : new ArrayList<>(registeredListeners)) {
-            HandlerList.unregisterAll(listener);
+            try {
+                HandlerList.unregisterAll(listener);
+            } catch (Exception ignored) {
+            }
         }
         registeredListeners.clear();
     }

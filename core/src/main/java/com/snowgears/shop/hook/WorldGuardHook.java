@@ -236,9 +236,11 @@ public class WorldGuardHook {
                     flagCache.put(flagName, stateFlag);
                     return stateFlag;
                 }
+                flagCache.put(flagName, null);
             } catch (Exception e) {
                 // Flag not found, log warning
                 Bukkit.getLogger().warning("WorldGuard flag '" + flagName + "' not found or not a StateFlag");
+                flagCache.put(flagName, null);
             }
             return null;
         }
@@ -310,9 +312,6 @@ public class WorldGuardHook {
                 return false;
             }
 
-            if (set.isOwnerOfAll(localPlayer)) {
-                return true;
-            }
             for (com.sk89q.worldguard.protection.regions.ProtectedRegion region : set) {
                 if (region.isOwner(localPlayer)) {
                     return true;
