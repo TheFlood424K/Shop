@@ -690,7 +690,7 @@ public class ShopMessage {
             i++;
             // Add a new line character between our rows, don't add it if we are the last item (since we don't want an extra line!
             String addNewLine = i < (items.size()) ? "\n" : "";
-            ItemStack item = entry.getKey();
+            ItemStack item = entry.getKey().clone();
             item.setAmount(entry.getValue());
 
             PlaceholderContext itemContext = new PlaceholderContext();
@@ -800,6 +800,9 @@ public class ShopMessage {
     // Perform partial formatting to insert transaction purchase amounts since they might differ from shop amounts (partial sales)
     public static String getMessageFromOrders(ShopType transactionType, String subKey, double price, int amount){
         String message = ShopMessage.getUnformattedMessage(transactionType.toString(), subKey);
+        if (message == null) {
+            return null;
+        }
         String priceStr = Shop.getPlugin().getPriceString(price, false);
         message = message.replace("[price]", priceStr);
         message = message.replace("[item amount]", "" + amount);

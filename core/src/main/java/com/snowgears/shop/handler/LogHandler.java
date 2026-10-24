@@ -22,6 +22,7 @@ import java.util.*;
 import java.util.Date;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class LogHandler {
 
@@ -398,48 +399,49 @@ public class LogHandler {
 
     // Inner class to store metrics for a time bucket
     private static class TransactionMetrics {
-        private int transactionCount = 0;
-        private int itemVolume = 0;
-        
+        private final AtomicInteger transactionCount = new AtomicInteger(0);
+        private final AtomicInteger itemVolume = new AtomicInteger(0);
+
         public void addTransaction(int itemCount, double price, boolean isBarterOrItemCurrency) {
-            transactionCount++;
-            itemVolume += itemCount;
+            transactionCount.incrementAndGet();
+            itemVolume.addAndGet(itemCount);
             // For barter transactions or when currency is items, count the "price" as item volume too
             if (isBarterOrItemCurrency) {
-                itemVolume += (int)price;
+                itemVolume.addAndGet((int)price);
             }
         }
-        
+
         public void resetTransactionCount() {
-            transactionCount = 0;
+            transactionCount.set(0);
         }
 
         public void resetItemVolume() {
-            itemVolume = 0;
+            itemVolume.set(0);
         }
-        
+
         public int getTransactionCount() {
-            return transactionCount;
+            return transactionCount.getAndSet(0);
         }
-        
+
         public int getItemVolume() {
-            return itemVolume;
+            return itemVolume.getAndSet(0);
         }
     }
 
     // Get the number of transactions during the last 30 minutes
     public int getRecentTransactionCount() {
-        int count = txMetrics.getTransactionCount();
-        txMetrics.resetTransactionCount();
-        return count;
+        try {
+            return txMetrics.getTransactionCount();
+        } catch (Exception e) {
+            plugin.getLogger().debug("Error calculating recent transaction count");
+            return 0;
+        }
     }
 
     // Get the number of items bought and sold during the last 30 minutes
     public int getRecentItemVolume() {
         try {
-            int volume = txMetrics.getItemVolume();
-            txMetrics.resetItemVolume();
-            return volume;
+            return txMetrics.getItemVolume();
         } catch (Exception e) {
             plugin.getLogger().debug("Error calculating recent item volume");
             return 0; // Return 0 if any error occurs

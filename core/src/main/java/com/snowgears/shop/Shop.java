@@ -421,7 +421,9 @@ public class Shop extends JavaPlugin {
                 YamlConfiguration currencyConfig = YamlConfiguration.loadConfiguration(itemCurrencyFile);
                 currencyConfig.set("item", itemCurrency);
                 currencyConfig.save(itemCurrencyFile);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                getLogger().warning("Failed to load itemCurrency.yml: " + (e.getMessage() != null ? e.getMessage() : e.toString()));
+            }
         }
 
         //load the gamble display item from it's file
