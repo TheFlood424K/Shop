@@ -387,10 +387,10 @@ public class TransactionCommandHandler extends BukkitCommand {
     }
 
     // Inner classes for sorting and caching
-    private enum SortField {
+    public enum SortField {
         PRICE, AMOUNT, DATE, ITEM, TYPE, PLAYER, SHOP;
 
-        static SortField fromString(String s) {
+        public static SortField fromString(String s) {
             try {
                 return valueOf(s.toUpperCase());
             } catch (IllegalArgumentException e) {
@@ -399,10 +399,10 @@ public class TransactionCommandHandler extends BukkitCommand {
         }
     }
 
-    private enum SortDirection {
+    public enum SortDirection {
         ASC, DESC;
 
-        static SortDirection fromString(String s) {
+        public static SortDirection fromString(String s) {
             try {
                 return valueOf(s.toUpperCase());
             } catch (IllegalArgumentException e) {
@@ -411,11 +411,11 @@ public class TransactionCommandHandler extends BukkitCommand {
         }
     }
 
-    private static class SortOption {
+    public static class SortOption {
         final SortField field;
         final SortDirection direction;
 
-        SortOption(SortField field, SortDirection direction) {
+        public SortOption(SortField field, SortDirection direction) {
             this.field = field;
             this.direction = direction;
         }
@@ -426,7 +426,7 @@ public class TransactionCommandHandler extends BukkitCommand {
         }
     }
 
-    private static class CachedLookup {
+    static class CachedLookup {
         final UUID targetUUID;
         final List<TransactionRecord> allTransactions;
         final SortOption sortOption;
