@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-		 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+			 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
@@ -275,7 +275,7 @@
                     <version>3.1.2</version>
                     <configuration>
                         <!-- When we eventually drop the compile target to Java 8, MockBukkit (still on 21) may
-                             need reflective access to JDK internals.  Keep the add-opens flag now so we don’t
+                             need reflective access to JDK internals.  Keep the add-opens flag now so we don't
                              forget later.  Harmless on 17+ runtimes. -->
                         <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
                         <!-- Parallel test execution -->
@@ -292,7 +292,9 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- Toolchains plugin: ensure JDK 21 is available for tests because MockBukkit 4 requires 21, but we still want to compile with a lower Java target in mind -->
+            <!-- Toolchains plugin: ensure JDK 21 is available for tests because MockBukkit 4 requires 21, but we still want to compile with a lower Java target in mind.
+                 failIfNoMatchingToolchain=false allows the build to proceed (e.g., in dependency submission CI job) even if the
+                 exact toolchain isn't configured; surefire's jdkToolchain will still select JDK 21 at test time. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-toolchains-plugin</artifactId>
@@ -311,6 +313,7 @@
                             <vendor>any</vendor>
                         </jdk>
                     </toolchains>
+                    <failIfNoMatchingToolchain>false</failIfNoMatchingToolchain>
                 </configuration>
             </plugin>
             <!-- Always enable JaCoCo agent and reporting by default -->
@@ -393,7 +396,7 @@
     </build>
 
     <profiles>
-        
+
         <profile>
             <id>coverage-report</id>
             <build>
