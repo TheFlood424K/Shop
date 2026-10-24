@@ -1109,6 +1109,13 @@ public class ShopHandler {
     }
 
     public void loadShops() {
+        // Fetch world map on the main thread before starting async task
+        // This avoids "cannot read world asynchronously" errors in Folia
+        Map<String, World> worldMap = new HashMap<>();
+        for (World world : plugin.getServer().getWorlds()) {
+            worldMap.put(world.getName(), world);
+        }
+
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             int numShopsLoaded = 0;
 
@@ -1150,7 +1157,7 @@ public class ShopHandler {
                                 convertLegacySaves = true;
                                 playerUUID = uidFromString(fileNameNoExt);
                             }
-                            numShopsLoaded += loadShopsFromConfig(config, isLegacyConfig);
+                            numShopsLoaded += loadShopsFromConfig(config, isLegacyConfig, worldMap);
                             if (isLegacyConfig) {
                                 //save new file
                                 saveShops(playerUUID, true);
@@ -1176,7 +1183,7 @@ public class ShopHandler {
     }
 
 
-    private int loadShopsFromConfig(YamlConfiguration config, boolean isLegacy) {
+    private int loadShopsFromConfig(YamlConfiguration config, boolean isLegacy, Map<String, World> worldMap) {
         if (config.getConfigurationSection("shops") == null)
             return 0;
 
@@ -1189,7 +1196,7 @@ public class ShopHandler {
             Set<String> allShopNumbers = config.getConfigurationSection("shops." + shopOwner).getKeys(false);
             int playerLoadedShops = 0;
             for (String shopNumber : allShopNumbers) {
-                Location signLoc = locationFromString(config.getString("shops." + shopOwner + "." + shopNumber + ".location"));
+                Location signLoc = locationFromString(config.getString("shops." + shopOwner + "." + shopNumber + ".location"), worldMap);
                 if(signLoc != null) {
                     try {
                         // Track each shop using a uuid so that we can log purchases better
@@ -1302,9 +1309,13 @@ public class ShopHandler {
         return worldName + "," + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ();
     }
 
-    private Location locationFromString(String locString) {
+    private Location locationFromString(String locString, Map<String, World> worldMap) {
         String[] parts = locString.split(",");
-        return new Location(plugin.getServer().getWorld(parts[0]), Double.parseDouble(parts[1]), Double.parseDouble(parts[2]), Double.parseDouble(parts[3]));
+        World world = worldMap.get(parts[0]);
+        if (world == null) {
+            return null;
+        }
+        return new Location(world, Double.parseDouble(parts[1]), Double.parseDouble(parts[2]), Double.parseDouble(parts[3]));
     }
 
     private UUID uidFromString(String ownerString) {
