@@ -37,7 +37,9 @@ public class TransactionHandler {
         boolean canUseShopInRegion = true;
         try {
             canUseShopInRegion = WorldGuardHook.canUseShop(player, shop.getSignLocation());
-        } catch(NoClassDefFoundError e) {}
+        } catch (NoClassDefFoundError e) {
+            plugin.getLogger().warning("WorldGuard not found, skipping region check: " + e.getMessage());
+        }
 
         //check that player can use the shop if it is in a WorldGuard region
         if(!canUseShopInRegion){

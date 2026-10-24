@@ -4,6 +4,7 @@ import com.snowgears.shop.Shop;
 import com.snowgears.shop.shop.ShopType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * Handles price negotiations for shop transactions.
@@ -32,9 +33,12 @@ public class PriceNegotiator {
     
     // Debug flag - should be private for encapsulation
     private final boolean debugLogging;
-    
+
     // Payment mode flag
     private final boolean supportsFractionalPayments;
+
+    // Logger for debug output
+    private final JavaPlugin plugin = Shop.getPlugin();
 
     // Transaction state
     private double price = 0;
@@ -229,8 +233,7 @@ public class PriceNegotiator {
      */
     private void logPriceRatios(double pricePerItem, double itemsPerPrice) {
         if (debugLogging) {
-            System.out.println("* pricePerItem: " + pricePerItem);
-            System.out.println("* itemsPerPrice: " + itemsPerPrice);
+            plugin.getLogger().debug("* pricePerItem: " + pricePerItem + " itemsPerPrice: " + itemsPerPrice);
         }
     }
     
@@ -314,11 +317,11 @@ public class PriceNegotiator {
      */
     private int calculateItemsBeingBought(double maxPurchasableQuantity, double itemsPerPrice) {
         int itemsBeingBought = (int) Math.floor(maxPurchasableQuantity * itemsPerPrice);
-        
-        if (debugLogging) { 
-            System.out.println("*-* itemsBeingBought (pre-round): " + (maxPurchasableQuantity * itemsPerPrice)); 
+
+        if (debugLogging) {
+            plugin.getLogger().debug("*-* itemsBeingBought (pre-round): " + (maxPurchasableQuantity * itemsPerPrice));
         }
-        
+
         return itemsBeingBought;
     }
     
@@ -327,14 +330,16 @@ public class PriceNegotiator {
      */
     private void logPurchaseDetails(double maxPurchasableQuantity, int itemsBeingBought, double priceBeingPaid,
                                    double buyerAvailableFunds, int sellerInventoryQuantity) {
-        if (debugLogging) { 
-            System.out.println("*-* priceBeingPaid (pre-round): " + (itemsBeingBought * calculatePricePerItem()));
-            System.out.println("* buyerMaxQtyPurchase: " + (buyerAvailableFunds / calculatePricePerItem()) / calculateItemsPerPrice(calculatePricePerItem()));
-            System.out.println("* sellerInventoryQuantity: " + sellerInventoryQuantity);
-            System.out.println("* sellerMaxQtySale: " + sellerInventoryQuantity / calculateItemsPerPrice(calculatePricePerItem()));
-            System.out.println("* maxPurchasableQuantity: " + maxPurchasableQuantity);
-            System.out.println("* itemsBeingBought: " + itemsBeingBought);
-            System.out.println("* priceBeingPaid: " + priceBeingPaid);
+        if (debugLogging) {
+            plugin.getLogger().debug(
+                "*-* priceBeingPaid (pre-round): " + (itemsBeingBought * calculatePricePerItem()) +
+                " buyerMaxQtyPurchase: " + (buyerAvailableFunds / calculatePricePerItem()) / calculateItemsPerPrice(calculatePricePerItem()) +
+                " sellerInventoryQuantity: " + sellerInventoryQuantity +
+                " sellerMaxQtySale: " + sellerInventoryQuantity / calculateItemsPerPrice(calculatePricePerItem()) +
+                " maxPurchasableQuantity: " + maxPurchasableQuantity +
+                " itemsBeingBought: " + itemsBeingBought +
+                " priceBeingPaid: " + priceBeingPaid
+            );
         }
     }
     
@@ -373,10 +378,12 @@ public class PriceNegotiator {
         this.price = priceBeingPaid;
 
         if (debugLogging) {
-            System.out.println("*** roundedQuantity: " + roundedQuantity);
-            System.out.println("*** quantityPerOriginalAmount: " + quantityPerOriginalAmount);
-            System.out.println("*** itemsBeingBought: " + itemsBeingBought);
-            System.out.println("*** priceBeingPaid: " + priceBeingPaid);
+            plugin.getLogger().debug(
+                "*** roundedQuantity: " + roundedQuantity +
+                " quantityPerOriginalAmount: " + quantityPerOriginalAmount +
+                " itemsBeingBought: " + itemsBeingBought +
+                " priceBeingPaid: " + priceBeingPaid
+            );
         }
     }
     
@@ -385,10 +392,10 @@ public class PriceNegotiator {
      */
     private int ensureMaxPurchaseLimit(int itemsBeingBought, int maxPurchaseAmount, double pricePerItem) {
         if (itemsBeingBought > maxPurchaseAmount) {
-            if (debugLogging) { 
-                System.out.println("itemsBeingBought > maxPurchaseAmount: " + itemsBeingBought + " > " + maxPurchaseAmount); 
+            if (debugLogging) {
+                plugin.getLogger().debug("itemsBeingBought > maxPurchaseAmount: " + itemsBeingBought + " > " + maxPurchaseAmount);
             }
-            
+
             return maxPurchaseAmount;
         }
         
@@ -406,10 +413,12 @@ public class PriceNegotiator {
         this.negotiatedPrice = priceBeingPaid;
 
         if (debugLogging) {
-            System.out.println("-* amountBeingSold: " + this.amountBeingSold);
-            System.out.println("-* price: " + this.price);
-            System.out.println("-* originalAmountBeingSold: " + originalAmountBeingSold);
-            System.out.println("-* originalPrice: " + originalPrice);
+            plugin.getLogger().debug(
+                "-* amountBeingSold: " + this.amountBeingSold +
+                " price: " + this.price +
+                " originalAmountBeingSold: " + originalAmountBeingSold +
+                " originalPrice: " + originalPrice
+            );
         }
     }
 

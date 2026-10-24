@@ -131,10 +131,12 @@ public class Transaction {
         this.price = negotiator.getPrice();
 
         if (TX_DEBUG_LOGGING) {
-            System.out.println("-* amountBeingSold: " + this.amountBeingSold);
-            System.out.println("-* price: " + this.price);
-            System.out.println("-* originalAmountBeingSold: " + this.originalAmountBeingSold);
-            System.out.println("-* originalPrice: " + this.originalPrice);
+            Shop.getPlugin().getLogger().debug(
+                "-* amountBeingSold: " + this.amountBeingSold +
+                " price: " + this.price +
+                " originalAmountBeingSold: " + this.originalAmountBeingSold +
+                " originalPrice: " + this.originalPrice
+            );
         }
     }
 
@@ -200,12 +202,16 @@ public class Transaction {
         PlayerExchangeShopEvent e = new PlayerExchangeShopEvent(player, shop);
         Bukkit.getPluginManager().callEvent(e);
         if(e.isCancelled()) {
-            if (TX_DEBUG_LOGGING) { System.out.println("!!! CANCELLED because of plugin hooking into shop!"); }
+            if (TX_DEBUG_LOGGING) {
+            Shop.getPlugin().getLogger().debug("!!! CANCELLED because of plugin hooking into shop!");
+        }
             return this.setError(TransactionError.CANCELLED);
         }
 
         // There were no errors, so we are good to proceed!
-        if (TX_DEBUG_LOGGING) { System.out.println("Transaction Verified Successfully!"); }
+        if (TX_DEBUG_LOGGING) {
+            Shop.getPlugin().getLogger().debug("Transaction Verified Successfully!");
+        }
         return this.setError(TransactionError.NONE);
     }
 
@@ -297,7 +303,9 @@ public class Transaction {
     }
 
     public TransactionError setError(TransactionError error){
-        if (TX_DEBUG_LOGGING) { System.out.println("TX setError: TransactionError." + error.toString().toUpperCase()); }
+        if (TX_DEBUG_LOGGING) {
+            Shop.getPlugin().getLogger().debug("TX setError: TransactionError." + error.toString().toUpperCase());
+        }
         this.error = error;
         return this.error;
     }
