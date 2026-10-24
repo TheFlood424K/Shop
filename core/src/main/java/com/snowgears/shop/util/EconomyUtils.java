@@ -20,10 +20,10 @@ public class EconomyUtils {
                 ItemStack currency = Shop.getPlugin().getItemCurrency().clone();
                 currency.setAmount(1);
                 int stock = InventoryUtils.getAmount(inventory, currency);
-                return (stock >= amount);
+                return (stock >= (int)Math.ceil(amount));
             case EXPERIENCE:
                 int exp = getExperience(player);
-                return (exp > amount);
+                return (exp >= amount);
             default:
                 return false;
         }
@@ -90,10 +90,11 @@ public class EconomyUtils {
                 }
             case ITEM:
                 ItemStack currency = Shop.getPlugin().getItemCurrency().clone();
-                currency.setAmount((int)amount);
+                int roundedAmount = (int)Math.ceil(amount);
+                currency.setAmount(roundedAmount);
                 int unremoved = InventoryUtils.removeItem(inventory, currency);
                 if(unremoved > 0){
-                    currency.setAmount(((int)amount) - unremoved);
+                    currency.setAmount(roundedAmount - unremoved);
                     InventoryUtils.addItem(inventory, currency);
                     return false;
                 }
