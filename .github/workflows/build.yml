@@ -61,7 +61,7 @@ jobs:
     - name: Generate Maven toolchains.xml (JDK 21)
       run: |
         mkdir -p ~/.m2
-        cat > ~/.m2/toolchains.xml <<'EOF'
+        cat > ~/.m2/toolchains.xml <<EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <toolchains>
           <toolchain>
