@@ -564,7 +564,7 @@ public abstract class AbstractShop {
                 display.remove(null);
             }
             Shop.getPlugin().getLogger().debug("Deleted Shop " + this);
-        } catch (Error | Exception e) {
+        } catch (Exception e) {
             Shop.getPlugin().getLogger().severe("Unknown error attempting to delete shop, deletion might not have fully completed successfully: " + e.getMessage());
             Shop.getPlugin().getLogger().debug("Full stack trace for shop deletion error: ", e);
         }

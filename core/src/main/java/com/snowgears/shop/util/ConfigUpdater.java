@@ -39,7 +39,7 @@ public class ConfigUpdater {
 
         FileConfiguration oldConfig = YamlConfiguration.loadConfiguration(toUpdate);
         FileConfiguration newConfig = YamlConfiguration.loadConfiguration(new InputStreamReader(plugin.getResource(resourceName)));
-        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(toUpdate), StandardCharsets.UTF_8));
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(toUpdate), StandardCharsets.UTF_8))) {
 
         List<String> ignoredSectionsArrayList = new ArrayList<>(ignoredSections);
         //ignoredSections can ONLY contain configurations sections
@@ -47,7 +47,8 @@ public class ConfigUpdater {
 
         Yaml yaml = new Yaml();
         Map<String, String> comments = parseComments(newLines, ignoredSectionsArrayList, oldConfig, yaml);
-        write(newConfig, oldConfig, comments, ignoredSectionsArrayList, writer, yaml);
+            write(newConfig, oldConfig, comments, ignoredSectionsArrayList, writer, yaml);
+        }
     }
 
     //Write method doing the work.
@@ -96,8 +97,6 @@ public class ConfigUpdater {
         if (danglingComments != null) {
             writer.write(danglingComments);
         }
-
-        writer.close();
     }
 
     //Doesn't work with configuration sections, must be an actual object

@@ -109,9 +109,7 @@ public class TransactionParty {
         if (this.currencyItem != null) {
             ItemStack payment = this.currencyItem.clone();
             payment.setAmount((int) paymentAmount);
-            if (InventoryUtils.removeItem(inventory, payment) > 0) {
-                return false;
-            }
+            if (InventoryUtils.removeItem(inventory, payment) > 0) return false;
             return true;
         }
 
