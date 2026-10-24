@@ -136,7 +136,7 @@ public abstract class AbstractShop {
             Shop.getPlugin().getLogger().debug("Loaded shop successfully: " + this);
             isLoaded = true;
             return true;
-        } catch (Error | Exception error) {
+        } catch (Exception error) {
             //this shop has no sign on it. return false
             Shop.getPlugin().getLogger().warning("Unknown error while attempting to load Shop sign and/or chest! Deleting shop: " + this);
             this.delete();
@@ -295,7 +295,7 @@ public abstract class AbstractShop {
     public ItemStack getSecondaryItemStack() {
         if (secondaryItem != null) {
             ItemStack is = secondaryItem.clone();
-            is.setAmount((int)this.getPrice());
+            is.setAmount((int) Math.round(this.getPrice()));
             return is;
         }
         return null;
