@@ -578,19 +578,56 @@ public abstract class AbstractShop {
         if(player == null)
             return;
 
+        Location loc = getTeleportLocation();
+        if(loc == null) {
+            ShopMessage.sendMessage("interactionIssue", "teleportNoSafeSpot", player, this);
+            return;
+        }
+        player.teleport(loc);
+        Shop.getPlugin().getShopListener().addTeleportCooldown(player);
+    }
+
+    /**
+     * A spot in front of the sign where a player can stand safely, facing the shop, or null if there is none.
+     */
+    public Location getTeleportLocation(){
         if(chestLocation == null) {
             this.load();
-            Location loc = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
-            player.teleport(loc);
         }
-        else {
-            Location loc = this.getSignLocation().getBlock().getRelative(facing).getLocation().add(0.5, 0, 0.5);
-            loc.setYaw(UtilMethods.faceToYaw(facing.getOppositeFace()));
-            loc.setPitch(25.0f);
-
-            player.teleport(loc);
+        if(signLocation == null) {
+            return null;
         }
-        Shop.getPlugin().getShopListener().addTeleportCooldown(player);
+        try {
+            Block signBlock = signLocation.getBlock();
+            BlockFace face = facing;
+            if (face == null) {
+                if (signBlock.getBlockData() instanceof WallSign) {
+                    face = ((WallSign) signBlock.getBlockData()).getFacing();
+                    facing = face;
+                }
+            }
+            if (face == null) {
+                return null;
+            }
+            Block chestBlock = chestLocation != null ? chestLocation.getBlock() : null;
+            return SafeTeleport.findStandingSpot(signBlock, face, chestBlock);
+        } catch (Throwable e) {
+            // Fallback to old behavior if anything goes wrong
+            try {
+                if(chestLocation == null) {
+                    Location loc = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
+                    return loc;
+                } else {
+                    BlockFace face = facing != null ? facing : BlockFace.NORTH;
+                    Location loc = this.getSignLocation().getBlock().getRelative(face).getLocation().add(0.5, 0, 0.5);
+                    loc.setYaw(UtilMethods.faceToYaw(face.getOppositeFace()));
+                    loc.setPitch(25.0f);
+                    return loc;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return null;
     }
 
     public void printSalesInfo(Player player) {
