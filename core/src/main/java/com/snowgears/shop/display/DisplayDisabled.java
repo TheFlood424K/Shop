@@ -48,6 +48,7 @@ public class DisplayDisabled extends AbstractDisplay {
     @Override
     public String getItemNameNMS(ItemStack item) {
         Shop.getPlugin().getLogger().debug("Display is disabled, getItemNameNMS not called, returning empty string");
+        if (item == null || item.getItemMeta() == null) return "";
         if (item.getItemMeta().hasDisplayName()) {
             return item.getItemMeta().getDisplayName();
         } else {
