@@ -117,7 +117,7 @@ public class ShopGUIListener implements Listener {
                         ItemStack settingsIcon = plugin.getGuiHandler().getIcon(ShopGuiHandler.GuiIcon.HOME_SETTINGS, null, null);
                         ItemStack commandsIcon = plugin.getGuiHandler().getIcon(ShopGuiHandler.GuiIcon.HOME_COMMANDS, null, null);
 
-                        if(clicked.getType() == listOwnShopsIcon.getType() && clicked.getItemMeta().getDisplayName().equals(listOwnShopsIcon.getItemMeta().getDisplayName())){
+                        if(listOwnShopsIcon != null && clicked.getItemMeta() != null && listOwnShopsIcon.getItemMeta() != null && clicked.getType() == listOwnShopsIcon.getType() && clicked.getItemMeta().getDisplayName().equals(listOwnShopsIcon.getItemMeta().getDisplayName())){
                             ListPlayerShopsWindow ownShopsWindow = new ListPlayerShopsWindow(player.getUniqueId(), player.getUniqueId());
                             ownShopsWindow.setPrevWindow(window);
                             plugin.getGuiHandler().setWindow(player, ownShopsWindow);
