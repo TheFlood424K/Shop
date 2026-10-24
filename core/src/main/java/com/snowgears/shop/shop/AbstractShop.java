@@ -136,7 +136,7 @@ public abstract class AbstractShop {
             Shop.getPlugin().getLogger().debug("Loaded shop successfully: " + this);
             isLoaded = true;
             return true;
-        } catch (Error | Exception error) {
+        } catch (Exception error) {
             //this shop has no sign on it. return false
             Shop.getPlugin().getLogger().warning("Unknown error while attempting to load Shop sign and/or chest! Deleting shop: " + this);
             this.delete();
@@ -295,7 +295,7 @@ public abstract class AbstractShop {
     public ItemStack getSecondaryItemStack() {
         if (secondaryItem != null) {
             ItemStack is = secondaryItem.clone();
-            is.setAmount((int)this.getPrice());
+            is.setAmount((int) Math.round(this.getPrice()));
             return is;
         }
         return null;
@@ -404,10 +404,6 @@ public abstract class AbstractShop {
             // Default return original item
             return item;
         } catch (Exception e) {
-            Shop.getPlugin().getLogger().debug("Error removing zero damage meta from item: " + item);
-            Shop.getPlugin().getLogger().helpful("checkItemDurability feature may be unsupported on your version of Paper/Spigot!");
-            return item;
-        } catch (Error e) {
             Shop.getPlugin().getLogger().debug("Error removing zero damage meta from item: " + item);
             Shop.getPlugin().getLogger().helpful("checkItemDurability feature may be unsupported on your version of Paper/Spigot!");
             return item;
@@ -568,7 +564,7 @@ public abstract class AbstractShop {
                 display.remove(null);
             }
             Shop.getPlugin().getLogger().debug("Deleted Shop " + this);
-        } catch (Error | Exception e) {
+        } catch (Exception e) {
             Shop.getPlugin().getLogger().severe("Unknown error attempting to delete shop, deletion might not have fully completed successfully: " + e.getMessage());
             Shop.getPlugin().getLogger().debug("Full stack trace for shop deletion error: ", e);
         }

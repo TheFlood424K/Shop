@@ -10,6 +10,7 @@ import net.md_5.bungee.api.chat.ClickEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.permissions.Permission;
@@ -22,6 +23,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 //author: Benz56
 //https://github.com/Benz56/Async-Update-Checker/blob/master/UpdateChecker.java
@@ -42,11 +45,20 @@ public class UpdateChecker {
     private static final Permission UPDATE_PERM = new Permission("shop.update", PermissionDefault.FALSE);
     private static final long CHECK_INTERVAL = 12_000; //In ticks.
     private WrappedTask task;
+    private final List<Listener> registeredListeners = new ArrayList<>();
+    private final List<Listener> registeredListeners = new ArrayList<>();
 
 
     public UpdateChecker(final Shop plugin) {
         this.plugin = plugin;
-        this.localPluginVersion = plugin.getDescription().getVersion();
+        String version = null;
+        try {
+            if (plugin != null && plugin.getDescription() != null) {
+                version = plugin.getDescription().getVersion();
+            }
+        } catch (Exception ignored) {
+        }
+        this.localPluginVersion = version == null || version.isEmpty() ? "0.0.0" : version;
     }
 
     public void checkForUpdate() {
@@ -56,49 +68,112 @@ public class UpdateChecker {
                 //The request is executed asynchronously as to not block the main thread.
                 plugin.getFoliaLib().getScheduler().runAsync(task -> {
                     //Request the current version of your plugin on SpigotMC.
+                    BufferedReader reader = null;
                     try {
                         final HttpsURLConnection connection = (HttpsURLConnection) new URL("https://api.spigotmc.org/legacy/update.php?resource=" + ID).openConnection();
                         connection.setRequestMethod("GET");
-                        spigotPluginVersion = new BufferedReader(new InputStreamReader(connection.getInputStream())).readLine();
-                    } catch (final IOException e) {
+                        reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                        String response = reader.readLine();
+                        spigotPluginVersion = response == null ? null : response.trim();
+                    } catch (final Exception e) {
                         Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', ERR_MSG));
-                        e.printStackTrace();
+                        try {
+                            e.printStackTrace();
+                        } catch (Exception ignored) {
+                        }
+                        if (reader != null) {
+                            try {
+                                reader.close();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                        cancelTask();
+                        return;
+                    } finally {
+                        if (reader != null) {
+                            try {
+                                reader.close();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+
+                    if (spigotPluginVersion == null || spigotPluginVersion.isEmpty()) {
+                        cancelTask();
+                        return;
+                    }
+                    if (localPluginVersion == null || localPluginVersion.isEmpty()) {
                         cancelTask();
                         return;
                     }
 
                     // Are we running the current version?
-                    if (compareVersions(localPluginVersion, spigotPluginVersion) == 0) return;
+                    if (compareVersions(localPluginVersion, spigotPluginVersion) == 0) {
+                        cancelTask();
+                        return;
+                    }
                     // Are we running an older verion?
                     if (compareVersions(localPluginVersion, spigotPluginVersion) < 0) {
-                        Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
+                        try {
+                            Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
+                        } catch (Exception ignored) {
+                        }
 
                         //Register the PlayerJoinEvent
-                        plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> Bukkit.getPluginManager().registerEvents(new Listener() {
-                            @EventHandler(priority = EventPriority.MONITOR)
-                            public void onPlayerJoin(final PlayerJoinEvent event) {
-                                final Player player = event.getPlayer();
-                                if (!player.isOp()) return;
-                                TextComponent updateMsg = new TextComponent(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
-                                updateMsg.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Click to open Shop plugin page").create()));
-                                updateMsg.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/updates"));
-                                player.spigot().sendMessage(updateMsg);
-                            }
-                        }, plugin));
+                        try {
+                            plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> {
+                                try {
+                                    Listener listener = new Listener() {
+                                        @EventHandler(priority = EventPriority.MONITOR)
+                                        public void onPlayerJoin(final PlayerJoinEvent event) {
+                                            final Player player = event.getPlayer();
+                                            if (!player.isOp()) return;
+                                            try {
+                                                TextComponent updateMsg = new TextComponent(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
+                                                updateMsg.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Click to open Shop plugin page").create()));
+                                                updateMsg.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/updates"));
+                                                player.spigot().sendMessage(updateMsg);
+                                            } catch (Exception ignored) {
+                                            }
+                                        }
+                                    };
+                                    Bukkit.getPluginManager().registerEvents(listener, plugin);
+                                    registeredListeners.add(listener);
+                                } catch (Exception ignored) {
+                                }
+                            });
+                        } catch (Exception ignored) {
+                        }
                     }
                     /* RUNNING SHOP DEV VERSION */
                     if (compareVersions(localPluginVersion, spigotPluginVersion) > 0) {
-                        Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                        try {
+                            Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                        } catch (Exception ignored) {
+                        }
 
                         //Register the PlayerJoinEvent
-                        plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> Bukkit.getPluginManager().registerEvents(new Listener() {
-                            @EventHandler(priority = EventPriority.MONITOR)
-                            public void onPlayerJoin(final PlayerJoinEvent event) {
-                                final Player player = event.getPlayer();
-                                if (!player.isOp()) return;
-                                player.sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
-                            }
-                        }, plugin));
+                        try {
+                            plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> {
+                                try {
+                                    Listener listener = new Listener() {
+                                        @EventHandler(priority = EventPriority.MONITOR)
+                                        public void onPlayerJoin(final PlayerJoinEvent event) {
+                                            final Player player = event.getPlayer();
+                                            if (!player.isOp()) return;
+                                            try {
+                                                player.sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                                            } catch (Exception ignored) {
+                                            }
+                                        }
+                                    };
+                                    Bukkit.getPluginManager().registerEvents(listener, plugin);
+                                    registeredListeners.add(listener);
+                                } catch (Exception ignored) {
+                                }
+                            });
+                        } catch (Exception ignored) {
+                        }
                     }
 
                     cancelTask(); //Cancel the runnable as an update has been found.
@@ -108,7 +183,20 @@ public class UpdateChecker {
     }
 
     public void cancelTask() {
-        plugin.getFoliaLib().getScheduler().cancelTask(task);
+        if (task != null) {
+            try {
+                plugin.getFoliaLib().getScheduler().cancelTask(task);
+            } catch (Exception ignored) {
+            }
+            task = null;
+        }
+        for (Listener listener : new ArrayList<>(registeredListeners)) {
+            try {
+                HandlerList.unregisterAll(listener);
+            } catch (Exception ignored) {
+            }
+        }
+        registeredListeners.clear();
     }
 
     private String embedVersions(String msg, String runningVersion, String latestReleasedVersion) {
@@ -116,15 +204,15 @@ public class UpdateChecker {
     }
 
     public int compareVersions(String localVersion, String latestVersion) {
+        if (localVersion == null || latestVersion == null) {
+            return 0;
+        }
         // Split versions into base version and tag
         String[] v1Parts = localVersion.split("-", 2);
         String[] v2Parts = latestVersion.split("-", 2);
 
         String v1Base = v1Parts[0];
         String v2Base = v2Parts[0];
-
-        String v1Tag = v1Parts.length > 1 ? v1Parts[1] : "";
-        String v2Tag = v2Parts.length > 1 ? v2Parts[1] : "";
 
         // Split base versions into numeric parts
         String[] v1Nums = v1Base.split("\\.");
@@ -133,8 +221,22 @@ public class UpdateChecker {
         int maxLength = Math.max(v1Nums.length, v2Nums.length);
 
         for (int i = 0; i < maxLength; i++) {
-            int n1 = i < v1Nums.length ? Integer.parseInt(v1Nums[i]) : 0;
-            int n2 = i < v2Nums.length ? Integer.parseInt(v2Nums[i]) : 0;
+            String s1 = i < v1Nums.length ? v1Nums[i].replaceAll("[^0-9]", "") : "0";
+            String s2 = i < v2Nums.length ? v2Nums[i].replaceAll("[^0-9]", "") : "0";
+            if (s1.isEmpty()) {
+                s1 = "0";
+            }
+            if (s2.isEmpty()) {
+                s2 = "0";
+            }
+            int n1;
+            int n2;
+            try {
+                n1 = Integer.parseInt(s1);
+                n2 = Integer.parseInt(s2);
+            } catch (NumberFormatException e) {
+                continue;
+            }
 
             if (n1 != n2) {
                 return Integer.compare(n1, n2);

@@ -223,19 +223,26 @@ public class WorldGuardHook {
             if (flagName == null || flagName.trim().isEmpty()) {
                 return null;
             }
-            
-            return flagCache.computeIfAbsent(flagName, name -> {
-                try {
-                    Flag<?> flag = registry.get(name);
-                    if (flag instanceof StateFlag) {
-                        return (StateFlag) flag;
-                    }
-                } catch (Exception e) {
-                    // Flag not found, log warning
-                    Bukkit.getLogger().warning("WorldGuard flag '" + name + "' not found or not a StateFlag");
+
+            StateFlag cached = flagCache.get(flagName);
+            if (cached != null) {
+                return cached;
+            }
+
+            try {
+                Flag<?> flag = registry.get(flagName);
+                if (flag instanceof StateFlag) {
+                    StateFlag stateFlag = (StateFlag) flag;
+                    flagCache.put(flagName, stateFlag);
+                    return stateFlag;
                 }
-                return null;
-            });
+                flagCache.put(flagName, null);
+            } catch (Exception e) {
+                // Flag not found, log warning
+                Bukkit.getLogger().warning("WorldGuard flag '" + flagName + "' not found or not a StateFlag");
+                flagCache.put(flagName, null);
+            }
+            return null;
         }
 
         private Internal() {
@@ -296,15 +303,19 @@ public class WorldGuardHook {
             LocalPlayer localPlayer = WorldGuardPlugin.inst().wrapPlayer(player);
             RegionManager regions = WorldGuard.getInstance().getPlatform().getRegionContainer().get(localPlayer.getWorld());
             BlockVector3 vLoc = BlockVector3.at(location.getX(), location.getY(), location.getZ());
-            if(regions == null || regions.size() == 0)
+            if (regions == null || regions.size() == 0) {
                 return false;
+            }
 
             ApplicableRegionSet set = regions.getApplicableRegions(vLoc);
-            if (set.size() == 0)
+            if (set.size() == 0) {
                 return false;
+            }
 
-            if(regions.getApplicableRegions(vLoc).isOwnerOfAll(localPlayer)){
-                return true;
+            for (com.sk89q.worldguard.protection.regions.ProtectedRegion region : set) {
+                if (region.isOwner(localPlayer)) {
+                    return true;
+                }
             }
         } catch (NoClassDefFoundError ignore) {
         }

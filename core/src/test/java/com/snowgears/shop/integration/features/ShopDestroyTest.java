@@ -106,7 +106,7 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
     @Test
     void destroyOther_permissions() {
         setConfig("usePerms", true);
-        
+
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
         PlayerMock player = server.addPlayer();
@@ -131,6 +131,32 @@ public class ShopDestroyTest extends BaseMockBukkitTest {
         assertEquals("§7You have destroyed a selling shop owned by Toby.", waitForNextMessage(playerThree), "Player three should be sent dialog allowing shop destruction");
         assertNull(getPlugin().getShopHandler().getShop(shop.getSignLocation()), "Shop should be deleted when player has destroy.other permission");
         assertEquals(Material.AIR, world.getBlockAt(shop.getSignLocation()).getType(), "Shop should be deleted when player has destroy.other permission");
+    }
+
+    @Test
+    void destroyOther_worldguard_overlappingRegionOwnership_grantsAccess() {
+        ServerMock server = getServer();
+        World world = server.addSimpleWorld("world");
+        PlayerMock owner = server.addPlayer();
+        owner.setName("Toby");
+
+        // create the shop owned by Toby
+        AbstractShop shop = ShopCreationChestTest.createShop(server, getPlugin(), owner, world, 50, 65, 10, new ItemStack(Material.DIRT), "sell", 8, "1");
+
+        PlayerMock regionOwner = server.addPlayer();
+        regionOwner.setOp(false);
+        regionOwner.setName("RegionGuy");
+
+        try (org.mockito.MockedStatic<com.snowgears.shop.hook.WorldGuardHook> mocked = org.mockito.Mockito.mockStatic(com.snowgears.shop.hook.WorldGuardHook.class)) {
+            mocked.when(() -> com.snowgears.shop.hook.WorldGuardHook.isRegionOwner(org.mockito.Mockito.eq(regionOwner), org.mockito.Mockito.any(org.bukkit.Location.class)))
+                  .thenReturn(true);
+
+            PlayerSimulation simulation = new PlayerSimulation(regionOwner);
+            simulation.simulateBlockBreak(shop.getSignLocation().getBlock());
+            assertEquals("§7You have destroyed a selling shop owned by Toby.", waitForNextMessage(regionOwner), "Region owner of one of multiple overlapping regions should be able to destroy the shop");
+            assertNull(getPlugin().getShopHandler().getShop(shop.getSignLocation()), "Shop should be deleted when player is owner of an applicable overlapping region");
+            assertEquals(Material.AIR, world.getBlockAt(shop.getSignLocation()).getType(), "Shop should be deleted when player is owner of an applicable overlapping region");
+        }
     }
 
     @Test
