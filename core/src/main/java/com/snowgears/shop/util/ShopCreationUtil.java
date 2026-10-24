@@ -18,15 +18,15 @@ import org.bukkit.block.data.type.WallSign;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ShopCreationUtil {
 
     private Shop plugin;
     private BlockFace[] wallFaces = new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
-    private final Map<UUID, Long> cooldowns = new HashMap<>();
+    private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
 
     public ShopCreationUtil(Shop plugin){
         this.plugin = plugin;
@@ -54,9 +54,12 @@ public class ShopCreationUtil {
         if ((!plugin.usePerms() && !player.isOp()) || (plugin.usePerms() && !player.hasPermission("shop.operator"))) {
             if (numberOfShops >= buildPermissionNumber) {
                 if (player.isSneaking()) {
-                    if (!cooldowns.containsKey(player.getUniqueId()) || cooldowns.get(player.getUniqueId()) < System.currentTimeMillis()) {
+                    UUID uuid = player.getUniqueId();
+                    long now = System.currentTimeMillis();
+                    Long last = cooldowns.get(uuid);
+                    if (last == null || last < now) {
+                        cooldowns.put(uuid, now + 1000L);
                         ShopMessage.sendMessage("permission", "buildLimit", player, null);
-                        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + 1000L);
                     }
                 }
                 return false;
