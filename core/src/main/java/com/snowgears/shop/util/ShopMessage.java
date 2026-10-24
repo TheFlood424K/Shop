@@ -566,7 +566,9 @@ public class ShopMessage {
         try {
             BaseComponent hoverText = componentFromLegacy(context.getOfflineTransactions().getTransactionsLore());
             return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{hoverText});
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to create transactions hover event: " + e.getMessage());
+        }
         return null;
     }
 
@@ -582,7 +584,9 @@ public class ShopMessage {
             }
             BaseComponent flatText = componentFromLegacy(hoverText.toLegacyText());
             return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{flatText});
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to create shop info hover event: " + e.getMessage());
+        }
         return null;
     }
 
@@ -1053,7 +1057,9 @@ public class ShopMessage {
                 count++;
                 message = config.getString(key + "." + count);
             }
-        } catch (NullPointerException e) {}
+        } catch (NullPointerException e) {
+            plugin.getLogger().debug("Config section not found: " + key);
+        }
         return lines.toArray(new String[0]);
     }
 
@@ -1064,7 +1070,9 @@ public class ShopMessage {
         for (String typeString : allTypes) {
             ShopType type = null;
             try { type = ShopType.valueOf(typeString);}
-            catch (IllegalArgumentException e){}
+            catch (IllegalArgumentException e) {
+                plugin.getLogger().debug("Invalid shop type in sign config: " + typeString);
+            }
 
             if (type != null) {
                 this.shopSignTextMap.put(type.toString() + "_normal", getSignConfigLines("sign_text." + typeString + ".normal"));
@@ -1084,13 +1092,17 @@ public class ShopMessage {
 
             ShopType type = null;
             try { type = ShopType.valueOf(typeString);}
-            catch (IllegalArgumentException e){}
+            catch (IllegalArgumentException e) {
+                plugin.getLogger().debug("Invalid shop type in display config: " + typeString);
+            }
 
             if (type != null) {
                 try {
                     List<String> normalLines = displayConfig.getStringList("display_tag_text." + typeString.toUpperCase() + ".normal");
                     this.displayTextMap.put(type.toString().toUpperCase() + "_normal", normalLines);
-                } catch (NullPointerException e) {}
+                } catch (NullPointerException e) {
+                    plugin.getLogger().debug("Display config section not found for: " + typeString);
+                }
             }
         }
     }
