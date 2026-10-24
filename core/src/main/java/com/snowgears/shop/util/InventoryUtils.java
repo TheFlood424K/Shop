@@ -19,10 +19,10 @@ public class InventoryUtils {
     //removes itemstack from inventory
     //returns the amount of items it could not remove
     public static int removeItem(Inventory inventory, ItemStack itemStack) {
-        if(inventory == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
-            return itemStack.getAmount();
         if (itemStack == null || itemStack.getAmount() <= 0)
             return 0;
+        if(inventory == null || itemStack.getAmount() > (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
+            return itemStack.getAmount();
 
         ItemStack[] contents = inventory.getContents();
         int amount = itemStack.getAmount();
@@ -58,10 +58,10 @@ public class InventoryUtils {
     //takes an ItemStack and splits it up into multiple ItemStacks with correct stack sizes
     //then adds those items to the given inventory
     public static int addItem(Inventory inventory, ItemStack itemStack) {
-        if(inventory == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
-            return itemStack.getAmount();
-        if (itemStack.getAmount() <= 0)
+        if (itemStack == null || itemStack.getAmount() <= 0)
             return 0;
+        if(inventory == null || itemStack.getAmount() > (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
+            return itemStack.getAmount();
         ArrayList<ItemStack> itemStacksAdding = new ArrayList<ItemStack>();
 
         //break up the itemstack into multiple ItemStacks with correct stack size
