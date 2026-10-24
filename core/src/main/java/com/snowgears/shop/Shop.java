@@ -520,6 +520,9 @@ public class Shop extends JavaPlugin {
         guiHandler.loadIconsAndTitles();
         logHandler = new LogHandler(plugin, config);
 
+        // Initialize TransactionCommandHandler for /tx and /transactions commands
+        new TransactionCommandHandler(this);
+
         getServer().getPluginManager().registerEvents(displayListener, this);
         getServer().getPluginManager().registerEvents(shopListener, this);
         getServer().getPluginManager().registerEvents(miscListener, this);

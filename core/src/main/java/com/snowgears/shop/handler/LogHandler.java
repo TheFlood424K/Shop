@@ -9,6 +9,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -392,6 +393,223 @@ public class LogHandler {
                 plugin.getLogger().debug("Established connection to database.");
             }
         }
+    }
+
+    // =========================================================================
+    // Transaction Query Methods for /transactions command
+    // =========================================================================
+
+    /**
+     * Gets a player's transaction history with sorting and limit.
+     * @param playerUUID The player to get transactions for
+     * @param sortField The field to sort by (price, amount, date, item, type, player, shop)
+     * @param sortDirection The direction to sort (asc, desc)
+     * @param limit Maximum number of transactions to return
+     * @return List of transaction records
+     */
+    public List<TransactionCommandHandler.TransactionRecord> getPlayerTransactions(UUID playerUUID, String sortField, String sortDirection, int limit) {
+        if (!enabled) return Collections.emptyList();
+
+        List<TransactionCommandHandler.TransactionRecord> transactions = new ArrayList<>();
+        try {
+            String orderBy = buildOrderByClause(sortField, sortDirection);
+            String query = "SELECT * from shop_action " +
+                    "RIGHT JOIN shop_transaction on shop_action.transaction_id = shop_transaction.id " +
+                    "where owner_uuid=? " +
+                    "ORDER BY " + orderBy + " " + sortDirection.toUpperCase() + " LIMIT ?;";
+
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(query)) {
+                stmt.setString(1, playerUUID.toString());
+                stmt.setInt(2, limit);
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    transactions.add(mapResultSetToTransactionRecord(rs));
+                }
+            }
+        } catch (SQLException | IOException | ClassNotFoundException e) {
+            plugin.getLogger().log(Level.WARNING, "SQL error occurred while getting player transactions.");
+            e.printStackTrace();
+        }
+        return transactions;
+    }
+
+    /**
+     * Gets a player's top transactions (aggregated by item/shop) with sorting.
+     * @param playerUUID The player to get top transactions for
+     * @param sortField The field to sort by
+     * @param sortDirection The direction to sort
+     * @param limit Maximum number of results
+     * @return List of transaction records (aggregated)
+     */
+    public List<TransactionCommandHandler.TransactionRecord> getPlayerTopTransactions(UUID playerUUID, String sortField, String sortDirection, int limit) {
+        if (!enabled) return Collections.emptyList();
+
+        List<TransactionCommandHandler.TransactionRecord> transactions = new ArrayList<>();
+        try {
+            // For top transactions, we aggregate by item and shop
+            String orderBy = buildOrderByClause(sortField, sortDirection);
+            String query = "SELECT " +
+                    "shop_transaction.t_type, " +
+                    "SUM(shop_transaction.price) as total_price, " +
+                    "SUM(shop_transaction.amount) as total_amount, " +
+                    "shop_transaction.item, " +
+                    "shop_transaction.barter_item, " +
+                    "MAX(shop_action.ts) as latest_ts, " +
+                    "shop_action.shop_world, " +
+                    "shop_action.shop_x, " +
+                    "shop_action.shop_y, " +
+                    "shop_action.shop_z, " +
+                    "shop_action.player_uuid " +
+                    "from shop_action " +
+                    "RIGHT JOIN shop_transaction on shop_action.transaction_id = shop_transaction.id " +
+                    "where shop_action.owner_uuid=? " +
+                    "GROUP BY shop_transaction.item, shop_transaction.t_type, shop_action.shop_world, shop_action.shop_x, shop_action.shop_y, shop_action.shop_z " +
+                    "ORDER BY " + orderBy + " " + sortDirection.toUpperCase() + " LIMIT ?;";
+
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(query)) {
+                stmt.setString(1, playerUUID.toString());
+                stmt.setInt(2, limit);
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    transactions.add(mapResultSetToTransactionRecord(rs));
+                }
+            }
+        } catch (SQLException | IOException | ClassNotFoundException e) {
+            plugin.getLogger().log(Level.WARNING, "SQL error occurred while getting player top transactions.");
+            e.printStackTrace();
+        }
+        return transactions;
+    }
+
+    /**
+     * Gets global top transactions across all players.
+     * @param sortField The field to sort by
+     * @param sortDirection The direction to sort
+     * @param limit Maximum number of results
+     * @return List of transaction records
+     */
+    public List<TransactionCommandHandler.TransactionRecord> getGlobalTopTransactions(String sortField, String sortDirection, int limit) {
+        if (!enabled) return Collections.emptyList();
+
+        List<TransactionCommandHandler.TransactionRecord> transactions = new ArrayList<>();
+        try {
+            String orderBy = buildOrderByClause(sortField, sortDirection);
+            String query = "SELECT " +
+                    "shop_transaction.t_type, " +
+                    "SUM(shop_transaction.price) as total_price, " +
+                    "SUM(shop_transaction.amount) as total_amount, " +
+                    "shop_transaction.item, " +
+                    "shop_transaction.barter_item, " +
+                    "MAX(shop_action.ts) as latest_ts, " +
+                    "shop_action.shop_world, " +
+                    "shop_action.shop_x, " +
+                    "shop_action.shop_y, " +
+                    "shop_action.shop_z, " +
+                    "shop_action.owner_uuid, " +
+                    "shop_action.player_uuid " +
+                    "from shop_action " +
+                    "RIGHT JOIN shop_transaction on shop_action.transaction_id = shop_transaction.id " +
+                    "GROUP BY shop_transaction.item, shop_transaction.t_type, shop_action.owner_uuid, shop_action.shop_world, shop_action.shop_x, shop_action.shop_y, shop_action.shop_z " +
+                    "ORDER BY " + orderBy + " " + sortDirection.toUpperCase() + " LIMIT ?;";
+
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(query)) {
+                stmt.setInt(1, limit);
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    transactions.add(mapResultSetToTransactionRecord(rs));
+                }
+            }
+        } catch (SQLException | IOException | ClassNotFoundException e) {
+            plugin.getLogger().log(Level.WARNING, "SQL error occurred while getting global top transactions.");
+            e.printStackTrace();
+        }
+        return transactions;
+    }
+
+    private String buildOrderByClause(String sortField, String sortDirection) {
+        String field = sortField != null ? sortField.toLowerCase() : "date";
+        String direction = sortDirection != null ? sortDirection.toLowerCase() : "desc";
+
+        // Validate direction
+        if (!direction.equals("asc") && !direction.equals("desc")) {
+            direction = "desc";
+        }
+
+        switch (field) {
+            case "price":
+                return "shop_transaction.price";
+            case "amount":
+                return "shop_transaction.amount";
+            case "date":
+            case "time":
+                return "shop_action.ts";
+            case "item":
+                return "shop_transaction.item";
+            case "type":
+                return "shop_transaction.t_type";
+            case "player":
+                return "shop_action.player_uuid";
+            case "shop":
+                return "shop_action.shop_world, shop_action.shop_x, shop_action.shop_y, shop_action.shop_z";
+            default:
+                return "shop_action.ts";
+        }
+    }
+
+    private TransactionCommandHandler.TransactionRecord mapResultSetToTransactionRecord(ResultSet rs) throws SQLException, IOException, ClassNotFoundException {
+        TransactionCommandHandler.TransactionRecord record = new TransactionCommandHandler.TransactionRecord();
+
+        record.timestamp = rs.getTimestamp("ts") != null ? rs.getTimestamp("ts").getTime() :
+                          (rs.getTimestamp("latest_ts") != null ? rs.getTimestamp("latest_ts").getTime() : System.currentTimeMillis());
+        record.type = ShopType.valueOf(rs.getString("t_type").toUpperCase());
+        record.price = rs.getDouble("price");
+        // Check if we have total_price (aggregated) or price
+        try {
+            record.price = rs.getDouble("total_price");
+        } catch (SQLException ignored) {
+            record.price = rs.getDouble("price");
+        }
+        record.amount = rs.getInt("amount");
+        try {
+            record.amount = rs.getInt("total_amount");
+        } catch (SQLException ignored) {
+            record.amount = rs.getInt("amount");
+        }
+        record.itemBase64 = rs.getString("item");
+        record.barterItemBase64 = rs.getString("barter_item");
+        record.shopWorld = rs.getString("shop_world");
+        record.shopX = rs.getInt("shop_x");
+        record.shopY = rs.getInt("shop_y");
+        record.shopZ = rs.getInt("shop_z");
+
+        // Get item name for display
+        if (record.itemBase64 != null) {
+            ItemStack item = UtilMethods.itemStackFromBase64(record.itemBase64);
+            record.itemName = plugin.getItemNameUtil().getName(item).toPlainText();
+        }
+
+        // Get other player name (the buyer/seller in the transaction)
+        String otherPlayerUUID = rs.getString("player_uuid");
+        if (otherPlayerUUID != null && !otherPlayerUUID.isEmpty() && !otherPlayerUUID.equals("admin")) {
+            record.otherPlayerUUID = UUID.fromString(otherPlayerUUID);
+            OfflinePlayer other = Bukkit.getOfflinePlayer(record.otherPlayerUUID);
+            record.otherPlayerName = other.getName();
+        } else if (otherPlayerUUID != null && otherPlayerUUID.equals("admin")) {
+            record.otherPlayerName = "Admin Shop";
+        }
+
+        // Build shop location
+        if (record.shopWorld != null) {
+            World world = Bukkit.getWorld(record.shopWorld);
+            if (world != null) {
+                record.shopLocation = new Location(world, record.shopX, record.shopY, record.shopZ);
+            }
+        }
+
+        return record;
     }
 
     private final TransactionMetrics txMetrics = new TransactionMetrics();
