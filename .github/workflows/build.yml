@@ -58,12 +58,22 @@ jobs:
         echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
         echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> $GITHUB_ENV
         
-    - name: Generate Maven toolchains.xml (JDK 25)
+    - name: Generate Maven toolchains.xml (JDK 21 + 25)
       run: |
         mkdir -p ~/.m2
         cat > ~/.m2/toolchains.xml <<'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <toolchains>
+          <toolchain>
+            <type>jdk</type>
+            <provides>
+              <version>21</version>
+              <vendor>any</vendor>
+            </provides>
+            <configuration>
+              <jdkHome>${JAVA_HOME}</jdkHome>
+            </configuration>
+          </toolchain>
           <toolchain>
             <type>jdk</type>
             <provides>
