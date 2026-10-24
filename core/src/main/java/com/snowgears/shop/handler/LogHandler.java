@@ -481,4 +481,8 @@ public class LogHandler {
     public boolean isEnabled() {
         return enabled;
     }
+
+    public HikariDataSource getDataSource() {
+        return dataSource;
+    }
 }

@@ -64,3 +64,16 @@ permissions:
     shop.operator:
         description: Allows access to operator actions like setting currency, setting the gamble item, reloading configs, creating gamble/admin shops, etc.
         default: op
+    shop.transactions:
+        description: Allows player to view their transaction history.
+        default: true
+
+commands:
+    shop:
+        description: Base command for the Shop plugin
+        usage: /shop
+        aliases: [market, trade]
+    transactions:
+        description: View your transaction history
+        usage: /transactions [page] [t:<time>] [#verbose]
+        aliases: [trans, tx]
