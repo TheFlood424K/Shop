@@ -407,10 +407,6 @@ public abstract class AbstractShop {
             Shop.getPlugin().getLogger().debug("Error removing zero damage meta from item: " + item);
             Shop.getPlugin().getLogger().helpful("checkItemDurability feature may be unsupported on your version of Paper/Spigot!");
             return item;
-        } catch (Error e) {
-            Shop.getPlugin().getLogger().debug("Error removing zero damage meta from item: " + item);
-            Shop.getPlugin().getLogger().helpful("checkItemDurability feature may be unsupported on your version of Paper/Spigot!");
-            return item;
         }
     }
 
