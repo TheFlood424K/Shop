@@ -26,8 +26,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
+/**
+ * Handles Shop GUI windows, player settings, icons, titles, and player head icons.
+ */
 public class ShopGuiHandler {
 
+    /**
+     * Icon identifiers used for GUI elements.
+     */
     public enum GuiIcon {
         MENUBAR_BACK, HOME_SEARCH, MENUBAR_LAST_PAGE, MENUBAR_NEXT_PAGE,
         MENUBAR_SORT_PRICE_LOW, MENUBAR_SORT_PRICE_HIGH, MENUBAR_SORT_NAME_LOW, MENUBAR_SORT_NAME_HIGH,
@@ -40,6 +46,9 @@ public class ShopGuiHandler {
         ALL_SHOP_ICON, ALL_PLAYER_ICON, ALL_ADMIN_ICON
     }
 
+    /**
+     * Window title identifiers for GUI screens.
+     */
     public enum GuiTitle {
         HOME, LIST_PLAYERS, LIST_SHOPS, SETTINGS, COMMANDS, LIST_SEARCH_RESULTS
 
@@ -65,6 +74,12 @@ public class ShopGuiHandler {
         plugin = instance;
     }
 
+    /**
+     * Gets the GUI window for the player, creating a home window if none exists.
+     *
+     * @param player the player
+     * @return the player's GUI window
+     */
     public ShopGuiWindow getWindow(Player player){
         if(playerGuiWindows.get(player.getUniqueId()) != null){
             return playerGuiWindows.get(player.getUniqueId());
@@ -74,12 +89,23 @@ public class ShopGuiHandler {
         return window;
     }
 
+    /**
+     * Sets the player's current GUI window and opens it.
+     *
+     * @param player the player
+     * @param window the window to display
+     */
     public void setWindow(Player player, ShopGuiWindow window){
         playerGuiWindows.put(player.getUniqueId(), window);
 
         window.open();
     }
 
+    /**
+     * Closes the player's GUI window and closes their inventory.
+     *
+     * @param player the player
+     */
     public void closeWindow(Player player){
         if(playerGuiWindows.get(player.getUniqueId()) != null){
             playerGuiWindows.remove(player.getUniqueId());
@@ -204,6 +230,12 @@ public class ShopGuiHandler {
         playerHeads.put(playerUUID, playerHead);
     }
 
+    /**
+     * Gets the player's head icon, building stale heads if needed.
+     *
+     * @param playerUUID the player's UUID
+     * @return the player head item stack, or AIR if not available
+     */
     public ItemStack getPlayerHeadIcon(UUID playerUUID){
         buildStaleHead(playerUUID);
         if(playerHeads.containsKey(playerUUID))
@@ -211,6 +243,11 @@ public class ShopGuiHandler {
         return new ItemStack(Material.AIR);
     }
 
+    /**
+     * Gets all cached shop owner head icons.
+     *
+     * @return list of player head item stacks
+     */
     public ArrayList<ItemStack> getShopOwnerHeads(){
         for(UUID playerUUID : new ArrayList<>(staleHeads.keySet()))
             buildStaleHead(playerUUID);
@@ -219,10 +256,24 @@ public class ShopGuiHandler {
         );
     }
 
+    /**
+     * Gets the GUI icon for the given player setting option.
+     *
+     * @param player the player
+     * @param option the player setting option
+     * @return the GUI icon
+     */
     public GuiIcon getIconFromOption(Player player, PlayerSettings.Option option){
         return getIconFromOption(player.getUniqueId(), option);
     }
 
+    /**
+     * Gets the GUI icon for the given player setting option.
+     *
+     * @param playerUUID the player's UUID
+     * @param option the player setting option
+     * @return the GUI icon
+     */
     public GuiIcon getIconFromOption(UUID playerUUID, PlayerSettings.Option option){
         if(playerSettings.get(playerUUID) != null){
             PlayerSettings settings = playerSettings.get(playerUUID);
@@ -237,6 +288,13 @@ public class ShopGuiHandler {
         return settings.getGuiIcon(option);
     }
 
+    /**
+     * Sets the GUI icon for the given player setting option.
+     *
+     * @param player the player
+     * @param option the player setting option
+     * @param guiIcon the GUI icon to set
+     */
     public void setIconForOption(Player player, PlayerSettings.Option option, GuiIcon guiIcon){
         PlayerSettings settings;
 
@@ -253,6 +311,12 @@ public class ShopGuiHandler {
         playerSettings.put(player.getUniqueId(), settings);
     }
 
+    /**
+     * Toggles the notification setting for the given player option.
+     *
+     * @param player the player
+     * @param option the player setting option
+     */
     public void toggleNotificationSetting(Player player, PlayerSettings.Option option){
         PlayerSettings settings;
 
@@ -269,6 +333,14 @@ public class ShopGuiHandler {
         playerSettings.put(player.getUniqueId(), settings);
     }
 
+    /**
+     * Gets the GUI icon item stack.
+     *
+     * @param iconEnum the icon identifier
+     * @param playerUUID the player's UUID
+     * @param shop the shop if applicable
+     * @return the item stack for the icon
+     */
     public ItemStack getIcon(GuiIcon iconEnum, UUID playerUUID, AbstractShop shop){
         if(iconEnum == GuiIcon.LIST_SHOP){
             return shop.getGuiIcon();
@@ -282,10 +354,22 @@ public class ShopGuiHandler {
         return null;
     }
 
+    /**
+     * Gets the title string for the given GUI title.
+     *
+     * @param title the GUI title
+     * @return the formatted title string
+     */
     public String getTitle(GuiTitle title){
         return guiWindowTitles.get(title);
     }
 
+    /**
+     * Gets the title string for the given GUI window.
+     *
+     * @param window the GUI window
+     * @return the formatted title string
+     */
     public String getTitle(ShopGuiWindow window){
         if(window instanceof HomeWindow){
             return guiWindowTitles.get(GuiTitle.HOME);
@@ -302,6 +386,9 @@ public class ShopGuiHandler {
         return "Window";
     }
 
+    /**
+     * Loads GUI icons and titles from guiConfig.yml.
+     */
     public void loadIconsAndTitles(){
         File configFile = new File(plugin.getDataFolder(), "guiConfig.yml");
         if (!configFile.exists()) {
