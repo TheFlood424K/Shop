@@ -20,14 +20,29 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.UUID;
 
+/**
+ * Listens for inventory click events to handle interactions with shop GUIs.
+ */
 public class ShopGUIListener implements Listener {
 
     private Shop plugin;
 
+    /**
+     * Creates a new ShopGUIListener.
+     *
+     * @param instance the main Shop plugin instance
+     */
     public ShopGUIListener(Shop instance) {
         plugin = instance;
     }
 
+    /**
+     * Gets the inventory view title for the given inventory click event.
+     * Uses reflection to support multiple Minecraft versions.
+     *
+     * @param event the inventory click event
+     * @return the inventory view title
+     */
     public String getInventoryViewTitle(InventoryClickEvent event) {
         try {
             Object view = event.getView();
@@ -70,6 +85,11 @@ public class ShopGUIListener implements Listener {
         return current;
     }
 
+    /**
+     * Handles inventory click events for shop GUI windows.
+     *
+     * @param event the inventory click event
+     */
     @EventHandler (ignoreCancelled = true)
     public void onInvClick(InventoryClickEvent event){
         if(event.getWhoClicked() instanceof Player){

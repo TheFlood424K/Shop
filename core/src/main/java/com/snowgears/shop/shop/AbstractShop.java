@@ -30,6 +30,10 @@ import java.util.*;
 
 import static com.snowgears.shop.util.UtilMethods.isMCVersion17Plus;
 
+/**
+ * Base class for all shop types in the Shop plugin.
+ * Handles shop creation, storage, display, transactions, and sign management.
+ */
 public abstract class AbstractShop {
 
     protected UUID id = UUID.randomUUID();
@@ -73,6 +77,19 @@ public abstract class AbstractShop {
             owner = Shop.getPlugin().getShopHandler().getAdminUUID();
     }
 
+    /**
+     * Creates a new shop instance based on the specified shop type.
+     *
+     * @param signLoc the location of the shop sign
+     * @param player the UUID of the shop owner
+     * @param pri the primary price
+     * @param priCombo the secondary price for combo shops
+     * @param amt the amount of items per transaction
+     * @param admin whether this is an admin shop
+     * @param shopType the type of shop to create
+     * @param facing the direction the shop sign is facing
+     * @return a new shop instance of the appropriate type, or null if the type is invalid
+     */
     public static AbstractShop create(Location signLoc, UUID player, double pri, double priCombo, int amt, Boolean admin, ShopType shopType, BlockFace facing) {
 
         switch(shopType){
@@ -90,19 +107,39 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Sets the unique identifier for this shop.
+     *
+     * @param newId the new UUID to assign
+     */
     public void setId(UUID newId) {
         this.id = newId;
     }
 
+    /**
+     * Gets the unique identifier for this shop.
+     *
+     * @return the shop's UUID
+     */
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Checks if the chunk containing the shop sign is loaded.
+     *
+     * @return true if the chunk is loaded, false otherwise
+     */
     public boolean isChunkLoaded() {
         return UtilMethods.isChunkLoaded(this.getSignLocation());
     }
 
-    //this calls BlockData which loads the chunk the shop is in by doing so
+    /**
+     * Loads the shop by validating the sign and chest blocks, and initializing stock.
+     * This calls BlockData which loads the chunk the shop is in.
+     *
+     * @return true if the shop was successfully loaded, false otherwise
+     */
     public boolean load() {
         try {
             Block signBlock = signLocation.getBlock();
@@ -144,16 +181,31 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Checks if this shop needs to be saved to disk.
+     *
+     * @return true if the shop needs saving, false otherwise
+     */
     public boolean needsSave() {
         return needsSave;
     }
 
+    /**
+     * Sets whether this shop needs to be saved to disk.
+     *
+     * @param shouldSave true if the shop should be saved, false otherwise
+     */
     public void setNeedsSave(boolean shouldSave) {
         needsSave = shouldSave;
     }
 
     //abstract methods that must be implemented in each shop subclass
 
+    /**
+     * Calculates the current stock of items in this shop.
+     *
+     * @return the calculated stock amount
+     */
     protected int calculateStock() {
         if(this.isAdmin) {
             // There is always stock in the admin shop!
@@ -181,6 +233,9 @@ public abstract class AbstractShop {
         return stock;
     }
 
+    /**
+     * Updates the stock count for this shop and refreshes the sign if stock has changed.
+     */
     public void updateStock() {
         int oldStock = stock;
 
@@ -206,6 +261,11 @@ public abstract class AbstractShop {
         this.updateSign();
     }
 
+    /**
+     * Gets the current stock amount for this shop.
+     *
+     * @return the stock amount, or Integer.MAX_VALUE for admin shops
+     */
     public int getStock(){
         if(isAdmin){
             return Integer.MAX_VALUE;
@@ -213,20 +273,40 @@ public abstract class AbstractShop {
         return stock;
     }
 
+    /**
+     * Sets the stock amount when loading the shop from storage.
+     *
+     * @param stock the stock amount to set
+     */
     public void setStockOnLoad(int stock){
         this.stock = stock;
     }
 
+    /**
+     * Checks if this shop has been initialized with an item.
+     *
+     * @return true if the shop has an item set, false otherwise
+     */
     public boolean isInitialized(){
         return (item != null);
     }
 
     //getter methods
 
+    /**
+     * Gets the location of the shop sign.
+     *
+     * @return the sign location
+     */
     public Location getSignLocation() {
         return signLocation;
     }
 
+    /**
+     * Gets the WallSign block data for this shop.
+     *
+     * @return the WallSign block data, or null if chunk not loaded or not a wall sign
+     */
     public WallSign getSign(){
         if (!this.isChunkLoaded()) { return null; }
         BlockData signBlockData = this.getSignLocation().getBlock().getBlockData();
@@ -236,10 +316,20 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets the location of the shop chest/container.
+     *
+     * @return the chest location
+     */
     public Location getChestLocation() {
         return chestLocation;
     }
 
+    /**
+     * Gets the inventory of the shop container.
+     *
+     * @return the container inventory, or null if not available
+     */
     public Inventory getInventory() {
         if(chestLocation == null || signLocation == null || !this.isChunkLoaded())
             return null;
@@ -250,6 +340,11 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets the material type of the shop container.
+     *
+     * @return the container material type, or null if not available
+     */
     public Material getContainerType() {
         if(cachedContainerType != null)
             return cachedContainerType;
@@ -263,26 +358,46 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Gets the UUID of the shop owner.
+     *
+     * @return the owner's UUID
+     */
     public UUID getOwnerUUID() {
         return owner;
     }
 
+    /**
+     * Gets the name of the shop owner.
+     *
+     * @return the owner's name, "admin" for admin shops, or "CLOSED" if unknown
+     */
     public String getOwnerName() {
         if(this.isAdmin())
             return "admin";
-        
+
         if (this.getOwnerUUID() != null) {
             // Use cache first - this avoids expensive disk I/O
             return PlayerNameCache.getName(this.getOwnerUUID());
         }
-        
+
         return ChatColor.RED + "CLOSED";
     }
 
+    /**
+     * Gets the OfflinePlayer object for the shop owner.
+     *
+     * @return the offline player representing the owner
+     */
     public OfflinePlayer getOwner() {
         return Bukkit.getOfflinePlayer(this.owner);
     }
 
+    /**
+     * Gets a clone of the shop item with the correct transaction amount set.
+     *
+     * @return a clone of the shop item, or null if no item is set
+     */
     public ItemStack getItemStack() {
         if (item != null) {
             ItemStack is = item.clone();
