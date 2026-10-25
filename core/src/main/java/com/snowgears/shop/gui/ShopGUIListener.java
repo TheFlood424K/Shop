@@ -20,6 +20,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.UUID;
 
+/**
+ * Listener that handles inventory click events for all shop GUI windows.
+ * <p>
+ * This listener routes clicks based on the active {@link ShopGuiWindow} type
+ * (home, lists, settings, commands, search) and performs navigation, filtering,
+ * sorting, teleportation, and related GUI actions.
+ */
 public class ShopGUIListener implements Listener {
 
     private Shop plugin;
@@ -28,6 +35,16 @@ public class ShopGUIListener implements Listener {
         plugin = instance;
     }
 
+    /**
+     * Gets the title of the inventory view for the given click event.
+     * <p>
+     * Uses reflection to call {@code getTitle()} on the view, as the method
+     * may not be available across all supported server versions.
+     *
+     * @param event the inventory click event
+     * @return the title of the inventory view
+     * @throws RuntimeException if reflection fails to access the title
+     */
     public String getInventoryViewTitle(InventoryClickEvent event) {
         try {
             Object view = event.getView();
@@ -70,6 +87,16 @@ public class ShopGUIListener implements Listener {
         return current;
     }
 
+    /**
+     * Handles inventory click events for shop GUI windows.
+     * <p>
+     * Cancels clicks in shop GUI inventories, handles navigation (back, page
+     * scroll), processes home/list/settings/commands window actions, manages
+     * shop teleportation from list windows, applies sorting/filtering in list
+     * windows, and dispatches commands from the commands window.
+     *
+     * @param event the inventory click event
+     */
     @EventHandler (ignoreCancelled = true)
     public void onInvClick(InventoryClickEvent event){
         if(event.getWhoClicked() instanceof Player){

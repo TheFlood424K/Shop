@@ -5,6 +5,13 @@ import org.bukkit.event.inventory.InventoryType;
 
 import java.util.UUID;
 
+/**
+ * GUI window for searching shops.
+ * <p>
+ * This window is used as a placeholder/instruction window for the shop search
+ * functionality. When opened from the home window, the player is placed into
+ * creative selection mode to choose an item to search for.
+ */
 public class SearchWindow extends ShopGuiWindow {
 
     public SearchWindow(UUID player){

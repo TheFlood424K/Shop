@@ -10,6 +10,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
+/**
+ * A disabled display implementation used when no display features are available.
+ * <p>
+ * This display does nothing on spawn/remove calls and logs debug messages when
+ * display operations are attempted. It is used as a fallback when the server
+ * version or software is unsupported for display features.
+ */
 public class DisplayDisabled extends AbstractDisplay {
 
     public DisplayDisabled(Location shopSignLocation) {
