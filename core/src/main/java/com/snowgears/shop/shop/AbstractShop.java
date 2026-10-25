@@ -581,7 +581,7 @@ public abstract class AbstractShop {
         if(chestLocation == null) {
             this.load();
             Location loc = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
-            Shop.getPlugin().getFoliaLib().getScheduler().teleportAsync(player, loc);
+Shop.getPlugin().getFoliaLib().getScheduler().teleportAsync(player, loc);
         }
         else {
             Location loc = this.getSignLocation().getBlock().getRelative(facing).getLocation().add(0.5, 0, 0.5);
