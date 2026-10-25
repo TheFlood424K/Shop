@@ -855,7 +855,7 @@ public class ShopHandler {
     public int getNumberOfShopDisplayTypes(DisplayType displayType) {
         int shopsWithDisplayType = 0;
         for (AbstractShop shop : allShops.values()) {
-            if (shop.getDisplay().getType() == displayType) { shopsWithDisplayType++; }
+            if (shop.getDisplay() != null && shop.getDisplay().getType() == displayType) { shopsWithDisplayType++; }
         }
         return shopsWithDisplayType;
     }
@@ -1345,7 +1345,16 @@ public class ShopHandler {
 
     private Location locationFromString(String locString) {
         String[] parts = locString.split(",");
-        return new Location(plugin.getServer().getWorld(parts[0]), Double.parseDouble(parts[1]), Double.parseDouble(parts[2]), Double.parseDouble(parts[3]));
+        if (parts.length < 4) {
+            plugin.getLogger().warning("Malformed location string: " + locString);
+            return null;
+        }
+        org.bukkit.World world = plugin.getServer().getWorld(parts[0]);
+        if (world == null) {
+            plugin.getLogger().warning("Unknown world in location string: " + parts[0]);
+            return null;
+        }
+        return new Location(world, Double.parseDouble(parts[1]), Double.parseDouble(parts[2]), Double.parseDouble(parts[3]));
     }
 
     private UUID uidFromString(String ownerString) {

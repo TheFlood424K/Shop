@@ -212,7 +212,7 @@ public class Transaction {
 
     public TransactionError execute() {
         // Check to see if we had any errors, you must do this before performing the transaction!
-        if (this.verify() != TransactionError.NONE) { return this.error; }
+        if (this.error != TransactionError.NONE) { return this.error; }
 
         // Perform the transaction, we are fully verified, so we can just directly run through the transaction
         ItemStack itemSold = this.itemBeingSold.clone();

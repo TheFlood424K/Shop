@@ -31,14 +31,15 @@ import org.bukkit.scheduler.BukkitRunnable;
 import com.tcoded.folialib.wrapper.task.WrappedTask;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 
 public class ShopListener implements Listener {
 
     private Shop plugin;
-    private HashMap<UUID, OfflineTransactions> transactionsWhileOffline = new HashMap<>();
-    private HashMap<UUID, Long> playerLastShopTeleport = new HashMap<>();
+    private ConcurrentHashMap<UUID, OfflineTransactions> transactionsWhileOffline = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<UUID, Long> playerLastShopTeleport = new ConcurrentHashMap<>();
 
     public ShopListener(Shop instance) {
         plugin = instance;

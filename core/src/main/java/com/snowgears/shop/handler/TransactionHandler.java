@@ -9,7 +9,6 @@ import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -205,16 +204,13 @@ public class TransactionHandler {
         else{
             shopMessageCooldown.put(shop.getSignLocation(), shop.getOwnerUUID());
 
-            plugin.getFoliaLib().getScheduler().runLater(new BukkitRunnable() {
-                @Override
-                public void run() {
-                    if(shop != null){
-                        if(shopMessageCooldown.containsKey(shop.getSignLocation())){
-                            shopMessageCooldown.remove(shop.getSignLocation());
-                        }
+            plugin.getFoliaLib().getScheduler().runLater(() -> {
+                if(shop != null){
+                    if(shopMessageCooldown.containsKey(shop.getSignLocation())){
+                        shopMessageCooldown.remove(shop.getSignLocation());
                     }
-                    //TODO if shop is null, should you clear the entire cooldown list so that that location isn't messed up?
                 }
+                //TODO if shop is null, should you clear the entire cooldown list so that that location isn't messed up?
             }, 2400); //make cooldown 2 minutes
         }
         return true;

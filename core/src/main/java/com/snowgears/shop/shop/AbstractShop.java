@@ -546,7 +546,7 @@ public abstract class AbstractShop {
                 Block chestBlock = this.getChestLocation().getBlock();
                 if (chestBlock != null && Shop.getPlugin().getShopHandler().isChest(chestBlock)) {
                     Block displayBlock = chestBlock.getRelative(BlockFace.UP);
-                    if(UtilMethods.materialIsNonIntrusive(displayBlock.getType())) {
+                    if(displayBlock.getType() == Material.LIGHT) {
                         displayBlock.setType(Material.AIR);
                     }
                 }

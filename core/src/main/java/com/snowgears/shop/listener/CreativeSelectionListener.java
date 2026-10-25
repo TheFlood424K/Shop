@@ -39,6 +39,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 import static com.snowgears.shop.util.ShopCreationProcess.ChatCreationStep.BARTER_ITEM;
@@ -47,7 +48,7 @@ import static com.snowgears.shop.util.ShopCreationProcess.ChatCreationStep.ITEM;
 public class CreativeSelectionListener implements Listener {
 
     private Shop plugin;
-    private HashMap<UUID, PlayerData> playerDataMap = new HashMap<>();
+    private ConcurrentHashMap<UUID, PlayerData> playerDataMap = new ConcurrentHashMap<>();
 
     public CreativeSelectionListener(Shop instance) {
         plugin = instance;

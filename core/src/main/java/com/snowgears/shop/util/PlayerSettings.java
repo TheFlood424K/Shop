@@ -48,7 +48,6 @@ public class PlayerSettings {
 
     public void setOption(Option option, ShopGuiHandler.GuiIcon guiIcon){
         optionsMap.put(option, guiIcon);
-        saveToFile();
     }
 
     public ShopGuiHandler.GuiIcon getGuiIcon(Option option){
