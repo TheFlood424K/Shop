@@ -91,5 +91,68 @@ public class ShopCreationSignTest extends BaseMockBukkitTest {
 
         assertTrue(shop.isInitialized(), "Shop should be initialized after left-click with item");
     }
+
+    @Test
+    void createUsingSignInCreativeDoesNotDestroySign() {
+        ServerMock server = getServer();
+        Shop plugin = getPlugin();
+
+        WorldMock world = server.addSimpleWorld("world");
+        PlayerMock player = server.addPlayer();
+        player.setOp(true);
+        player.setGameMode(org.bukkit.GameMode.CREATIVE);
+
+        setConfig("allowCreateMethodSign", true);
+
+        Location signLoc = new Location(world, 6, 65, 6);
+        Block signBlock = world.getBlockAt(signLoc);
+        signBlock.setType(Material.OAK_WALL_SIGN);
+        WallSign data = (WallSign) signBlock.getBlockData();
+        data.setFacing(BlockFace.NORTH);
+        world.setBlockData(signBlock.getLocation(), data);
+        Location chestLoc = signBlock.getRelative(BlockFace.NORTH.getOppositeFace()).getLocation();
+
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.text(ShopMessage.getCreationWord("SHOP")));
+        lines.add(Component.text("1"));
+        lines.add(Component.text("10"));
+        lines.add(Component.text(ShopMessage.getCreationWord("SELL")));
+        SignChangeEvent signEvent = new SignChangeEvent(signBlock, (Player) player, lines, Side.FRONT);
+        server.getPluginManager().callEvent(signEvent);
+
+        assertEquals("§6Now just hit the sign with the item you want to sell to other players!", waitForNextMessage(player));
+        assertNull(player.nextMessage());
+
+        AbstractShop shop = plugin.getShopHandler().getShop(signLoc);
+        assertNotNull(shop);
+        assertFalse(shop.isInitialized());
+
+        ItemStack toInit = new ItemStack(Material.DIAMOND);
+        player.getInventory().setItemInMainHand(toInit);
+        PlayerInteractEvent initEvent = new PlayerInteractEvent(
+                player,
+                Action.LEFT_CLICK_BLOCK,
+                toInit,
+                signBlock,
+                BlockFace.WEST,
+                EquipmentSlot.HAND
+        );
+        server.getPluginManager().callEvent(initEvent);
+
+        org.bukkit.event.block.BlockBreakEvent breakEvent = new org.bukkit.event.block.BlockBreakEvent(signBlock, player);
+        server.getPluginManager().callEvent(breakEvent);
+
+        assertTrue(shop.isInitialized(), "Shop should be initialized in creative");
+        assertTrue(breakEvent.isCancelled(), "Break should be cancelled by creative init guard");
+        assertEquals(Material.OAK_WALL_SIGN, signBlock.getType(), "Sign should not be destroyed");
+
+        server.getScheduler().performTicks(10);
+        org.bukkit.event.block.BlockBreakEvent breakEventLater = new org.bukkit.event.block.BlockBreakEvent(signBlock, player);
+        server.getPluginManager().callEvent(breakEventLater);
+        assertFalse(breakEventLater.isCancelled(), "Guard should expire after ticks");
+    }
 }
 
