@@ -39,6 +39,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 
+/**
+ * Handles shop registration, lookup, display processing, and persistence.
+ */
 public class ShopHandler {
 
     public Shop plugin;
@@ -82,6 +85,9 @@ public class ShopHandler {
         }, 10);
     }
 
+    /**
+     * Disables display features by loading the disabled display class.
+     */
     public void disableDisplayClass() {
         try {
             final Class<?> clazz = Class.forName("com.snowgears.shop.display.DisplayDisabled");
@@ -154,6 +160,12 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Creates a display for the given location.
+     *
+     * @param loc the location
+     * @return the created display, or null if creation fails
+     */
     public AbstractDisplay createDisplay(Location loc){
         try {
             AbstractDisplay display = (AbstractDisplay) displayClass.getConstructor(Location.class).newInstance(loc);
@@ -164,10 +176,22 @@ public class ShopHandler {
         return null;
     }
 
+    /**
+     * Gets a shop at the given location.
+     *
+     * @param loc the location
+     * @return the shop, or null if none exists
+     */
     public AbstractShop getShop(Location loc) {
         return allShops.get(loc);
     }
 
+    /**
+     * Gets a shop associated with the given chest block.
+     *
+     * @param shopChest the chest block
+     * @return the shop, or null if none exists
+     */
     public AbstractShop getShopByChest(Block shopChest) {
 
         try {
@@ -220,6 +244,12 @@ public class ShopHandler {
         return null;
     }
 
+    /**
+     * Gets a shop touching the given block.
+     *
+     * @param block the block
+     * @return the shop, or null if none exists
+     */
     public AbstractShop getShopTouchingBlock(Block block){
         BlockFace[] faces = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
         for(BlockFace face : faces){
@@ -237,6 +267,11 @@ public class ShopHandler {
         return null;
     }
 
+    /**
+     * Registers a shop.
+     *
+     * @param shop the shop to add
+     */
     public void addShop(AbstractShop shop) {
 
         //this is to remove a bug that caused one shop to be saved to multiple files at one point
@@ -262,7 +297,12 @@ public class ShopHandler {
         plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
     }
 
-    //This method should only be used by AbstractShop object to delete
+    /**
+     * Removes a shop. This method should only be used by an AbstractShop instance to delete itself.
+     *
+     * @param shop the shop to remove
+     * @param forceSave whether to force saving after removal
+     */
     public void removeShop(AbstractShop shop, boolean forceSave) {
         boolean changed = false;
         if (allShops.containsKey(shop.getSignLocation())) {
@@ -308,6 +348,11 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Processes unloaded shops in the given chunk.
+     *
+     * @param chunk the chunk
+     */
     public void processUnloadedShopsInChunk(Chunk chunk){
         String key = UtilMethods.getChunkKey(chunk);
         if(unloadedShopsByChunk.containsKey(key)){
