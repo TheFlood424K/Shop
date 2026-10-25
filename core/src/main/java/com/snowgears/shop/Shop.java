@@ -103,6 +103,7 @@ public class Shop extends JavaPlugin {
     private boolean playEffects;
     private boolean allowCreateMethodSign;
     private boolean allowCreateMethodChest;
+    private int shopCreationTimeout;
     private ItemStack gambleDisplayItem;
     private ItemStack itemCurrency = null;
     private CurrencyType currencyType;
@@ -332,6 +333,9 @@ public class Shop extends JavaPlugin {
 
         allowCreateMethodSign = config.getBoolean("creationMethod.placeSign");
         allowCreateMethodChest = config.getBoolean("creationMethod.hitChest");
+        // Default keeps pre-existing configs (which lack this key) working instead of
+        // collapsing to 0 seconds, which would time creation out immediately.
+        shopCreationTimeout = config.getInt("shopCreationTimeout", 120);
 
         usePerms = config.getBoolean("usePermissions");
         if (usePerms) {
@@ -985,6 +989,10 @@ public class Shop extends JavaPlugin {
 
     public int getHoursOfflineToRemoveShops(){
         return hoursOfflineToRemoveShops;
+    }
+
+    public int getShopCreationTimeout(){
+        return shopCreationTimeout;
     }
 
     public boolean playSounds(){

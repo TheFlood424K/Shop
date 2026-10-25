@@ -170,7 +170,7 @@ public class MiscListener implements Listener {
                             cancelShopCreationProcess(player);
                         }
                     }
-                }, 30 * 20); // 30 seconds * 20 ticks
+                }, plugin.getShopCreationTimeout() * 20L); // configurable; seconds * 20 ticks
             }
         }
     }
@@ -381,7 +381,7 @@ public class MiscListener implements Listener {
                         plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
                         ShopMessage.sendMessage("interactionIssue", "createHitChestTimeout", currentProcess, player);
                     }
-                }, 30 * 20); // 30 seconds * 20 ticks
+                }, plugin.getShopCreationTimeout() * 20L); // configurable; seconds * 20 ticks
             }
         }
     }

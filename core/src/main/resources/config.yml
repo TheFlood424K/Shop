@@ -170,6 +170,10 @@ creationMethod:
    placeSign: true
    hitChest: true
 
+# How long (in seconds) a player has to answer the chat prompts when creating a #
+# shop via the 'hitChest' method before the creation process times out.         #
+shopCreationTimeout: 120
+
 # This will show shop creation instructions as floating text above shops #
 displayFloatingCreateText: true
 

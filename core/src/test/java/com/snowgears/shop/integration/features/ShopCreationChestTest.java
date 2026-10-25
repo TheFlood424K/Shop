@@ -178,5 +178,49 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         // Ensure no shop was created/registered for chest
         assertNull(getPlugin().getShopHandler().getShopByChest(chestBlock), "Shop should not be created when creation times out");
     }
+
+    @Test
+    void creationTimeoutIsConfigurable() {
+        ServerMock server = getServer();
+        World world = server.addSimpleWorld("world");
+        PlayerMock player = server.addPlayer();
+        player.setOp(true);
+
+        // Enable chest creation
+        setConfig("allowCreateMethodChest", true);
+        // Set a short configurable timeout for testing
+        setConfig("shopCreationTimeout", 1);
+
+        // Place chest with free space to the NORTH for sign placement
+        Location chestLoc = new Location(world, 54, 65, 10);
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+        world.getBlockAt(chestLoc.clone().add(0, 0, -1)).setType(Material.AIR);
+        stubCalculateBlockFaceForSign(BlockFace.NORTH);
+
+        // Start creation by sneaking and left-clicking the chest with an item in hand
+        player.setSneaking(true);
+        ItemStack item = new ItemStack(Material.DIRT);
+        player.getInventory().setItemInMainHand(item);
+        PlayerInteractEvent startCreate = new PlayerInteractEvent(
+                player,
+                Action.LEFT_CLICK_BLOCK,
+                item,
+                chestBlock,
+                BlockFace.NORTH,
+                EquipmentSlot.HAND
+        );
+        server.getPluginManager().callEvent(startCreate);
+
+        // Drain initial creation messages
+        while (player.nextMessage() != null) {}
+
+        // Advance scheduler by timeout ticks
+        server.getScheduler().performTicks(25);
+        server.getScheduler().waitAsyncTasksFinished();
+
+        assertEquals("§7The shop you started to create at (54, 65, 10) has timed out.", player.nextMessage(), "Player should be sent timeout message with configurable timeout");
+        assertNull(getPlugin().getShopHandler().getShopByChest(chestBlock), "Shop should not be created when creation times out");
+    }
 }
 
