@@ -10,6 +10,7 @@ import com.snowgears.shop.shop.ShopType;
 import com.snowgears.shop.util.*;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -34,6 +35,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class MiscListener implements Listener {
@@ -41,6 +43,13 @@ public class MiscListener implements Listener {
     public Shop plugin;
     private HashMap<UUID, ShopCreationProcess> playerChatCreationSteps = new HashMap<>();
     private HashMap<UUID, Long> lastChatCreation = new HashMap<>();
+    // Sign locations whose shops were just set up by a creative-mode left-click.
+    // In creative the same click both initializes the shop (PlayerInteractEvent,
+    // which fires first and sets the item) and breaks the sign (BlockBreakEvent,
+    // which follows) — and cancelling the interact event does not stop a creative
+    // break. shopDestroy() consults this set to suppress that trailing break.
+    // Entries are cleared a couple ticks later in case no break ever follows.
+    private final Set<Location> creativeInitGuard = ConcurrentHashMap.newKeySet();
 
     public MiscListener(Shop instance) {
         plugin = instance;
@@ -258,6 +267,15 @@ public class MiscListener implements Listener {
                 if(initializedShop){
                     plugin.getShopCreationUtil().sendCreationSuccess(player, shop);
                     plugin.getLogHandler().logAction(player, shop, ShopActionType.INIT);
+
+                    // If the player is in creative mode, guard the sign location so the
+                    // trailing BlockBreakEvent (which fires immediately after in creative)
+                    // does not destroy the just-initialized shop.
+                    if (player.getGameMode() == GameMode.CREATIVE) {
+                        creativeInitGuard.add(clicked.getLocation());
+                        // Schedule cleanup a few ticks later in case no break follows.
+                        plugin.getFoliaLib().getScheduler().runLater(() -> creativeInitGuard.remove(clicked.getLocation()), 4);
+                    }
                 }
 
                 return;
@@ -537,6 +555,13 @@ public class MiscListener implements Listener {
                 event.setDropItems(false);
             }
             if (!shop.isInitialized()) {
+                event.setCancelled(true);
+                return;
+            }
+
+            // If this sign was just initialized by a creative-mode left-click,
+            // suppress the trailing BlockBreakEvent that follows in the same tick.
+            if (creativeInitGuard.remove(b.getLocation())) {
                 event.setCancelled(true);
                 return;
             }

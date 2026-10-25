@@ -1,0 +1,10 @@
+fix: add maven-toolchains-plugin to root pom for CI dependency submission
+
+The "Automatic Dependency Submission" GitHub Action runs `mvn validate`
+independently and fails because shop-core requires JDK 21 toolchain but
+none is configured when that action runs.
+
+- Add maven-toolchains-plugin to pluginManagement with JDK 21 requirement
+- Set failIfNoToolchain=false so validation passes without JDK 21 toolchain
+- Bind to validate phase so it runs during the action's mvn validate
+- Main build.yml still sets up proper JDK 21 toolchain via toolchains.xml

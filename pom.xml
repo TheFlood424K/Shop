@@ -33,8 +33,40 @@
                 <filtering>true</filtering>
             </resource>
         </resources>
-        
+
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-toolchains-plugin</artifactId>
+                    <version>3.2.0</version>
+                    <configuration>
+                        <toolchains>
+                            <jdk>
+                                <version>21</version>
+                                <vendor>any</vendor>
+                            </jdk>
+                        </toolchains>
+                        <failIfNoToolchain>false</failIfNoToolchain>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>default-toolchain</id>
+                            <phase>validate</phase>
+                            <goals>
+                                <goal>toolchain</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-toolchains-plugin</artifactId>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
