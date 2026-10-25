@@ -5,7 +5,7 @@ import com.google.gson.JsonObject;
 import com.snowgears.shop.Shop;
 
 import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.ItemTag;
+// Uses the Paper API where available, NMS otherwise
 import net.md_5.bungee.api.chat.hover.content.Item;
 import net.md_5.bungee.api.chat.hover.content.Content;
 import org.bukkit.inventory.ItemStack;
