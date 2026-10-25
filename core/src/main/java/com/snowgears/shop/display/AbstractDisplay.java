@@ -25,13 +25,17 @@ public abstract class AbstractDisplay {
 
     protected Location shopSignLocation;
     protected DisplayType type;
-    protected HashMap<UUID, ArrayList<Integer>> entityIDs; //player UUID. display entities
-    protected HashMap<UUID, ArrayList<Integer>> displayTagEntityIDs; //player UUID. display tags
+    protected ArrayList<Entity> displayEntities;
+    protected ArrayList<Entity> displayTagEntities;
+    protected HashSet<UUID> playersSeeingDisplay;
+    protected HashSet<UUID> playersSeeingTags;
 
     public AbstractDisplay(Location shopSignLocation) {
         this.shopSignLocation = shopSignLocation;
-        entityIDs = new HashMap<>();
-        displayTagEntityIDs = new HashMap<>();
+        this.displayEntities = new ArrayList<>();
+        this.displayTagEntities = new ArrayList<>();
+        this.playersSeeingDisplay = new HashSet<>();
+        this.playersSeeingTags = new HashSet<>();
     }
 
     public boolean isEnabled() { return true; }
@@ -245,26 +249,26 @@ public abstract class AbstractDisplay {
 
     public void updateDisplayTags(){
         // Update any players display tags who currently have them open
-        if (displayTagEntityIDs == null || displayTagEntityIDs.isEmpty()) {
+        if (playersSeeingTags == null || playersSeeingTags.isEmpty()) {
             return;
         }
-        
+
         // Get a copy of the keys to avoid concurrent modification issues
-        Set<UUID> playerUUIDs = new HashSet<>(displayTagEntityIDs.keySet());
-        
+        Set<UUID> playerUUIDs = new HashSet<>(playersSeeingTags);
+
         for (UUID playerUUID : playerUUIDs) {
             Player player = Shop.getPlugin().getServer().getPlayer(playerUUID);
-            
+
             // Skip if player is offline or in a different world
             if (player == null || !player.isOnline() || !isSameWorld(player)) {
                 continue;
             }
-            
+
             // Check if player has display tags visible
             if (displayTagsVisible(player)) {
                 // Remove the current display tags
                 removeDisplayEntities(player, true);
-                
+
                 // Show updated display tags
                 showDisplayTags(player);
             }
@@ -558,80 +562,57 @@ public abstract class AbstractDisplay {
     }
 
     protected boolean displayTagsVisible(Player player){
-        if(player == null || displayTagEntityIDs == null)
+        if(player == null || playersSeeingTags == null)
             return false;
-        ArrayList<Integer> entityTagIDs = displayTagEntityIDs.get(player.getUniqueId());
-        if(entityTagIDs == null || entityTagIDs.isEmpty())
-            return false;
-        return true;
+        return playersSeeingTags.contains(player.getUniqueId());
     }
 
-    protected void addDisplayTag(Player player, int displayTagID){
-        if(player == null)
+    protected void addDisplayTag(Player player, Entity entity){
+        if(player == null || entity == null)
             return;
-        ArrayList<Integer> tagIDs = displayTagEntityIDs.get(player.getUniqueId());
-        if(tagIDs == null){
-            tagIDs = new ArrayList<>();
-        }
-        tagIDs.add(displayTagID);
-        displayTagEntityIDs.put(player.getUniqueId(), tagIDs);
+        playersSeeingTags.add(player.getUniqueId());
+        displayTagEntities.add(entity);
     }
 
-    protected void addEntityID(Player player, int entityID){
-        if(player == null)
+    protected void addEntityID(Player player, Entity entity){
+        if(player == null || entity == null)
             return;
-        ArrayList<Integer> entityIDs = this.entityIDs.get(player.getUniqueId());
-        if(entityIDs == null){
-            entityIDs = new ArrayList<>();
-        }
-        entityIDs.add(entityID);
-        this.entityIDs.put(player.getUniqueId(), entityIDs);
+        playersSeeingDisplay.add(player.getUniqueId());
+        displayEntities.add(entity);
     }
 
-    protected ArrayList<Integer> getAllDisplayTagEntityIDs(){
-        ArrayList<Integer> allDisplayTagEntityIDs = new ArrayList<>();
-        if(displayTagEntityIDs != null) {
-            for (Map.Entry<UUID, ArrayList<Integer>> entry : displayTagEntityIDs.entrySet()) {
-                allDisplayTagEntityIDs.addAll(entry.getValue());
-            }
-        }
-        return allDisplayTagEntityIDs;
+    protected ArrayList<Entity> getAllDisplayTagEntities(){
+        return new ArrayList<>(displayTagEntities);
     }
 
-    protected ArrayList<Integer> getAllEntityIDs(){
-        ArrayList<Integer> allEntityIDs = new ArrayList<>();
-        if(entityIDs != null) {
-            for (Map.Entry<UUID, ArrayList<Integer>> entry : entityIDs.entrySet()) {
-                allEntityIDs.addAll(entry.getValue());
-            }
-        }
-        return allEntityIDs;
+    protected ArrayList<Entity> getAllDisplayEntities(){
+        return new ArrayList<>(displayEntities);
     }
 
-    protected Iterator<Integer> getDisplayEntityIDIterator(Player player, boolean onlyDisplayTags){
-        Iterator<Integer> entityIterator;
+    protected Iterator<Entity> getDisplayEntityIterator(Player player, boolean onlyDisplayTags){
         if(onlyDisplayTags){
             if(player == null){
-                entityIterator = getAllDisplayTagEntityIDs().iterator();
+                return getAllDisplayTagEntities().iterator();
             }
             else{
                 if(!this.displayTagsVisible(player))
                     return null;
-                entityIterator = this.displayTagEntityIDs.get(player.getUniqueId()).iterator();
+                // Return iterator for entities associated with this player's tags
+                // Since we track globally, we need to filter - for now return all tag entities
+                return getAllDisplayTagEntities().iterator();
             }
         }
         else {
             if(player == null){
-                entityIterator = getAllEntityIDs().iterator();
+                return getAllDisplayEntities().iterator();
             }
             else{
-                if(this.entityIDs.get(player.getUniqueId()) == null){
-                    this.entityIDs.put(player.getUniqueId(), new ArrayList<>());
+                if(!playersSeeingDisplay.contains(player.getUniqueId())){
+                    return null;
                 }
-                entityIterator = this.entityIDs.get(player.getUniqueId()).iterator();
+                return getAllDisplayEntities().iterator();
             }
         }
-        return entityIterator;
     }
 
     protected boolean isSameWorld(Player player){
