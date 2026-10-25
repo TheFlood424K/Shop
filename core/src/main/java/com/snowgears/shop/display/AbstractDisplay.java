@@ -21,6 +21,15 @@ import org.bukkit.util.Vector;
 import java.util.*;
 
 
+/**
+ * Base class for shop display implementations.
+ * <p>
+ * AbstractDisplay manages the visual representation of shops including item displays
+ * and holographic tag displays for players. It handles spawning display entities,
+ * showing/hiding tags, managing display types, and tracking which entities are visible
+ * to which players.
+ * </p>
+ */
 public abstract class AbstractDisplay {
 
     protected Location shopSignLocation;
@@ -34,8 +43,18 @@ public abstract class AbstractDisplay {
         this.shopSignLocation = shopSignLocation;
     }
 
+    /**
+     * Checks if this display implementation is enabled.
+     *
+     * @return {@code true} if displays are enabled, {@code false} otherwise
+     */
     public boolean isEnabled() { return true; }
 
+    /**
+     * Checks if the chunk containing the shop sign is loaded.
+     *
+     * @return {@code true} if the chunk is loaded, {@code false} otherwise
+     */
     public boolean isChunkLoaded(){
         return UtilMethods.isChunkLoaded(this.shopSignLocation);
     }
@@ -54,6 +73,16 @@ public abstract class AbstractDisplay {
 
     public abstract void removeDisplayEntities(Player player, boolean onlyDisplayTags);
 
+    /**
+     * Spawns the display for the specified player.
+     * <p>
+     * If player is {@code null}, the display is spawned for all applicable viewers.
+     * The display is removed first, then recreated based on the shop's display type
+     * and whether the shop is a barter shop (two items) or regular shop (one item).
+     * </p>
+     *
+     * @param player the player to spawn the display for, or {@code null} for all players
+     */
     public void spawn(Player player) {
         if(player != null){
             //don't spawn the display if the player is in a different world
@@ -169,6 +198,17 @@ public abstract class AbstractDisplay {
 
     //DISPLAY TAGS
 
+    /**
+     * Shows display tags (holographic shop information) for the specified player.
+     * <p>
+     * Tags are only shown if they are not already visible, the shop is initialized,
+     * display tags are enabled in configuration, and the shop has a valid facing direction.
+     * Tags are positioned relative to the shop and may be shifted horizontally based
+     * on tag content markers.
+     * </p>
+     *
+     * @param player the player to show display tags for
+     */
     public void showDisplayTags(Player player){
         if(displayTagsVisible(player) || !getShop().isInitialized() || Shop.getPlugin().getDisplayTagOption() == DisplayTagOption.NONE || getShop().getFacing() == null) {
             return;
@@ -243,6 +283,14 @@ public abstract class AbstractDisplay {
         }
     }
 
+    /**
+     * Updates display tags for all players currently seeing them.
+     * <p>
+     * For each player with visible tags, the tags are removed and recreated
+     * with updated information. Players who are offline or in a different world
+     * are skipped.
+     * </p>
+     */
     public void updateDisplayTags(){
         // Update any players display tags who currently have them open
         if (playersSeeingTags == null || playersSeeingTags.isEmpty()) {
@@ -271,6 +319,13 @@ public abstract class AbstractDisplay {
         }
     }
 
+    /**
+     * Creates a tag entity (hologram) for the specified player at the given location.
+     *
+     * @param player the player to create the tag for
+     * @param text the text to display on the tag
+     * @param location the location to spawn the tag entity
+     */
     public void createTagEntity(Player player, String text, Location location){
         Shop.getPlugin().getLogger().debug("Spawning hologram for player " + player.getName() + " at " + location.getBlockX() + "/" + location.getBlockY() + "/" + location.getBlockZ() + ": " + text, true);
         ArmorStandData caseStandData = new ArmorStandData();
@@ -280,18 +335,48 @@ public abstract class AbstractDisplay {
         spawnArmorStandPacket(player, caseStandData, text);
     }
 
+    /**
+     * Adds a task to remove display tags for the specified player.
+     * <p>
+     * This schedules the display tags to be removed after a delay or when
+     * the player is no longer looking toward the shop.
+     * </p>
+     *
+     * @param player the player to schedule tag removal for
+     */
     public void addRemoveDisplayTask(Player player) {
         removeDisplayTagsDelayedTask(player);
     }
 
+    /**
+     * Gets the current display type.
+     *
+     * @return the display type, or {@code null} if not set
+     */
     public DisplayType getType(){
         return type;
     }
 
+    /**
+     * Gets the shop associated with this display.
+     *
+     * @return the shop, or {@code null} if not found
+     */
     public AbstractShop getShop(){
         return Shop.getPlugin().getShopHandler().getShop(this.shopSignLocation);
     }
 
+    /**
+     * Sets the display type.
+     * <p>
+     * If {@code checkDisplayBlock} is {@code true}, the method checks if there is
+     * adequate space above the shop for the display. If space is blocked and switching
+     * between NONE and ITEM_FRAME types, the change may be rejected.
+     * </p>
+     *
+     * @param type the display type to set
+     * @param checkDisplayBlock whether to check for display block obstruction
+     */
     public void setType(DisplayType type, boolean checkDisplayBlock){
         DisplayType oldType = this.type;
 
@@ -310,6 +395,16 @@ public abstract class AbstractDisplay {
         this.type = type;
     }
 
+    /**
+     * Cycles to the next display type in the configured cycle.
+     * <p>
+     * Skips display types that are not possible due to blocked space above the shop
+     * or other restrictions (e.g., ITEM_FRAME for barter shops or if already present).
+     * After cycling, the display is respawned and marked for saving.
+     * </p>
+     *
+     * @param player the player triggering the cycle
+     */
     public void cycleType(Player player){
         if(getShop().getFacing() == null)
             return;
@@ -395,6 +490,15 @@ public abstract class AbstractDisplay {
         getShop().setNeedsSave(true);
     }
 
+    /**
+     * Removes all display entities and display tag entities for the specified player.
+     * <p>
+     * Both regular display entities and tag entities are removed. Errors are caught
+     * and ignored to prevent display cleanup from interfering with other operations.
+     * </p>
+     *
+     * @param player the player to remove displays for
+     */
     public void remove(Player player) {
         try {
             removeDisplayEntities(player, false);
@@ -451,6 +555,13 @@ public abstract class AbstractDisplay {
         return shop.getChestLocation().clone().add(dropX, dropY, dropZ);
     }
 
+    /**
+     * Gets the horizontal shift offset for display tags based on shop facing direction.
+     *
+     * @param isLeftShift whether to shift left
+     * @param isRightShift whether to shift right
+     * @return the vector offset for tag positioning
+     */
     public Vector getShiftOffset(boolean isLeftShift, boolean isRightShift){
         AbstractShop shop = this.getShop();
 
@@ -523,6 +634,17 @@ public abstract class AbstractDisplay {
         return offset;
     }
 
+    /**
+     * Checks if the player is looking toward the shop display.
+     * <p>
+     * Returns {@code false} if the player is more than 8 blocks away.
+     * The angle between the player's look direction and the direction to the
+     * display must be less than 1 radian.
+     * </p>
+     *
+     * @param player the player to check
+     * @return {@code true} if the player is looking toward the shop, {@code false} otherwise
+     */
     protected boolean playerIsLookingTowardShop(Player player) {
         try {
             if (player.getLocation().distanceSquared(this.shopSignLocation) > 64) { //player is more than 8 blocks away
@@ -541,6 +663,15 @@ public abstract class AbstractDisplay {
         return angle < 1;
     }
 
+    /**
+     * Schedules delayed removal of display tags for the specified player.
+     * <p>
+     * If the player is no longer looking toward the shop or tags are not visible,
+     * the tags are removed. Otherwise, the task reschedules itself.
+     * </p>
+     *
+     * @param player the player to schedule tag removal for
+     */
     protected void removeDisplayTagsDelayedTask(Player player) {
         //remove all armor stand name tag entities after x seconds
         Shop.getPlugin().getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
@@ -557,12 +688,27 @@ public abstract class AbstractDisplay {
         }, 20);
     }
 
+    /**
+     * Checks if display tags are currently visible to the specified player.
+     *
+     * @param player the player to check
+     * @return {@code true} if tags are visible, {@code false} otherwise
+     */
     protected boolean displayTagsVisible(Player player){
         if(player == null || playersSeeingTags == null)
             return false;
         return playersSeeingTags.contains(player.getUniqueId());
     }
 
+    /**
+     * Adds a display tag entity to the tracking map for the specified player.
+     * <p>
+     * Marks the player as seeing display tags.
+     * </p>
+     *
+     * @param player the player who can see the tag
+     * @param entity the tag entity
+     */
     protected void addDisplayTag(Player player, Entity entity){
         if(player == null || entity == null)
             return;
@@ -570,6 +716,15 @@ public abstract class AbstractDisplay {
         playersSeeingTags.add(player.getUniqueId());
     }
 
+    /**
+     * Adds a display entity to the tracking map for the specified player.
+     * <p>
+     * Marks the player as seeing display entities.
+     * </p>
+     *
+     * @param player the player who can see the entity
+     * @param entity the display entity
+     */
     protected void addEntityID(Player player, Entity entity){
         if(player == null || entity == null)
             return;
@@ -577,6 +732,11 @@ public abstract class AbstractDisplay {
         playersSeeingDisplay.add(player.getUniqueId());
     }
 
+    /**
+     * Gets all display tag entities for all players.
+     *
+     * @return a list of all display tag entities
+     */
     protected List<Entity> getAllDisplayTagEntityIDs(){
         List<Entity> all = new ArrayList<>();
         for (List<Entity> entities : displayTagEntities.values()) {
@@ -585,6 +745,11 @@ public abstract class AbstractDisplay {
         return all;
     }
 
+    /**
+     * Gets all display entities for all players.
+     *
+     * @return a list of all display entities
+     */
     protected List<Entity> getAllEntityIDs(){
         List<Entity> all = new ArrayList<>();
         for (List<Entity> entities : displayEntities.values()) {
@@ -593,6 +758,14 @@ public abstract class AbstractDisplay {
         return all;
     }
 
+    /**
+     * Gets an iterator over display entities for a player or all players.
+     *
+     * @param player the player to get entities for, or {@code null} for all players
+     * @param onlyDisplayTags whether to return only display tag entities ({@code true})
+     *                        or all display entities ({@code false})
+     * @return an iterator over the requested entities
+     */
     protected Iterator<Entity> getDisplayEntityIDIterator(Player player, boolean onlyDisplayTags){
         if (player == null) {
             if (onlyDisplayTags) {
@@ -619,6 +792,12 @@ public abstract class AbstractDisplay {
         }
     }
 
+    /**
+     * Checks if the player is in the same world as the shop.
+     *
+     * @param player the player to check
+     * @return {@code true} if in the same world, {@code false} otherwise
+     */
     protected boolean isSameWorld(Player player){
         return player.getWorld().getUID().equals(this.shopSignLocation.getWorld().getUID());
     }

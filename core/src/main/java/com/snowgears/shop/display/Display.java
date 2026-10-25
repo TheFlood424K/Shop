@@ -18,8 +18,20 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Standard display implementation using modern display entities (ItemDisplay, TextDisplay).
+ * <p>
+ * This implementation spawns display entities visible only to specific players
+ * using scoreboard tags and per-player visibility.
+ * </p>
+ */
 public class Display extends AbstractDisplay {
 
+    /**
+     * Creates a new Display instance.
+     *
+     * @param shopSignLocation the location of the shop sign
+     */
     public Display(Location shopSignLocation) {
         super(shopSignLocation);
     }
