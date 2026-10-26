@@ -39,6 +39,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 
+/**
+ * Handles shop management, storage, display, and lookup operations.
+ * Manages all shops across the server, tracks player ownership, handles
+ * chunk-based organization, and coordinates shop display rendering.
+ */
 public class ShopHandler {
 
     public Shop plugin;
@@ -71,6 +76,11 @@ public class ShopHandler {
     // Cooldown time in milliseconds (500ms = half a second)
     private static final long TELEPORT_COOLDOWN_MS = 500;
 
+    /**
+     * Creates a new ShopHandler and initializes shops and displays.
+     *
+     * @param instance The plugin instance
+     */
     public ShopHandler(Shop instance) {
         plugin = instance;
         adminUUID = UUID.randomUUID();
@@ -82,6 +92,9 @@ public class ShopHandler {
         }, 10);
     }
 
+    /**
+     * Disables the display class by loading the disabled display implementation.
+     */
     public void disableDisplayClass() {
         try {
             final Class<?> clazz = Class.forName("com.snowgears.shop.display.DisplayDisabled");
@@ -154,6 +167,12 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Creates a display instance at the specified location.
+     *
+     * @param loc The location to create the display at
+     * @return A new display instance, or null if creation fails
+     */
     public AbstractDisplay createDisplay(Location loc){
         try {
             AbstractDisplay display = (AbstractDisplay) displayClass.getConstructor(Location.class).newInstance(loc);
@@ -164,10 +183,22 @@ public class ShopHandler {
         return null;
     }
 
+    /**
+     * Gets a shop by its sign location.
+     *
+     * @param loc The sign location of the shop
+     * @return The shop at the location, or null if none exists
+     */
     public AbstractShop getShop(Location loc) {
         return allShops.get(loc);
     }
 
+    /**
+     * Gets a shop by its chest block.
+     *
+     * @param shopChest The chest block of the shop
+     * @return The shop associated with the chest, or null if none exists
+     */
     public AbstractShop getShopByChest(Block shopChest) {
 
         try {
@@ -220,6 +251,12 @@ public class ShopHandler {
         return null;
     }
 
+    /**
+     * Gets a shop touching the specified block.
+     *
+     * @param block The block to check for adjacent shops
+     * @return The shop touching the block, or null if none exists
+     */
     public AbstractShop getShopTouchingBlock(Block block){
         BlockFace[] faces = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
         for(BlockFace face : faces){
@@ -237,6 +274,11 @@ public class ShopHandler {
         return null;
     }
 
+    /**
+     * Adds a shop to the handler's tracking structures.
+     *
+     * @param shop The shop to add
+     */
     public void addShop(AbstractShop shop) {
 
         //this is to remove a bug that caused one shop to be saved to multiple files at one point
@@ -308,6 +350,11 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Processes all unloaded shops in the specified chunk.
+     *
+     * @param chunk The chunk containing unloaded shops
+     */
     public void processUnloadedShopsInChunk(Chunk chunk){
         String key = UtilMethods.getChunkKey(chunk);
         if(unloadedShopsByChunk.containsKey(key)){
@@ -331,6 +378,11 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Adds a shop to the unloaded shops list for its chunk.
+     *
+     * @param shop The shop to add
+     */
     public void addUnloadedShopToChunkList(AbstractShop shop){
         String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
         List<Location> shopLocations = getUnloadedShopsByChunk(chunkKey);
@@ -340,12 +392,23 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Gets all shops on the server.
+     *
+     * @return List of all shops
+     */
     public List<AbstractShop> getAllShops(){
         return allShops.values().stream().collect(
                 Collectors.toCollection(ArrayList::new)
         );
     }
 
+    /**
+     * Gets all shops owned by the specified player.
+     *
+     * @param player The player's UUID
+     * @return List of shops owned by the player
+     */
     public List<AbstractShop> getShops(UUID player){
         List<AbstractShop> shops = new ArrayList<>();
         for(Location shopSign : getShopLocations(player)){
@@ -356,6 +419,12 @@ public class ShopHandler {
         return shops;
     }
 
+    /**
+     * Gets the number of shops that need to be saved for the player.
+     *
+     * @param player The player's UUID
+     * @return Number of shops needing save
+     */
     public int numShopsNeedSave(UUID player){
         List<AbstractShop> shops = getShops(player);
 
@@ -368,6 +437,12 @@ public class ShopHandler {
         return needToBeSaved;
     }
 
+    /**
+     * Gets all shops selling or buying the specified item.
+     *
+     * @param itemStack The item to search for
+     * @return List of shops dealing with the item
+     */
     public List<AbstractShop> getShopsByItem(ItemStack itemStack){
         List<AbstractShop> shops = new ArrayList<>();
         for(AbstractShop shop : allShops.values()){
@@ -380,6 +455,11 @@ public class ShopHandler {
     }
 
     // Note: this is resource intensive on large servers, maybe refactor at some point
+    /**
+     * Gets all offline players that own shops.
+     *
+     * @return List of shop owners
+     */
     public List<OfflinePlayer> getShopOwners(){
         ArrayList<OfflinePlayer> owners = new ArrayList<>();
         for(UUID player : playerShops.keySet()) {
@@ -388,6 +468,11 @@ public class ShopHandler {
         return owners;
     }
 
+    /**
+     * Gets all UUIDs of players that own shops.
+     *
+     * @return List of shop owner UUIDs
+     */
     public List<UUID> getShopOwnerUUIDs(){
         ArrayList<UUID> owners = new ArrayList<>();
         for(UUID player : playerShops.keySet()) {
@@ -541,6 +626,11 @@ public class ShopHandler {
         return shops;
     }
 
+    /**
+     * Processes shop displays near the specified player.
+     *
+     * @param player The player to update displays for
+     */
     public void processShopDisplaysNearPlayer(Player player){
         // If the player is already being processed, don't start another process
         if (playersProcessingShopDisplays.contains(player.getUniqueId())) {

@@ -431,6 +431,11 @@ public class LogHandler {
         });
     }
 
+    /**
+     * Tests the database connection.
+     *
+     * @throws SQLException If connection test fails
+     */
     private void testDataSource() throws SQLException {
         // Connect to datasource & create statement in "try" to handle automatically closing the connection!
         try (Connection conn = dataSource.getConnection()) {
@@ -499,6 +504,11 @@ public class LogHandler {
         }
     }
 
+    /**
+     * Initializes database tables from setup file.
+     *
+     * @throws SQLException If database initialization fails
+     */
     private void initDb() throws SQLException {
         // first lets read our setup file.
         // This file contains statements to create our inital tables.
