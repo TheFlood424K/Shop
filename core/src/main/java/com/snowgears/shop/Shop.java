@@ -29,6 +29,17 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * The main plugin class for the Shop plugin.
+ * <p>
+ * Shop is a Bukkit/Spigot plugin that provides chest shops, allowing players to buy, sell,
+ * barter, and gamble items through signs attached to containers. It includes extensive
+ * integration with protection plugins, map plugins, and economy systems.
+ * </p>
+ *
+ * @author SnowGears
+ * @version ${project.version}
+ */
 public class Shop extends JavaPlugin {
 
     private static Shop plugin;
@@ -145,6 +156,11 @@ public class Shop extends JavaPlugin {
 
     private Metrics metrics;
 
+    /**
+     * Gets the static instance of the Shop plugin.
+     *
+     * @return the Shop plugin instance
+     */
     public static Shop getPlugin() {
         return plugin;
     }
@@ -831,6 +847,13 @@ public class Shop extends JavaPlugin {
         this.getLogger().info("Disabled Shop " + this.getDescription().getVersion());
     }
 
+    /**
+     * Reloads the plugin configuration and reinitializes all components.
+     * <p>
+     * This method unregisters all event listeners, saves shops, disables the plugin,
+     * and then re-enables it with fresh configuration values.
+     * </p>
+     */
     public void reload(){
         this.getLogger().info("Reloading Shop " + this.getDescription().getVersion());
 
@@ -885,69 +908,184 @@ public class Shop extends JavaPlugin {
         return econ != null;
     }
 
+    /**
+     * Gets the ShopListener instance.
+     *
+     * @return the ShopListener
+     */
     public ShopListener getShopListener() {
         return shopListener;
     }
 
+    /**
+     * Gets the DisplayListener instance.
+     *
+     * @return the DisplayListener
+     */
     public DisplayListener getDisplayListener() {
         return displayListener;
     }
 
+    /**
+     * Gets the MiscListener instance.
+     *
+     * @return the MiscListener
+     */
     public MiscListener getMiscListener(){
         return miscListener;
     }
 
+    /**
+     * Gets the CreativeSelectionListener instance.
+     *
+     * @return the CreativeSelectionListener
+     */
     public CreativeSelectionListener getCreativeSelectionListener() {
         return creativeSelectionListener;
     }
 
+    /**
+     * Gets the BlueMap hook listener instance.
+     *
+     * @return the BlueMap hook listener, or null if not enabled
+     */
     public BluemapHookListener getBluemapHookListener() {
         return bluemapHookListener;
     }
 
+    /**
+     * Gets the TransactionHandler instance.
+     *
+     * @return the TransactionHandler
+     */
     public TransactionHandler getTransactionHelper() {
         return transactionHandler;
     }
 
+    /**
+     * Gets the ShopHandler instance.
+     *
+     * @return the ShopHandler
+     */
     public ShopHandler getShopHandler() {
         return shopHandler;
     }
 
+    /**
+     * Gets the ShopGuiHandler instance.
+     *
+     * @return the ShopGuiHandler
+     */
     public ShopGuiHandler getGuiHandler(){
         return guiHandler;
     }
 
+    /**
+     * Checks if permission-based restrictions are enabled.
+     *
+     * @return true if permissions are used, false otherwise
+     */
     public boolean usePerms() {
         return usePerms;
     }
 
+    /**
+     * Checks if shop creation via signs is allowed.
+     *
+     * @return true if sign-based creation is allowed, false otherwise
+     */
     public boolean getAllowCreationMethodSign(){
         return allowCreateMethodSign;
     }
 
+    /**
+     * Checks if shop creation via hitting chests is allowed.
+     *
+     * @return true if chest-hit creation is allowed, false otherwise
+     */
     public boolean getAllowCreationMethodChest(){
         return allowCreateMethodChest;
     }
 
+    /**
+     * Gets the currency type used by shops.
+     *
+     * @return the currency type
+     */
     public CurrencyType getCurrencyType() {
         return currencyType;
     }
 
-    // Simplified WorldGuard configuration getter
+    /**
+     * Gets the WorldGuard configuration.
+     *
+     * @return the WorldGuard configuration, or null if not configured
+     */
     public WorldGuardConfig getWorldGuardConfig() {
         return worldGuardConfig;
     }
 
+    /**
+     * Checks if WorldGuard is detected on the server.
+     *
+     * @return true if WorldGuard exists, false otherwise
+     */
     public boolean worldGuardExists() { return worldGuardExists; }
 
+    /**
+     * Checks if WorldGuard integration is enabled.
+     *
+     * @return true if WorldGuard integration is enabled, false otherwise
+     */
     public boolean isWorldGuardIntegrationEnabled() { return worldGuardExists(); }
+
+    /**
+     * Checks if LWC integration is enabled.
+     *
+     * @return true if LWC integration is enabled, false otherwise
+     */
     public boolean isLwcIntegrationEnabled() { return lwcIntegrationEnabled; }
+
+    /**
+     * Checks if BentoBox integration is enabled.
+     *
+     * @return true if BentoBox integration is enabled, false otherwise
+     */
     public boolean isBentoBoxIntegrationEnabled() { return bentoBoxIntegrationEnabled; }
+
+    /**
+     * Checks if AdvancedRegionMarket integration is enabled.
+     *
+     * @return true if AdvancedRegionMarket integration is enabled, false otherwise
+     */
     public boolean isAdvancedRegionMarketIntegrationEnabled() { return advancedRegionMarketIntegrationEnabled; }
+
+    /**
+     * Checks if PlotSquared integration is enabled.
+     *
+     * @return true if PlotSquared integration is enabled, false otherwise
+     */
     public boolean isPlotSquaredIntegrationEnabled() { return plotSquaredIntegrationEnabled; }
+
+    /**
+     * Checks if Bolt trust integration is enabled.
+     *
+     * @return true if Bolt trust integration is enabled, false otherwise
+     */
     public boolean isBoltTrustIntegrationEnabled() { return boltTrustIntegrationEnabled; }
+
+    /**
+     * Checks if BlockProt trust integration is enabled.
+     *
+     * @return true if BlockProt trust integration is enabled, false otherwise
+     */
     public boolean isBlockProtTrustIntegrationEnabled() { return blockProtTrustIntegrationEnabled; }
 
+    /**
+     * Checks if Towny integration is enabled.
+     *
+     * @return true if Towny integration is enabled, false otherwise
+     */
     public boolean hookTowny(){
         return hookTowny;
     }
