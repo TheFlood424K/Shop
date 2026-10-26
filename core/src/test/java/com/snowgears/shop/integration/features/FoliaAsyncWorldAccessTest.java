@@ -44,6 +44,15 @@ public class FoliaAsyncWorldAccessTest extends BaseMockBukkitTest {
         LogHandler logHandler = plugin.getLogHandler();
         assertNotNull(logHandler);
 
+        // Enable logging to exercise the async DB paths that were fixed
+        try {
+            java.lang.reflect.Field enabledField = LogHandler.class.getDeclaredField("enabled");
+            enabledField.setAccessible(true);
+            enabledField.set(logHandler, true);
+        } catch (Exception e) {
+            // If reflection fails, tests may still need to work
+        }
+
         // This should not throw "Cannot read world asynchronously"
         assertDoesNotThrow(() -> {
             logHandler.logAction(player, shop, com.snowgears.shop.util.ShopActionType.CREATE);
@@ -75,6 +84,15 @@ public class FoliaAsyncWorldAccessTest extends BaseMockBukkitTest {
         LogHandler logHandler = plugin.getLogHandler();
         assertNotNull(logHandler);
 
+        // Enable logging to exercise the async DB paths that were fixed
+        try {
+            java.lang.reflect.Field enabledField = LogHandler.class.getDeclaredField("enabled");
+            enabledField.setAccessible(true);
+            enabledField.set(logHandler, true);
+        } catch (Exception e) {
+            // If reflection fails, tests may still need to work
+        }
+
         // This should not throw "Cannot read world asynchronously" - testing DESTROY action type
         assertDoesNotThrow(() -> {
             logHandler.logAction(player, shop, ShopActionType.DESTROY);
@@ -105,6 +123,15 @@ public class FoliaAsyncWorldAccessTest extends BaseMockBukkitTest {
 
         LogHandler logHandler = plugin.getLogHandler();
         assertNotNull(logHandler);
+
+        // Enable logging to exercise the async DB paths that were fixed
+        try {
+            java.lang.reflect.Field enabledField = LogHandler.class.getDeclaredField("enabled");
+            enabledField.setAccessible(true);
+            enabledField.set(logHandler, true);
+        } catch (Exception e) {
+            // If reflection fails, tests may still need to work
+        }
 
         // Test that logAction does not crash when shop's world becomes null
         // by temporarily setting world to null on the sign location
@@ -139,6 +166,15 @@ public class FoliaAsyncWorldAccessTest extends BaseMockBukkitTest {
 
         LogHandler logHandler = plugin.getLogHandler();
         assertNotNull(logHandler);
+
+        // Enable logging to exercise the async DB paths that were fixed
+        try {
+            java.lang.reflect.Field enabledField = LogHandler.class.getDeclaredField("enabled");
+            enabledField.setAccessible(true);
+            enabledField.set(logHandler, true);
+        } catch (Exception e) {
+            // If reflection fails, tests may still need to work
+        }
 
         assertDoesNotThrow(() -> {
             logHandler.logTransaction(player, shop, ShopType.SELL, 10.0, 1);
