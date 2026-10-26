@@ -117,8 +117,8 @@ public class ShopMessage {
                     return message;
                 }
             } catch (Error | Exception e) {
-                // Log the exception
-                Bukkit.getLogger().warning("Error replacing placeholder " + placeholder + ": " + e.getMessage());
+                // Log at severe level so failures are visible, and include placeholder context
+                Bukkit.getLogger().severe("Error replacing placeholder '" + placeholder + "': " + e.getMessage());
             }
         }
         // If placeholder not found, remove the placeholder and just return an empty string
@@ -288,6 +288,10 @@ public class ShopMessage {
         } catch (JsonParseException e) {
             plugin.getLogger().warning("Possible NBT error while sending message to player, Item Hover events will now be disabled! Details: " + e.getMessage());
             plugin.getLogger().debug("Error details: ", e);
+            // Notify the user that hover events were disabled
+            try {
+                player.spigot().sendMessage(new TextComponent("§cHover events disabled due to message error"));
+            } catch (Exception ex) {}
             // disableItemHover = true;
         } catch (Exception | Error e) {
             plugin.getLogger().warning("Error sending message to player: " + e.getMessage());
@@ -553,11 +557,11 @@ public class ShopMessage {
 
         // Notify Placeholders
         registerPlaceholder("[notify user]", context -> {
-            // @TODO: is this correct?
             String text_on = getUnformattedMessage("command", "notify_on");
             String text_off = getUnformattedMessage("command", "notify_off");
 
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_USER);
+            // Returns text_on if notifications are set to ON, otherwise text_off
             return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) ? text_on : text_off);
         });
 
