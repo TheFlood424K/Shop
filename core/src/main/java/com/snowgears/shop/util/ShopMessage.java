@@ -22,11 +22,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.google.gson.JsonParseException;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.colorize.Colorizer;
+import net.kyori.adventure.text.minimessage.parser.ElementParser;
+
 public class ShopMessage {
 
     private final static Shop plugin = Shop.getPlugin();
 
     private static boolean disableItemHover = false;
+
+    private static final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private static final Map<String, Function<PlaceholderContext, TextComponent>> placeholders = new HashMap<>();
     // Regex pattern to identify placeholders within square brackets, e.g., [owner]
@@ -142,23 +149,32 @@ public class ShopMessage {
         if (message == null) { return new TextComponent(""); }
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
-        // Define the regex pattern
-        Matcher matcher = Pattern.compile(MESSAGE_PARTS_REGEX).matcher(message);
-        List<String> parts = new ArrayList<>();
-        while (matcher.find()) {
-            parts.add(matcher.group());
-        }
+        // Check if the message contains MiniMessage syntax (contains <tags>)
+        // MiniMessage is backward compatible with &/§ color codes, so we can use it as the primary formatter
+        boolean hasMiniMessageSyntax = message != null && message.contains("<");
 
-        ChatColor latestColor = null;
-        boolean addedText = false;
+        if (hasMiniMessageSyntax) {
+            // Use MiniMessage for formatting
+            Component miniMessageComponent = miniMessage.deserialize(message);
+            formattedMessage = textComponentFromComponent(miniMessageComponent);
+        } else {
+            // Define the regex pattern
+            Matcher matcher = Pattern.compile(MESSAGE_PARTS_REGEX).matcher(message);
+            List<String> parts = new ArrayList<>();
+            while (matcher.find()) {
+                parts.add(matcher.group());
+            }
 
-        boolean isBold = false;
-        boolean isItalic = false;
-        boolean isStrikethrough = false;
-        boolean isUnderlined = false;
-        boolean isObfuscated = false;
-        
-        for (String part : parts) {
+            ChatColor latestColor = null;
+            boolean addedText = false;
+
+            boolean isBold = false;
+            boolean isItalic = false;
+            boolean isStrikethrough = false;
+            boolean isUnderlined = false;
+            boolean isObfuscated = false;
+
+            for (String part : parts) {
             plugin.getLogger().spam("\n\n");
             plugin.getLogger().trace("[ShopMessage.format] part: " + part);
             TextComponent partComponent = new TextComponent(part);
@@ -236,6 +252,27 @@ public class ShopMessage {
         if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
 
         plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
+        return formattedMessage;
+    }
+
+    /**
+     * Formats a message using MiniMessage syntax, supporting advanced formatting
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code §} codes.
+     *
+     * @param message The message in MiniMessage format (e.g., "<red>Hello</red>" or "<#FF0000>Hello</#FF0000>")
+     * @param context The PlaceholderContext instance containing Shop and Player
+     * @return The formatted message as a TextComponent
+     */
+    public static TextComponent formatMiniMessage(String message, PlaceholderContext context) {
+        TextComponent formattedMessage = null;
+        if (message == null) { return new TextComponent(""); }
+        plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
+
+        // MiniMessage supports both legacy & codes and its own syntax
+        Component miniMessageComponent = miniMessage.deserialize(message);
+        formattedMessage = textComponentFromComponent(miniMessageComponent);
+
+        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + formattedMessage.toLegacyText(), true);
         return formattedMessage;
     }
 
@@ -344,6 +381,44 @@ public class ShopMessage {
         context.setPlayer(player);
         context.setOfflineTransactions(offlineTxs);
         sendMessage(message, player, context);
+    }
+
+    /**
+     * Formats a message using MiniMessage syntax, supporting advanced formatting
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code §} codes.
+     *
+     * @param message The message in MiniMessage format
+     * @param player The player to send the message to
+     * @param context The PlaceholderContext instance
+     */
+    public static void sendMiniMessage(String message, Player player, PlaceholderContext context) {
+        TextComponent fancyMessage = formatMiniMessage(message, context);
+        plugin.getLogger().debug("Sent minimessage to player " + player.getName() + ": " + fancyMessage.toLegacyText(), true);
+        try {
+            player.spigot().sendMessage(fancyMessage);
+            return;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error sending minimessage to player: " + e.getMessage());
+            // Fall back to legacy text
+            try {
+                player.sendMessage(fancyMessage.toLegacyText());
+                plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
+            } catch (Error | Exception e2) {
+                plugin.getLogger().debug("Error sending legacy message to player", e2);
+            }
+        }
+    }
+
+    /**
+     * Formats a message using MiniMessage syntax (without placeholders).
+     *
+     * @param message The message in MiniMessage format
+     * @param player The player to send the message to
+     */
+    public static void sendMiniMessage(String message, Player player) {
+        PlaceholderContext context = new PlaceholderContext();
+        context.setPlayer(player);
+        sendMiniMessage(message, player, context);
     }
 
     /**
@@ -540,6 +615,42 @@ public class ShopMessage {
             }
             return newComponent;
         }
+    }
+
+    /**
+     * Converts a kyori adventure Component to a Bukkit TextComponent,
+     * preserving color and style information from MiniMessage parsing.
+     */
+    private static TextComponent textComponentFromComponent(Component component) {
+        TextComponent textComponent = new TextComponent();
+
+        if (component != null) {
+            // Get the raw legacy text to preserve formatting
+            String legacyText = component.toLegacyText();
+
+            // Create a new text component from the legacy text
+            textComponent = new TextComponent(legacyText);
+
+            // Apply formatting from the original component if available
+            net.kyori.adventure.text.format.Style style = component.style();
+            if (style != null) {
+                textComponent = textComponent.setStyle(net.kyori.adventure.text.format.Style.builder()
+                    .bold(style.isBold())
+                    .italic(style.isItalic())
+                    .strikethrough(style.isStrikethrough())
+                    .underlined(style.isUnderlined())
+                    .obfuscated(style.isObfuscated())
+                    .build());
+            }
+
+            // Copy extra components recursively
+            for (Component extra : component.children()) {
+                TextComponent extraComponent = textComponentFromComponent(extra);
+                textComponent.addExtra(extraComponent);
+            }
+        }
+
+        return textComponent;
     }
 
     private static TextComponent embedItem(String message, ItemStack item) {
