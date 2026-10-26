@@ -246,7 +246,9 @@ public class LogHandler {
         try {
             boolean isBarterOrItemCurrency = transactionType == ShopType.BARTER || plugin.getCurrencyType() == CurrencyType.ITEM;
             txMetrics.addTransaction(amount, price, isBarterOrItemCurrency);
-        } catch (Exception e) { /* Ignore errors, added for safety. */ }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error adding transaction to metrics", e);
+        }
 
         if(!enabled) return;
         String worldNameTx = shop.getSignLocation().getWorld().getName();
@@ -263,9 +265,7 @@ public class LogHandler {
             if (shop.getSecondaryItemStack() != null)
                 barterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
         } catch (IOException e) {
-            plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!");
-            e.printStackTrace();
-            return;
+            plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
         }
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
