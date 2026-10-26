@@ -916,22 +916,50 @@ public class ShopMessage {
         return null;
     }
 
+    /**
+     * Gets the creation word for the given shop type.
+     *
+     * @param type The shop type identifier
+     * @return The creation word for the shop type
+     */
     public static String getCreationWord(String type) {
         return creationWords.get(type);
     }
 
+    /**
+     * Gets the word used to represent a free price.
+     *
+     * @return The free price word
+     */
     public static String getFreePriceWord() {
         return freePriceWord;
     }
 
+    /**
+     * Gets the word used to represent admin stock.
+     *
+     * @return The admin stock word
+     */
     public static String getAdminStockWord() {
         return adminStockWord;
     }
 
+    /**
+     * Gets the server display name.
+     *
+     * @return The server display name
+     */
     public static String getServerDisplayName() {
         return serverDisplayName;
     }
 
+    /**
+     * Gets an unformatted message from the message map.
+     *
+     * @param key The message key
+     * @param subKey The message sub key, or null if no sub key
+     * @return The unformatted message
+     */
     public static String getUnformattedMessage(String key, String subKey) {
         String message;
         if (subKey != null)
@@ -941,6 +969,13 @@ public class ShopMessage {
         return message;
     }
 
+    /**
+     * Formats a message for a shop.
+     *
+     * @param unformattedMessage The unformatted message to format
+     * @param shop The shop context
+     * @return The formatted message
+     */
     public static String formatMessage(String unformattedMessage, AbstractShop shop) {
         PlaceholderContext context = new PlaceholderContext();
         context.setShop(shop);
@@ -949,6 +984,15 @@ public class ShopMessage {
         return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
     }
 
+    /**
+     * Formats a message for a shop with player context.
+     *
+     * @param unformattedMessage The unformatted message to format
+     * @param shop The shop context
+     * @param player The player context
+     * @param forSign Whether the message is for a sign
+     * @return The formatted message
+     */
     public static String formatMessage(String unformattedMessage, AbstractShop shop, Player player, boolean forSign) {
         PlaceholderContext context = new PlaceholderContext();
         context.setPlayer(player);
@@ -959,7 +1003,15 @@ public class ShopMessage {
         return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
     }
 
-    // Perform partial formatting to insert transaction purchase amounts since they might differ from shop amounts (partial sales)
+    /**
+     * Perform partial formatting to insert transaction purchase amounts since they might differ from shop amounts (partial sales)
+     *
+     * @param transactionType The type of transaction
+     * @param subKey The message sub key
+     * @param price The price of the transaction
+     * @param amount The amount of items
+     * @return The formatted message
+     */
     public static String getMessageFromOrders(ShopType transactionType, String subKey, double price, int amount){
         String message = ShopMessage.getUnformattedMessage(transactionType.toString(), subKey);
         String priceStr = Shop.getPlugin().getPriceString(price, false);
@@ -971,10 +1023,19 @@ public class ShopMessage {
         return message;
     }
 
-    //      # [amount] : The amount of items the shop is selling/buying/bartering #
-    //      # [price] : The price of the items the shop is selling (adjusted to match virtual or physical currency) #
-    //      # [owner] : The name of the shop owner #
-    //      # [server name] : The name of the server #
+    /**
+     * Gets the sign lines for a shop.
+     * <p>
+     * # [amount] : The amount of items the shop is selling/buying/bartering <br>
+     * # [price] : The price of the items the shop is selling (adjusted to match virtual or physical currency) <br>
+     * # [owner] : The name of the shop owner <br>
+     * # [server name] : The name of the server
+     * </p>
+     *
+     * @param shop The shop
+     * @param shopType The shop type
+     * @return The sign lines
+     */
     public static String[] getSignLines(AbstractShop shop, ShopType shopType){
 
         DisplayType displayType = null;
@@ -1003,6 +1064,13 @@ public class ShopMessage {
         return lines;
     }
 
+    /**
+     * Gets the sign lines for a shop by key.
+     *
+     * @param key The sign text key
+     * @param shop The shop
+     * @return The sign lines
+     */
     public static String[] getSignLines(String key, AbstractShop shop){
         String[] lines = shopSignTextMap.get(key);
         for(int i=0; i<lines.length; i++) {
@@ -1013,6 +1081,13 @@ public class ShopMessage {
         return lines;
     }
 
+    /**
+     * Gets the display tags for a shop.
+     *
+     * @param shop The shop
+     * @param shopType The shop type
+     * @return The display tags
+     */
     public static ArrayList<String> getDisplayTags(AbstractShop shop, ShopType shopType){
         ArrayList<String> formattedLines = new ArrayList<>();
         List<String> lines = displayTextMap.get(shopType.toString().toUpperCase()+"_normal");
@@ -1035,6 +1110,13 @@ public class ShopMessage {
         return formattedLines;
     }
 
+    /**
+     * Gets a list of unformatted messages.
+     *
+     * @param key The message key
+     * @param subKey The message sub key
+     * @return The list of unformatted messages
+     */
     public static List<String> getUnformattedMessageList(String key, String subKey){
         List<String> messages = new ArrayList<>();
 
@@ -1298,6 +1380,11 @@ public class ShopMessage {
             creationWords.put("COMBO", "combo");
     }
 
+    /**
+     * Gets the target max length for display tags.
+     *
+     * @return The target max length
+     */
     public static int getTargetMaxLength() {
         return targetMaxLength;
     }
