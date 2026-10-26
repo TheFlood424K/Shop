@@ -35,29 +35,102 @@ import static com.snowgears.shop.util.UtilMethods.isMCVersion17Plus;
  */
 public abstract class AbstractShop {
 
+    /**
+     * Unique identifier for the shop.
+     */
     protected UUID id = UUID.randomUUID();
+    /**
+     * Whether the shop needs to be saved.
+     */
     protected boolean needsSave = false;
+    /**
+     * Whether the shop is loaded.
+     */
     protected boolean isLoaded = false;
+    /**
+     * Location of the shop sign.
+     */
     protected Location signLocation;
+    /**
+     * Location of the shop chest.
+     */
     protected Location chestLocation;
+    /**
+     * Facing direction of the shop sign.
+     */
     protected BlockFace facing;
+    /**
+     * UUID of the shop owner.
+     */
     protected UUID owner;
+    /**
+     * Item stack being traded.
+     */
     protected ItemStack item;
+    /**
+     * Secondary item stack for barter trades.
+     */
     protected ItemStack secondaryItem;
+    /**
+     * Display associated with the shop.
+     */
     protected AbstractDisplay display;
+    /**
+     * Price of the item.
+     */
     protected double price;
+    /**
+     * Amount of items traded per transaction.
+     */
     protected int amount;
+    /**
+     * Whether this is an admin shop.
+     */
     protected boolean isAdmin;
+    /**
+     * Type of shop.
+     */
     protected ShopType type;
+    /**
+     * Cached sign lines.
+     */
     protected String[] signLines;
+    /**
+     * Whether sign lines need refreshing.
+     */
     protected boolean signLinesRequireRefresh;
+    /**
+     * Whether a transaction is currently being performed.
+     */
     protected boolean isPerformingTransaction;
+    /**
+     * GUI icon for the shop.
+     */
     protected ItemStack guiIcon;
+    /**
+     * Whether the sign is a fake sign.
+     */
     protected boolean fakeSign;
 
+    /**
+     * Stock count of items.
+     */
     protected int stock;
+    /**
+     * Cached container type.
+     */
     protected Material cachedContainerType;
 
+    /**
+     * Creates a new shop instance.
+     *
+     * @param signLoc The location of the shop sign
+     * @param player The player UUID
+     * @param pri The price
+     * @param amt The amount
+     * @param admin Whether this is an admin shop
+     * @param facing The facing direction
+     */
     public AbstractShop(Location signLoc, UUID player, double pri, int amt, Boolean admin, BlockFace facing) {
         this.signLocation = signLoc;
         this.owner = player;
@@ -134,6 +207,11 @@ public abstract class AbstractShop {
     }
 
     //this calls BlockData which loads the chunk the shop is in by doing so
+    /**
+     * Loads the shop from the world.
+     *
+     * @return true if the shop loaded successfully
+     */
     public boolean load() {
         try {
             Block signBlock = signLocation.getBlock();
@@ -195,6 +273,11 @@ public abstract class AbstractShop {
 
     //abstract methods that must be implemented in each shop subclass
 
+    /**
+     * Calculates the current stock of the shop.
+     *
+     * @return the calculated stock
+     */
     protected int calculateStock() {
         if(this.isAdmin) {
             // There is always stock in the admin shop!
@@ -222,6 +305,9 @@ public abstract class AbstractShop {
         return stock;
     }
 
+    /**
+     * Updates the stock and sign if necessary.
+     */
     public void updateStock() {
         int oldStock = stock;
 
@@ -247,6 +333,11 @@ public abstract class AbstractShop {
         this.updateSign();
     }
 
+    /**
+     * Gets the current stock.
+     *
+     * @return the stock count
+     */
     public int getStock(){
         if(isAdmin){
             return Integer.MAX_VALUE;
@@ -254,20 +345,40 @@ public abstract class AbstractShop {
         return stock;
     }
 
+    /**
+     * Sets stock on load.
+     *
+     * @param stock The stock count
+     */
     public void setStockOnLoad(int stock){
         this.stock = stock;
     }
 
+    /**
+     * Checks if the shop is initialized with an item.
+     *
+     * @return true if initialized
+     */
     public boolean isInitialized(){
         return (item != null);
     }
 
     //getter methods
 
+    /**
+     * Gets the sign location.
+     *
+     * @return the sign location
+     */
     public Location getSignLocation() {
         return signLocation;
     }
 
+    /**
+     * Gets the wall sign block data.
+     *
+     * @return the wall sign, or null if not loaded
+     */
     public WallSign getSign(){
         if (!this.isChunkLoaded()) { return null; }
         BlockData signBlockData = this.getSignLocation().getBlock().getBlockData();
@@ -277,10 +388,20 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets the chest location.
+     *
+     * @return the chest location
+     */
     public Location getChestLocation() {
         return chestLocation;
     }
 
+    /**
+     * Gets the shop inventory.
+     *
+     * @return the inventory, or null if not available
+     */
     public Inventory getInventory() {
         if(chestLocation == null || signLocation == null || !this.isChunkLoaded())
             return null;
@@ -291,6 +412,11 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets the container type.
+     *
+     * @return the container material type
+     */
     public Material getContainerType() {
         if(cachedContainerType != null)
             return cachedContainerType;
@@ -304,26 +430,46 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Gets the owner UUID.
+     *
+     * @return the owner UUID
+     */
     public UUID getOwnerUUID() {
         return owner;
     }
 
+    /**
+     * Gets the owner name.
+     *
+     * @return the owner name
+     */
     public String getOwnerName() {
         if(this.isAdmin())
             return "admin";
-        
+
         if (this.getOwnerUUID() != null) {
             // Use cache first - this avoids expensive disk I/O
             return PlayerNameCache.getName(this.getOwnerUUID());
         }
-        
+
         return ChatColor.RED + "CLOSED";
     }
 
+    /**
+     * Gets the owner offline player.
+     *
+     * @return the owner offline player
+     */
     public OfflinePlayer getOwner() {
         return Bukkit.getOfflinePlayer(this.owner);
     }
 
+    /**
+     * Gets a clone of the item stack with the shop amount.
+     *
+     * @return the item stack
+     */
     public ItemStack getItemStack() {
         if (item != null) {
             ItemStack is = item.clone();
@@ -333,6 +479,11 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets a clone of the secondary item stack with the price amount.
+     *
+     * @return the secondary item stack
+     */
     public ItemStack getSecondaryItemStack() {
         if (secondaryItem != null) {
             ItemStack is = secondaryItem.clone();
@@ -342,14 +493,29 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets the display.
+     *
+     * @return the display
+     */
     public AbstractDisplay getDisplay() {
         return display;
     }
 
+    /**
+     * Gets the price.
+     *
+     * @return the price
+     */
     public double getPrice() {
         return price;
     }
 
+    /**
+     * Gets the price per item.
+     *
+     * @return price per item
+     */
     public double getPricePerItem() {
         // Calculate pricePerItem for partial sales, round up!
         double pricePer = this.getPrice() / this.getAmount();
@@ -357,6 +523,11 @@ public abstract class AbstractShop {
         return pricePer;
     }
 
+    /**
+     * Gets items per price unit.
+     *
+     * @return items per price unit
+     */
     public double getItemsPerPriceUnit() {
         // Calculate items you can get for each price unit, round down!
         double pricePer = this.getAmount() / this.getPrice();
@@ -364,6 +535,11 @@ public abstract class AbstractShop {
         return pricePer;
     }
 
+    /**
+     * Gets the price string.
+     *
+     * @return the price string
+     */
     public String getPriceString() {
         if(this.type == ShopType.BARTER && this.isInitialized()){
             return (int)this.getPrice() + " " + Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()).toPlainText();
@@ -371,34 +547,69 @@ public abstract class AbstractShop {
         return Shop.getPlugin().getPriceString(this.price, false);
     }
 
+    /**
+     * Gets the price per item string.
+     *
+     * @return the price per item string
+     */
     public String getPricePerItemString() {
         double pricePer = this.getPricePerItem();
         return Shop.getPlugin().getPriceString(pricePer, true);
     }
 
+    /**
+     * Checks if this is an admin shop.
+     *
+     * @return true if admin shop
+     */
     public boolean isAdmin() {
         return isAdmin;
     }
 
     //only use this method if the shop has not been added to the main handler maps yet
+    /**
+     * Sets whether this is an admin shop.
+     *
+     * @param isAdmin true if admin shop
+     */
     public void setAdmin(boolean isAdmin){
         this.isAdmin = isAdmin;
         if(isAdmin)
             this.owner = Shop.getPlugin().getShopHandler().getAdminUUID();
     }
 
+    /**
+     * Gets the shop type.
+     *
+     * @return the shop type
+     */
     public ShopType getType() {
         return type;
     }
 
+    /**
+     * Gets the amount per transaction.
+     *
+     * @return the amount
+     */
     public int getAmount() {
         return amount;
     }
 
+    /**
+     * Gets the facing direction.
+     *
+     * @return the facing direction
+     */
     public BlockFace getFacing(){
         return facing;
     }
 
+    /**
+     * Gets the GUI icon.
+     *
+     * @return the GUI icon
+     */
     public ItemStack getGuiIcon(){
         // Load it when it is first called
         if (guiIcon == null) { this.refreshGuiIcon(); }
@@ -407,6 +618,11 @@ public abstract class AbstractShop {
 
     //setter methods
 
+    /**
+     * Sets the item stack.
+     *
+     * @param is The item stack
+     */
     public void setItemStack(ItemStack is) {
         // If the item stack passed is null, go ahead and just skip it.
         if (is == null) return;
@@ -417,12 +633,23 @@ public abstract class AbstractShop {
         this.updateSign(true);
     }
 
+    /**
+     * Sets the secondary item stack.
+     *
+     * @param is The secondary item stack
+     */
     public void setSecondaryItemStack(ItemStack is) {
         this.secondaryItem = this.removeZeroDamageMeta(is.clone());
         this.calculateStock();
         this.updateSign(true);
     }
 
+    /**
+     * Removes zero damage meta from an item stack.
+     *
+     * @param item The item stack
+     * @return the item stack without zero damage meta
+     */
     public ItemStack removeZeroDamageMeta(ItemStack item) {
         try {
             // In the past we used to explicitly set the durability of an item to be 0, this caused blocks/items to be saved
@@ -455,18 +682,36 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Sets the owner.
+     *
+     * @param newOwner The new owner UUID
+     */
     public void setOwner(UUID newOwner){
         this.owner = newOwner;
     }
 
+    /**
+     * Sets the price.
+     *
+     * @param price The price
+     */
     public void setPrice(double price){
         this.price = price;
     }
 
+    /**
+     * Sets the amount.
+     *
+     * @param amount The amount
+     */
     public void setAmount(int amount){
         this.amount = amount;
     }
 
+    /**
+     * Refreshes the GUI icon.
+     */
     public void refreshGuiIcon() {
         if(this.type != ShopType.GAMBLE) {
             if (this.getItemStack() == null)
@@ -503,22 +748,50 @@ public abstract class AbstractShop {
         guiIcon.setItemMeta(iconMeta);
     }
 
+    /**
+     * Gets the item durability percentage.
+     *
+     * @return the durability percentage
+     */
     public int getItemDurabilityPercent(){
         ItemStack item = this.getItemStack().clone();
         return UtilMethods.getDurabilityPercent(item);
     }
 
+    /**
+     * Gets the secondary item durability percentage.
+     *
+     * @return the durability percentage
+     */
     public int getSecondaryItemDurabilityPercent(){
         ItemStack item = this.getSecondaryItemStack().clone();
         return UtilMethods.getDurabilityPercent(item);
     }
 
+    /**
+     * Checks if a transaction is being performed.
+     *
+     * @return true if performing transaction
+     */
     public boolean isPerformingTransaction(){
         return isPerformingTransaction;
     }
 
+    /**
+     * Gets the sign lines.
+     *
+     * @return the sign lines
+     */
     public String[] getSignLines() { return signLines; }
+    /**
+     * Updates the sign.
+     */
     public void updateSign() { this.updateSign(false); }
+    /**
+     * Updates the sign.
+     *
+     * @param forceUpdate Whether to force update
+     */
     public void updateSign(boolean forceUpdate) {
         // If we don't need to update the lines, then don't update them!
         if (!signLinesRequireRefresh && !forceUpdate) { return; }
@@ -577,7 +850,15 @@ public abstract class AbstractShop {
         }, 2);
     }
 
+    /**
+     * Deletes the shop.
+     */
     public void delete() { this.delete(true); }
+    /**
+     * Deletes the shop.
+     *
+     * @param forceSave Whether to force save
+     */
     public void delete(boolean forceSave) {
         try {
             // First, remove the shop from the shop handler in case of any errors with later methods.
@@ -615,6 +896,11 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Teleports a player to the shop.
+     *
+     * @param player The player to teleport
+     */
     public void teleportPlayer(Player player){
         if(player == null)
             return;
@@ -634,6 +920,11 @@ public abstract class AbstractShop {
         Shop.getPlugin().getShopListener().addTeleportCooldown(player);
     }
 
+    /**
+     * Prints sales info to a player.
+     *
+     * @param player The player
+     */
     public void printSalesInfo(Player player) {
         for (String message : ShopMessage.getUnformattedMessageList(this.getType().toString(), "description")) {
             if (message != null && !message.isEmpty()) {
@@ -645,14 +936,31 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Checks if the sign is fake.
+     *
+     * @return true if fake sign
+     */
     public boolean isFakeSign(){
         return fakeSign;
     }
 
+    /**
+     * Sets whether the sign is fake.
+     *
+     * @param fakeSign true if fake sign
+     */
     public void setFakeSign(boolean fakeSign){
         this.fakeSign = fakeSign;
     }
 
+    /**
+     * Executes a click action.
+     *
+     * @param event The interact event
+     * @param clickType The click type
+     * @return true if action was executed
+     */
     public boolean executeClickAction(PlayerInteractEvent event, ShopClickType clickType){
         ShopAction action = Shop.getPlugin().getShopAction(clickType);
         if(action == null)
@@ -690,6 +998,12 @@ public abstract class AbstractShop {
         return true;
     }
 
+    /**
+     * Sends effects for a transaction.
+     *
+     * @param success Whether the transaction was successful
+     * @param player The player
+     */
     public void sendEffects(boolean success, Player player){
         try {
             if (success) {
@@ -706,6 +1020,11 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Returns a string representation of the shop.
+     *
+     * @return string representation
+     */
     @Override
     public String toString() {
         String worldName = "unknown";

@@ -49,31 +49,73 @@ public class ShopHandler {
     public Shop plugin;
     private Class<?> displayClass;
 
+    /**
+     * Map of all shops by their sign location.
+     */
     private ConcurrentHashMap<Location, AbstractShop> allShops = new ConcurrentHashMap<>();
+    /**
+     * Map of shop locations by player UUID.
+     */
     private ConcurrentHashMap<UUID, List<Location>> playerShops = new ConcurrentHashMap<>();
+    /**
+     * Map of shop locations by chunk key (world_x_z).
+     */
     private ConcurrentHashMap<String, List<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
+    /**
+     * Map of active shop displays per player.
+     */
     private ConcurrentHashMap<UUID, HashSet<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
+    /**
+     * Set of players currently processing shop displays.
+     */
     private Set<UUID> playersProcessingShopDisplays = ConcurrentHashMap.newKeySet();
+    /**
+     * Map of active shop display tags per player.
+     */
     private ConcurrentHashMap<UUID, Location> playersActiveShopDisplayTag = new ConcurrentHashMap<>();
 
     //all loading of shops happens async at onEnable()
     //shops that still need to calculate their facing direction based on sign are considered "unloaded"
     //we will be loading these shops at time of chunkload and resaving them so they are saved with the 'facing' variable
+    /**
+     * Map of unloaded shops by chunk key.
+     */
     private ConcurrentHashMap<String, List<Location>> unloadedShopsByChunk = new ConcurrentHashMap<>();
+    /**
+     * The admin UUID for admin shops.
+     */
     private UUID adminUUID;
+    /**
+     * Array of all block directions.
+     */
     private BlockFace[] directions = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
 
+    /**
+     * List of items in the item list.
+     */
     private ArrayList<ItemStack> itemListItems = new ArrayList<>();
 
     // Map to track player last processed locations for movement-based display updates
+    /**
+     * Map of player last processed locations.
+     */
     private ConcurrentHashMap<UUID, Location> lastProcessedLocations = new ConcurrentHashMap<>();
 
     // Cache for player connections to avoid expensive reflection calls
+    /**
+     * Cache for player network connections.
+     */
     private ConcurrentHashMap<UUID, Object> playerConnectionCache = new ConcurrentHashMap<>();
 
     // Teleport cooldown map to prevent multiple display updates during teleportation
+    /**
+     * Map of player teleport cooldown timestamps.
+     */
     private ConcurrentHashMap<UUID, Long> teleportCooldowns = new ConcurrentHashMap<>();
     // Cooldown time in milliseconds (500ms = half a second)
+    /**
+     * Teleport cooldown time in milliseconds.
+     */
     private static final long TELEPORT_COOLDOWN_MS = 500;
 
     /**
@@ -973,6 +1015,12 @@ public class ShopHandler {
         }, 2);
     }
 
+    /**
+     * Gets unloaded shop locations for the specified chunk key.
+     *
+     * @param chunkKey The chunk key
+     * @return List of unloaded shop locations
+     */
     private List<Location> getUnloadedShopsByChunk(String chunkKey){
         List<Location> unloadedShopsInChunk;
         if(unloadedShopsByChunk.containsKey(chunkKey)) {
@@ -1105,7 +1153,7 @@ public class ShopHandler {
 
     /**
      * Saves the shops for a player.
-     * 
+     *
      * @param player The UUID of the player to save the shops for.
      * @return The number of shops saved.
      * 1+: Total number of shops saved for player

@@ -30,10 +30,19 @@ import java.util.stream.Collectors;
  */
 public class LogHandler {
 
+    /**
+     * The plugin instance.
+     */
     private Shop plugin;
 
+    /**
+     * The Hikari connection pool data source.
+     */
     private HikariDataSource dataSource;
 
+    /**
+     * Whether database logging is enabled.
+     */
     private boolean enabled;
 
     /**
