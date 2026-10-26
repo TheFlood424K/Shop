@@ -95,6 +95,9 @@ public class ShopHandler {
     /**
      * Disables the display class by loading the disabled display implementation.
      */
+    /**
+     * Disables the display class by loading the disabled display implementation.
+     */
     public void disableDisplayClass() {
         try {
             final Class<?> clazz = Class.forName("com.snowgears.shop.display.DisplayDisabled");
@@ -109,6 +112,11 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Initializes the display class based on server version.
+     *
+     * @return true if display class was successfully initialized
+     */
     private boolean initDisplayClass(){
         String packageName = plugin.getServer().getClass().getPackage().getName();
 
@@ -304,7 +312,13 @@ public class ShopHandler {
         plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
     }
 
-    //This method should only be used by AbstractShop object to delete
+    /**
+     * Removes a shop from the handler's tracking structures.
+     * This method should only be used by AbstractShop object to delete.
+     *
+     * @param shop The shop to remove
+     * @param forceSave Whether to force immediate save
+     */
     public void removeShop(AbstractShop shop, boolean forceSave) {
         boolean changed = false;
         if (allShops.containsKey(shop.getSignLocation())) {
@@ -481,6 +495,12 @@ public class ShopHandler {
         return owners;
     }
 
+    /**
+     * Gets shop locations for a player.
+     *
+     * @param player The player's UUID
+     * @return List of shop locations
+     */
     private List<Location> getShopLocations(UUID player){
         List<Location> shopLocations;
         if(playerShops.containsKey(player)) {
@@ -491,6 +511,12 @@ public class ShopHandler {
         return shopLocations;
     }
 
+    /**
+     * Gets shop locations for a chunk.
+     *
+     * @param chunkKey The chunk key
+     * @return List of shop locations
+     */
     private List<Location> getShopLocations(String chunkKey){
         List<Location> shopLocations;
         if(chunkShops.containsKey(chunkKey)) {
@@ -786,6 +812,11 @@ public class ShopHandler {
         }, 2); // 2 tick delay after removals
     }
 
+    /**
+     * Clears all shop displays near the specified player.
+     *
+     * @param player The player
+     */
     public void clearShopDisplaysNearPlayer(Player player){
         if(playersWithActiveShopDisplays.containsKey(player.getUniqueId()))
             playersWithActiveShopDisplays.remove(player.getUniqueId());
@@ -858,11 +889,24 @@ public class ShopHandler {
         }, 1);
     }
 
-    public boolean hasActiveDisplay(Player player, Location shopSignLocation) { 
+    /**
+     * Checks if a player has an active display at the specified shop location.
+     *
+     * @param player The player to check
+     * @param shopSignLocation The shop sign location
+     * @return true if the player has an active display
+     */
+    public boolean hasActiveDisplay(Player player, Location shopSignLocation) {
         HashSet<Location> shops = playersWithActiveShopDisplays.get(player.getUniqueId());
         return shops != null && shops.contains(shopSignLocation);
     }
 
+    /**
+     * Adds an active shop display for a player.
+     *
+     * @param player The player
+     * @param shopSignLocation The shop sign location
+     */
     public void addActiveShopDisplay(Player player, Location shopSignLocation){
         HashSet<Location> shops;
         if(playersWithActiveShopDisplays.containsKey(player.getUniqueId())){
@@ -875,6 +919,12 @@ public class ShopHandler {
         playersWithActiveShopDisplays.put(player.getUniqueId(), shops);
     }
 
+    /**
+     * Removes an active shop display for a player.
+     *
+     * @param player The player
+     * @param shopSignLocation The shop sign location
+     */
     public void removeActiveShopDisplay(Player player, Location shopSignLocation){
         HashSet<Location> shops;
         if(playersWithActiveShopDisplays.containsKey(player.getUniqueId())){
@@ -887,6 +937,12 @@ public class ShopHandler {
         playersWithActiveShopDisplays.put(player.getUniqueId(), shops);
     }
 
+    /**
+     * Adds an active shop display tag for a player.
+     *
+     * @param player The player
+     * @param shopSignLocation The shop sign location
+     */
     public void addActiveShopDisplayTag(Player player, Location shopSignLocation) {
         if (playersActiveShopDisplayTag.containsKey(player.getUniqueId())) {
             Location oldShopSignLocation = playersActiveShopDisplayTag.get(player.getUniqueId());
@@ -969,12 +1025,20 @@ public class ShopHandler {
         return containerTypes;
     }
 
+    /**
+     * Removes all shop displays for the specified player.
+     *
+     * @param player The player
+     */
     public void removeAllDisplays(Player player) {
         for (AbstractShop shop : allShops.values()) {
             shop.getDisplay().remove(player);
         }
     }
 
+    /**
+     * Removes legacy display entities.
+     */
     public void removeLegacyDisplays(){
         for (World world : plugin.getServer().getWorlds()) {
             for (Entity entity : world.getEntities()) {
@@ -1198,6 +1262,11 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Saves all shops to disk.
+     *
+     * @return The number of shops saved
+     */
     public int saveAllShops() {
         HashMap<UUID, Boolean> allPlayersWithShops = new HashMap<>();
         for (AbstractShop shop : allShops.values()) {
@@ -1218,6 +1287,9 @@ public class ShopHandler {
         return numberUpdated;
     }
 
+    /**
+     * Converts legacy shop save format to new format.
+     */
     public void convertLegacyShopSaves(){
         //save to new format
         saveAllShops();
@@ -1239,6 +1311,9 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Loads all shops from disk.
+     */
     public void loadShops() {
         // Run later (1 tick delay) to avoid async world/chunk access race conditions
         // with Folia. This ensures shops are loaded after initial plugin setup
@@ -1312,6 +1387,13 @@ public class ShopHandler {
     }
 
 
+    /**
+     * Loads shops from a configuration file.
+     *
+     * @param config The configuration
+     * @param isLegacy Whether the config is in legacy format
+     * @return The number of shops loaded
+     */
     private int loadShopsFromConfig(YamlConfiguration config, boolean isLegacy) {
         if (config.getConfigurationSection("shops") == null)
             return 0;

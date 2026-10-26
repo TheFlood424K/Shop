@@ -452,13 +452,31 @@ public class LogHandler {
         }
     }
 
+    /**
+     * Metrics tracker for recent shop transactions.
+     */
     private final TransactionMetrics txMetrics = new TransactionMetrics();
 
-    // Inner class to store metrics for a time bucket
+    /**
+     * Inner class to store metrics for a time bucket.
+     */
     private static class TransactionMetrics {
+        /**
+         * Number of transactions in the current time bucket.
+         */
         private int transactionCount = 0;
+        /**
+         * Total item volume in the current time bucket.
+         */
         private int itemVolume = 0;
-        
+
+        /**
+         * Adds a transaction to the metrics.
+         *
+         * @param itemCount The number of items transacted
+         * @param price The price of the transaction
+         * @param isBarterOrItemCurrency Whether the transaction uses barter or item currency
+         */
         public void addTransaction(int itemCount, double price, boolean isBarterOrItemCurrency) {
             transactionCount++;
             itemVolume += itemCount;
@@ -467,32 +485,56 @@ public class LogHandler {
                 itemVolume += (int)price;
             }
         }
-        
+
+        /**
+         * Resets the transaction count to zero.
+         */
         public void resetTransactionCount() {
             transactionCount = 0;
         }
 
+        /**
+         * Resets the item volume to zero.
+         */
         public void resetItemVolume() {
             itemVolume = 0;
         }
-        
+
+        /**
+         * Gets the current transaction count.
+         *
+         * @return The number of transactions
+         */
         public int getTransactionCount() {
             return transactionCount;
         }
-        
+
+        /**
+         * Gets the current item volume.
+         *
+         * @return The total item volume
+         */
         public int getItemVolume() {
             return itemVolume;
         }
     }
 
-    // Get the number of transactions during the last 30 minutes
+    /**
+     * Gets the number of transactions during the last 30 minutes.
+     *
+     * @return The number of recent transactions
+     */
     public int getRecentTransactionCount() {
         int count = txMetrics.getTransactionCount();
         txMetrics.resetTransactionCount();
         return count;
     }
 
-    // Get the number of items bought and sold during the last 30 minutes
+    /**
+     * Gets the number of items bought and sold during the last 30 minutes.
+     *
+     * @return The total item volume
+     */
     public int getRecentItemVolume() {
         try {
             int volume = txMetrics.getItemVolume();
