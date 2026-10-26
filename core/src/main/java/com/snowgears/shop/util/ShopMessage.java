@@ -27,6 +27,10 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.colorize.Colorizer;
 import net.kyori.adventure.text.minimessage.parser.ElementParser;
 
+/**
+ * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
+ * Manages configuration loading for chat, sign, and display messages, as well as placeholder registration.
+ */
 public class ShopMessage {
 
     private final static Shop plugin = Shop.getPlugin();
@@ -126,8 +130,12 @@ public class ShopMessage {
         return new TextComponent("");
     }
 
-    // Gets the ChatColor from a string, supports Hex Colors.
-    // Returns null if no color is found.
+    /**
+     * Gets the ChatColor from a string, supporting both legacy color codes and hex colors.
+     *
+     * @param color The color string to parse (e.g., "&a", "§a", or "#FF0000")
+     * @return The corresponding ChatColor, or null if no color is found
+     */
     public static ChatColor getColor(String color) {
         ChatColor newColor = null;
         if (color.matches(HEX_CODE_REGEX)) { newColor = ChatColor.of(color); }
@@ -602,11 +610,23 @@ public class ShopMessage {
         registerPlaceholder("[shops out of stock]", ShopMessage::getShopsOutOfStockPlaceholder);
     }
 
+    /**
+     * Creates a hover event displaying item information.
+     *
+     * @param item The item stack to display on hover
+     * @return The hover event, or null if item is null or hover is disabled
+     */
     private static HoverEvent getItemHoverEvent(ItemStack item) {
         if (item == null || disableItemHover) { return null; }
         return ItemHoverEventHelper.createFrom(item);
     }
 
+    /**
+     * Converts legacy text to a BaseComponent, with fallback for older Bukkit versions.
+     *
+     * @param text The legacy formatted text to convert
+     * @return The converted BaseComponent
+     */
     public static BaseComponent componentFromLegacy(String text) {
         try {
             return TextComponent.fromLegacy(text);
@@ -657,9 +677,24 @@ public class ShopMessage {
         return textComponent;
     }
 
+    /**
+     * Embeds item hover information into a message.
+     *
+     * @param message The message text
+     * @param item The item stack to embed
+     * @return The message with item hover event attached
+     */
     private static TextComponent embedItem(String message, ItemStack item) {
         return embedItem(new TextComponent(message), item);
     }
+
+    /**
+     * Embeds item hover information into a TextComponent.
+     *
+     * @param message The TextComponent message
+     * @param item The item stack to embed
+     * @return The message with item hover event attached
+     */
     private static TextComponent embedItem(TextComponent message, ItemStack item) {
         // If we have any NBT errors, don't try to embed the item hover text
         if (disableItemHover) { return message; }
@@ -677,6 +712,12 @@ public class ShopMessage {
         }
     }
 
+    /**
+     * Creates a hover event displaying offline transaction information.
+     *
+     * @param context The placeholder context containing offline transactions
+     * @return The hover event, or null if creation fails
+     */
     private static HoverEvent getTransactionsHoverEvent(PlaceholderContext context) {
         try {
             BaseComponent hoverText = componentFromLegacy(context.getOfflineTransactions().getTransactionsLore());
@@ -685,6 +726,12 @@ public class ShopMessage {
         return null;
     }
 
+    /**
+     * Creates a hover event displaying shop location information.
+     *
+     * @param context The placeholder context containing shop information
+     * @return The hover event, or null if creation fails
+     */
     private static HoverEvent getShopInfoHoverEvent(PlaceholderContext context) {
         try {
             TextComponent hoverText = new TextComponent();
