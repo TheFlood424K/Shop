@@ -583,6 +583,11 @@ public class LogHandler {
         plugin.getLogger().debug("Successfully initialized database.");
     }
 
+    /**
+     * Returns whether the log handler is enabled.
+     *
+     * @return true if logging is enabled, false otherwise
+     */
     public boolean isEnabled() {
         return enabled;
     }

@@ -30,6 +30,9 @@ import java.util.*;
 
 import static com.snowgears.shop.util.UtilMethods.isMCVersion17Plus;
 
+/**
+ * Abstract base class for all shop types.
+ */
 public abstract class AbstractShop {
 
     protected UUID id = UUID.randomUUID();
@@ -73,6 +76,19 @@ public abstract class AbstractShop {
             owner = Shop.getPlugin().getShopHandler().getAdminUUID();
     }
 
+    /**
+     * Creates a new shop instance based on the shop type.
+     *
+     * @param signLoc The location of the shop sign
+     * @param player The player UUID
+     * @param pri The price
+     * @param priCombo The combo price
+     * @param amt The amount
+     * @param admin Whether this is an admin shop
+     * @param shopType The shop type
+     * @param facing The facing direction
+     * @return a new shop instance, or null if type is invalid
+     */
     public static AbstractShop create(Location signLoc, UUID player, double pri, double priCombo, int amt, Boolean admin, ShopType shopType, BlockFace facing) {
 
         switch(shopType){
@@ -90,14 +106,29 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Sets the shop ID.
+     *
+     * @param newId The new UUID
+     */
     public void setId(UUID newId) {
         this.id = newId;
     }
 
+    /**
+     * Gets the shop ID.
+     *
+     * @return the shop UUID
+     */
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Checks if the chunk containing the shop is loaded.
+     *
+     * @return true if the chunk is loaded
+     */
     public boolean isChunkLoaded() {
         return UtilMethods.isChunkLoaded(this.getSignLocation());
     }
@@ -144,10 +175,20 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Checks if the shop needs to be saved.
+     *
+     * @return true if the shop needs saving
+     */
     public boolean needsSave() {
         return needsSave;
     }
 
+    /**
+     * Sets whether the shop needs to be saved.
+     *
+     * @param shouldSave true if the shop should be saved
+     */
     public void setNeedsSave(boolean shouldSave) {
         needsSave = shouldSave;
     }

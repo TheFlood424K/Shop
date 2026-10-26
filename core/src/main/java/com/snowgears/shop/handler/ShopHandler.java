@@ -978,18 +978,41 @@ public class ShopHandler {
         return unloadedShopsInChunk;
     }
 
+    /**
+     * Gets the total number of shops.
+     *
+     * @return total number of shops
+     */
     public int getNumberOfShops() {
         return allShops.size();
     }
 
+    /**
+     * Gets the number of shops owned by the specified player.
+     *
+     * @param player The player
+     * @return number of shops owned by the player
+     */
     public int getNumberOfShops(Player player) {
         return getShopLocations(player.getUniqueId()).size();
     }
 
+    /**
+     * Gets the number of shops owned by the player with the specified UUID.
+     *
+     * @param playerUUID The player's UUID
+     * @return number of shops owned by the player
+     */
     public int getNumberOfShops(UUID playerUUID) {
         return getShopLocations(playerUUID).size();
     }
 
+    /**
+     * Gets the number of shops of the specified type.
+     *
+     * @param shopType The shop type
+     * @return number of shops with the specified type
+     */
     public int getNumberOfShops(ShopType shopType) {
         int shopsWithType = 0;
         for (AbstractShop shop : allShops.values()) {
@@ -998,6 +1021,12 @@ public class ShopHandler {
         return shopsWithType;
     }
 
+    /**
+     * Gets the number of shops using the specified display type.
+     *
+     * @param displayType The display type
+     * @return number of shops with the specified display type
+     */
     public int getNumberOfShopDisplayTypes(DisplayType displayType) {
         int shopsWithDisplayType = 0;
         for (AbstractShop shop : allShops.values()) {
@@ -1006,6 +1035,11 @@ public class ShopHandler {
         return shopsWithDisplayType;
     }
 
+    /**
+     * Gets counts of shops grouped by container type.
+     *
+     * @return map of container type names to counts
+     */
     public Map<String, Integer> getShopContainerCounts() {
         int chestShops = 0;
         int barrelShops = 0;
@@ -1077,7 +1111,21 @@ public class ShopHandler {
      * -5: Critical error, total data loss for player, all files are missing
      */
     private boolean immediateShutdown = false;
+    /**
+     * Saves shops for the specified player.
+     *
+     * @param player The player's UUID
+     * @return result code indicating save status
+     */
     public int saveShops(final UUID player){ return saveShops(player, false); }
+
+    /**
+     * Saves shops for the specified player.
+     *
+     * @param player The player's UUID
+     * @param force Whether to force save even if no shops need updating
+     * @return result code indicating save status
+     */
     public int saveShops(final UUID player, boolean force){
         // If the plugin is in immediate shutdown mode, skip saving any new files to protect against data loss
         if (this.immediateShutdown) return -5;
@@ -1510,11 +1558,22 @@ public class ShopHandler {
         return numShopsLoaded;
     }
 
+    /**
+     * Gets the admin UUID.
+     *
+     * @return the admin UUID
+     */
     public UUID getAdminUUID(){
         return adminUUID;
     }
 
 
+    /**
+     * Converts a location to a string representation.
+     *
+     * @param loc The location
+     * @return string representation of the location
+     */
     private String locationToString(Location loc) {
         String worldName = loc.getWorld() == null ? "unknown_world" : loc.getWorld().getName();
         return worldName + "," + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ();
@@ -1525,12 +1584,24 @@ public class ShopHandler {
         return new Location(plugin.getServer().getWorld(parts[0]), Double.parseDouble(parts[1]), Double.parseDouble(parts[2]), Double.parseDouble(parts[3]));
     }
 
+    /**
+     * Converts a string representation to a UUID.
+     *
+     * @param ownerString The string containing the UUID
+     * @return the UUID
+     */
     private UUID uidFromString(String ownerString) {
         int index = ownerString.indexOf("(");
         String uidString = ownerString.substring(index + 1, ownerString.length() - 1);
         return UUID.fromString(uidString);
     }
 
+    /**
+     * Converts a string representation to a shop type.
+     *
+     * @param typeString The string representation
+     * @return the shop type
+     */
     private ShopType typeFromString(String typeString) {
         if (typeString.contains("sell"))
             return ShopType.SELL;
@@ -1544,10 +1615,22 @@ public class ShopHandler {
             return ShopType.GAMBLE;
     }
 
+    /**
+     * Checks if a block is a chest/container that can be used for shops.
+     *
+     * @param b The block
+     * @return true if the block is a valid shop container
+     */
     public boolean isChest(Block b){
         return plugin.getEnabledContainers().contains(b.getType());
     }
 
+    /**
+     * Checks if an item passes the item list filter.
+     *
+     * @param is The item stack
+     * @return true if the item is allowed
+     */
     public boolean passesItemListCheck(ItemStack is){
         if(plugin.getItemListType() == ItemListType.NONE)
             return true;
@@ -1568,6 +1651,11 @@ public class ShopHandler {
         return true;
     }
 
+    /**
+     * Adds all items from the inventory to the item list.
+     *
+     * @param inventory The inventory to add items from
+     */
     public void addInventoryToItemList(Inventory inventory){
         for(ItemStack is : inventory.getContents()) {
             if(is != null && is.getType() != Material.AIR) {
@@ -1587,6 +1675,11 @@ public class ShopHandler {
         saveItemList();
     }
 
+    /**
+     * Removes all items from the inventory from the item list.
+     *
+     * @param inventory The inventory to remove items from
+     */
     public void removeInventoryFromItemList(Inventory inventory){
         Iterator<ItemStack> itemIterator = itemListItems.iterator();
         while(itemIterator.hasNext()){
@@ -1604,6 +1697,9 @@ public class ShopHandler {
         saveItemList();
     }
 
+    /**
+     * Initializes the item list from configuration.
+     */
     public void initItemList(){
         if(plugin.getItemListType() == ItemListType.NONE)
             return;
@@ -1630,6 +1726,9 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Saves the item list to configuration.
+     */
     public void saveItemList(){
         if(plugin.getItemListType() == ItemListType.NONE)
             return;
