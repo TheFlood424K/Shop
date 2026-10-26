@@ -23,6 +23,11 @@ import java.util.Date;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
+/**
+ * Handles database logging of shop actions and transactions.
+ * Supports MySQL, MariaDB, and file-based (H2) storage backends for tracking
+ * shop purchases, sales, and administrative actions.
+ */
 public class LogHandler {
 
     private Shop plugin;
@@ -31,6 +36,12 @@ public class LogHandler {
 
     private boolean enabled;
 
+    /**
+     * Creates a new LogHandler and initializes database connection.
+     *
+     * @param plugin The plugin instance
+     * @param shopConfig The shop configuration
+     */
     public LogHandler(Shop plugin, YamlConfiguration shopConfig){
         this.plugin = plugin;
         // Setup database connection and check if we should enable database logging
@@ -75,6 +86,11 @@ public class LogHandler {
         plugin.getLogger().helpful("Offline Purchase Notifications are Enabled!");
     }
 
+    /**
+     * Initializes the database connection based on configuration.
+     *
+     * @param shopConfig The shop configuration containing database settings
+     */
     public void startup(YamlConfiguration shopConfig){
         String type = shopConfig.getString("logging.type");
         String serverName = shopConfig.getString("logging.serverName");
@@ -146,12 +162,22 @@ public class LogHandler {
         this.enabled = true;
     }
 
+    /**
+     * Closes the database connection.
+     */
     public void shutdown() {
         if (dataSource != null) {
             dataSource.close();
         }
     }
 
+    /**
+     * Logs a shop action (creation or destruction) to the database and console.
+     *
+     * @param player The player performing the action
+     * @param shop The shop being acted upon
+     * @param actionType The type of action performed
+     */
     public void logAction(Player player, AbstractShop shop, ShopActionType actionType) {
         if (actionType == ShopActionType.INIT) {
             plugin.getLogger().notice(
@@ -201,6 +227,15 @@ public class LogHandler {
         });
     }
 
+    /**
+     * Logs a shop transaction to the database and console, and updates transaction metrics.
+     *
+     * @param player The player performing the transaction
+     * @param shop The shop involved in the transaction
+     * @param transactionType The type of shop (BUY, SELL, BARTER)
+     * @param price The price of the transaction
+     * @param amount The amount of items transacted
+     */
     public void logTransaction(Player player, AbstractShop shop, ShopType transactionType, double price, int amount){
         plugin.getLogger().helpful(
             "Shop " + shop.getType().name().toUpperCase() + " from/to " + player.getName() + ": "
@@ -283,6 +318,11 @@ public class LogHandler {
         });
     }
 
+    /**
+     * Calculates offline transactions for a player by querying the database.
+     *
+     * @param offlineTransactions The offline transactions object to populate with calculated data
+     */
     public void calculateOfflineTransactions(OfflineTransactions offlineTransactions){
         if(!enabled) {
             offlineTransactions.setIsCalculating(false);
