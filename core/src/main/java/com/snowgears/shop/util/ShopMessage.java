@@ -1135,6 +1135,12 @@ public class ShopMessage {
         return shopSignTextMap.get(type.toString()+"_"+subtype).clone();
     }
 
+    /**
+     * Loads all messages from the chat configuration file.
+     * Populates the messageMap with transaction, interaction, and issue messages
+     * for all shop types, as well as command and hover messages.
+     * This method should be called during the plugin's initialization phase.
+     */
     private static void loadMessagesFromConfig() {
 
         for (ShopType type : ShopType.values()) {
@@ -1298,6 +1304,11 @@ public class ShopMessage {
         return lines.toArray(new String[0]);
     }
 
+    /**
+     * Loads sign text from the sign configuration file.
+     * Populates the shopSignTextMap with sign lines for each shop type,
+     * including normal, admin, and no-display variants, as well as timeout and deleted messages.
+     */
     private void loadSignTextFromConfig() {
         messageMap.put("signtext_instockcolor", signConfig.getString("stock_color.in_stock"));
         messageMap.put("signtext_outofstockcolor", signConfig.getString("stock_color.out_of_stock"));
@@ -1318,6 +1329,10 @@ public class ShopMessage {
         this.shopSignTextMap.put("deleted", getSignConfigLines("sign_text.deleted"));
     }
 
+    /**
+     * Loads display tag text from the display configuration file.
+     * Populates the displayTextMap with formatted lines for each shop type.
+     */
     private void loadDisplayTextFromConfig() {
         displayTextMap = new HashMap<>();
         Set<String> allTypes = displayConfig.getConfigurationSection("display_tag_text").getKeys(false);
@@ -1336,6 +1351,11 @@ public class ShopMessage {
         }
     }
 
+    /**
+     * Loads creation words from the sign configuration file.
+     * Maps each shop type (SHOP, SELL, BUY, BARTER, GAMBLE, ADMIN, COMBO)
+     * to its corresponding creation word used for sign display.
+     */
     private void loadCreationWords(){
         String shopString = signConfig.getString("sign_creation.SHOP");
         if(shopString != null)
