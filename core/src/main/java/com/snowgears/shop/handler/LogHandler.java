@@ -180,28 +180,35 @@ public class LogHandler {
      */
     public void logAction(Player player, AbstractShop shop, ShopActionType actionType) {
         if (actionType == ShopActionType.INIT) {
+            String chestInfo = (shop.getChestLocation() != null)
+                    ? ("x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ())
+                    : "null";
             plugin.getLogger().notice(
                     player.getName() + " created a " + shop.getType().name().toUpperCase() + " shop at ("
-                            + "x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ()
-                            + ") item: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText())
+                            + chestInfo
+                            + ") item: " + (shop.getItemStack() != null ? ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText()) : "null")
                             + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getSecondaryItemStack()).toPlainText()) : "")
             );
         }
         if (actionType == ShopActionType.DESTROY) {
+            String chestInfo = (shop.getChestLocation() != null)
+                    ? ("x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ())
+                    : ((shop.getSignLocation() != null) ? ("x: " + shop.getSignLocation().getBlockX() + " y: " + shop.getSignLocation().getBlockY() + " z: " + shop.getSignLocation().getBlockZ()) : "null");
             plugin.getLogger().notice(
                     player.getName() + " destroyed a " + shop.getType().name().toUpperCase() + " shop at ("
-                            + "x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ()
-                            + ") item: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText())
+                            + chestInfo
+                            + ") item: " + (shop.getItemStack() != null ? ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText()) : "null")
                             + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getSecondaryItemStack()).toPlainText()) : "")
             );
         }
 
         if (!this.enabled) return;
-        String worldName = shop.getSignLocation().getWorld().getName();
-        int shopX = shop.getSignLocation().getBlockX();
-        int shopY = shop.getSignLocation().getBlockY();
-        int shopZ = shop.getSignLocation().getBlockZ();
-        String shopOwnerUuid = shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()) ? "admin" : shop.getOwnerUUID().toString();
+        String worldName = (shop.getSignLocation() != null && shop.getSignLocation().getWorld() != null)
+                ? shop.getSignLocation().getWorld().getName() : "null";
+        int shopX = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockX() : 0;
+        int shopY = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockY() : 0;
+        int shopZ = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockZ() : 0;
+        String shopOwnerUuid = (shop.getOwnerUUID() != null && shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID())) ? "admin" : (shop.getOwnerUUID() != null ? shop.getOwnerUUID().toString() : "null");
         String shopUuid = (shop.getId() != null && shop.getId().toString() != null) ? shop.getId().toString() : "";
         String playerUuid = player.getUniqueId().toString();
         String actionTypeStr = actionType.toString();
@@ -237,10 +244,14 @@ public class LogHandler {
      * @param amount The amount of items transacted
      */
     public void logTransaction(Player player, AbstractShop shop, ShopType transactionType, double price, int amount){
+        String chestInfoTx = (shop.getChestLocation() != null)
+                ? ("x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ())
+                : "null";
+        String itemNameTx = (shop.getItemStack() != null) ? ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText()) : "null";
         plugin.getLogger().helpful(
             "Shop " + shop.getType().name().toUpperCase() + " from/to " + player.getName() + ": "
-                + ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText()) + "(x" + amount + ")" + " for " + plugin.getPriceString(price, true)
-                + " | Shop owned by " + shop.getOwnerName() + " at (x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ() + ")"
+                + itemNameTx + "(x" + amount + ")" + " for " + plugin.getPriceString(price, true)
+                + " | Shop owned by " + shop.getOwnerName() + " at (" + chestInfoTx + ")"
         );
 
         try {
@@ -251,20 +262,34 @@ public class LogHandler {
         }
 
         if(!enabled) return;
-        String worldNameTx = shop.getSignLocation().getWorld().getName();
-        int shopXTx = shop.getSignLocation().getBlockX();
-        int shopYTx = shop.getSignLocation().getBlockY();
-        int shopZTx = shop.getSignLocation().getBlockZ();
-        String shopOwnerUuidTx = shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()) ? "admin" : shop.getOwnerUUID().toString();
+        String worldNameTx = (shop.getSignLocation() != null && shop.getSignLocation().getWorld() != null)
+                ? shop.getSignLocation().getWorld().getName() : "null";
+        int shopXTx = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockX() : 0;
+        int shopYTx = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockY() : 0;
+        int shopZTx = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockZ() : 0;
+        String shopOwnerUuidTx = (shop.getOwnerUUID() != null && shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID())) ? "admin" : (shop.getOwnerUUID() != null ? shop.getOwnerUUID().toString() : "null");
         String shopUuidTx = (shop.getId() != null && shop.getId().toString() != null) ? shop.getId().toString() : "";
         String playerUuidTx = player.getUniqueId().toString();
         String itemBase64 = null;
         String barterItemBase64 = null;
         try {
-            itemBase64 = UtilMethods.itemStackToBase64(shop.getItemStack());
-            if (shop.getSecondaryItemStack() != null)
-                barterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
-        } catch (IOException e) {
+            if (shop.getItemStack() != null) {
+                try {
+                    itemBase64 = UtilMethods.itemStackToBase64(shop.getItemStack());
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
+                    itemBase64 = null;
+                }
+            }
+            if (shop.getSecondaryItemStack() != null) {
+                try {
+                    barterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
+                    barterItemBase64 = null;
+                }
+            }
+        } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
         }
         plugin.getFoliaLib().getScheduler().runAsync(task -> {

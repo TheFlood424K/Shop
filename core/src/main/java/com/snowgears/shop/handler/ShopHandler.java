@@ -89,7 +89,7 @@ public class ShopHandler {
 
         plugin.getFoliaLib().getScheduler().runLater(() -> {
             loadShops();
-        }, 10);
+        }, 100);
     }
 
     /**
@@ -254,7 +254,12 @@ public class ShopHandler {
                 }
                 return null;
             }
-        } catch (NoClassDefFoundError e) {}
+        } catch (NoClassDefFoundError e) {
+            plugin.getLogger().warning("NoClassDefFoundError caught in getShopByChest: " + e.getMessage());
+            // Class not found - cannot look up shop, returning null
+        } catch (Exception e) {
+            plugin.getLogger().warning("Exception caught in getShopByChest: " + e.getMessage());
+        }
 
         return null;
     }
