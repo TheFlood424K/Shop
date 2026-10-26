@@ -664,17 +664,26 @@ public abstract class AbstractShop {
 
     @Override
     public String toString() {
+        String worldName = "unknown";
+        try {
+            if (signLocation != null && signLocation.getWorld() != null) {
+                worldName = signLocation.getWorld().getName();
+            }
+        } catch (Exception e) {
+            // Avoid accessing world asynchronously on Folia
+            worldName = "unknown";
+        }
         return "AbstractShop{" +
-                "type=" + type.toString().toUpperCase() +
+                "type=" + (type != null ? type.toString().toUpperCase() : "null") +
                 (isAdmin ? ", isAdmin=" + isAdmin : "") +
                 ", owner=" + this.getOwnerName() +
-                ", loc=" + ((signLocation != null) ? signLocation.getWorld().getName() + ":" + signLocation.getBlockX() + "/" + signLocation.getBlockY() + "/" + signLocation.getBlockZ() : "null") +
+                ", loc=" + ((signLocation != null) ? worldName + ":" + signLocation.getBlockX() + "/" + signLocation.getBlockY() + "/" + signLocation.getBlockZ() : "null") +
                 ", price=" + price +
                 ", amount=" + amount +
                 ", stock=" + stock +
                 ", item=" + (item != null ? Shop.getPlugin().getItemNameUtil().getName(item).toPlainText() : "null") +
                 (secondaryItem != null ? ", secondaryItem=" + Shop.getPlugin().getItemNameUtil().getName(secondaryItem).toPlainText() : "") +
-                ", id=" + this.getId().toString().substring(0,5) +
+                ", id=" + (this.getId() != null ? this.getId().toString().substring(0, Math.min(5, this.getId().toString().length())) : "null") +
                 ", filename=" + this.getOwnerUUID() + ".yml" +
                 ", needsSave=" + this.needsSave +
                 ", isLoaded=" + this.isLoaded +

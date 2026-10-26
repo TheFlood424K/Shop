@@ -1150,7 +1150,7 @@ public class ShopHandler {
     }
 
     public void loadShops() {
-        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
             int numShopsLoaded = 0;
 
             boolean convertLegacySaves = false;
@@ -1213,7 +1213,7 @@ public class ShopHandler {
                 convertLegacyShopSaves();
 
             Shop.getPlugin().getLogger().log(Level.INFO, "Loaded " + numShopsLoaded + " Shops!");
-        });
+        }, 1);
     }
 
 

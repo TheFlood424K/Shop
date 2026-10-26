@@ -171,25 +171,28 @@ public class LogHandler {
         }
 
         if (!this.enabled) return;
+        String worldName = shop.getSignLocation().getWorld().getName();
+        int shopX = shop.getSignLocation().getBlockX();
+        int shopY = shop.getSignLocation().getBlockY();
+        int shopZ = shop.getSignLocation().getBlockZ();
+        String shopOwnerUuid = shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()) ? "admin" : shop.getOwnerUUID().toString();
+        String shopUuid = (shop.getId() != null && shop.getId().toString() != null) ? shop.getId().toString() : "";
+        String playerUuid = player.getUniqueId().toString();
+        String actionTypeStr = actionType.toString();
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (Connection conn = dataSource.getConnection();
                 PreparedStatement stmt = conn.prepareStatement("INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);");
             ){
                 stmt.setTimestamp(1, new Timestamp(new Date().getTime()));
-                stmt.setString(2, player.getUniqueId().toString());
-                if (shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()))
-                    stmt.setString(3, "admin");
-                else
-                    stmt.setString(3, shop.getOwnerUUID().toString());
-                String shop_uuid = "";
-                if (shop.getId() != null && shop.getId().toString() != null) shop_uuid = shop.getId().toString();
-                stmt.setString(4, shop_uuid);
-                stmt.setString(5, actionType.toString());
-                stmt.setString(6, shop.getSignLocation().getWorld().getName());
-                stmt.setInt(7, shop.getSignLocation().getBlockX());
-                stmt.setInt(8, shop.getSignLocation().getBlockY());
-                stmt.setInt(9, shop.getSignLocation().getBlockZ());
+                stmt.setString(2, playerUuid);
+                stmt.setString(3, shopOwnerUuid);
+                stmt.setString(4, shopUuid);
+                stmt.setString(5, actionTypeStr);
+                stmt.setString(6, worldName);
+                stmt.setInt(7, shopX);
+                stmt.setInt(8, shopY);
+                stmt.setInt(9, shopZ);
                 stmt.execute();
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING, "SQL error occurred while trying to log player action.");
@@ -211,6 +214,24 @@ public class LogHandler {
         } catch (Exception e) { /* Ignore errors, added for safety. */ }
 
         if(!enabled) return;
+        String worldNameTx = shop.getSignLocation().getWorld().getName();
+        int shopXTx = shop.getSignLocation().getBlockX();
+        int shopYTx = shop.getSignLocation().getBlockY();
+        int shopZTx = shop.getSignLocation().getBlockZ();
+        String shopOwnerUuidTx = shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()) ? "admin" : shop.getOwnerUUID().toString();
+        String shopUuidTx = (shop.getId() != null && shop.getId().toString() != null) ? shop.getId().toString() : "";
+        String playerUuidTx = player.getUniqueId().toString();
+        String itemBase64 = null;
+        String barterItemBase64 = null;
+        try {
+            itemBase64 = UtilMethods.itemStackToBase64(shop.getItemStack());
+            if (shop.getSecondaryItemStack() != null)
+                barterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.WARNING, "SQL error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
+            e.printStackTrace();
+            return;
+        }
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
             int transactionID = 0;
@@ -222,9 +243,9 @@ public class LogHandler {
                 logTxStmt.setString(1, transactionType.toString().toUpperCase());
                 logTxStmt.setDouble(2, price);
                 logTxStmt.setInt(3, amount);
-                logTxStmt.setString(4, UtilMethods.itemStackToBase64(shop.getItemStack()));
-                if (shop.getSecondaryItemStack() != null)
-                    logTxStmt.setString(5, UtilMethods.itemStackToBase64(shop.getSecondaryItemStack()));
+                logTxStmt.setString(4, itemBase64);
+                if (barterItemBase64 != null)
+                    logTxStmt.setString(5, barterItemBase64);
                 else
                     logTxStmt.setNull(5, Types.VARCHAR);
 
@@ -234,9 +255,6 @@ public class LogHandler {
                 transactionID = txRS.getInt(1);
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
-                e.printStackTrace();
-            } catch (IOException e) {
-                plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
                 e.printStackTrace();
             }
 
@@ -248,20 +266,15 @@ public class LogHandler {
                 PreparedStatement actionStmt = conn.prepareStatement("INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, transaction_id, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
             ) {
                 actionStmt.setTimestamp(1, new Timestamp(new Date().getTime()));
-                actionStmt.setString(2, player.getUniqueId().toString());
-                if(shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()))
-                    actionStmt.setString(3, "admin");
-                else
-                    actionStmt.setString(3, shop.getOwnerUUID().toString());
-                String shop_uuid = "";
-                if (shop.getId() != null && shop.getId().toString() != null) shop_uuid = shop.getId().toString();
-                actionStmt.setString(4, shop_uuid);
+                actionStmt.setString(2, playerUuidTx);
+                actionStmt.setString(3, shopOwnerUuidTx);
+                actionStmt.setString(4, shopUuidTx);
                 actionStmt.setString(5, ShopActionType.TRANSACT.toString());
                 actionStmt.setInt(6, transactionID);
-                actionStmt.setString(7, shop.getSignLocation().getWorld().getName());
-                actionStmt.setInt(8, shop.getSignLocation().getBlockX());
-                actionStmt.setInt(9, shop.getSignLocation().getBlockY());
-                actionStmt.setInt(10, shop.getSignLocation().getBlockZ());
+                actionStmt.setString(7, worldNameTx);
+                actionStmt.setInt(8, shopXTx);
+                actionStmt.setInt(9, shopYTx);
+                actionStmt.setInt(10, shopZTx);
                 actionStmt.execute();
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
