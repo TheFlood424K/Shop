@@ -1,18 +1,18 @@
 package com.snowgears.shop.util;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
-import org.mockbukkit.mockbukkit.ServerMock;
 
 import com.snowgears.shop.Shop;
-import com.snowgears.shop.util.ShopMessage;
-import com.snowgears.shop.util.PlaceholderContext;
+import com.snowgears.shop.testsupport.BaseMockBukkitTest;
+import net.md_5.bungee.api.chat.TextComponent;
 
 /**
  * Regression test for MiniMessage support (Issue #152 / shopbugs#496).
@@ -25,15 +25,8 @@ public class ShopMessageMiniMessageTest extends BaseMockBukkitTest {
 
     @BeforeEach
     void setUp() {
-        player = MockBukkit.mockPlayer();
-        plugin = MockBukkit.load(Shop.class);
-
-        server.getScheduler().waitAsyncTasksFinished();
-    }
-
-    @AfterEach
-    void tearDown() {
-        MockBukkit.unmock();
+        player = getServer().addPlayer();
+        plugin = getPlugin();
     }
 
     @Test
