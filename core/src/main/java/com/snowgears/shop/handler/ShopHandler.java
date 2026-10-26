@@ -1150,6 +1150,11 @@ public class ShopHandler {
     }
 
     public void loadShops() {
+        // Run later (1 tick delay) to avoid async world/chunk access race conditions
+        // with Folia. This ensures shops are loaded after initial plugin setup
+        // and chunk loading, preventing issues where worlds/chunks may not be
+        // fully available during early startup. The delay allows the server to
+        // stabilize before attempting to load shop data.
         plugin.getFoliaLib().getScheduler().runLater(() -> {
             int numShopsLoaded = 0;
 

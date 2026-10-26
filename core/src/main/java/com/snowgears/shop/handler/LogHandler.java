@@ -263,7 +263,7 @@ public class LogHandler {
             if (shop.getSecondaryItemStack() != null)
                 barterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
         } catch (IOException e) {
-            plugin.getLogger().log(Level.WARNING, "SQL error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
+            plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!");
             e.printStackTrace();
             return;
         }
