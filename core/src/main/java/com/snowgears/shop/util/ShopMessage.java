@@ -146,15 +146,14 @@ public class ShopMessage {
                     TextComponent replacement = valueFunction.apply(context);
                     if (replacement != null) {
                         String replacementText = replacement.toLegacyText();
-                        replacementText = replacementText.replace("\\", "\\\\").replace("$", "\\$");
-                        matcher.appendReplacement(result, replacementText);
+                        matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
                         continue;
                     }
                 } catch (Exception e) {
                     Bukkit.getLogger().severe("Error replacing placeholder '" + placeholderKey + "': " + e.getMessage());
                 }
             }
-            matcher.appendReplacement(result, Matcher.quoteReplacement(placeholderWithBrackets));
+            matcher.appendReplacement(result, "");
         }
         matcher.appendTail(result);
         return result.toString();
@@ -191,6 +190,15 @@ public class ShopMessage {
         // MiniMessage is backward compatible with &/§ color codes, so we can use it as the primary formatter
         boolean hasMiniMessageSyntax = message != null && message.contains("<");
 
+        ChatColor latestColor = null;
+        boolean addedText = false;
+
+        boolean isBold = false;
+        boolean isItalic = false;
+        boolean isStrikethrough = false;
+        boolean isUnderlined = false;
+        boolean isObfuscated = false;
+
         if (hasMiniMessageSyntax) {
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(message, context);
@@ -213,14 +221,14 @@ public class ShopMessage {
                 parts.add(matcher.group());
             }
 
-            ChatColor latestColor = null;
-            boolean addedText = false;
+            latestColor = null;
+            addedText = false;
 
-            boolean isBold = false;
-            boolean isItalic = false;
-            boolean isStrikethrough = false;
-            boolean isUnderlined = false;
-            boolean isObfuscated = false;
+            isBold = false;
+            isItalic = false;
+            isStrikethrough = false;
+            isUnderlined = false;
+            isObfuscated = false;
 
             for (String part : parts) {
             plugin.getLogger().spam("\n\n");
@@ -245,7 +253,12 @@ public class ShopMessage {
                             isStrikethrough = false;
                             isUnderlined = false;
                             isObfuscated = false;
-                            formattedMessage.addExtra("§r");
+                            if (formattedMessage == null) {
+                                formattedMessage = new TextComponent("§r");
+                            } else {
+                                formattedMessage.addExtra("§r");
+                            }
+                            addedText = true;
                         } else {
                             latestColor = newColor;
                         }
@@ -1360,7 +1373,9 @@ public class ShopMessage {
                 count++;
                 message = config.getString(key + "." + count);
             }
-        } catch (NullPointerException e) {}
+        } catch (Exception e) {
+            plugin.getLogger().debug("Failed to load config lines for key: " + key, e);
+        }
         return lines.toArray(new String[0]);
     }
 
@@ -1372,17 +1387,21 @@ public class ShopMessage {
     private void loadSignTextFromConfig() {
         messageMap.put("signtext_instockcolor", signConfig.getString("stock_color.in_stock"));
         messageMap.put("signtext_outofstockcolor", signConfig.getString("stock_color.out_of_stock"));
-        Set<String> allTypes = signConfig.getConfigurationSection("sign_text").getKeys(false);
-        for (String typeString : allTypes) {
-            ShopType type = null;
-            try { type = ShopType.valueOf(typeString);}
-            catch (IllegalArgumentException e){}
+        if (signConfig.getConfigurationSection("sign_text") != null) {
+            Set<String> allTypes = signConfig.getConfigurationSection("sign_text").getKeys(false);
+            for (String typeString : allTypes) {
+                ShopType type = null;
+                try { type = ShopType.valueOf(typeString);}
+                catch (IllegalArgumentException e){
+                    plugin.getLogger().debug("Unknown sign text type: " + typeString, e);
+                }
 
-            if (type != null) {
-                this.shopSignTextMap.put(type.toString() + "_normal", getSignConfigLines("sign_text." + typeString + ".normal"));
-                this.shopSignTextMap.put(type.toString() + "_admin", getSignConfigLines("sign_text." + typeString + ".admin"));
-                this.shopSignTextMap.put(type.toString() + "_normal_no_display", getSignConfigLines("sign_text." + typeString + ".normal_no_display"));
-                this.shopSignTextMap.put(type.toString() + "_admin_no_display", getSignConfigLines("sign_text." + typeString + ".admin_no_display"));
+                if (type != null) {
+                    this.shopSignTextMap.put(type.toString() + "_normal", getSignConfigLines("sign_text." + typeString + ".normal"));
+                    this.shopSignTextMap.put(type.toString() + "_admin", getSignConfigLines("sign_text." + typeString + ".admin"));
+                    this.shopSignTextMap.put(type.toString() + "_normal_no_display", getSignConfigLines("sign_text." + typeString + ".normal_no_display"));
+                    this.shopSignTextMap.put(type.toString() + "_admin_no_display", getSignConfigLines("sign_text." + typeString + ".admin_no_display"));
+                }
             }
         }
         this.shopSignTextMap.put("timeout", getSignConfigLines("sign_text.timeout"));
@@ -1395,18 +1414,25 @@ public class ShopMessage {
      */
     private void loadDisplayTextFromConfig() {
         displayTextMap = new HashMap<>();
+        if (displayConfig.getConfigurationSection("display_tag_text") == null) {
+            return;
+        }
         Set<String> allTypes = displayConfig.getConfigurationSection("display_tag_text").getKeys(false);
         for (String typeString : allTypes) {
 
             ShopType type = null;
             try { type = ShopType.valueOf(typeString);}
-            catch (IllegalArgumentException e){}
+            catch (IllegalArgumentException e){
+                plugin.getLogger().debug("Unknown display tag type: " + typeString, e);
+            }
 
             if (type != null) {
                 try {
                     List<String> normalLines = displayConfig.getStringList("display_tag_text." + typeString.toUpperCase() + ".normal");
                     this.displayTextMap.put(type.toString().toUpperCase() + "_normal", normalLines);
-                } catch (NullPointerException e) {}
+                } catch (Exception e) {
+                    plugin.getLogger().debug("Failed to load display tag text for: " + typeString, e);
+                }
             }
         }
     }
