@@ -8,7 +8,6 @@ import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.ItemTag;
 import net.md_5.bungee.api.chat.hover.content.Item;
 import net.md_5.bungee.api.chat.hover.content.Content;
-import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
 
 /**
@@ -49,11 +48,8 @@ public final class ItemHoverEventHelper {
         // If we are below 1.20.5, we have to use the old NBT tag system
         if (MCVersion.atLeast("1.20.5")) {
             try {
-                // Note: `serializeItemAsJson` is a Paper API method
-                JsonObject obj = null;
-                // If we are paper, we can use the getUnsafe method to get the hover event, which is better than the NMS method
-                if (Shop.getPlugin().getFoliaLib().isPaper()) { obj = Bukkit.getUnsafe().serializeItemAsJson(bukkitItem); } 
-                else { obj = ItemStackUtils.serializeItemAsJson(bukkitItem); } // nms code for same paper api
+                // Uses the Paper API where available, NMS otherwise
+                JsonObject obj = ItemStackUtils.serializeItemAsJson(bukkitItem);
                 if (obj != null) {
                     return new HoverEvent(HoverEvent.Action.SHOW_ITEM, new HoverItem(obj));
                 }

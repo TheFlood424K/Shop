@@ -102,13 +102,13 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.10.0</version>
+            <version>5.20.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
-            <version>5.10.0</version>
+            <version>5.20.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -294,17 +294,15 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.1.2</version>
                     <configuration>
-                        <!-- When we eventually drop the compile target to Java 8, MockBukkit (still on 21) may
-                             need reflective access to JDK internals.  Keep the add-opens flag now so we don’t
-                             forget later.  Harmless on 17+ runtimes. -->
-                        <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+                        <!-- MockBukkit may need reflective access to JDK internals. -->
+                       <argLine>${argLine} --add-opens java.base/java.lang=ALL-U
                         <!-- Parallel test execution -->
                         <parallel>methods</parallel>
                         <forkCount>1</forkCount>
                         <reuseForks>true</reuseForks>
-                        <!-- Ensure JDK 21 is available for tests because MockBukkit 4 requires 21 -->
+                        <!-- Ensure JDK 25 is available for tests because MockBukkit 4 runs on JDK 25 -->
                         <jdkToolchain>
-                            <version>21</version>
+                            <version>25</version>
                             <vendor>any</vendor>
                         </jdkToolchain>
                     </configuration>
@@ -327,7 +325,7 @@
                 <configuration>
                     <toolchains>
                         <jdk>
-                            <version>21</version>
+                            <version>25</version>
                             <vendor>any</vendor>
                         </jdk>
                     </toolchains>
