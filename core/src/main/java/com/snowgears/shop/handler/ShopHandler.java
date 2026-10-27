@@ -787,6 +787,9 @@ public class ShopHandler {
             
             double distance = playerLocation.distance(shop.getSignLocation());
             
+            /**
+             * Determine whether the shop display should be shown or removed based on distance.
+             */
             if (distance < plugin.getMaxShopDisplayDistance()) {
                 // Within display distance, should be shown
                 displaysToShow.add(shopLocation);
@@ -888,7 +891,7 @@ public class ShopHandler {
     /**
      * Force shop display processing for a player, ignoring movement threshold checks.
      * This should be called after teleportation or world changes.
-     * 
+     *
      * @param player The player to process shop displays for
      */
     public void forceProcessShopDisplaysNearPlayer(Player player) {
@@ -1010,7 +1013,7 @@ public class ShopHandler {
                 }
             }
         }
-        
+
         // Only update after a short delay to prevent visual glitches
         plugin.getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
             if (player.isOnline()) {
@@ -1204,8 +1207,14 @@ public class ShopHandler {
             if (!fileDirectory.exists())
                 fileDirectory.mkdir();
 
+            /**
+             * The owner identifier for the current shop file.
+             */
             String owner = null;
             if(player.equals(adminUUID)) {
+                /**
+                 * Use admin identifier for admin shops.
+                 */
                 owner = "admin";
                 currentFile = new File(fileDirectory + "/admin.yml");
             }
@@ -1222,6 +1231,9 @@ public class ShopHandler {
 
             List<AbstractShop> shopList = getShops(player);
             if (shopList.isEmpty()) {
+                /**
+                 * Delete file when player has no shops.
+                 */
                 currentFile.delete();
                 plugin.getLogger().debug("    no shops exist for player (" + playerName + "), deleting file... " + currentFile);
                 return -1;
@@ -1230,10 +1242,16 @@ public class ShopHandler {
             int shopNumber = 0;
             for (AbstractShop shop : shopList) {
                 //this is to remove a bug that caused one shop to be saved to multiple files at one point
+                /**
+                 * Skip shops that do not belong to the current player.
+                 */
                 if(!shop.getOwnerUUID().equals(player))
                     continue;
 
                 //don't save shops that are not initialized with items
+                /**
+                 * Only save initialized shops.
+                 */
                 if (shop.isInitialized()) {
                     shopNumber++;
                     config.set("shops." + owner + "." + shopNumber + ".id", shop.getId().toString());
@@ -1428,12 +1446,18 @@ public class ShopHandler {
         plugin.getFoliaLib().getScheduler().runLater(() -> {
             int numShopsLoaded = 0;
 
+            /**
+             * Flag indicating whether legacy saves need conversion.
+             */
             boolean convertLegacySaves = false;
             File fileDirectory = new File(plugin.getDataFolder(), "Data");
             if (!fileDirectory.exists())
                 return;
 
             // Initialize player name cache (simple check for existing cache file)
+            /**
+             * Initialize player name cache.
+             */
             PlayerNameCache.initialize();
 
             // load all the yml files from the data directory
@@ -1469,8 +1493,14 @@ public class ShopHandler {
                             numShopsLoaded += loadShopsFromConfig(config, isLegacyConfig);
                             if (isLegacyConfig) {
                                 //save new file
+                                /**
+                                 * Save converted shops to new format.
+                                 */
                                 saveShops(playerUUID, true);
                                 //delete old file
+                                /**
+                                 * Delete legacy save file.
+                                 */
                                 file.delete();
                             }
                             if (plugin.getDebug_forceResaveAll()) {
@@ -1485,6 +1515,9 @@ public class ShopHandler {
                 }
             }
             if(convertLegacySaves)
+                /**
+                 * Convert all legacy shop saves.
+                 */
                 convertLegacyShopSaves();
 
             Shop.getPlugin().getLogger().log(Level.INFO, "Loaded " + numShopsLoaded + " Shops!");
@@ -1510,12 +1543,18 @@ public class ShopHandler {
             UUID owner = null;
 
             Set<String> allShopNumbers = config.getConfigurationSection("shops." + shopOwner).getKeys(false);
+            /**
+             * Count of shops loaded for the current player.
+             */
             int playerLoadedShops = 0;
             for (String shopNumber : allShopNumbers) {
                 Location signLoc = locationFromString(config.getString("shops." + shopOwner + "." + shopNumber + ".location"));
                 if(signLoc != null) {
                     try {
                         // Track each shop using a uuid so that we can log purchases better
+                        /**
+                         * Load shop ID if present.
+                         */
                         String idString = config.getString("shops." + shopOwner + "." + shopNumber + ".id");
                         UUID id = null;
                         if (idString != null && !idString.isEmpty()){
@@ -1523,29 +1562,56 @@ public class ShopHandler {
                         }
 
                         if (shopOwner.equals("admin"))
+                            /**
+                             * Use admin UUID for admin shops.
+                             */
                             owner = this.getAdminUUID();
                         else if(isLegacy)
+                            /**
+                             * Convert legacy owner identifier.
+                             */
                             owner = uidFromString(shopOwner);
                         else
                             owner = UUID.fromString(shopOwner);
 
+                        /**
+                         * Block face the shop is facing.
+                         */
                         BlockFace facing = null;
                         String facingStr = config.getString("shops." + shopOwner + "." + shopNumber + ".facing");
                         if(facingStr != null)
                             facing = BlockFace.valueOf(facingStr);
 
                         String type = config.getString("shops." + shopOwner + "." + shopNumber + ".type");
+                        /**
+                         * Shop price.
+                         */
                         double price = Double.parseDouble(config.getString("shops." + shopOwner + "." + shopNumber + ".price"));
+                        /**
+                         * Sell price for combo shops.
+                         */
                         double priceSell = 0;
                         if (config.getString("shops." + shopOwner + "." + shopNumber + ".priceSell") != null) {
                             priceSell = Double.parseDouble(config.getString("shops." + shopOwner + "." + shopNumber + ".priceSell"));
                         }
+                        /**
+                         * Amount per transaction.
+                         */
                         int amount = Integer.parseInt(config.getString("shops." + shopOwner + "." + shopNumber + ".amount"));
 
+                        /**
+                         * Whether this is an admin shop.
+                         */
                         boolean isAdmin = shopOwner.equals("admin");
 
+                        /**
+                         * The shop type.
+                         */
                         ShopType shopType = typeFromString(type);
 
+                        /**
+                         * The item stack for this shop.
+                         */
                         ItemStack itemStack = config.getItemStack("shops." + shopOwner + "." + shopNumber + ".item");
                         if (shopType == ShopType.GAMBLE) {
                             itemStack = plugin.getGambleDisplayItem();
@@ -1557,23 +1623,41 @@ public class ShopHandler {
                         }
 
                         // This inits a new shop but won't have a chestLocation until load().
+                        /**
+                         * Create the shop instance.
+                         */
                         AbstractShop shop = AbstractShop.create(signLoc, owner, price, priceSell, amount, isAdmin, shopType, facing);
                         if (id != null) shop.setId(id);
 
                         // Important: apply saved stock BEFORE setting item stacks, since setItemStack()
                         // may calculate stock (inventory may be null pre-load) and may also render sign text.
+                       /**
+                        * Load saved stock.
+                        */
                        int stock = config.getInt("shops." + shopOwner + "." + shopNumber + ".stock");
                         shop.setStockOnLoad(stock);
 
+                        /**
+                         * Set shop item stack.
+                         */
                         shop.setItemStack(itemStack);
                         if (shop.getType() == ShopType.BARTER) {
+                            /**
+                             * Load barter item stack.
+                             */
                             ItemStack barterItemStack = config.getItemStack("shops." + shopOwner + "." + shopNumber + ".itemBarter");
                             shop.setSecondaryItemStack(barterItemStack);
                         }
+                        /**
+                         * Load display type.
+                         */
                         String displayType = config.getString("shops." + shopOwner + "." + shopNumber + ".displayType");
                         if(displayType != null)
                             shop.getDisplay().setType(DisplayType.valueOf(displayType), false);
 
+                        /**
+                         * Load fake sign setting.
+                         */
                         boolean isFakeSign = config.getBoolean("shops." + shopOwner + "." + shopNumber + ".fakeSign");
                         if(isFakeSign){
                             shop.setFakeSign(true);
