@@ -807,6 +807,10 @@ public class Shop extends JavaPlugin {
         }
     }
 
+    public int getDebug_shopCreateCooldown() {
+        return debug_shopCreateCooldown;
+    }
+
     @Override
     public void onDisable(){
         // Cancel all FoliaLib scheduled tasks
