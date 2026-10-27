@@ -1,12 +1,13 @@
-target
+# target
 *.iml
 .idea
 .DS_Store
 dependency-reduced-pom.xml
-SpigotBuildTools
-*/node_modules
-.vscode/settings.json
 scripts/diff-cover.html
 scripts/diff-cover.md
 /.m2
 /build/maven-repo
+/.project
+/.settings
+/.classpath
+.factorypath

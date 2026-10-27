@@ -42,6 +42,8 @@ public class Shop extends JavaPlugin {
     private static final String CONFIG_PATH_PLOT_SQUARED_ENABLED = "plotSquared.enabled";
     private static final String CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED = "bolt.trustIntegration.enabled";
     private static final String CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED = "blockProt.trustIntegration.enabled";
+    private static final String CONFIG_PATH_GRIEF_PREVENTION_ENABLED = "griefprevention.enabled";
+
 
     private ShopListener shopListener;
     private DisplayListener displayListener;
@@ -60,6 +62,7 @@ public class Shop extends JavaPlugin {
     private PlotSquaredHookListener plotSquaredHookListener;
     private BoltTrustListener boltTrustListener;
     private BlockProtTrustListener blockProtTrustListener;
+    private GriefPreventionHookListener griefPreventionHookListener;
 
     private boolean worldGuardIntegrationEnabled;
     private boolean lwcIntegrationEnabled;
@@ -68,6 +71,7 @@ public class Shop extends JavaPlugin {
     private boolean plotSquaredIntegrationEnabled;
     private boolean boltTrustIntegrationEnabled;
     private boolean blockProtTrustIntegrationEnabled;
+    private boolean griefPreventionIntegrationEnabled;
 
     private ShopHandler shopHandler;
     private ShopGuiHandler guiHandler;
@@ -349,6 +353,7 @@ public class Shop extends JavaPlugin {
         plotSquaredIntegrationEnabled = config.getBoolean(CONFIG_PATH_PLOT_SQUARED_ENABLED, true);
         boltTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED, true);
         blockProtTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED, true);
+        griefPreventionIntegrationEnabled = config.getBoolean(CONFIG_PATH_GRIEF_PREVENTION_ENABLED, true);
 
         // WorldGuard integration is only active if the plugin is installed AND the integration toggle is enabled.
         boolean worldGuardDetected = getServer().getPluginManager().getPlugin("WorldGuard") != null;
@@ -539,6 +544,17 @@ public class Shop extends JavaPlugin {
                 this.getLogger().helpful("WorldGuard flags that will be checked for shop use: " + worldGuardConfig.useShopFlags.toString());
             } else {
                 this.getLogger().notice("WorldGuard detected, but Shop WorldGuard integration is disabled via `" + CONFIG_PATH_WORLD_GUARD_ENABLED + ": false`");
+            }
+        }
+
+        // GriefPrevention integration
+        if (getServer().getPluginManager().getPlugin("GriefPrevention") != null) {
+            if (griefPreventionIntegrationEnabled) {
+                griefPreventionHookListener = new GriefPreventionHookListener(this);
+                getServer().getPluginManager().registerEvents(griefPreventionHookListener, this);
+                this.getLogger().notice("GriefPrevention is installed, enabling grief prevention integration");
+            } else {
+                this.getLogger().notice("GriefPrevention detected, but Shop grief prevention integration is disabled via `" + CONFIG_PATH_GRIEF_PREVENTION_ENABLED + ": false`");
             }
         }
 
@@ -943,6 +959,8 @@ public class Shop extends JavaPlugin {
     public boolean isPlotSquaredIntegrationEnabled() { return plotSquaredIntegrationEnabled; }
     public boolean isBoltTrustIntegrationEnabled() { return boltTrustIntegrationEnabled; }
     public boolean isBlockProtTrustIntegrationEnabled() { return blockProtTrustIntegrationEnabled; }
+    public boolean isGriefPreventionIntegrationEnabled() { return griefPreventionIntegrationEnabled; }
+    public boolean hookTowny(){
 
     public boolean hookTowny(){
         return hookTowny;
