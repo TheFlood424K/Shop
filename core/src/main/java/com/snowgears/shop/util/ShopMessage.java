@@ -22,11 +22,22 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.google.gson.JsonParseException;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.colorize.Colorizer;
+import net.kyori.adventure.text.minimessage.parser.ElementParser;
+
+/**
+ * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
+ * Manages configuration loading for chat, sign, and display messages, as well as placeholder registration.
+ */
 public class ShopMessage {
 
     private final static Shop plugin = Shop.getPlugin();
 
     private static boolean disableItemHover = false;
+
+    private static final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     private static final Map<String, Function<PlaceholderContext, TextComponent>> placeholders = new HashMap<>();
     // Regex pattern to identify placeholders within square brackets, e.g., [owner]
@@ -110,8 +121,8 @@ public class ShopMessage {
                     return message;
                 }
             } catch (Error | Exception e) {
-                // Log the exception
-                Bukkit.getLogger().warning("Error replacing placeholder " + placeholder + ": " + e.getMessage());
+                // Log at severe level so failures are visible, and include placeholder context
+                Bukkit.getLogger().severe("Error replacing placeholder '" + placeholder + "': " + e.getMessage());
             }
         }
         // If placeholder not found, remove the placeholder and just return an empty string
@@ -119,8 +130,41 @@ public class ShopMessage {
         return new TextComponent("");
     }
 
-    // Gets the ChatColor from a string, supports Hex Colors.
-    // Returns null if no color is found.
+    private static String replacePlaceholdersForMiniMessage(String message, PlaceholderContext context) {
+        if (message == null || context == null) {
+            return message;
+        }
+        Pattern placeholderPattern = Pattern.compile("\\[([^\\[\\]]+)\\]");
+        Matcher matcher = placeholderPattern.matcher(message);
+        StringBuffer result = new StringBuffer();
+        while (matcher.find()) {
+            String placeholderKey = matcher.group(1);
+            String placeholderWithBrackets = matcher.group();
+            Function<PlaceholderContext, TextComponent> valueFunction = placeholders.get(placeholderKey.toLowerCase());
+            if (valueFunction != null) {
+                try {
+                    TextComponent replacement = valueFunction.apply(context);
+                    if (replacement != null) {
+                        String replacementText = replacement.toLegacyText();
+                        matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
+                        continue;
+                    }
+                } catch (Exception e) {
+                    Bukkit.getLogger().severe("Error replacing placeholder '" + placeholderKey + "': " + e.getMessage());
+                }
+            }
+            matcher.appendReplacement(result, "");
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
+    /**
+     * Gets the ChatColor from a string, supporting both legacy color codes and hex colors.
+     *
+     * @param color The color string to parse (e.g., "&a", "§a", or "#FF0000")
+     * @return The corresponding ChatColor, or null if no color is found
+     */
     public static ChatColor getColor(String color) {
         ChatColor newColor = null;
         if (color.matches(HEX_CODE_REGEX)) { newColor = ChatColor.of(color); }
@@ -142,12 +186,9 @@ public class ShopMessage {
         if (message == null) { return new TextComponent(""); }
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
-        // Define the regex pattern
-        Matcher matcher = Pattern.compile(MESSAGE_PARTS_REGEX).matcher(message);
-        List<String> parts = new ArrayList<>();
-        while (matcher.find()) {
-            parts.add(matcher.group());
-        }
+        // Check if the message contains MiniMessage syntax (contains <tags>)
+        // MiniMessage is backward compatible with &/§ color codes, so we can use it as the primary formatter
+        boolean hasMiniMessageSyntax = message != null && message.contains("<");
 
         ChatColor latestColor = null;
         boolean addedText = false;
@@ -157,8 +198,39 @@ public class ShopMessage {
         boolean isStrikethrough = false;
         boolean isUnderlined = false;
         boolean isObfuscated = false;
-        
-        for (String part : parts) {
+
+        if (hasMiniMessageSyntax) {
+            // Replace placeholders before MiniMessage parsing
+            String processedMessage = replacePlaceholdersForMiniMessage(message, context);
+            try {
+                // Use MiniMessage for formatting
+                Component miniMessageComponent = miniMessage.deserialize(processedMessage);
+                formattedMessage = textComponentFromComponent(miniMessageComponent);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
+                // Fallback to legacy parsing
+                message = processedMessage;
+                hasMiniMessageSyntax = false;
+            }
+        }
+        if (!hasMiniMessageSyntax || formattedMessage == null) {
+            // Define the regex pattern
+            Matcher matcher = Pattern.compile(MESSAGE_PARTS_REGEX).matcher(message);
+            List<String> parts = new ArrayList<>();
+            while (matcher.find()) {
+                parts.add(matcher.group());
+            }
+
+            latestColor = null;
+            addedText = false;
+
+            isBold = false;
+            isItalic = false;
+            isStrikethrough = false;
+            isUnderlined = false;
+            isObfuscated = false;
+
+            for (String part : parts) {
             plugin.getLogger().spam("\n\n");
             plugin.getLogger().trace("[ShopMessage.format] part: " + part);
             TextComponent partComponent = new TextComponent(part);
@@ -181,7 +253,12 @@ public class ShopMessage {
                             isStrikethrough = false;
                             isUnderlined = false;
                             isObfuscated = false;
-                            formattedMessage.addExtra("§r");
+                            if (formattedMessage == null) {
+                                formattedMessage = new TextComponent("§r");
+                            } else {
+                                formattedMessage.addExtra("§r");
+                            }
+                            addedText = true;
                         } else {
                             latestColor = newColor;
                         }
@@ -240,6 +317,34 @@ public class ShopMessage {
     }
 
     /**
+     * Formats a message using MiniMessage syntax, supporting advanced formatting
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code §} codes.
+     *
+     * @param message The message in MiniMessage format (e.g., "<red>Hello</red>" or "<#FF0000>Hello</#FF0000>")
+     * @param context The PlaceholderContext instance containing Shop and Player
+     * @return The formatted message as a TextComponent
+     */
+    public static TextComponent formatMiniMessage(String message, PlaceholderContext context) {
+        TextComponent formattedMessage = null;
+        if (message == null) { return new TextComponent(""); }
+        plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
+
+        try {
+            // Replace placeholders before MiniMessage parsing
+            String processedMessage = replacePlaceholdersForMiniMessage(message, context);
+            // MiniMessage supports both legacy & codes and its own syntax
+            Component miniMessageComponent = miniMessage.deserialize(processedMessage);
+            formattedMessage = textComponentFromComponent(miniMessageComponent);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
+            formattedMessage = format(message, context);
+        }
+
+        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
+        return formattedMessage != null ? formattedMessage : new TextComponent("");
+    }
+
+    /**
      * Swaps in placeholder values, sends fancy message with Click/Hover events to Player
      */
     public static void sendMessage(String message, Player player, PlaceholderContext context) {
@@ -251,6 +356,12 @@ public class ShopMessage {
         } catch (JsonParseException e) {
             plugin.getLogger().warning("Possible NBT error while sending message to player, Item Hover events will now be disabled! Details: " + e.getMessage());
             plugin.getLogger().debug("Error details: ", e);
+            // Notify the user that hover events were disabled
+            try {
+                player.spigot().sendMessage(new TextComponent("§cHover events disabled due to message error"));
+            } catch (Exception ex) {
+                plugin.getLogger().debug("Failed to send hover disable notification to player", ex);
+            }
             // disableItemHover = true;
         } catch (Exception | Error e) {
             plugin.getLogger().warning("Error sending message to player: " + e.getMessage());
@@ -344,6 +455,44 @@ public class ShopMessage {
         context.setPlayer(player);
         context.setOfflineTransactions(offlineTxs);
         sendMessage(message, player, context);
+    }
+
+    /**
+     * Formats a message using MiniMessage syntax, supporting advanced formatting
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code §} codes.
+     *
+     * @param message The message in MiniMessage format
+     * @param player The player to send the message to
+     * @param context The PlaceholderContext instance
+     */
+    public static void sendMiniMessage(String message, Player player, PlaceholderContext context) {
+        TextComponent fancyMessage = formatMiniMessage(message, context);
+        plugin.getLogger().debug("Sent minimessage to player " + player.getName() + ": " + fancyMessage.toLegacyText(), true);
+        try {
+            player.spigot().sendMessage(fancyMessage);
+            return;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error sending minimessage to player: " + e.getMessage());
+            // Fall back to legacy text
+            try {
+                player.sendMessage(fancyMessage.toLegacyText());
+                plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
+            } catch (Error | Exception e2) {
+                plugin.getLogger().debug("Error sending legacy message to player", e2);
+            }
+        }
+    }
+
+    /**
+     * Formats a message using MiniMessage syntax (without placeholders).
+     *
+     * @param message The message in MiniMessage format
+     * @param player The player to send the message to
+     */
+    public static void sendMiniMessage(String message, Player player) {
+        PlaceholderContext context = new PlaceholderContext();
+        context.setPlayer(player);
+        sendMiniMessage(message, player, context);
     }
 
     /**
@@ -478,11 +627,11 @@ public class ShopMessage {
 
         // Notify Placeholders
         registerPlaceholder("[notify user]", context -> {
-            // @TODO: is this correct?
             String text_on = getUnformattedMessage("command", "notify_on");
             String text_off = getUnformattedMessage("command", "notify_off");
 
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_USER);
+            // Returns text_on if notifications are set to ON, otherwise text_off
             return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) ? text_on : text_off);
         });
 
@@ -523,11 +672,23 @@ public class ShopMessage {
         registerPlaceholder("[shops out of stock]", ShopMessage::getShopsOutOfStockPlaceholder);
     }
 
+    /**
+     * Creates a hover event displaying item information.
+     *
+     * @param item The item stack to display on hover
+     * @return The hover event, or null if item is null or hover is disabled
+     */
     private static HoverEvent getItemHoverEvent(ItemStack item) {
         if (item == null || disableItemHover) { return null; }
         return ItemHoverEventHelper.createFrom(item);
     }
 
+    /**
+     * Converts legacy text to a BaseComponent, with fallback for older Bukkit versions.
+     *
+     * @param text The legacy formatted text to convert
+     * @return The converted BaseComponent
+     */
     public static BaseComponent componentFromLegacy(String text) {
         try {
             return TextComponent.fromLegacy(text);
@@ -542,9 +703,61 @@ public class ShopMessage {
         }
     }
 
+    /**
+     * Converts a kyori adventure Component to a Bukkit TextComponent,
+     * preserving color and style information from MiniMessage parsing.
+     */
+    private static TextComponent textComponentFromComponent(Component component) {
+        if (component == null) {
+            return new TextComponent("");
+        }
+
+        String legacyText = component.toLegacyText();
+        TextComponent textComponent = new TextComponent(legacyText);
+
+        net.kyori.adventure.text.format.Style style = component.style();
+        if (style != null) {
+            if (style.color() != null) {
+                try {
+                    textComponent.setColor(ChatColor.of(style.color().asHexString()));
+                } catch (Exception ignored) {
+                }
+            }
+            textComponent.setBold(style.isBold());
+            textComponent.setItalic(style.isItalic());
+            textComponent.setStrikethrough(style.isStrikethrough());
+            textComponent.setUnderlined(style.isUnderlined());
+            textComponent.setObfuscated(style.isObfuscated());
+        }
+
+        for (Component extra : component.children()) {
+            TextComponent extraComponent = textComponentFromComponent(extra);
+            if (extraComponent != null && !extraComponent.toLegacyText().isEmpty()) {
+                textComponent.addExtra(extraComponent);
+            }
+        }
+
+        return textComponent;
+    }
+
+    /**
+     * Embeds item hover information into a message.
+     *
+     * @param message The message text
+     * @param item The item stack to embed
+     * @return The message with item hover event attached
+     */
     private static TextComponent embedItem(String message, ItemStack item) {
         return embedItem(new TextComponent(message), item);
     }
+
+    /**
+     * Embeds item hover information into a TextComponent.
+     *
+     * @param message The TextComponent message
+     * @param item The item stack to embed
+     * @return The message with item hover event attached
+     */
     private static TextComponent embedItem(TextComponent message, ItemStack item) {
         // If we have any NBT errors, don't try to embed the item hover text
         if (disableItemHover) { return message; }
@@ -562,16 +775,36 @@ public class ShopMessage {
         }
     }
 
+    /**
+     * Creates a hover event displaying offline transaction information.
+     *
+     * @param context The placeholder context containing offline transactions
+     * @return The hover event, or null if creation fails
+     */
     private static HoverEvent getTransactionsHoverEvent(PlaceholderContext context) {
         try {
+            if (context == null || context.getOfflineTransactions() == null) {
+                return null;
+            }
             BaseComponent hoverText = componentFromLegacy(context.getOfflineTransactions().getTransactionsLore());
             return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{hoverText});
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            plugin.getLogger().debug("Failed to create transactions hover event", e);
+        }
         return null;
     }
 
+    /**
+     * Creates a hover event displaying shop location information.
+     *
+     * @param context The placeholder context containing shop information
+     * @return The hover event, or null if creation fails
+     */
     private static HoverEvent getShopInfoHoverEvent(PlaceholderContext context) {
         try {
+            if (context == null) {
+                return null;
+            }
             TextComponent hoverText = new TextComponent();
             List<String> hoverLines = getUnformattedMessageList("hover", "location");
             int i = 0;
@@ -582,7 +815,9 @@ public class ShopMessage {
             }
             BaseComponent flatText = componentFromLegacy(hoverText.toLegacyText());
             return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{flatText});
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            plugin.getLogger().debug("Failed to create shop info hover event", e);
+        }
         return null;
     }
 
@@ -754,22 +989,50 @@ public class ShopMessage {
         return null;
     }
 
+    /**
+     * Gets the creation word for the given shop type.
+     *
+     * @param type The shop type identifier
+     * @return The creation word for the shop type
+     */
     public static String getCreationWord(String type) {
         return creationWords.get(type);
     }
 
+    /**
+     * Gets the word used to represent a free price.
+     *
+     * @return The free price word
+     */
     public static String getFreePriceWord() {
         return freePriceWord;
     }
 
+    /**
+     * Gets the word used to represent admin stock.
+     *
+     * @return The admin stock word
+     */
     public static String getAdminStockWord() {
         return adminStockWord;
     }
 
+    /**
+     * Gets the server display name.
+     *
+     * @return The server display name
+     */
     public static String getServerDisplayName() {
         return serverDisplayName;
     }
 
+    /**
+     * Gets an unformatted message from the message map.
+     *
+     * @param key The message key
+     * @param subKey The message sub key, or null if no sub key
+     * @return The unformatted message
+     */
     public static String getUnformattedMessage(String key, String subKey) {
         String message;
         if (subKey != null)
@@ -779,6 +1042,13 @@ public class ShopMessage {
         return message;
     }
 
+    /**
+     * Formats a message for a shop.
+     *
+     * @param unformattedMessage The unformatted message to format
+     * @param shop The shop context
+     * @return The formatted message
+     */
     public static String formatMessage(String unformattedMessage, AbstractShop shop) {
         PlaceholderContext context = new PlaceholderContext();
         context.setShop(shop);
@@ -787,6 +1057,15 @@ public class ShopMessage {
         return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
     }
 
+    /**
+     * Formats a message for a shop with player context.
+     *
+     * @param unformattedMessage The unformatted message to format
+     * @param shop The shop context
+     * @param player The player context
+     * @param forSign Whether the message is for a sign
+     * @return The formatted message
+     */
     public static String formatMessage(String unformattedMessage, AbstractShop shop, Player player, boolean forSign) {
         PlaceholderContext context = new PlaceholderContext();
         context.setPlayer(player);
@@ -797,7 +1076,15 @@ public class ShopMessage {
         return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
     }
 
-    // Perform partial formatting to insert transaction purchase amounts since they might differ from shop amounts (partial sales)
+    /**
+     * Perform partial formatting to insert transaction purchase amounts since they might differ from shop amounts (partial sales)
+     *
+     * @param transactionType The type of transaction
+     * @param subKey The message sub key
+     * @param price The price of the transaction
+     * @param amount The amount of items
+     * @return The formatted message
+     */
     public static String getMessageFromOrders(ShopType transactionType, String subKey, double price, int amount){
         String message = ShopMessage.getUnformattedMessage(transactionType.toString(), subKey);
         String priceStr = Shop.getPlugin().getPriceString(price, false);
@@ -809,10 +1096,19 @@ public class ShopMessage {
         return message;
     }
 
-    //      # [amount] : The amount of items the shop is selling/buying/bartering #
-    //      # [price] : The price of the items the shop is selling (adjusted to match virtual or physical currency) #
-    //      # [owner] : The name of the shop owner #
-    //      # [server name] : The name of the server #
+    /**
+     * Gets the sign lines for a shop.
+     * <p>
+     * # [amount] : The amount of items the shop is selling/buying/bartering <br>
+     * # [price] : The price of the items the shop is selling (adjusted to match virtual or physical currency) <br>
+     * # [owner] : The name of the shop owner <br>
+     * # [server name] : The name of the server
+     * </p>
+     *
+     * @param shop The shop
+     * @param shopType The shop type
+     * @return The sign lines
+     */
     public static String[] getSignLines(AbstractShop shop, ShopType shopType){
 
         DisplayType displayType = null;
@@ -841,6 +1137,13 @@ public class ShopMessage {
         return lines;
     }
 
+    /**
+     * Gets the sign lines for a shop by key.
+     *
+     * @param key The sign text key
+     * @param shop The shop
+     * @return The sign lines
+     */
     public static String[] getSignLines(String key, AbstractShop shop){
         String[] lines = shopSignTextMap.get(key);
         for(int i=0; i<lines.length; i++) {
@@ -851,6 +1154,13 @@ public class ShopMessage {
         return lines;
     }
 
+    /**
+     * Gets the display tags for a shop.
+     *
+     * @param shop The shop
+     * @param shopType The shop type
+     * @return The display tags
+     */
     public static ArrayList<String> getDisplayTags(AbstractShop shop, ShopType shopType){
         ArrayList<String> formattedLines = new ArrayList<>();
         List<String> lines = displayTextMap.get(shopType.toString().toUpperCase()+"_normal");
@@ -873,6 +1183,13 @@ public class ShopMessage {
         return formattedLines;
     }
 
+    /**
+     * Gets a list of unformatted messages.
+     *
+     * @param key The message key
+     * @param subKey The message sub key
+     * @return The list of unformatted messages
+     */
     public static List<String> getUnformattedMessageList(String key, String subKey){
         List<String> messages = new ArrayList<>();
 
@@ -891,6 +1208,12 @@ public class ShopMessage {
         return shopSignTextMap.get(type.toString()+"_"+subtype).clone();
     }
 
+    /**
+     * Loads all messages from the chat configuration file.
+     * Populates the messageMap with transaction, interaction, and issue messages
+     * for all shop types, as well as command and hover messages.
+     * This method should be called during the plugin's initialization phase.
+     */
     private static void loadMessagesFromConfig() {
 
         for (ShopType type : ShopType.values()) {
@@ -1050,48 +1373,75 @@ public class ShopMessage {
                 count++;
                 message = config.getString(key + "." + count);
             }
-        } catch (NullPointerException e) {}
+        } catch (Exception e) {
+            plugin.getLogger().debug("Failed to load config lines for key: " + key, e);
+        }
         return lines.toArray(new String[0]);
     }
 
+    /**
+     * Loads sign text from the sign configuration file.
+     * Populates the shopSignTextMap with sign lines for each shop type,
+     * including normal, admin, and no-display variants, as well as timeout and deleted messages.
+     */
     private void loadSignTextFromConfig() {
         messageMap.put("signtext_instockcolor", signConfig.getString("stock_color.in_stock"));
         messageMap.put("signtext_outofstockcolor", signConfig.getString("stock_color.out_of_stock"));
-        Set<String> allTypes = signConfig.getConfigurationSection("sign_text").getKeys(false);
-        for (String typeString : allTypes) {
-            ShopType type = null;
-            try { type = ShopType.valueOf(typeString);}
-            catch (IllegalArgumentException e){}
+        if (signConfig.getConfigurationSection("sign_text") != null) {
+            Set<String> allTypes = signConfig.getConfigurationSection("sign_text").getKeys(false);
+            for (String typeString : allTypes) {
+                ShopType type = null;
+                try { type = ShopType.valueOf(typeString);}
+                catch (IllegalArgumentException e){
+                    plugin.getLogger().debug("Unknown sign text type: " + typeString, e);
+                }
 
-            if (type != null) {
-                this.shopSignTextMap.put(type.toString() + "_normal", getSignConfigLines("sign_text." + typeString + ".normal"));
-                this.shopSignTextMap.put(type.toString() + "_admin", getSignConfigLines("sign_text." + typeString + ".admin"));
-                this.shopSignTextMap.put(type.toString() + "_normal_no_display", getSignConfigLines("sign_text." + typeString + ".normal_no_display"));
-                this.shopSignTextMap.put(type.toString() + "_admin_no_display", getSignConfigLines("sign_text." + typeString + ".admin_no_display"));
+                if (type != null) {
+                    this.shopSignTextMap.put(type.toString() + "_normal", getSignConfigLines("sign_text." + typeString + ".normal"));
+                    this.shopSignTextMap.put(type.toString() + "_admin", getSignConfigLines("sign_text." + typeString + ".admin"));
+                    this.shopSignTextMap.put(type.toString() + "_normal_no_display", getSignConfigLines("sign_text." + typeString + ".normal_no_display"));
+                    this.shopSignTextMap.put(type.toString() + "_admin_no_display", getSignConfigLines("sign_text." + typeString + ".admin_no_display"));
+                }
             }
         }
         this.shopSignTextMap.put("timeout", getSignConfigLines("sign_text.timeout"));
         this.shopSignTextMap.put("deleted", getSignConfigLines("sign_text.deleted"));
     }
 
+    /**
+     * Loads display tag text from the display configuration file.
+     * Populates the displayTextMap with formatted lines for each shop type.
+     */
     private void loadDisplayTextFromConfig() {
         displayTextMap = new HashMap<>();
+        if (displayConfig.getConfigurationSection("display_tag_text") == null) {
+            return;
+        }
         Set<String> allTypes = displayConfig.getConfigurationSection("display_tag_text").getKeys(false);
         for (String typeString : allTypes) {
 
             ShopType type = null;
             try { type = ShopType.valueOf(typeString);}
-            catch (IllegalArgumentException e){}
+            catch (IllegalArgumentException e){
+                plugin.getLogger().debug("Unknown display tag type: " + typeString, e);
+            }
 
             if (type != null) {
                 try {
                     List<String> normalLines = displayConfig.getStringList("display_tag_text." + typeString.toUpperCase() + ".normal");
                     this.displayTextMap.put(type.toString().toUpperCase() + "_normal", normalLines);
-                } catch (NullPointerException e) {}
+                } catch (Exception e) {
+                    plugin.getLogger().debug("Failed to load display tag text for: " + typeString, e);
+                }
             }
         }
     }
 
+    /**
+     * Loads creation words from the sign configuration file.
+     * Maps each shop type (SHOP, SELL, BUY, BARTER, GAMBLE, ADMIN, COMBO)
+     * to its corresponding creation word used for sign display.
+     */
     private void loadCreationWords(){
         String shopString = signConfig.getString("sign_creation.SHOP");
         if(shopString != null)
@@ -1121,7 +1471,7 @@ public class ShopMessage {
         if(gambleString != null)
             creationWords.put("GAMBLE", gambleString.toLowerCase());
         else
-            creationWords.put("BARTER", "barter");
+            creationWords.put("GAMBLE", "gamble");
 
         String adminString = signConfig.getString("sign_creation.ADMIN");
         if(adminString != null)
@@ -1136,6 +1486,11 @@ public class ShopMessage {
             creationWords.put("COMBO", "combo");
     }
 
+    /**
+     * Gets the target max length for display tags.
+     *
+     * @return The target max length
+     */
     public static int getTargetMaxLength() {
         return targetMaxLength;
     }
