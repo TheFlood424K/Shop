@@ -230,13 +230,13 @@
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
-            <version>2.7.14</version>
+            <version>4.0.0</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>2.1.214</version> <!-- Updating to 2.2.220 broke things, leave it here for now -->
+            <version>2.2.220</version> <!-- Updating to 2.2.220 broke things, leave it here for now -->
             <scope>compile</scope>
         </dependency>
         <dependency>
