@@ -630,25 +630,49 @@ public class ShopMessage {
             String text_on = getUnformattedMessage("command", "notify_on");
             String text_off = getUnformattedMessage("command", "notify_off");
 
+            if (context.getPlayer() == null) {
+                return new TextComponent("");
+            }
+
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_USER);
             // Returns text_on if notifications are set to ON, otherwise text_off
-            return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) ? text_on : text_off);
+            String text = (guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) ? text_on : text_off;
+            if (text == null) {
+                return new TextComponent("");
+            }
+            return format(text, context);
         });
 
         registerPlaceholder("[notify owner]", context -> {
             String text_on = getUnformattedMessage("command", "notify_on");
             String text_off = getUnformattedMessage("command", "notify_off");
 
+            if (context.getPlayer() == null) {
+                return new TextComponent("");
+            }
+
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_OWNER);
-            return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) ? text_on : text_off);
+            String text = (guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) ? text_on : text_off;
+            if (text == null) {
+                return new TextComponent("");
+            }
+            return format(text, context);
         });
 
         registerPlaceholder("[notify stock]", context -> {
             String text_on = getUnformattedMessage("command", "notify_on");
             String text_off = getUnformattedMessage("command", "notify_off");
 
+            if (context.getPlayer() == null) {
+                return new TextComponent("");
+            }
+
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_STOCK);
-            return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) ? text_on : text_off);
+            String text = (guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) ? text_on : text_off;
+            if (text == null) {
+                return new TextComponent("");
+            }
+            return format(text, context);
         });
 
         // Offline Transaction Updates
