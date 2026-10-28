@@ -331,7 +331,7 @@ public class ShopMessage {
 
         try {
             // Replace placeholders before MiniMessage parsing
-            String processedMessage = replacePlaceholdersForMiniMessage(message, context);
+            String processedMessage = replacePlaceholdersInString(message, context);
             // MiniMessage supports both legacy & codes and its own syntax
             Component miniMessageComponent = miniMessage.deserialize(processedMessage);
             formattedMessage = textComponentFromComponent(miniMessageComponent);
