@@ -310,7 +310,7 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- Toolchains plugin: ensure JDK 21 is available for tests because MockBukkit 4 requires 21, but we still want to compile with a lower Java target in mind -->
+            <!-- Toolchains plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-toolchains-plugin</artifactId>
@@ -323,6 +323,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <failOnMissingToolchain>false</failOnMissingToolchain>
                     <toolchains>
                         <jdk>
                             <version>25</version>
@@ -401,10 +402,6 @@
                     <parallel>methods</parallel>
                     <forkCount>1</forkCount>
                     <reuseForks>true</reuseForks>
-                    <jdkToolchain>
-                        <version>25</version>
-                        <vendor>any</vendor>
-                    </jdkToolchain>
                 </configuration>
             </plugin>
         </plugins>
