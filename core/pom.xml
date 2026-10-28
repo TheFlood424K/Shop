@@ -295,7 +295,7 @@
                     <version>3.1.2</version>
                     <configuration>
                         <!-- MockBukkit may need reflective access to JDK internals. -->
-                       <argLine>${argLine} --add-opens java.base/java.lang=ALL-U
+                        <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
                         <!-- Parallel test execution -->
                         <parallel>methods</parallel>
                         <forkCount>1</forkCount>
@@ -402,7 +402,7 @@
                     <forkCount>1</forkCount>
                     <reuseForks>true</reuseForks>
                     <jdkToolchain>
-                        <version>21</version>
+                        <version>25</version>
                         <vendor>any</vendor>
                     </jdkToolchain>
                 </configuration>
