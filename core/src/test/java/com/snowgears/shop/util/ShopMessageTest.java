@@ -18,7 +18,7 @@ import net.md_5.bungee.api.chat.TextComponent;
  * Regression test for MiniMessage support (Issue #152 / shopbugs#496).
  * Tests that MiniMessage tags are properly formatted and sent to players.
  */
-public class ShopMessageMiniMessageTest extends BaseMockBukkitTest {
+public class ShopMessageTest extends BaseMockBukkitTest {
 
     private PlayerMock player;
     private Shop plugin;
