@@ -23,5 +23,24 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
 
+      - name: Create Maven toolchains.xml
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/toolchains.xml << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <toolchains>
+            <toolchain>
+              <type>jdk</type>
+              <provides>
+                <version>25</version>
+                <vendor>any</vendor>
+              </provides>
+              <configuration>
+                <jdkHome>${env.JAVA_HOME}</jdkHome>
+              </configuration>
+            </toolchain>
+          </toolchains>
+          EOF
+
       - name: Submit Maven Dependencies
         uses: advanced-security/maven-dependency-submission-action@v4
