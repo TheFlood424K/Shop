@@ -24,7 +24,10 @@ import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+<<<<<<< HEAD
 import net.kyori.adventure.text.format.TextDecoration;
+=======
+>>>>>>> 9d0f837a (Update ShopMessage.java)
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
@@ -306,6 +309,7 @@ public class ShopMessage {
             }
             addedText = true;
             plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
+            }
         }
 
         // Handle if we are just a color code with an empty string
@@ -713,8 +717,19 @@ public class ShopMessage {
             return new TextComponent("");
         }
 
+<<<<<<< HEAD
         String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
         return componentFromLegacy(legacyText);
+=======
+        // Serialize the complete Adventure component tree, including its children,
+        // to legacy formatting before converting it to Bungee components.
+        String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
+        TextComponent textComponent = new TextComponent("");
+        for (BaseComponent legacyComponent : TextComponent.fromLegacyText(legacyText)) {
+            textComponent.addExtra(legacyComponent);
+        }
+        return textComponent;
+>>>>>>> 9d0f837a (Update ShopMessage.java)
     }
 
     /**
