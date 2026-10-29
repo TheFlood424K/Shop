@@ -295,6 +295,9 @@ public class LogHandler {
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
             int transactionID = 0;
+            // Capture final variables for lambda usage (itemBase64/barterItemBase64 must be effectively final)
+            final String finalItemBase64 = itemBase64;
+            final String finalBarterItemBase64 = barterItemBase64;
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (
                 Connection conn = dataSource.getConnection();
@@ -303,9 +306,9 @@ public class LogHandler {
                 logTxStmt.setString(1, transactionType.toString().toUpperCase());
                 logTxStmt.setDouble(2, price);
                 logTxStmt.setInt(3, amount);
-                logTxStmt.setString(4, itemBase64);
-                if (barterItemBase64 != null)
-                    logTxStmt.setString(5, barterItemBase64);
+                logTxStmt.setString(4, finalItemBase64);
+                if (finalBarterItemBase64 != null)
+                    logTxStmt.setString(5, finalBarterItemBase64);
                 else
                     logTxStmt.setNull(5, Types.VARCHAR);
 
