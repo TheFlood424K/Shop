@@ -23,9 +23,10 @@ import java.util.regex.Pattern;
 import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.Style;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.colorize.Colorizer;
-import net.kyori.adventure.text.minimessage.parser.ElementParser;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
@@ -706,10 +707,10 @@ public class ShopMessage {
             return new TextComponent("");
         }
 
-        String legacyText = component.toLegacyText();
+        String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
         TextComponent textComponent = new TextComponent(legacyText);
 
-        net.kyori.adventure.text.format.Style style = component.style();
+        Style style = component.style();
         if (style != null) {
             if (style.color() != null) {
                 try {
@@ -717,11 +718,11 @@ public class ShopMessage {
                 } catch (Exception ignored) {
                 }
             }
-            textComponent.setBold(style.isBold());
-            textComponent.setItalic(style.isItalic());
-            textComponent.setStrikethrough(style.isStrikethrough());
-            textComponent.setUnderlined(style.isUnderlined());
-            textComponent.setObfuscated(style.isObfuscated());
+            textComponent.setBold(style.decoration(TextDecoration.BOLD) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setItalic(style.decoration(TextDecoration.ITALIC) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setStrikethrough(style.decoration(TextDecoration.STRIKETHROUGH) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setUnderlined(style.decoration(TextDecoration.UNDERLINED) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setObfuscated(style.decoration(TextDecoration.OBFUSCATED) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
         }
 
         for (Component extra : component.children()) {
