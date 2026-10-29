@@ -313,7 +313,7 @@ public class ShopMessage {
         if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
 
         // Use Bukkit's toLegacyText() by casting to ensure we get the right type
-        TextComponent Bukkit formattedMessageBukkit = (TextComponent) (Object) formattedMessage;
+        TextComponent formattedMessageBukkit = (TextComponent) (Object) formattedMessage;
         plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessageBukkit.toLegacyText(), true);
         return formattedMessage;
         }
