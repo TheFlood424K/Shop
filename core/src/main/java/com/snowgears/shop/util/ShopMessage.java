@@ -49,14 +49,14 @@ public class ShopMessage {
     // Add dedicated patterns for brackets to ensure they're matched individually
     private static final String OPEN_BRACKET_REGEX = "(\\[)";
     private static final String CLOSE_BRACKET_REGEX = "(\\])";
-    private static final String MESSAGE_PARTS_REGEX = 
-        COLOR_CODE_REGEX + "|" + 
-        HEX_CODE_REGEX + "|" + 
-        PLACEHOLDER_REGEX + "|" + 
-        OPEN_BRACKET_REGEX + "|" +  // Match opening bracket
-        CLOSE_BRACKET_REGEX + "|" +  // Match closing bracket
-        TEXT_SEGMENT_REGEX + "|" +  // Match text segments
-        "(.{1})";          // Match any single character as fallback
+    private static final String MESSAGE_PARTS_REGEX =
+        COLOR_CODE_REGEX + "|" +
+        HEX_CODE_REGEX + "|" +
+        PLACEHOLDER_REGEX + "|" +
+        OPEN_BRACKET_REGEX + "|" +
+        CLOSE_BRACKET_REGEX + "|" +
+        TEXT_SEGMENT_REGEX + "|" +
+        "(.{1})";
 
     private static HashMap<String, String> messageMap = new HashMap<String, String>();
     private static HashMap<String, String[]> shopSignTextMap = new HashMap<String, String[]>();
