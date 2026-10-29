@@ -290,12 +290,15 @@ public class LogHandler {
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
         }
+        // Capture final variables for lambda usage - must be effectively final
+        final String capturedItemBase64 = itemBase64;
+        final String capturedBarterItemBase64 = barterItemBase64;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
             int transactionID = 0;
-            // Capture final variables for lambda usage (itemBase64/barterItemBase64 must be effectively final)
-            final String finalItemBase64 = itemBase64;
-            final String finalBarterItemBase64 = barterItemBase64;
+            // Use captured final variables
+            final String finalItemBase64 = capturedItemBase64;
+            final String finalBarterItemBase64 = capturedBarterItemBase64;
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (
                 Connection conn = dataSource.getConnection();
