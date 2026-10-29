@@ -2,17 +2,17 @@ package com.snowgears.shop.util;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
-import org.mockbukkit.mockbukkit.MockBukkit;
-import org.mockbukkit.mockbukkit.ServerMock;
 
 import com.snowgears.shop.Shop;
+import com.snowgears.shop.testsupport.BaseMockBukkitTest;
 
 /**
  * Test for MariaDB JDBC client dependency version fix.
  * GitHub Issue #204: [Dependabot] Fix medium vulnerability in org.mariadb.jdbc:mariadb-java-client
- * Vulnerable range: < 2.7.14, First patched version: 2.7.14
+ * Vulnerable range: &lt; 2.7.14, First patched version: 2.7.14
  *
  * This test verifies that the plugin compiles and loads correctly with the
  * patched MariaDB Java client version 2.7.14, which resolves the cleartext
@@ -27,10 +27,10 @@ public class MariaDbDependencyTest extends BaseMockBukkitTest {
         // is the first patched version for the cleartext password disclosure
         // vulnerability affecting initial handshake authentication.
         assertDoesNotThrow(() -> {
-            ServerMock server = MockBukkit.mock();
             Shop plugin = getPlugin();
-            server.getScheduler().waitAsyncTasksFinished();
-            MockBukkit.unmock();
+            assertNotNull(plugin, "Plugin should be loaded");
+            assertTrue(plugin.isEnabled(), "Plugin should be enabled");
+            getServer().getScheduler().waitAsyncTasksFinished();
         }, "Plugin should load successfully with MariaDB 2.7.14 client");
     }
 
@@ -49,8 +49,6 @@ public class MariaDbDependencyTest extends BaseMockBukkitTest {
                 String serverName = getPlugin().getConfig().getString("logging.serverName");
                 String databaseName = getPlugin().getConfig().getString("logging.databaseName");
                 String user = getPlugin().getConfig().getString("logging.user");
-                String password = getPlugin().getConfig().getString("logging.password");
-                String port = String.valueOf(getPlugin().getConfig().getInt("logging.port"));
 
                 // With MariaDB 2.7.14, these properties should be acceptable
                 // for establishing connections (useSSL=false recommended)
