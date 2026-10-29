@@ -108,6 +108,51 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
     }
 
     @Test
+    void cancelCreationByTypingCancelInChat() {
+        ServerMock server = getServer();
+        World world = server.addSimpleWorld("world");
+        PlayerMock player = server.addPlayer();
+        player.setOp(true);
+
+        // Enable chest creation
+        setConfig("allowCreateMethodChest", true);
+
+        // Place chest with free space to the NORTH for sign placement
+        Location chestLoc = new Location(world, 60, 65, 10);
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+        world.getBlockAt(chestLoc.clone().add(0, 0, -1)).setType(Material.AIR);
+        stubCalculateBlockFaceForSign(BlockFace.NORTH);
+
+        // Start creation by sneaking and left-clicking the chest with an item in hand
+        player.setSneaking(true);
+        ItemStack item = new ItemStack(Material.DIRT);
+        player.getInventory().setItemInMainHand(item);
+        PlayerInteractEvent startCreate = new PlayerInteractEvent(
+                player,
+                Action.LEFT_CLICK_BLOCK,
+                item,
+                chestBlock,
+                BlockFace.NORTH,
+                EquipmentSlot.HAND
+        );
+        server.getPluginManager().callEvent(startCreate);
+
+        // Drain initial creation messages
+        while (player.nextMessage() != null) {}
+
+        // Type "cancel" in chat to abort the creation process
+        sendChatMessage(player, "cancel");
+
+        // Assert: no shop was created/registered for chest
+        server.getScheduler().performTicks(5);
+        server.getScheduler().waitAsyncTasksFinished();
+        assertNull(getPlugin().getShopHandler().getShopByChest(chestBlock), "Shop should not be created when creation is cancelled");
+        assertNull(getPlugin().getShopListener().getShopCreationProcess(player), "Shop creation process should be removed after cancel");
+        assertEquals("§cCancelled shop creation.", player.nextMessage(), "Player should be sent cancel message");
+    }
+
+    @Test
     void preventCreationOnExistingChest_interactEarlyReturn() {
         ServerMock server = getServer();
         World world = server.addSimpleWorld("world");
