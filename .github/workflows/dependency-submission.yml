@@ -1,7 +1,7 @@
 name: Dependency Submission
 
 permissions:
-  contents: read
+  contents: write
 
 on:
   push:
@@ -24,4 +24,4 @@ jobs:
           distribution: 'temurin'
 
       - name: Submit Maven Dependencies
-        uses: actions/maven-dependency-submission-action@v4
+        uses: advanced-security/maven-dependency-submission-action@v4
