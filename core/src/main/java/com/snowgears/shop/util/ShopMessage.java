@@ -339,6 +339,7 @@ public class ShopMessage {
         if (!addedText && latestColor != null) formattedMessage = formattedMessage.color(latestColor);
         plugin.getLogger().spam("[ShopMessage] postFormat: " + (formattedMessage != null ? LegacyComponentSerializer.legacy('&').serialize(formattedMessage) : ""), true);
         return formattedMessage;
+        }
     }
 
     /**
