@@ -960,11 +960,7 @@ public class Shop extends JavaPlugin {
     public boolean isBoltTrustIntegrationEnabled() { return boltTrustIntegrationEnabled; }
     public boolean isBlockProtTrustIntegrationEnabled() { return blockProtTrustIntegrationEnabled; }
     public boolean isGriefPreventionIntegrationEnabled() { return griefPreventionIntegrationEnabled; }
-    public boolean hookTowny(){
-
-    public boolean hookTowny(){
-        return hookTowny;
-    }
+    public boolean hookTowny() { return hookTowny; }
 
     public DisplayType getDisplayType(){
         return displayType;
