@@ -1335,6 +1335,11 @@ public class ShopMessage {
         messageMap.put("offline_outOfStockShop", chatConfig.getString("transaction.OFFLINE_TRANSACTIONS_NOTIFICATION.outOfStockShop"));
         messageMap.put("offline_moreOutOfStock", chatConfig.getString("transaction.OFFLINE_TRANSACTIONS_NOTIFICATION.moreOutOfStock"));
 
+        for (ShopType type : ShopType.values()) {
+            String txHoverMessage = chatConfig.getString("transaction.OFFLINE_TRANSACTIONS_NOTIFICATION.txHover." + type.toString().toUpperCase());
+            messageMap.put(type.toString() + "_txHover", txHoverMessage);
+        }
+
         messageMap.put("command_list", chatConfig.getString("command.list"));
         messageMap.put("command_list_output_total", chatConfig.getString("command.list_output_total"));
         messageMap.put("command_list_output_perms", chatConfig.getString("command.list_output_perms"));

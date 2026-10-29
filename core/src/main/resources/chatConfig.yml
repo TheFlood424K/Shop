@@ -98,6 +98,11 @@ transaction:
          - '&d|'
          - '[shops out of stock]'
          - '&d+---------------------------------------------------+'
+      txHover:
+         SELL: '&7[user] bought &f[item amount] [item](s)&b[item enchants] &7from you for &a[price]&7.'
+         BUY: '&7[user] sold &f[item amount] [item](s)&b[item enchants] &7to you for &a[price]&7.'
+         BARTER: '&7[user] bartered &f[barter item amount] &7of their &f[barter item](s)&b[barter item enchants] &7for &f[item amount] &7of your &f[item](s)&b[item enchants]&7.'
+         GAMBLE: '&7[user] gambled &a[price] &7and received &f[item]&7(x[item amount])&b[item enchants].'
 
 transaction_issue:
    SELL:

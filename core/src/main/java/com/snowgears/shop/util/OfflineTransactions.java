@@ -31,8 +31,9 @@ public class OfflineTransactions {
     }
 
     public void addTx(Location location, ShopType transactionType, double price, OfflinePlayer purchaser, int amount, ItemStack itemSold, ItemStack barterItem) {
-        // load message and perform initial formatting
-        String formattedMessage = ShopMessage.getMessageFromOrders(transactionType, "owner", price, amount);
+        // Use txHover message key for separate offline transaction hover messages
+        // This allows different messages from the live transaction "owner" messages
+        String formattedMessage = ShopMessage.getMessageFromOrders(transactionType, "txHover", price, amount);
         // Add rest of the formatting
         PlaceholderContext context = new PlaceholderContext();
         context.setOfflinePlayer(purchaser);
