@@ -53,9 +53,9 @@ public class ShopMessage {
         COLOR_CODE_REGEX + "|" + 
         HEX_CODE_REGEX + "|" + 
         PLACEHOLDER_REGEX + "|" + 
-        OPEN_BRACKET_REGEX + "|" +  // Match opening bracket
-        CLOSE_BRACKET_REGEX + "|" +  // Match closing bracket
-        TEXT_SEGMENT_REGEX + "|" +  // Match text segments
+        OPEN_BRACKET_REGEX + "|" +
+        CLOSE_BRACKET_REGEX + "|" +
+        TEXT_SEGMENT_REGEX + "|" +
         "(.{1})";          // Match any single character as fallback
 
     private static HashMap<String, String> messageMap = new HashMap<String, String>();
