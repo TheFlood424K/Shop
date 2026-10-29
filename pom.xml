@@ -47,6 +47,15 @@
                     </compilerArgs>
                 </configuration>
             </plugin>
+            <!-- Make toolchains plugin non-fatal for environments without toolchains.xml (e.g. dependency submission) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-toolchains-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <failOnError>false</failOnError>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
