@@ -315,14 +315,23 @@ public class LogHandler {
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
             int transactionID = 0;
+            // Capture final variables for lambda usage (itemBase64/barterItemBase64 must be effectively final)
+            final String finalItemBase64 = itemBase64;
+            final String finalBarterItemBase64 = barterItemBase64;
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (
                 Connection conn = dataSource.getConnection();
                 PreparedStatement logTxStmt = conn.prepareStatement("INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) VALUES(?, ?, ?, ?, ?);", Statement.RETURN_GENERATED_KEYS);
             ) {
+<<<<<<< HEAD
                 logTxStmt.setString(1, finalTransactionType.toString().toUpperCase());
                 logTxStmt.setDouble(2, finalPrice);
                 logTxStmt.setInt(3, finalAmount);
+=======
+                logTxStmt.setString(1, transactionType.toString().toUpperCase());
+                logTxStmt.setDouble(2, price);
+                logTxStmt.setInt(3, amount);
+>>>>>>> 759351b (fix(subissue-343): [CI-Fail][PR #246] Fix CI: build (Closes #343))
                 logTxStmt.setString(4, finalItemBase64);
                 if (finalBarterItemBase64 != null)
                     logTxStmt.setString(5, finalBarterItemBase64);
