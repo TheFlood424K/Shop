@@ -330,18 +330,16 @@ public class ShopMessage {
         plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         try {
-            // Replace placeholders before MiniMessage parsing
-            String processedMessage = replacePlaceholdersForMiniMessage(message, context);
             // MiniMessage supports both legacy & codes and its own syntax
-            Component miniMessageComponent = miniMessage.deserialize(processedMessage);
+            Component miniMessageComponent = miniMessage.deserialize(message);
             formattedMessage = textComponentFromComponent(miniMessageComponent);
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
             formattedMessage = format(message, context);
         }
 
-        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
-        return formattedMessage != null ? formattedMessage : new TextComponent("");
+        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + formattedMessage.toLegacyText(), true);
+        return formattedMessage;
     }
 
     /**
