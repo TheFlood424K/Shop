@@ -961,8 +961,6 @@ public class Shop extends JavaPlugin {
     public boolean isBlockProtTrustIntegrationEnabled() { return blockProtTrustIntegrationEnabled; }
     public boolean isGriefPreventionIntegrationEnabled() { return griefPreventionIntegrationEnabled; }
     public boolean hookTowny(){
-
-    public boolean hookTowny(){
         return hookTowny;
     }
 
