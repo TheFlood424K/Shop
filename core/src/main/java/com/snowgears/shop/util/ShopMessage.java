@@ -201,6 +201,9 @@ public class ShopMessage {
         if (hasMiniMessageSyntax) {
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(message, context);
+            // Escape angle brackets to prevent MiniMessage from interpreting them as tags
+            // This handles cases like <(54, 65, 9)> where brackets are meant as literal text
+            processedMessage = processedMessage.replace("<", "&#60;").replace(">", "&#62;");
             try {
                 // Use MiniMessage for formatting
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
