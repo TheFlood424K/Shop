@@ -391,7 +391,17 @@ public class MiscListener implements Listener {
         Player player = event.getPlayer();
         if(playerChatCreationSteps.containsKey(player.getUniqueId())){
             ShopCreationProcess process = playerChatCreationSteps.get(player.getUniqueId());
-            plugin.getLogger().debug("Shop Creation Process: " + process.getStep() + " Player " + player.getName() + " input: " + event.getMessage(), true);
+            String message = event.getMessage();
+            plugin.getLogger().debug("Shop Creation Process: " + process.getStep() + " Player " + player.getName() + " input: " + message, true);
+
+            // Allow player to cancel shop creation at any step by typing "cancel"
+            if (message != null && message.equalsIgnoreCase("cancel")) {
+                process.cleanup();
+                cancelShopCreationProcess(player);
+                event.setCancelled(true);
+                return;
+            }
+
             switch (process.getStep()){
                 case SHOP_TYPE:
                     ShopType type = plugin.getShopCreationUtil().getShopType(event.getMessage());
