@@ -231,9 +231,9 @@ public class ShopMessage {
             isObfuscated = false;
 
             for (String part : parts) {
-            plugin.getLogger().spam("\n\n");
-            plugin.getLogger().trace("[ShopMessage.format] part: " + part);
-            TextComponent partComponent = new TextComponent(part);
+                plugin.getLogger().spam("\n\n");
+                plugin.getLogger().trace("[ShopMessage.format] part: " + part);
+                TextComponent partComponent = new TextComponent(part);
 
             // Check if we are a color code
             if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
