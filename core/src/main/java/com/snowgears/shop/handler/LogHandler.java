@@ -273,28 +273,32 @@ public class LogHandler {
         String itemBase64 = null;
         String barterItemBase64 = null;
         try {
-            if (shop.getItemStack() != null) {
+            if (shop.getItemStack() != null && itemBase64 == null) {
                 try {
                     itemBase64 = UtilMethods.itemStackToBase64(shop.getItemStack());
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
-                    itemBase64 = null;
                 }
             }
-            if (shop.getSecondaryItemStack() != null) {
+            if (shop.getSecondaryItemStack() != null && barterItemBase64 == null) {
                 try {
                     barterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
-                    barterItemBase64 = null;
                 }
             }
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
         }
+        // Capture final variables for lambda usage - must be effectively final
+        final String capturedItemBase64 = itemBase64;
+        final String capturedBarterItemBase64 = barterItemBase64;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
             int transactionID = 0;
+            // Use captured final variables
+            final String finalItemBase64 = capturedItemBase64;
+            final String finalBarterItemBase64 = capturedBarterItemBase64;
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (
                 Connection conn = dataSource.getConnection();
@@ -303,9 +307,9 @@ public class LogHandler {
                 logTxStmt.setString(1, transactionType.toString().toUpperCase());
                 logTxStmt.setDouble(2, price);
                 logTxStmt.setInt(3, amount);
-                logTxStmt.setString(4, itemBase64);
-                if (barterItemBase64 != null)
-                    logTxStmt.setString(5, barterItemBase64);
+                logTxStmt.setString(4, finalItemBase64);
+                if (finalBarterItemBase64 != null)
+                    logTxStmt.setString(5, finalBarterItemBase64);
                 else
                     logTxStmt.setNull(5, Types.VARCHAR);
 

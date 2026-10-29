@@ -24,8 +24,7 @@ import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.colorize.Colorizer;
-import net.kyori.adventure.text.minimessage.parser.ElementParser;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
@@ -202,8 +201,8 @@ public class ShopMessage {
         if (hasMiniMessageSyntax) {
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(message, context);
+            // Use MiniMessage for formatting (angle brackets are now preserved for proper MiniMessage tag parsing)
             try {
-                // Use MiniMessage for formatting
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
                 formattedMessage = textComponentFromComponent(miniMessageComponent);
             } catch (Exception e) {
@@ -231,13 +230,13 @@ public class ShopMessage {
             isObfuscated = false;
 
             for (String part : parts) {
-            plugin.getLogger().spam("\n\n");
-            plugin.getLogger().trace("[ShopMessage.format] part: " + part);
-            TextComponent partComponent = new TextComponent(part);
+                plugin.getLogger().spam("\n\n");
+                plugin.getLogger().trace("[ShopMessage.format] part: " + part);
+                TextComponent partComponent = new TextComponent(part);
 
-            // Check if we are a color code
-            if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
-                try {
+                // Check if we are a color code
+                if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
+                    try {
                     ChatColor newColor = getColor(part);
                     if (newColor != null) {
                         if (newColor == ChatColor.BOLD) isBold = true;
@@ -306,6 +305,7 @@ public class ShopMessage {
             }
             addedText = true;
             plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
+            }
         }
 
         // Handle if we are just a color code with an empty string
@@ -712,31 +712,13 @@ public class ShopMessage {
             return new TextComponent("");
         }
 
-        String legacyText = component.toLegacyText();
-        TextComponent textComponent = new TextComponent(legacyText);
-
-        net.kyori.adventure.text.format.Style style = component.style();
-        if (style != null) {
-            if (style.color() != null) {
-                try {
-                    textComponent.setColor(ChatColor.of(style.color().asHexString()));
-                } catch (Exception ignored) {
-                }
-            }
-            textComponent.setBold(style.isBold());
-            textComponent.setItalic(style.isItalic());
-            textComponent.setStrikethrough(style.isStrikethrough());
-            textComponent.setUnderlined(style.isUnderlined());
-            textComponent.setObfuscated(style.isObfuscated());
+        // Serialize the complete Adventure component tree, including its children,
+        // to legacy formatting before converting it to Bungee components.
+        String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
+        TextComponent textComponent = new TextComponent("");
+        for (BaseComponent legacyComponent : TextComponent.fromLegacyText(legacyText)) {
+            textComponent.addExtra(legacyComponent);
         }
-
-        for (Component extra : component.children()) {
-            TextComponent extraComponent = textComponentFromComponent(extra);
-            if (extraComponent != null && !extraComponent.toLegacyText().isEmpty()) {
-                textComponent.addExtra(extraComponent);
-            }
-        }
-
         return textComponent;
     }
 
