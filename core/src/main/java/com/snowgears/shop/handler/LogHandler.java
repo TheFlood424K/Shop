@@ -270,28 +270,30 @@ public class LogHandler {
         String shopOwnerUuidTx = (shop.getOwnerUUID() != null && shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID())) ? "admin" : (shop.getOwnerUUID() != null ? shop.getOwnerUUID().toString() : "null");
         String shopUuidTx = (shop.getId() != null && shop.getId().toString() != null) ? shop.getId().toString() : "";
         String playerUuidTx = player.getUniqueId().toString();
-        String itemBase64 = null;
-        String barterItemBase64 = null;
+        String finalItemBase64 = null;
+        String finalBarterItemBase64 = null;
         try {
             if (shop.getItemStack() != null) {
                 try {
-                    itemBase64 = UtilMethods.itemStackToBase64(shop.getItemStack());
+                    finalItemBase64 = UtilMethods.itemStackToBase64(shop.getItemStack());
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
-                    itemBase64 = null;
+                    finalItemBase64 = null;
                 }
             }
             if (shop.getSecondaryItemStack() != null) {
                 try {
-                    barterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
+                    finalBarterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
-                    barterItemBase64 = null;
+                    finalBarterItemBase64 = null;
                 }
             }
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
         }
+        final String itemBase64Final = finalItemBase64;
+        final String barterItemBase64Final = finalBarterItemBase64;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
             int transactionID = 0;
@@ -303,9 +305,9 @@ public class LogHandler {
                 logTxStmt.setString(1, transactionType.toString().toUpperCase());
                 logTxStmt.setDouble(2, price);
                 logTxStmt.setInt(3, amount);
-                logTxStmt.setString(4, itemBase64);
-                if (barterItemBase64 != null)
-                    logTxStmt.setString(5, barterItemBase64);
+                logTxStmt.setString(4, itemBase64Final);
+                if (barterItemBase64Final != null)
+                    logTxStmt.setString(5, barterItemBase64Final);
                 else
                     logTxStmt.setNull(5, Types.VARCHAR);
 

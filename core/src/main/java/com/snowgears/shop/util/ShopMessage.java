@@ -24,6 +24,8 @@ import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.format.TextDecoration;
 
 /**
  * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
@@ -143,7 +145,7 @@ public class ShopMessage {
                 try {
                     TextComponent replacement = valueFunction.apply(context);
                     if (replacement != null) {
-                        String replacementText = replacement.toLegacyText();
+                        String replacementText = LegacyComponentSerializer.legacySection().serialize(net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get().deserialize(net.md_5.bungee.chat.ComponentSerializer.parse(replacement.toString())));
                         matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
                         continue;
                     }
@@ -310,7 +312,9 @@ public class ShopMessage {
         if (formattedMessage == null) formattedMessage = new TextComponent("");
         if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
 
-        plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
+        // Use Bukkit's toLegacyText() by casting to ensure we get the right type
+        TextComponent Bukkit formattedMessageBukkit = (TextComponent) (Object) formattedMessage;
+        plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessageBukkit.toLegacyText(), true);
         return formattedMessage;
         }
     }
@@ -339,7 +343,9 @@ public class ShopMessage {
             formattedMessage = format(message, context);
         }
 
-        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
+        // Use Bukkit's toLegacyText() by casting to ensure we get the right type
+        TextComponent formattedMessageBukkit = (TextComponent) (Object) formattedMessage;
+        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + (formattedMessageBukkit != null ? formattedMessageBukkit.toLegacyText() : ""), true);
         return formattedMessage != null ? formattedMessage : new TextComponent("");
     }
 
@@ -348,7 +354,9 @@ public class ShopMessage {
      */
     public static void sendMessage(String message, Player player, PlaceholderContext context) {
         TextComponent fancyMessage = format(message, context);
-        plugin.getLogger().debug("Sent msg to player " + player.getName() + ": " + fancyMessage.toLegacyText(), true);
+        // Use Bukkit's toLegacyText() by casting to ensure we get the right type
+        TextComponent legacyMessage = (TextComponent) (Object) fancyMessage;
+        plugin.getLogger().debug("Sent msg to player " + player.getName() + ": " + legacyMessage.toLegacyText(), true);
         try {
             player.spigot().sendMessage(fancyMessage);
             return;
@@ -369,7 +377,7 @@ public class ShopMessage {
 
         // If we get here, we have an error, we should at least try to send it as legacy text
         try {
-            player.sendMessage(fancyMessage.toLegacyText());
+            player.sendMessage(legacyMessage.toLegacyText());
             plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
         } catch (Error | Exception e) {
             plugin.getLogger().debug("Error sending message to player", e);
@@ -466,7 +474,7 @@ public class ShopMessage {
      */
     public static void sendMiniMessage(String message, Player player, PlaceholderContext context) {
         TextComponent fancyMessage = formatMiniMessage(message, context);
-        plugin.getLogger().debug("Sent minimessage to player " + player.getName() + ": " + fancyMessage.toLegacyText(), true);
+        plugin.getLogger().debug("Sent minimessage to player " + player.getName() + ": " + ((TextComponent) (Object) fancyMessage).toLegacyText(), true);
         try {
             player.spigot().sendMessage(fancyMessage);
             return;
@@ -735,7 +743,7 @@ public class ShopMessage {
             return new TextComponent("");
         }
 
-        String legacyText = component.toLegacyText();
+        String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
         TextComponent textComponent = new TextComponent(legacyText);
 
         net.kyori.adventure.text.format.Style style = component.style();
@@ -746,11 +754,11 @@ public class ShopMessage {
                 } catch (Exception ignored) {
                 }
             }
-            textComponent.setBold(style.isBold());
-            textComponent.setItalic(style.isItalic());
-            textComponent.setStrikethrough(style.isStrikethrough());
-            textComponent.setUnderlined(style.isUnderlined());
-            textComponent.setObfuscated(style.isObfuscated());
+            textComponent.setBold(style.decoration(TextDecoration.BOLD) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setItalic(style.decoration(TextDecoration.ITALIC) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setStrikethrough(style.decoration(TextDecoration.STRIKETHROUGH) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setUnderlined(style.decoration(TextDecoration.UNDERLINED) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setObfuscated(style.decoration(TextDecoration.OBFUSCATED) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
         }
 
         for (Component extra : component.children()) {
@@ -786,7 +794,8 @@ public class ShopMessage {
         if (disableItemHover) { return message; }
         try {
             if (item == null) { return null; }
-            BaseComponent msg = componentFromLegacy(UtilMethods.removeColorsIfOnlyWhite(message.toLegacyText()));
+            String cleanedText = UtilMethods.removeColorsIfOnlyWhite(LegacyComponentSerializer.legacySection().serialize(net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer.get().deserialize(net.md_5.bungee.chat.ComponentSerializer.parse(message.toString()))));
+            BaseComponent msg = componentFromLegacy(cleanedText);
             HoverEvent event = getItemHoverEvent(item);
             if (event != null) { msg.setHoverEvent(event); }
             return (TextComponent) msg;
