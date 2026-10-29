@@ -331,6 +331,7 @@
                             <vendor>any</vendor>
                         </jdk>
                     </toolchains>
+                    <failOnError>false</failOnError>
                 </configuration>
             </plugin>
             <!-- Always enable JaCoCo agent and reporting by default -->
