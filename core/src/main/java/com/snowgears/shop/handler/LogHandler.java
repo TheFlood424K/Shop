@@ -273,20 +273,18 @@ public class LogHandler {
         String itemBase64 = null;
         String barterItemBase64 = null;
         try {
-            if (shop.getItemStack() != null) {
+            if (shop.getItemStack() != null && itemBase64 == null) {
                 try {
                     itemBase64 = UtilMethods.itemStackToBase64(shop.getItemStack());
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
-                    itemBase64 = null;
                 }
             }
-            if (shop.getSecondaryItemStack() != null) {
+            if (shop.getSecondaryItemStack() != null && barterItemBase64 == null) {
                 try {
                     barterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
-                    barterItemBase64 = null;
                 }
             }
         } catch (Exception e) {
