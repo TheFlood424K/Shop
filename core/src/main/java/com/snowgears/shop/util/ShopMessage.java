@@ -314,6 +314,7 @@ public class ShopMessage {
 
         plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
         return formattedMessage;
+        }
     }
 
     /**
