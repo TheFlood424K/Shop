@@ -155,6 +155,12 @@ public class MiscListener implements Listener {
                 }
 
                 //give player a limited amount of time to finish creating the shop until it is deleted
+                // Use the configured shop creation cooldown from config (in milliseconds), default to 30 seconds (30000ms)
+                int cooldownMs = plugin.getDebug_shopCreateCooldown();
+                if (cooldownMs <= 0) {
+                    cooldownMs = 30 * 1000; // default: 30 seconds
+                }
+                long cooldownTicks = cooldownMs / 50; // convert ms to ticks (20 ticks = 1 second = 1000ms, so 1 tick = 50ms)
                 plugin.getFoliaLib().getScheduler().runLater(() -> {
                     //the shop has still not been initialized with an item from a player
                     if (!shop.isInitialized()) {
@@ -170,7 +176,7 @@ public class MiscListener implements Listener {
                             cancelShopCreationProcess(player);
                         }
                     }
-                }, 30 * 20); // 30 seconds * 20 ticks
+                }, cooldownTicks);
             }
         }
     }

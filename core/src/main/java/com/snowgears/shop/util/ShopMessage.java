@@ -23,9 +23,10 @@ import java.util.regex.Pattern;
 import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.Style;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.colorize.Colorizer;
-import net.kyori.adventure.text.minimessage.parser.ElementParser;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
@@ -231,86 +232,87 @@ public class ShopMessage {
             isObfuscated = false;
 
             for (String part : parts) {
-            plugin.getLogger().spam("\n\n");
-            plugin.getLogger().trace("[ShopMessage.format] part: " + part);
-            TextComponent partComponent = new TextComponent(part);
+                plugin.getLogger().spam("\n\n");
+                plugin.getLogger().trace("[ShopMessage.format] part: " + part);
+                TextComponent partComponent = new TextComponent(part);
 
-            // Check if we are a color code
-            if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
-                try {
-                    ChatColor newColor = getColor(part);
-                    if (newColor != null) {
-                        if (newColor == ChatColor.BOLD) isBold = true;
-                        else if (newColor == ChatColor.ITALIC) isItalic = true;
-                        else if (newColor == ChatColor.STRIKETHROUGH) isStrikethrough = true;
-                        else if (newColor == ChatColor.UNDERLINE) isUnderlined = true;
-                        else if (newColor == ChatColor.MAGIC) isObfuscated = true;
-                        else if (newColor == ChatColor.RESET) {
-                            plugin.getLogger().hyper("[ShopMessage.format]     matched RESET color code: " + part);
-                            latestColor = ChatColor.WHITE;
-                            isBold = false;
-                            isItalic = false;
-                            isStrikethrough = false;
-                            isUnderlined = false;
-                            isObfuscated = false;
-                            if (formattedMessage == null) {
-                                formattedMessage = new TextComponent("§r");
+                // Check if we are a color code
+                if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
+                    try {
+                        ChatColor newColor = getColor(part);
+                        if (newColor != null) {
+                            if (newColor == ChatColor.BOLD) isBold = true;
+                            else if (newColor == ChatColor.ITALIC) isItalic = true;
+                            else if (newColor == ChatColor.STRIKETHROUGH) isStrikethrough = true;
+                            else if (newColor == ChatColor.UNDERLINE) isUnderlined = true;
+                            else if (newColor == ChatColor.MAGIC) isObfuscated = true;
+                            else if (newColor == ChatColor.RESET) {
+                                plugin.getLogger().hyper("[ShopMessage.format]     matched RESET color code: " + part);
+                                latestColor = ChatColor.WHITE;
+                                isBold = false;
+                                isItalic = false;
+                                isStrikethrough = false;
+                                isUnderlined = false;
+                                isObfuscated = false;
+                                if (formattedMessage == null) {
+                                    formattedMessage = new TextComponent("§r");
+                                } else {
+                                    formattedMessage.addExtra("§r");
+                                }
+                                addedText = true;
                             } else {
-                                formattedMessage.addExtra("§r");
+                                latestColor = newColor;
                             }
-                            addedText = true;
-                        } else {
-                            latestColor = newColor;
+                        }
+                        plugin.getLogger().hyper("[ShopMessage.format]     matched COLOR_CODE_REGEX: " + part);
+                        plugin.getLogger().hyper("[ShopMessage.format]     newColor: " + newColor.toString());
+                        plugin.getLogger().hyper("[ShopMessage.format] *** skipping to next part: " + newColor.getName().toUpperCase());
+                        plugin.getLogger().hyper("[ShopMessage.format]     isBold: " + isBold + " isItalic: " + isItalic + " isStrikethrough: " + isStrikethrough + " isUnderlined: " + isUnderlined + " isObfuscated: " + isObfuscated);
+                        continue; // Don't add this text to the message, just go to the next part
+                    } catch (Exception e) {
+                        plugin.getLogger().hyper("[ShopMessage.format] XXX unknown color code! Going to add this as a normal string! " + part);
+                    }
+                }
+
+                // If we match to a placeholder, then we want to use it's TextComponent instead of the "normal" one
+                if (part.matches(PLACEHOLDER_REGEX)) {
+                    plugin.getLogger().hyper("[ShopMessage.format]     matched PLACEHOLDER_REGEX: " + part);
+                    plugin.getLogger().hyper("[ShopMessage.format]     is part placeholder? " + (placeholders.get(part) != null));
+                    if (placeholders.get(part) != null) {
+                        plugin.getLogger().hyper("[ShopMessage.format]     replacing placeholder... " + part);
+                        partComponent = replacePlaceholder(part, context);
+                        // Check if we set a color inside our part (for example [stock color])
+                        if (partComponent.getColor() != latestColor && partComponent.getColor() != null && partComponent.getColor() != ChatColor.WHITE) {
+                            plugin.getLogger().hyper("[ShopMessage.format]     getting latestColor from partComponent: " + partComponent.getColor().getName().toUpperCase());
+                            latestColor = partComponent.getColor();
                         }
                     }
-                    plugin.getLogger().hyper("[ShopMessage.format]     matched COLOR_CODE_REGEX: " + part);
-                    plugin.getLogger().hyper("[ShopMessage.format]     newColor: " + newColor.toString());
-                    plugin.getLogger().hyper("[ShopMessage.format] *** skipping to next part: " + newColor.getName().toUpperCase());
-                    plugin.getLogger().hyper("[ShopMessage.format]     isBold: " + isBold + " isItalic: " + isItalic + " isStrikethrough: " + isStrikethrough + " isUnderlined: " + isUnderlined + " isObfuscated: " + isObfuscated);
-                    continue; // Don't add this text to the message, just go to the next part
-                } catch (Exception e) {
-                    plugin.getLogger().hyper("[ShopMessage.format] XXX unknown color code! Going to add this as a normal string! " + part);
                 }
+
+                // Set the color
+                if (latestColor != null) {
+                    plugin.getLogger().hyper("[ShopMessage.format]     setting part color to: " + latestColor.getName().toUpperCase());
+                    partComponent.setColor(latestColor);
+                }
+                partComponent.setBold(isBold);
+                partComponent.setItalic(isItalic);
+                partComponent.setStrikethrough(isStrikethrough);
+                partComponent.setUnderlined(isUnderlined);
+                partComponent.setObfuscated(isObfuscated);
+                if (formattedMessage == null) {
+                    formattedMessage = partComponent;
+                } else {
+                    // Add the part of the string to the
+                    formattedMessage.addExtra(partComponent);
+                }
+                addedText = true;
+                plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
             }
 
-            // If we match to a placeholder, then we want to use it's TextComponent instead of the "normal" one
-            if (part.matches(PLACEHOLDER_REGEX)) {
-                plugin.getLogger().hyper("[ShopMessage.format]     matched PLACEHOLDER_REGEX: " + part);
-                plugin.getLogger().hyper("[ShopMessage.format]     is part placeholder? " + (placeholders.get(part) != null));
-                if (placeholders.get(part) != null) {
-                    plugin.getLogger().hyper("[ShopMessage.format]     replacing placeholder... " + part);
-                    partComponent = replacePlaceholder(part, context);
-                    // Check if we set a color inside our part (for example [stock color])
-                    if (partComponent.getColor() != latestColor && partComponent.getColor() != null && partComponent.getColor() != ChatColor.WHITE) { 
-                        plugin.getLogger().hyper("[ShopMessage.format]     getting latestColor from partComponent: " + partComponent.getColor().getName().toUpperCase());
-                        latestColor = partComponent.getColor(); 
-                    }
-                }
-            }
-
-            // Set the color
-            if (latestColor != null) {
-                plugin.getLogger().hyper("[ShopMessage.format]     setting part color to: " + latestColor.getName().toUpperCase());
-                partComponent.setColor(latestColor);
-            }
-            partComponent.setBold(isBold);
-            partComponent.setItalic(isItalic);
-            partComponent.setStrikethrough(isStrikethrough);
-            partComponent.setUnderlined(isUnderlined);
-            partComponent.setObfuscated(isObfuscated);
-            if (formattedMessage == null) {
-                formattedMessage = partComponent;
-            } else {
-                // Add the part of the string to the
-                formattedMessage.addExtra(partComponent);
-            }
-            addedText = true;
-            plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
+            // Handle if we are just a color code with an empty string
+            if (formattedMessage == null) formattedMessage = new TextComponent("");
+            if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
         }
-
-        // Handle if we are just a color code with an empty string
-        if (formattedMessage == null) formattedMessage = new TextComponent("");
-        if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
 
         plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
         return formattedMessage;
@@ -329,19 +331,12 @@ public class ShopMessage {
         if (message == null) { return new TextComponent(""); }
         plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
-        try {
-            // Replace placeholders before MiniMessage parsing
-            String processedMessage = replacePlaceholdersForMiniMessage(message, context);
-            // MiniMessage supports both legacy & codes and its own syntax
-            Component miniMessageComponent = miniMessage.deserialize(processedMessage);
-            formattedMessage = textComponentFromComponent(miniMessageComponent);
-        } catch (Exception e) {
-            plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
-            formattedMessage = format(message, context);
-        }
+        // MiniMessage supports both legacy & codes and its own syntax
+        Component miniMessageComponent = miniMessage.deserialize(message);
+        formattedMessage = textComponentFromComponent(miniMessageComponent);
 
-        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
-        return formattedMessage != null ? formattedMessage : new TextComponent("");
+        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + formattedMessage.toLegacyText(), true);
+        return formattedMessage;
     }
 
     /**
@@ -712,10 +707,10 @@ public class ShopMessage {
             return new TextComponent("");
         }
 
-        String legacyText = component.toLegacyText();
+        String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
         TextComponent textComponent = new TextComponent(legacyText);
 
-        net.kyori.adventure.text.format.Style style = component.style();
+        Style style = component.style();
         if (style != null) {
             if (style.color() != null) {
                 try {
@@ -723,11 +718,11 @@ public class ShopMessage {
                 } catch (Exception ignored) {
                 }
             }
-            textComponent.setBold(style.isBold());
-            textComponent.setItalic(style.isItalic());
-            textComponent.setStrikethrough(style.isStrikethrough());
-            textComponent.setUnderlined(style.isUnderlined());
-            textComponent.setObfuscated(style.isObfuscated());
+            textComponent.setBold(style.decoration(TextDecoration.BOLD) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setItalic(style.decoration(TextDecoration.ITALIC) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setStrikethrough(style.decoration(TextDecoration.STRIKETHROUGH) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setUnderlined(style.decoration(TextDecoration.UNDERLINED) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
+            textComponent.setObfuscated(style.decoration(TextDecoration.OBFUSCATED) == net.kyori.adventure.text.format.TextDecoration.State.TRUE);
         }
 
         for (Component extra : component.children()) {
