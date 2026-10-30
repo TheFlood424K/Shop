@@ -1,7 +1,6 @@
 package com.snowgears.shop.util;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.AfterEach;
@@ -12,6 +11,9 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.testsupport.BaseMockBukkitTest;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.md_5.bungee.api.chat.TextComponent;
 
 /**
@@ -103,5 +105,35 @@ public class ShopMessageTest extends BaseMockBukkitTest {
 
         // Then: The message should be formatted
         assertNotNull(formatted, "Formatted message should not be null");
+    }
+
+    @Test
+    void testMiniMessageAdventureCompatibility() {
+        // Given: A simple MiniMessage message
+        String message = "<green>Success</green>";
+
+        // When: Process with MiniMessage
+        Component component = MiniMessage.miniMessage().deserialize(message);
+        String legacy = LegacyComponentSerializer.legacySection().serialize(component);
+
+        // Then: Should serialize properly
+        assertNotNull(legacy, "Legacy serialized string should not be null");
+        assertTrue(legacy.contains("Success"), "Legacy text should contain the message");
+    }
+
+    @Test
+    void testMiniMessageInvalidTagsEscaped() {
+        // Given: A message with invalid tags like item names containing angle brackets
+        String message = "<(54, 65, 9)> Test message";
+
+        // When: Format the message
+        PlaceholderContext context = new PlaceholderContext();
+        context.setPlayer(player);
+        TextComponent formatted = ShopMessage.format(message, context);
+
+        // Then: Should not throw and should produce output
+        assertNotNull(formatted, "Formatted message should not be null");
+        String legacyText = formatted.toLegacyText();
+        assertNotNull(legacyText, "Legacy text should not be null");
     }
 }

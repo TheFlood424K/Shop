@@ -160,7 +160,7 @@ public class ShopMessage {
                     Bukkit.getLogger().severe("Error replacing placeholder '" + placeholderKey + "': " + e.getMessage());
                 }
             }
-            matcher.appendReplacement(result, "");
+            matcher.appendReplacement(result, Matcher.quoteReplacement(placeholderWithBrackets));
         }
         matcher.appendTail(result);
         return result.toString();
@@ -207,8 +207,10 @@ public class ShopMessage {
         boolean isObfuscated = false;
 
         if (hasMiniMessageSyntax) {
+            // Escape invalid MiniMessage tags before parsing
+            String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
-            String processedMessage = replacePlaceholdersForMiniMessage(message, context);
+            String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
             try {
                 // Use MiniMessage for formatting
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);

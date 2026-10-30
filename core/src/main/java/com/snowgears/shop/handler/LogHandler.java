@@ -298,44 +298,34 @@ public class LogHandler {
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
         }
-<<<<<<< HEAD
-        final String finalItemBase64 = itemBase64;
-        final String finalBarterItemBase64 = barterItemBase64;
-        final ShopType finalTransactionType = transactionType;
-        final double finalPrice = price;
-        final int finalAmount = amount;
-        final String finalPlayerUuidTx = playerUuidTx;
-        final String finalShopOwnerUuidTx = shopOwnerUuidTx;
-        final String finalShopUuidTx = shopUuidTx;
-        final String finalWorldNameTx = worldNameTx;
-        final int finalShopXTx = shopXTx;
-        final int finalShopYTx = shopYTx;
-        final int finalShopZTx = shopZTx;
-=======
-        // Capture final variables for lambda usage - must be effectively final
-        final String capturedItemBase64 = itemBase64;
-        final String capturedBarterItemBase64 = barterItemBase64;
->>>>>>> d5469ea (fix(subissue-349): [CI-Fail][PR #246] Fix CI: build (Closes #349))
+          final String finalItemBase64 = itemBase64;
+          final String finalBarterItemBase64 = barterItemBase64;
+          final ShopType finalTransactionType = transactionType;
+          final double finalPrice = price;
+          final int finalAmount = amount;
+          final String finalPlayerUuidTx = playerUuidTx;
+          final String finalShopOwnerUuidTx = shopOwnerUuidTx;
+          final String finalShopUuidTx = shopUuidTx;
+          final String finalWorldNameTx = worldNameTx;
+          final int finalShopXTx = shopXTx;
+          final int finalShopYTx = shopYTx;
+          final int finalShopZTx = shopZTx;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
             int transactionID = 0;
-            // Use captured final variables
-            final String finalItemBase64 = capturedItemBase64;
-            final String finalBarterItemBase64 = capturedBarterItemBase64;
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (
                 Connection conn = dataSource.getConnection();
                 PreparedStatement logTxStmt = conn.prepareStatement("INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) VALUES(?, ?, ?, ?, ?);", Statement.RETURN_GENERATED_KEYS);
             ) {
-<<<<<<< HEAD
                 logTxStmt.setString(1, finalTransactionType.toString().toUpperCase());
                 logTxStmt.setDouble(2, finalPrice);
                 logTxStmt.setInt(3, finalAmount);
-=======
-                logTxStmt.setString(1, transactionType.toString().toUpperCase());
-                logTxStmt.setDouble(2, price);
-                logTxStmt.setInt(3, amount);
->>>>>>> 759351b (fix(subissue-343): [CI-Fail][PR #246] Fix CI: build (Closes #343))
+                logTxStmt.setString(4, finalItemBase64);
+                if (finalBarterItemBase64 != null)
+                    logTxStmt.setString(5, finalBarterItemBase64);
+                else
+                    logTxStmt.setNull(5, Types.VARCHAR);
                 logTxStmt.setString(4, finalItemBase64);
                 if (finalBarterItemBase64 != null)
                     logTxStmt.setString(5, finalBarterItemBase64);
