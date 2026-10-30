@@ -203,15 +203,15 @@ public class LogHandler {
         }
 
         if (!this.enabled) return;
-        String worldName = (shop.getSignLocation() != null && shop.getSignLocation().getWorld() != null)
+        final String worldName = (shop.getSignLocation() != null && shop.getSignLocation().getWorld() != null)
                 ? shop.getSignLocation().getWorld().getName() : "null";
-        int shopX = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockX() : 0;
-        int shopY = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockY() : 0;
-        int shopZ = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockZ() : 0;
-        String shopOwnerUuid = (shop.getOwnerUUID() != null && shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID())) ? "admin" : (shop.getOwnerUUID() != null ? shop.getOwnerUUID().toString() : "null");
-        String shopUuid = (shop.getId() != null && shop.getId().toString() != null) ? shop.getId().toString() : "";
-        String playerUuid = player.getUniqueId().toString();
-        String actionTypeStr = actionType.toString();
+        final int shopX = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockX() : 0;
+        final int shopY = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockY() : 0;
+        final int shopZ = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockZ() : 0;
+        final String shopOwnerUuid = (shop.getOwnerUUID() != null && shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID())) ? "admin" : (shop.getOwnerUUID() != null ? shop.getOwnerUUID().toString() : "null");
+        final String shopUuid = (shop.getId() != null && shop.getId().toString() != null) ? shop.getId().toString() : "";
+        final String playerUuid = player.getUniqueId().toString();
+        final String actionTypeStr = actionType.toString();
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (Connection conn = dataSource.getConnection();
@@ -292,6 +292,9 @@ public class LogHandler {
         } catch (Exception e) {
             plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
         }
+        final ShopType finalTransactionType = transactionType;
+        final double finalPrice = price;
+        final int finalAmount = amount;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
             int transactionID = 0;
@@ -300,9 +303,9 @@ public class LogHandler {
                 Connection conn = dataSource.getConnection();
                 PreparedStatement logTxStmt = conn.prepareStatement("INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) VALUES(?, ?, ?, ?, ?);", Statement.RETURN_GENERATED_KEYS);
             ) {
-                logTxStmt.setString(1, transactionType.toString().toUpperCase());
-                logTxStmt.setDouble(2, price);
-                logTxStmt.setInt(3, amount);
+                logTxStmt.setString(1, finalTransactionType.toString().toUpperCase());
+                logTxStmt.setDouble(2, finalPrice);
+                logTxStmt.setInt(3, finalAmount);
                 logTxStmt.setString(4, itemBase64);
                 if (barterItemBase64 != null)
                     logTxStmt.setString(5, barterItemBase64);
