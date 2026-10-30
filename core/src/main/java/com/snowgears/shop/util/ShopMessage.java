@@ -1473,6 +1473,72 @@ public class ShopMessage {
     }
 
     /**
+     * Escapes angle brackets that are not valid MiniMessage tags.
+     * Valid tags are like <red>, </red>, <bold>, <#FF0000>, etc.
+     * Invalid tags like <(54, 65, 9)> are escaped to be literal text.
+     */
+    private static String escapeInvalidMiniMessageTags(String message) {
+        if (message == null) {
+            return null;
+        }
+        // Pattern for valid MiniMessage tags: <tag> or </tag> or <tag:param> etc
+        Pattern tagPattern = Pattern.compile("<(/?[a-zA-Z][a-zA-Z0-9_-]*(?::[^>]*)?)>");
+        Matcher matcher = tagPattern.matcher(message);
+        StringBuffer result = new StringBuffer();
+        int lastEnd = 0;
+        while (matcher.find()) {
+            if (matcher.start() > lastEnd) {
+                String before = message.substring(lastEnd, matcher.start());
+                before = before.replace("<", "&#60;").replace(">", "&#62;");
+                result.append(before);
+            }
+            String tagContent = matcher.group(1);
+            if (isValidMiniMessageTag(tagContent)) {
+                result.append(matcher.group());
+            } else {
+                result.append(matcher.group().replace("<", "&#60;").replace(">", "&#62;"));
+            }
+            lastEnd = matcher.end();
+        }
+        if (lastEnd < message.length()) {
+            String after = message.substring(lastEnd);
+            after = after.replace("<", "&#60;").replace(">", "&#62;");
+            result.append(after);
+        }
+        return result.toString();
+    }
+
+    private static boolean isValidMiniMessageTag(String tagContent) {
+        if (tagContent == null || tagContent.isEmpty()) {
+            return false;
+        }
+        String content = tagContent;
+        if (content.startsWith("/")) {
+            content = content.substring(1);
+        }
+        if (content.matches("#[0-9a-fA-F]{6}")) {
+            return true;
+        }
+        if (content.matches("[a-zA-Z][a-zA-Z0-9_-]*(?::.*)?")) {
+            return true;
+        }
+        if (content.equals("reset") || content.equals("r")) {
+            return true;
+        }
+        // Common MiniMessage tags
+        if (content.equals("black") || content.equals("dark_blue") || content.equals("dark_green") || content.equals("dark_aqua") ||
+            content.equals("dark_red") || content.equals("dark_purple") || content.equals("gold") || content.equals("gray") ||
+            content.equals("dark_gray") || content.equals("blue") || content.equals("green") || content.equals("aqua") ||
+            content.equals("red") || content.equals("light_purple") || content.equals("yellow") || content.equals("white") ||
+            content.equals("bold") || content.equals("b") || content.equals("italic") || content.equals("i") ||
+            content.equals("underlined") || content.equals("u") || content.equals("strikethrough") || content.equals("st") ||
+            content.equals("obfuscated") || content.equals("obf")) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Gets the target max length for display tags.
      *
      * @return The target max length
