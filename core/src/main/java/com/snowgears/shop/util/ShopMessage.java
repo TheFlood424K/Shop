@@ -24,8 +24,7 @@ import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.colorize.Colorizer;
-import net.kyori.adventure.text.minimessage.parser.ElementParser;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
@@ -315,6 +314,7 @@ public class ShopMessage {
         plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
         return formattedMessage;
     }
+}
 
     /**
      * Formats a message using MiniMessage syntax, supporting advanced formatting
@@ -712,29 +712,10 @@ public class ShopMessage {
             return new TextComponent("");
         }
 
-        String legacyText = component.toLegacyText();
-        TextComponent textComponent = new TextComponent(legacyText);
-
-        net.kyori.adventure.text.format.Style style = component.style();
-        if (style != null) {
-            if (style.color() != null) {
-                try {
-                    textComponent.setColor(ChatColor.of(style.color().asHexString()));
-                } catch (Exception ignored) {
-                }
-            }
-            textComponent.setBold(style.isBold());
-            textComponent.setItalic(style.isItalic());
-            textComponent.setStrikethrough(style.isStrikethrough());
-            textComponent.setUnderlined(style.isUnderlined());
-            textComponent.setObfuscated(style.isObfuscated());
-        }
-
-        for (Component extra : component.children()) {
-            TextComponent extraComponent = textComponentFromComponent(extra);
-            if (extraComponent != null && !extraComponent.toLegacyText().isEmpty()) {
-                textComponent.addExtra(extraComponent);
-            }
+        String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
+        TextComponent textComponent = new TextComponent("");
+        for (BaseComponent legacyComponent : TextComponent.fromLegacyText(legacyText)) {
+            textComponent.addExtra(legacyComponent);
         }
 
         return textComponent;
@@ -1334,6 +1315,11 @@ public class ShopMessage {
         messageMap.put("offline_itemRow", chatConfig.getString("transaction.OFFLINE_TRANSACTIONS_NOTIFICATION.itemRow"));
         messageMap.put("offline_outOfStockShop", chatConfig.getString("transaction.OFFLINE_TRANSACTIONS_NOTIFICATION.outOfStockShop"));
         messageMap.put("offline_moreOutOfStock", chatConfig.getString("transaction.OFFLINE_TRANSACTIONS_NOTIFICATION.moreOutOfStock"));
+
+        for (ShopType type : ShopType.values()) {
+            String txHoverMessage = chatConfig.getString("transaction.OFFLINE_TRANSACTIONS_NOTIFICATION.txHover." + type.toString().toUpperCase());
+            messageMap.put(type.toString() + "_txHover", txHoverMessage);
+        }
 
         messageMap.put("command_list", chatConfig.getString("command.list"));
         messageMap.put("command_list_output_total", chatConfig.getString("command.list_output_total"));

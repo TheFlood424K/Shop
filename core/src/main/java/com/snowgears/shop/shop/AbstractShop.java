@@ -750,10 +750,19 @@ public abstract class AbstractShop {
             // Update the GUI Icon since the sign needs an update.
             refreshGuiIcon();
 
-            Sign signBlock;
+            org.bukkit.block.sign.Sign signBlock;
             try {
-                signBlock = (Sign) signLocation.getBlock().getState(); // this will load the sign
-            } catch (ClassCastException e){
+                org.bukkit.block.BlockState signBlockState = signLocation.getBlock().getState();
+                if (signBlockState instanceof org.bukkit.block.sign.Sign) {
+                    signBlock = (org.bukkit.block.sign.Sign) signBlockState;
+                } else if (signBlockState instanceof org.bukkit.block.Sign) {
+                    signBlock = (org.bukkit.block.Sign) signBlockState;
+                } else {
+                    Shop.getPlugin().getLogger().warning("Error attempting to update Shop sign! Sign Block for Shop is not a Sign (detected: " + signLocation.getBlock().getType() + "), deleting shop: " + this);
+                    this.delete();
+                    return;
+                }
+            } catch (Exception e){
                 Shop.getPlugin().getLogger().warning("Error attempting to update Shop sign! Sign Block for Shop is not a Sign (detected: " + signLocation.getBlock().getType() + "), deleting shop: " + this);
                 this.delete();
                 return;

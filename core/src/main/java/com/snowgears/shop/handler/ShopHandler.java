@@ -464,7 +464,23 @@ public class ShopHandler {
      */
     public List<AbstractShop> getShopsByItem(ItemStack itemStack){
         List<AbstractShop> shops = new ArrayList<>();
+        boolean searchHasDisplay = itemStack.getItemMeta() != null
+                && itemStack.getItemMeta().getDisplayName() != null
+                && !itemStack.getItemMeta().getDisplayName().isEmpty();
+
         for(AbstractShop shop : allShops.values()){
+            // If one has display name and the other doesn't, don't match based on material alone
+            if (shop.getItemStack() != null && shop.getItemStack().getItemMeta() != null) {
+                boolean shopHasDisplay = shop.getItemStack().getItemMeta().getDisplayName() != null
+                        && !shop.getItemStack().getItemMeta().getDisplayName().isEmpty();
+                if (searchHasDisplay && !shopHasDisplay) {
+                    continue;
+                }
+                if (!searchHasDisplay && shopHasDisplay) {
+                    continue;
+                }
+            }
+
             if(shop.getItemStack() != null && shop.getItemStack().getType() == itemStack.getType())
                 shops.add(shop);
             else if(shop.getSecondaryItemStack() != null && shop.getSecondaryItemStack().getType() == itemStack.getType())
@@ -1880,5 +1896,113 @@ public class ShopHandler {
      */
     public void removeCachedPlayerConnection(UUID playerId) {
         playerConnectionCache.remove(playerId);
+    }
+
+    /**
+     * Gets shops by item stack, searching for shops that contain the specified item.
+     * <p>
+     * This method searches through all registered shops and returns those whose item
+     * stack matches the given item based on material type, display name, lore, and enchantments.
+     * Items with display names will NOT match items without display names based on material type alone
+     * to prevent wildcard matching.</p>
+     *
+     * @param itemStack The item stack to search for
+     * @return List of shops containing the specified item
+     */
+    public List<AbstractShop> getShopsByItem(ItemStack itemStack) {
+        List<AbstractShop> matchingShops = new ArrayList<>();
+
+        for (AbstractShop shop : allShops.values()) {
+            if (shop == null || shop.getItemStack() == null) {
+                continue;
+            }
+            if (itemsMatch(itemStack, shop.getItemStack())) {
+                matchingShops.add(shop);
+            }
+        }
+
+        return matchingShops;
+    }
+
+    /**
+     * Compares two item stacks for a shop search match.
+     * <p>
+     * Matching rules:
+     * - Material type must match
+     * - If one item has a display name and the other doesn't, they do NOT match
+     *   (this prevents items with display names from matching items without display names
+     *   based on material type alone)</li>
+     * - Display names must match if both items have them</li>
+     * - Lore must match if both items have it</li>
+     * - Enchantments must match if both items have them</li>
+     *
+     * @param searchItem The item stack being searched for
+     * @param shopItem The shop's item stack
+     * @return true if the items match, false otherwise
+     */
+    private boolean itemsMatch(ItemStack searchItem, ItemStack shopItem) {
+        // Material type must match
+        if (searchItem.getType() != shopItem.getType()) {
+            return false;
+        }
+
+        // Check display names - prevent wildcard matching
+        boolean searchHasDisplay = searchItem.getItemMeta() != null
+                && searchItem.getItemMeta().getDisplayName() != null
+                && !searchItem.getItemMeta().getDisplayName().isEmpty();
+        boolean shopHasDisplay = shopItem.getItemMeta() != null
+                && shopItem.getItemMeta().getDisplayName() != null
+                && !shopItem.getItemMeta().getDisplayName().isEmpty();
+
+        // If one has display name and the other doesn't, don't match based on material alone
+        if (searchHasDisplay && !shopHasDisplay) {
+            return false;
+        }
+        if (!searchHasDisplay && shopHasDisplay) {
+            return false;
+        }
+
+        // If both have display names, they must match
+        if (searchHasDisplay && shopHasDisplay) {
+            String searchDisplayName = searchItem.getItemMeta().getDisplayName().toPlainText();
+            String shopDisplayName = shopItem.getItemMeta().getDisplayName().toPlainText();
+            if (!searchDisplayName.equals(shopDisplayName)) {
+                return false;
+            }
+        }
+
+        // Check lore match if both have lore
+        if (searchItem.getItemMeta() != null && shopItem.getItemMeta() != null) {
+            List<String> searchLore = searchItem.getItemMeta().getLore();
+            List<String> shopLore = shopItem.getItemMeta().getLore();
+
+            if (searchLore != null && shopLore != null) {
+                if (!searchLore.equals(shopLore)) {
+                    return false;
+                }
+            } else if (searchLore != null || shopLore != null) {
+                // One has lore and the other doesn't
+                return false;
+            }
+        }
+
+        // Check enchantments match if both have enchantments
+        if (searchItem.getItemMeta() != null && shopItem.getItemMeta() != null) {
+            Map<String, Integer> searchEnchants = new HashMap<>();
+            Map<String, Integer> shopEnchants = new HashMap<>();
+
+            if (searchItem.getItemMeta().hasEnchants()) {
+                searchItem.getItemMeta().getEnchants().forEach((enchant, level) -> searchEnchants.put(enchant.getName(), level));
+            }
+            if (shopItem.getItemMeta().hasEnchants()) {
+                shopItem.getItemMeta().getEnchants().forEach((enchant, level) -> shopEnchants.put(enchant.getName(), level));
+            }
+
+            if (!searchEnchants.equals(shopEnchants)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

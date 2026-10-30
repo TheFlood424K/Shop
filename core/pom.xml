@@ -283,6 +283,13 @@
             <version>2.11.0</version>
             <scope>provided</scope>
         </dependency>
+        <!-- for GriefPrevention -->
+        <dependency>
+            <groupId>com.github.GriefPrevention</groupId>
+            <artifactId>GriefPrevention</artifactId>
+            <version>16.18.2</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <!--  this shade plugin is to shade in hikari so that database connections can be used -->
