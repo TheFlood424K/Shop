@@ -24,8 +24,7 @@ import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.colorize.Colorizer;
-import net.kyori.adventure.text.minimessage.parser.ElementParser;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
@@ -315,6 +314,7 @@ public class ShopMessage {
         plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
         return formattedMessage;
     }
+}
 
     /**
      * Formats a message using MiniMessage syntax, supporting advanced formatting
