@@ -283,6 +283,13 @@
             <version>2.11.0</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Kyori Adventure MiniMessage -->
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-minimessage</artifactId>
+            <version>4.14.0</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <!--  this shade plugin is to shade in hikari so that database connections can be used -->
