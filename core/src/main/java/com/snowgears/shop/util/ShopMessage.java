@@ -340,8 +340,10 @@ public class ShopMessage {
         plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         try {
+            // Escape invalid MiniMessage tags before parsing
+            String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
-            String processedMessage = replacePlaceholdersForMiniMessage(message, context);
+            String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
             // MiniMessage supports both legacy & codes and its own syntax
             Component miniMessageComponent = miniMessage.deserialize(processedMessage);
             formattedMessage = textComponentFromComponent(miniMessageComponent);
