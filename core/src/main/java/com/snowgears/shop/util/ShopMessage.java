@@ -316,7 +316,6 @@ public class ShopMessage {
         TextComponent formattedMessageBukkit = (TextComponent) (Object) formattedMessage;
         plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessageBukkit.toLegacyText(), true);
         return formattedMessage;
-        }
     }
 
     /**
