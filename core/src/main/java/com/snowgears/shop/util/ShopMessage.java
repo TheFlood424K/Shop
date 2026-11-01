@@ -25,9 +25,13 @@ import com.google.gson.JsonParseException;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 <<<<<<< HEAD
+<<<<<<< HEAD
 import net.kyori.adventure.text.format.TextDecoration;
 =======
 >>>>>>> 9d0f837a (Update ShopMessage.java)
+=======
+import net.kyori.adventure.text.format.TextDecoration;
+>>>>>>> a087fc8 (Fix Adventure API usage in ShopMessage conversion)
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
@@ -205,8 +209,8 @@ public class ShopMessage {
         if (hasMiniMessageSyntax) {
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(message, context);
-            // Use MiniMessage for formatting (angle brackets are now preserved for proper MiniMessage tag parsing)
             try {
+                // Use MiniMessage for formatting
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
                 formattedMessage = textComponentFromComponent(miniMessageComponent);
             } catch (Exception e) {
@@ -234,13 +238,13 @@ public class ShopMessage {
             isObfuscated = false;
 
             for (String part : parts) {
-                plugin.getLogger().spam("\n\n");
-                plugin.getLogger().trace("[ShopMessage.format] part: " + part);
-                TextComponent partComponent = new TextComponent(part);
+            plugin.getLogger().spam("\n\n");
+            plugin.getLogger().trace("[ShopMessage.format] part: " + part);
+            TextComponent partComponent = new TextComponent(part);
 
-                // Check if we are a color code
-                if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
-                    try {
+            // Check if we are a color code
+            if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
+                try {
                     ChatColor newColor = getColor(part);
                     if (newColor != null) {
                         if (newColor == ChatColor.BOLD) isBold = true;
@@ -309,7 +313,6 @@ public class ShopMessage {
             }
             addedText = true;
             plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
-            }
         }
 
         // Handle if we are just a color code with an empty string
@@ -717,19 +720,8 @@ public class ShopMessage {
             return new TextComponent("");
         }
 
-<<<<<<< HEAD
         String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
         return componentFromLegacy(legacyText);
-=======
-        // Serialize the complete Adventure component tree, including its children,
-        // to legacy formatting before converting it to Bungee components.
-        String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
-        TextComponent textComponent = new TextComponent("");
-        for (BaseComponent legacyComponent : TextComponent.fromLegacyText(legacyText)) {
-            textComponent.addExtra(legacyComponent);
-        }
-        return textComponent;
->>>>>>> 9d0f837a (Update ShopMessage.java)
     }
 
     /**
