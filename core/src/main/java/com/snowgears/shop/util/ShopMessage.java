@@ -24,14 +24,7 @@ import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-<<<<<<< HEAD
-<<<<<<< HEAD
 import net.kyori.adventure.text.format.TextDecoration;
-=======
->>>>>>> 9d0f837a (Update ShopMessage.java)
-=======
-import net.kyori.adventure.text.format.TextDecoration;
->>>>>>> a087fc8 (Fix Adventure API usage in ShopMessage conversion)
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
