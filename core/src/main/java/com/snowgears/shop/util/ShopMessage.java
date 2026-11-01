@@ -24,6 +24,8 @@ import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
@@ -711,7 +713,7 @@ public class ShopMessage {
             return new TextComponent("");
         }
 
-        String legacyText = component.toLegacyText();
+        String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
         TextComponent textComponent = new TextComponent(legacyText);
 
         net.kyori.adventure.text.format.Style style = component.style();
@@ -722,11 +724,11 @@ public class ShopMessage {
                 } catch (Exception ignored) {
                 }
             }
-            textComponent.setBold(style.isBold());
-            textComponent.setItalic(style.isItalic());
-            textComponent.setStrikethrough(style.isStrikethrough());
-            textComponent.setUnderlined(style.isUnderlined());
-            textComponent.setObfuscated(style.isObfuscated());
+            textComponent.setBold(style.hasDecoration(TextDecoration.BOLD));
+            textComponent.setItalic(style.hasDecoration(TextDecoration.ITALIC));
+            textComponent.setStrikethrough(style.hasDecoration(TextDecoration.STRIKETHROUGH));
+            textComponent.setUnderlined(style.hasDecoration(TextDecoration.UNDERLINED));
+            textComponent.setObfuscated(style.hasDecoration(TextDecoration.OBFUSCATED));
         }
 
         for (Component extra : component.children()) {
