@@ -1540,4 +1540,4 @@ public class ShopMessage {
     public static int getTargetMaxLength() {
         return targetMaxLength;
     }
-}
+}}
