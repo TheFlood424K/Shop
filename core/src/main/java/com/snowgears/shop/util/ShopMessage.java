@@ -1541,3 +1541,4 @@ public class ShopMessage {
         return targetMaxLength;
     }
 }
+}
