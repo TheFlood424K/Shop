@@ -714,31 +714,7 @@ public class ShopMessage {
         }
 
         String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
-        TextComponent textComponent = new TextComponent(legacyText);
-
-        net.kyori.adventure.text.format.Style style = component.style();
-        if (style != null) {
-            if (style.color() != null) {
-                try {
-                    textComponent.setColor(ChatColor.of(style.color().asHexString()));
-                } catch (Exception ignored) {
-                }
-            }
-            textComponent.setBold(style.hasDecoration(TextDecoration.BOLD));
-            textComponent.setItalic(style.hasDecoration(TextDecoration.ITALIC));
-            textComponent.setStrikethrough(style.hasDecoration(TextDecoration.STRIKETHROUGH));
-            textComponent.setUnderlined(style.hasDecoration(TextDecoration.UNDERLINED));
-            textComponent.setObfuscated(style.hasDecoration(TextDecoration.OBFUSCATED));
-        }
-
-        for (Component extra : component.children()) {
-            TextComponent extraComponent = textComponentFromComponent(extra);
-            if (extraComponent != null && !extraComponent.toLegacyText().isEmpty()) {
-                textComponent.addExtra(extraComponent);
-            }
-        }
-
-        return textComponent;
+        return componentFromLegacy(legacyText);
     }
 
     /**
