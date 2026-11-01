@@ -725,7 +725,7 @@ public class ShopMessage {
         }
 
         String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
-        return componentFromLegacy(legacyText);
+        return (TextComponent) componentFromLegacy(legacyText);
     }
 
     /**
