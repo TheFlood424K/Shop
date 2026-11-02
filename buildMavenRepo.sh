@@ -8,43 +8,34 @@ LOCAL_DIR="./SpigotBuildTools"
 DOCKERHUB_IMAGE="ostlerdev/spigot-maven:latest"
 SPIGOT_REV="${SPIGOT_REV:-26.2}"
 
-# Add a condition to check if the SpigotBuildTools directory already exists and has content
+# Check if SpigotBuildTools directory already exists and has content
 if [ -d "${LOCAL_DIR}" ] && [ "$(ls -A "${LOCAL_DIR}")" ]; then
   echo "SpigotBuildTools directory already exists, skipping build..."
 else
   # Create local directory if it doesn't exist
   mkdir -p "${LOCAL_DIR}"
 
-  # Remove a previous container if it still exists
-  docker stop "${CONTAINER_NAME}" 2>/dev/null || true
-  docker rm "${CONTAINER_NAME}" 2>/dev/null || true
+  # Safely clean up any leftover container if it exists
+  docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+  docker rm "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
   # Determine whether to use local build or Docker Hub
   if [ "$1" == "local" ]; then
-      # Build the Docker image locally
       docker build --cache-from "${DOCKERHUB_IMAGE}" -t "${IMAGE_NAME}" -f buildMavenRepo.Dockerfile .
   else
-      # Pull the Docker image from Docker Hub
       docker pull "${DOCKERHUB_IMAGE}"
       IMAGE_NAME="${DOCKERHUB_IMAGE}"
   fi
 
-  # Run the container and stream its logs live so CI doesn't look hung
-  docker run --name "${CONTAINER_NAME}" -e REV="${SPIGOT_REV}" "${IMAGE_NAME}" &
-  CONTAINER_PID=$!
-  
-  # Stream logs until container stops
-  docker logs -f "${CONTAINER_NAME}" &
-    LOG_PID=$!
-  
-  wait "${CONTAINER_PID}" || true
-  kill "${LOG_PID}" 2>/dev/null || true
+  # Run the container in the foreground to stream logs live
+  echo "Starting Spigot BuildTools container for revision ${SPIGOT_REV}..."
+  docker run --name "${CONTAINER_NAME}" -e REV="${SPIGOT_REV}" "${IMAGE_NAME}"
 
   # Copy the Maven repo from the docker image to the local directory
   docker cp "${CONTAINER_NAME}:/root/.m2" "${LOCAL_DIR}"
   mv "${LOCAL_DIR}/.m2" "${LOCAL_DIR}/maven"
 
-  # Remove a previous container if it still exists (ignoring errors if absent)
+  # Clean up the container
   docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
   docker rm "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
