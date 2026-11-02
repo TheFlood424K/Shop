@@ -41,18 +41,18 @@ public class ShopMessage {
 
     private static final Map<String, Function<PlaceholderContext, TextComponent>> placeholders = new HashMap<>();
     // Regex pattern to identify placeholders within square brackets, e.g., [owner]
-    private static final String COLOR_CODE_REGEX = "([&&][0-9A-FK-ORXa-fk-orx])";
+    private static final String COLOR_CODE_REGEX = "([&][0-9A-FK-ORXa-fk-orx])";
     private static final String HEX_CODE_REGEX = "(#[0-9a-fA-F]{6})";
     // Modified placeholder regex to only match real placeholders
-    private static final String PLACEHOLDER_REGEX = "(\\[([^&&#\\[\\]]+)\\])";
-    private static final String TEXT_SEGMENT_REGEX = "([^&&\\[#]+)";
+    private static final String PLACEHOLDER_REGEX = "(\\[([^&#\\[\\]]+)\\])";
+    private static final String TEXT_SEGMENT_REGEX = "([^&\\[#]+)";
     // Add dedicated patterns for brackets to ensure they're matched individually
     private static final String OPEN_BRACKET_REGEX = "(\\[)";
     private static final String CLOSE_BRACKET_REGEX = "(\\])";
-    private static final String MESSAGE_PARTS_REGEX = 
-        COLOR_CODE_REGEX + "|" + 
-        HEX_CODE_REGEX + "|" + 
-        PLACEHOLDER_REGEX + "|" + 
+    private static final String MESSAGE_PARTS_REGEX =
+        COLOR_CODE_REGEX + "|" +
+        HEX_CODE_REGEX + "|" +
+        PLACEHOLDER_REGEX + "|" +
         OPEN_BRACKET_REGEX + "|" +  // Match opening bracket
         CLOSE_BRACKET_REGEX + "|" +  // Match closing bracket
         TEXT_SEGMENT_REGEX + "|" +  // Match text segments
