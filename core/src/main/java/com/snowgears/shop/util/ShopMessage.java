@@ -745,17 +745,12 @@ public class ShopMessage {
         if (component == null) {
             return new TextComponent("");
         }
-        try {
-            LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
-                    .character('§')
-                    .hexColors()
-                    .build();
-            String legacyText = serializer.serialize(component);
-            return (TextComponent) componentFromLegacy(legacyText);
-        } catch (Exception e) {
-            String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
-            return (TextComponent) componentFromLegacy(legacyText);
-        }
+        LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
+                .character('§')
+                .hexColors()
+                .build();
+        String legacyText = serializer.serialize(component);
+        return (TextComponent) componentFromLegacy(legacyText);
     }
 
     /**
