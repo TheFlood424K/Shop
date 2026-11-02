@@ -28,7 +28,7 @@ jobs:
 
     - name: Restore Maven repository cache
       id: restore-maven-cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5.1.0
       with:
         path: ~/.m2/repository
         key: ${{ runner.os }}-maven-jdk25-mc26.2-${{ hashFiles('**/pom.xml') }}
@@ -103,7 +103,7 @@ jobs:
 
     - name: Save Maven repository cache
       if: always() && steps.restore-maven-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5.1.0
       with:
         path: ~/.m2/repository
         key: ${{ runner.os }}-maven-jdk25-mc26.2-${{ hashFiles('**/pom.xml') }}
@@ -189,7 +189,7 @@ jobs:
         fail-emoji: ':small_orange_diamond:'
       
     - name: Create Release
-      uses: softprops/action-gh-release@v3.0.0
+      uses: softprops/action-gh-release@v3.0.3
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: target/Shop-*.jar
