@@ -26,8 +26,9 @@ jobs:
         java-version: '25'
         distribution: 'temurin'
 
-    - name: Cache Maven repository (~/.m2/repository)
-      uses: actions/cache@v5.1.0
+    - name: Restore Maven repository cache
+      id: restore-maven-cache
+      uses: actions/cache/restore@v4
       with:
         path: ~/.m2/repository
         key: ${{ runner.os }}-maven-jdk25-mc26.2-${{ hashFiles('**/pom.xml') }}
@@ -99,6 +100,13 @@ jobs:
       
     - name: Build and Test
       run: mvn -B -nsu -T 1C -Drevision=${{ env.VERSION }} clean package
+
+    - name: Save Maven repository cache
+      if: always() && steps.restore-maven-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-jdk25-mc26.2-${{ hashFiles('**/pom.xml') }}
 
     - name: Publish Test Results
       if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
