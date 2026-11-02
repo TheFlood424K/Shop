@@ -306,9 +306,10 @@ public class ShopMessage {
                 // Add the part of the string to the
                 formattedMessage.addExtra(partComponent);
             }
-            addedText = true;
-            plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
-        }
+                addedText = true;
+                plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
+            } // <-- Closes the for (String part : parts) loop
+        } // <-- Closes if (!hasMiniMessageSyntax || formattedMessage == null)
 
         // Handle if we are just a color code with an empty string
         if (formattedMessage == null) formattedMessage = new TextComponent("");
