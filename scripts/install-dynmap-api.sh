@@ -50,13 +50,13 @@ mkdir -p "${DEST_DIR}"
 echo "Installing into Maven local repo (${LOCAL_REPO}) as ${GROUP_ID}:${ARTIFACT_ID}:${DYNMAP_API_VERSION}"
 mvn -B -q \
   -Dmaven.repo.local="${LOCAL_REPO}" \
+  org.apache.maven.plugins:maven-install-plugin:3.1.1:install-file \
   -DgroupId="${GROUP_ID}" \
   -DartifactId="${ARTIFACT_ID}" \
   -Dversion="${DYNMAP_API_VERSION}" \
   -Dpackaging="${PACKAGING}" \
   -Dfile="${jar_path}" \
-  -DgeneratePom=true \
-  install:install-file
+  -DgeneratePom=true
 
 echo "Installed: ${DEST_JAR}"
 
