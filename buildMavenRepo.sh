@@ -29,7 +29,19 @@ else
 
   # Run the container in the foreground to stream logs live
   echo "Starting Spigot BuildTools container for revision ${SPIGOT_REV}..."
-  docker run --name "${CONTAINER_NAME}" -e REV="${SPIGOT_REV}" "${IMAGE_NAME}"
+  # Run the container in the background and stream logs with a timeout/safety check
+  docker run -d --name "${CONTAINER_NAME}" -e REV="${SPIGOT_REV}" "${IMAGE_NAME}"
+
+  # Stream logs in the background, but stop after 10 minutes if truly stuck
+  timeout 600 docker logs -f "${CONTAINER_NAME}" || true
+
+  # If container is still running after timeout, dump last logs and inspect
+  if [ "$(docker inspect -f '{{.State.Running}}' "${CONTAINER_NAME}" 2>/dev/null)" = "true" ]; then
+    echo "ERROR: BuildTools timed out after 10 minutes. Last container logs:"
+    docker logs "${CONTAINER_NAME}"
+    docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+    exit 1
+  fi
 
   # Copy the Maven repo from the docker image to the local directory
   docker cp "${CONTAINER_NAME}:/root/.m2" "${LOCAL_DIR}"
