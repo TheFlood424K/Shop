@@ -23,8 +23,9 @@ else
     -f buildMavenRepo.Dockerfile .
 
   echo "Running Spigot BuildTools container..."
-  docker run --name "${CONTAINER_NAME}" -e REV="${SPIGOT_REV}" "${IMAGE_NAME}"
+  docker run -d --name "${CONTAINER_NAME}" "${IMAGE_NAME}"
 
+  echo "Copying Maven repository from container..."
   docker cp "${CONTAINER_NAME}:/root/.m2" "${LOCAL_DIR}"
   mv "${LOCAL_DIR}/.m2" "${LOCAL_DIR}/maven"
 
