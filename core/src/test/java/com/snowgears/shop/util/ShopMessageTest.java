@@ -44,18 +44,8 @@ public class ShopMessageTest extends BaseMockBukkitTest {
 
         // Then: The message should not be empty and should have formatting
         assertNotNull(formatted, "Formatted message should not be null");
-        String result = formatted.toLegacyText();
-        // Accept both correct format and normalized format
-        assertTrue(result.contains("Hello") && result.contains("World"), 
-            "MiniMessage tags should be converted to legacy color codes, got: " + result);
-        // Normalize and check
-        String normalized = result.replace("§f", "").replace("§r", "");
-        if (normalized.equals("§cHello §lWorld") || normalized.equals("§cHello§lWorld") || normalized.contains("Hello") && normalized.contains("§lWorld")) {
-            // Good enough - has the essential formatting
-            return;
-        }
-        assertEquals("§cHello §lWorld", result, 
-            "MiniMessage tags should be converted to legacy color codes, got: " + result);
+        assertEquals("§cHello §lWorld", formatted.toLegacyText(),
+            "MiniMessage tags should be converted to legacy color codes");
     }
 
     @Test
