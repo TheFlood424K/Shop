@@ -146,7 +146,12 @@ public class ShopMessage {
                     TextComponent replacement = valueFunction.apply(context);
                     if (replacement != null) {
                         String replacementText = replacement.toLegacyText();
-                        matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
+                        // For location placeholder in messages, ensure it's properly formatted
+                        if (placeholderKey.equalsIgnoreCase("location")) {
+                            matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
+                        } else {
+                            matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
+                        }
                         continue;
                     }
                 } catch (Exception e) {
@@ -549,7 +554,11 @@ public class ShopMessage {
             if (loc == null) return null;
             TextComponent text = new TextComponent(UtilMethods.getCleanLocation(loc, false));
             if (context.getProcess() == null && context.getShop() == null) return text;
-            text.setHoverEvent(getShopInfoHoverEvent(context));
+            try {
+                text.setHoverEvent(getShopInfoHoverEvent(context));
+            } catch (Exception e) {
+                // ignore
+            }
             return text;
         });
 
@@ -696,7 +705,16 @@ public class ShopMessage {
      */
     public static BaseComponent componentFromLegacy(String text) {
         try {
-            return TextComponent.fromLegacy(text);
+            // Use Bungee's fromLegacyText for compatibility
+            BaseComponent[] components = TextComponent.fromLegacyText(text);
+            if (components.length == 1) {
+                return components[0];
+            }
+            TextComponent newComponent = new TextComponent();
+            for (BaseComponent component : components) {
+                newComponent.addExtra(component);
+            }
+            return newComponent;
         } catch (NoSuchMethodError e) {
             // Likely running on <1.20 which doesn't have `.fromLegacy()` function
             BaseComponent[] components = TextComponent.fromLegacyText(text);
@@ -718,6 +736,14 @@ public class ShopMessage {
         }
 
         String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
+        // Normalize extra resets that Adventure adds by default
+        legacyText = legacyText.replace("§f§f", "§f");
+        legacyText = legacyText.replace("§r§f", "§f");
+        legacyText = legacyText.replace("§f§r", "§r");
+        // Remove leading reset to default color if it appears at start
+        if (legacyText.startsWith("§f")) {
+            legacyText = legacyText.substring(2);
+        }
         return (TextComponent) componentFromLegacy(legacyText);
     }
 
