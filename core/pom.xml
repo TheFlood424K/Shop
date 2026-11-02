@@ -303,26 +303,26 @@
         <dependency>
             <groupId>com.github.technicallycoded</groupId>
             <artifactId>FoliaLib</artifactId>
-            <version>0.4.4</version>
+            <version>${folialib.version}</version>
             <scope>compile</scope>
         </dependency>
         <!-- DataFixerUpper & brigadier dependencies (needed for the Display class... for now...) -->
         <dependency>
             <groupId>com.mojang</groupId>
             <artifactId>datafixerupper</artifactId>
-            <version>8.0.16</version>
+            <version>${datafixerupper.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.mojang</groupId>
             <artifactId>brigadier</artifactId>
-            <version>1.0.500</version>
+            <version>${brigadier.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.11.0</version>
+            <version>${gson.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
