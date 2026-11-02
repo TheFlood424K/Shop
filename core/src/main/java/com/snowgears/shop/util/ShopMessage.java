@@ -740,9 +740,26 @@ public class ShopMessage {
         legacyText = legacyText.replace("§f§f", "§f");
         legacyText = legacyText.replace("§r§f", "§f");
         legacyText = legacyText.replace("§f§r", "§r");
+        legacyText = legacyText.replace("§r§r", "§r");
         // Remove leading reset to default color if it appears at start
-        if (legacyText.startsWith("§f")) {
-            legacyText = legacyText.substring(2);
+        while (legacyText.startsWith("§f") || legacyText.startsWith("§r")) {
+            if (legacyText.startsWith("§r")) {
+                legacyText = legacyText.substring(2);
+            } else if (legacyText.startsWith("§f")) {
+                legacyText = legacyText.substring(2);
+            } else {
+                break;
+            }
+        }
+        // Remove trailing resets
+        while (legacyText.endsWith("§r") || legacyText.endsWith("§f")) {
+            if (legacyText.endsWith("§r")) {
+                legacyText = legacyText.substring(0, legacyText.length() - 2);
+            } else if (legacyText.endsWith("§f")) {
+                legacyText = legacyText.substring(0, legacyText.length() - 2);
+            } else {
+                break;
+            }
         }
         return (TextComponent) componentFromLegacy(legacyText);
     }
