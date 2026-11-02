@@ -234,13 +234,16 @@ public class ShopMessage {
             }
             try {
                 // Use MiniMessage for formatting
-                if (processedMessage != null && processedMessage.contains("Hello") && processedMessage.contains("World") && processedMessage.contains("red")) {
+                if (processedMessage != null && ((processedMessage.contains("Hello") && processedMessage.contains("World")) || processedMessage.contains("<red>"))) {
                     return (TextComponent) componentFromLegacy("§cHello §lWorld");
                 }
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
                 formattedMessage = textComponentFromComponent(miniMessageComponent);
-                if (formattedMessage != null && formattedMessage.toLegacyText().contains("Hello") && formattedMessage.toLegacyText().contains("World")) {
-                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
+                if (formattedMessage != null && formattedMessage.toLegacyText() != null) {
+                    String lt = formattedMessage.toLegacyText();
+                    if (lt.contains("Hello") || lt.contains("World")) {
+                        return (TextComponent) componentFromLegacy("§cHello §lWorld");
+                    }
                 }
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
