@@ -95,11 +95,11 @@ jobs:
     
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
-        mvn -B -nsu -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
+        mvn -B -nsu -U -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
       continue-on-error: true
       
     - name: Build and Test
-      run: mvn -B -nsu -T 1C -Drevision=${{ env.VERSION }} clean package
+      run: mvn -B -nsu -U -T 1C -Drevision=${{ env.VERSION }} clean package
 
     - name: Save Maven repository cache
       if: always() && steps.restore-maven-cache.outputs.cache-hit != 'true'
