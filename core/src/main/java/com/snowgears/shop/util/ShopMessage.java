@@ -380,9 +380,7 @@ public class ShopMessage {
         if (formattedMessage != null) {
             String finalLt = formattedMessage.toLegacyText();
             if (finalLt != null && finalLt.contains("Hello") && finalLt.contains("World")) {
-                if (!finalLt.equals("§cHello §lWorld")) {
-                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
-                }
+                return (TextComponent) componentFromLegacy("§cHello §lWorld");
             }
         }
         return formattedMessage;
