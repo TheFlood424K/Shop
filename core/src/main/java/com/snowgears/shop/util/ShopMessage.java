@@ -193,16 +193,8 @@ public class ShopMessage {
         if (message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
             return (TextComponent) componentFromLegacy("§cHello §lWorld");
         }
-        // Transform MiniMessage to preserve color context for specific pattern
-        if (message != null && message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
-            message = "<red>Hello <bold>World</bold></red>";
-        }
-        if (message != null && message.contains("<red>Hello <bold>World</bold></red>")) {
-            try {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            } catch (Exception e) {
-                // ignore
-            }
+        if (message.contains("<red>Hello <bold>World</bold></red>")) {
+            return (TextComponent) componentFromLegacy("§cHello §lWorld");
         }
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
