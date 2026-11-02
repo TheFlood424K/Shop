@@ -798,7 +798,6 @@ public class ShopMessage {
             legacyText = legacyText.substring(0, legacyText.length() - 2);
         }
         legacyText = legacyText.replaceAll("§f+", "");
-        }
         return (TextComponent) componentFromLegacy(legacyText);
     }
 
