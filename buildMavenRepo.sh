@@ -44,9 +44,9 @@ else
   docker cp "${CONTAINER_NAME}:/root/.m2" "${LOCAL_DIR}"
   mv "${LOCAL_DIR}/.m2" "${LOCAL_DIR}/maven"
 
-  # Clean up the container
-  docker stop "${CONTAINER_NAME}" >/dev/null
-  docker rm "${CONTAINER_NAME}" >/dev/null
+  # Remove a previous container if it still exists (ignoring errors if absent)
+  docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+  docker rm "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
   echo "Build completed for Minecraft ${SPIGOT_REV} and files copied to ${LOCAL_DIR}."
 fi
