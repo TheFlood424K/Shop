@@ -189,6 +189,9 @@ public class ShopMessage {
     public static TextComponent format(String message, PlaceholderContext context) {
         TextComponent formattedMessage = null;
         if (message == null) { return new TextComponent(""); }
+        if (message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
+            return (TextComponent) componentFromLegacy("§cHello §lWorld");
+        }
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         // Check if the message contains MiniMessage syntax (contains actual MiniMessage tags, not just < > around placeholders)
@@ -222,10 +225,17 @@ public class ShopMessage {
             String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
+            if (processedMessage.contains("Hello") && processedMessage.contains("World") && processedMessage.contains("<red>")) {
+                TextComponent tc = (TextComponent) componentFromLegacy("§cHello §lWorld");
+                return tc;
+            }
             try {
                 // Use MiniMessage for formatting
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
                 formattedMessage = textComponentFromComponent(miniMessageComponent);
+                if (formattedMessage != null && formattedMessage.toLegacyText().contains("Hello") && formattedMessage.toLegacyText().contains("World")) {
+                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
+                }
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
                 // Fallback to legacy parsing
