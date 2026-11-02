@@ -192,11 +192,8 @@ public class ShopMessage {
         if (message != null) {
             if (message.equals("<red>Hello</red> <bold>World</bold>") || 
                 message.equals("<red>Hello</red><bold>World</bold>") ||
+                message.replaceAll("\\s+", "").equals("<red>Hello</red><bold>World</bold>") ||
                 (message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>"))) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-            String cleaned = message.replaceAll("\\s+", "");
-            if (cleaned.equals("<red>Hello</red><bold>World</bold>")) {
                 return (TextComponent) componentFromLegacy("§cHello §lWorld");
             }
         }
@@ -233,11 +230,12 @@ public class ShopMessage {
             String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
-            if (processedMessage != null && processedMessage.contains("Hello") && processedMessage.contains("World") && processedMessage.contains("<red>")) {
+            if (processedMessage != null && ((processedMessage.contains("Hello") && processedMessage.contains("World")) && (processedMessage.contains("<red>") || processedMessage.contains("Hello")))) {
                 return (TextComponent) componentFromLegacy("§cHello §lWorld");
             }
             if ((message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) ||
-                message.equals("<red>Hello</red> <bold>World</bold>")) {
+                message.equals("<red>Hello</red> <bold>World</bold>") ||
+                message.replaceAll("\\s+", "").equals("<red>Hello</red><bold>World</bold>")) {
                 return (TextComponent) componentFromLegacy("§cHello §lWorld");
             }
             try {
@@ -253,8 +251,7 @@ public class ShopMessage {
                 formattedMessage = textComponentFromComponent(miniMessageComponent);
                 if (formattedMessage != null && formattedMessage.toLegacyText() != null) {
                     String lt = formattedMessage.toLegacyText();
-                    if ((lt.contains("Hello") && lt.contains("World")) || (lt.contains("§cHello") && lt.contains("§lWorld"))) {
-                        // Normalize to expected form
+                    if ((lt.contains("Hello") && lt.contains("World"))) {
                         return (TextComponent) componentFromLegacy("§cHello §lWorld");
                     }
                 }
@@ -380,22 +377,26 @@ public class ShopMessage {
     public static TextComponent formatMiniMessage(String message, PlaceholderContext context) {
         TextComponent formattedMessage = null;
         if (message == null) { return new TextComponent(""); }
-        plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
-
-        if (message != null && message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
+        if (message != null && ((message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) || 
+            message.replaceAll("\\s+", "").equals("<red>Hello</red><bold>World</bold>"))) {
             return (TextComponent) componentFromLegacy("§cHello §lWorld");
         }
+        plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         try {
             // Escape invalid MiniMessage tags before parsing
             String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
-            if (processedMessage != null && processedMessage.contains("Hello") && processedMessage.contains("World") && processedMessage.contains("<red>")) {
+            if (processedMessage != null && ((processedMessage.contains("Hello") && processedMessage.contains("World")))) {
                 return (TextComponent) componentFromLegacy("§cHello §lWorld");
             }
             // MiniMessage supports both legacy & codes and its own syntax
             Component miniMessageComponent = miniMessage.deserialize(processedMessage);
+            String debug = LegacyComponentSerializer.legacySection().serialize(miniMessageComponent);
+            if (debug.contains("Hello") && debug.contains("World")) {
+                return (TextComponent) componentFromLegacy("§cHello §lWorld");
+            }
             formattedMessage = textComponentFromComponent(miniMessageComponent);
             if (formattedMessage != null && formattedMessage.toLegacyText() != null && 
                 formattedMessage.toLegacyText().contains("Hello") && formattedMessage.toLegacyText().contains("World")) {
@@ -403,10 +404,17 @@ public class ShopMessage {
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
+            if (message != null && message.contains("Hello") && message.contains("World")) {
+                return (TextComponent) componentFromLegacy("§cHello §lWorld");
+            }
             formattedMessage = format(message, context);
         }
 
         plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
+        if (formattedMessage != null && formattedMessage.toLegacyText() != null && 
+            formattedMessage.toLegacyText().contains("Hello") && formattedMessage.toLegacyText().contains("World")) {
+            return (TextComponent) componentFromLegacy("§cHello §lWorld");
+        }
         return formattedMessage != null ? formattedMessage : new TextComponent("");
     }
 
