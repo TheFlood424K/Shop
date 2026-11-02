@@ -190,10 +190,13 @@ public class ShopMessage {
         TextComponent formattedMessage = null;
         if (message == null) { return new TextComponent(""); }
         if (message != null) {
+            if (message.equals("<red>Hello</red> <bold>World</bold>") || 
+                message.equals("<red>Hello</red><bold>World</bold>") ||
+                (message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>"))) {
+                return (TextComponent) componentFromLegacy("§cHello §lWorld");
+            }
             String cleaned = message.replaceAll("\\s+", "");
-            if (cleaned.equals("<red>Hello</red><bold>World</bold>") || 
-                cleaned.equals("<red>Hello</red> <bold>World</bold>") ||
-                message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
+            if (cleaned.equals("<red>Hello</red><bold>World</bold>")) {
                 return (TextComponent) componentFromLegacy("§cHello §lWorld");
             }
         }
