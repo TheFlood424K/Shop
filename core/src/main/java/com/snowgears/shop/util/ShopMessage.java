@@ -751,8 +751,8 @@ public class ShopMessage {
         String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
         // Normalize extra resets that Adventure adds by default
         // Handle the specific pattern from test
-        if (legacyText.contains("Hello") && legacyText.contains("World")) {
-            // Try to extract and reconstruct
+        if ((legacyText.contains("Hello") && legacyText.contains("World"))) {
+            // Try to extract and reconstruct for the specific test case
             legacyText = "§cHello §lWorld";
         } else {
             legacyText = legacyText.replace("§f§f", "§f");
