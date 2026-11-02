@@ -93,6 +93,11 @@ jobs:
         chmod +x ./scripts/install-blockprot-api.sh
         ./scripts/install-blockprot-api.sh
     
+    - name: Clean failed Maven caches
+      run: |
+        find ~/.m2/repository -name "*.lastUpdated" -delete
+        find ~/.m2/repository -name "_remote.repositories" -delete
+
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
         mvn -B -nsu -U -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
