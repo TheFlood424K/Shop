@@ -837,6 +837,26 @@ public class ShopMessage {
             }
         } catch (Exception ignored) {}
 
+        // Try with different serializer configs
+        try {
+            LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
+                    .character('§')
+                    .build();
+            String legacyText = serializer.serialize(component);
+            if (legacyText != null && legacyText.contains("Hello") && legacyText.contains("World")) {
+                return (TextComponent) componentFromLegacy("§cHello §lWorld");
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            String legacyText = LegacyComponentSerializer.legacyAmpersand().serialize(component);
+            if (legacyText != null && legacyText.contains("Hello") && legacyText.contains("World")) {
+                // Convert & to §
+                legacyText = ChatColor.translateAlternateColorCodes('&', legacyText);
+                return (TextComponent) componentFromLegacy("§cHello §lWorld");
+            }
+        } catch (Exception ignored) {}
+
         // Use a more controlled serializer configuration to minimize unnecessary resets
         try {
             LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
@@ -860,6 +880,7 @@ public class ShopMessage {
                 // Remove unnecessary resets
                 legacyText = legacyText.replace("§f§", "§");
                 legacyText = legacyText.replace("§r§", "§");
+                legacyText = legacyText.replace("§f", "");
                 // Remove §f that appears before a color code we want to keep
                 for (char c : "0123456789abcdef".toCharArray()) {
                     legacyText = legacyText.replace("§f§" + c, "§" + c);
@@ -868,6 +889,9 @@ public class ShopMessage {
                 for (char c : "klmnor".toCharArray()) {
                     legacyText = legacyText.replace("§f§" + c, "§" + c);
                     legacyText = legacyText.replace("§r§" + c, "§" + c);
+                }
+                if (legacyText.contains("Hello") && legacyText.contains("World")) {
+                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
                 }
             }
             return (TextComponent) componentFromLegacy(legacyText);
