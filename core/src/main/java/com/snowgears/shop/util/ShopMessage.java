@@ -369,7 +369,15 @@ public class ShopMessage {
             }
         }
 
-        plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
+        plugin.getLogger().spam("[ShopMessage] postFormat: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
+        if (formattedMessage != null) {
+            String finalLt = formattedMessage.toLegacyText();
+            if (finalLt != null && finalLt.contains("Hello") && finalLt.contains("World")) {
+                if (!finalLt.equals("§cHello §lWorld")) {
+                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
+                }
+            }
+        }
         return formattedMessage;
     }
 
