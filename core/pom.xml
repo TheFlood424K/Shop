@@ -28,7 +28,7 @@
         <hikari.version>6.2.1</hikari.version>
         <mariadb.version>3.5.1</mariadb.version>
         <h2.version>2.1.214</h2.version> <!-- Pinning 2.1.214: 2.2.220+ introduces breaking changes -->
-        <folialib.version>0.5.1</folialib.version>
+        <folialib.version>0.4.4</folialib.version>
 
         <!-- Plugin Integrations -->
         <plotsquared.bom.version>1.56</plotsquared.bom.version>
