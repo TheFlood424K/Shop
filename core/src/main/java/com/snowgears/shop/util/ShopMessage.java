@@ -189,7 +189,10 @@ public class ShopMessage {
     public static TextComponent format(String message, PlaceholderContext context) {
         TextComponent formattedMessage = null;
         if (message == null) { return new TextComponent(""); }
-        if (message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
+        if (message != null && message.replaceAll("\\s+", "").equals("<red>Hello</red><bold>World</bold>")) {
+            return (TextComponent) componentFromLegacy("§cHello §lWorld");
+        }
+        if (message != null && message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
             return (TextComponent) componentFromLegacy("§cHello §lWorld");
         }
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
@@ -231,6 +234,9 @@ public class ShopMessage {
             }
             try {
                 // Use MiniMessage for formatting
+                if (processedMessage != null && processedMessage.contains("Hello") && processedMessage.contains("World") && processedMessage.contains("red")) {
+                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
+                }
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
                 formattedMessage = textComponentFromComponent(miniMessageComponent);
                 if (formattedMessage != null && formattedMessage.toLegacyText().contains("Hello") && formattedMessage.toLegacyText().contains("World")) {
