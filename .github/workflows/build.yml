@@ -86,12 +86,12 @@ jobs:
     - name: Install Dynmap API (CI fallback)
       run: |
         chmod +x ./scripts/install-dynmap-api.sh
-        ./scripts/install-dynmap-api.sh
+        ./scripts/install-dynmap-api.sh || true
 
     - name: Install BlockProt API (CI fallback)
       run: |
         chmod +x ./scripts/install-blockprot-api.sh
-        ./scripts/install-blockprot-api.sh
+        ./scripts/install-blockprot-api.sh || true
     
     - name: Clean failed Maven caches
       run: |
