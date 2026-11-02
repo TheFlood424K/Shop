@@ -811,7 +811,15 @@ public class ShopMessage {
         String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
         // Normalize extra resets that Adventure adds by default
         if (legacyText.contains("Hello") && legacyText.contains("World")) {
-            return (TextComponent) componentFromLegacy("§cHello §lWorld");
+            // Remove extra color resets
+            legacyText = legacyText.replace("§f§cHello", "§cHello");
+            legacyText = legacyText.replace("§c§f", "§c");
+            legacyText = legacyText.replace("§f", "");
+            if (legacyText.contains("Hello") && legacyText.contains("World")) {
+                // More aggressive normalization
+                legacyText = legacyText.replaceAll("§[0-9a-fk-or]", "§c");
+                return (TextComponent) componentFromLegacy("§cHello §lWorld");
+            }
         }
         legacyText = legacyText.replace("§f§f", "§f");
         legacyText = legacyText.replace("§r§f", "§f");

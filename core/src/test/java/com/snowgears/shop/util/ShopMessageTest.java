@@ -44,7 +44,7 @@ public class ShopMessageTest extends BaseMockBukkitTest {
 
         // Then: The message should not be empty and should have formatting
         assertNotNull(formatted, "Formatted message should not be null");
-        assertEquals("§cHello §lWorld", formatted.toLegacyText().replace("§f§c", "§c").replace("§c§f", "§c"),
+        assertEquals("§cHello §lWorld", formatted.toLegacyText(),
             "MiniMessage tags should be converted to legacy color codes");
     }
 
