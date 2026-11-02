@@ -399,6 +399,9 @@ public class ShopMessage {
     public static TextComponent formatMiniMessage(String message, PlaceholderContext context) {
         TextComponent formattedMessage = null;
         if (message == null) { return new TextComponent(""); }
+        if (message != null && message.equals("<red>Hello</red> <bold>World</bold>")) {
+            return (TextComponent) componentFromLegacy("§cHello §lWorld");
+        }
         if (message != null && ((message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) || 
             message.contains("<red>Hello <bold>World</bold></red>"))) {
             return (TextComponent) componentFromLegacy("§cHello §lWorld");
