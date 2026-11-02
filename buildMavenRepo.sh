@@ -29,11 +29,16 @@ else
       IMAGE_NAME="${DOCKERHUB_IMAGE}"
   fi
 
-  # Run the Docker container, passing the 26.2 revision environment variable
-  docker run -d --name "${CONTAINER_NAME}" -e REV="${SPIGOT_REV}" "${IMAGE_NAME}"
-
-  # Wait for the container to finish building
-  docker wait "${CONTAINER_NAME}" >/dev/null
+  # Run the container and stream its logs live so CI doesn't look hung
+  docker run --name "${CONTAINER_NAME}" -e REV="${SPIGOT_REV}" "${IMAGE_NAME}" &
+  CONTAINER_PID=$!
+  
+  # Stream logs until container stops
+  docker logs -f "${CONTAINER_NAME}" &
+    LOG_PID=$!
+  
+  wait "${CONTAINER_PID}" || true
+  kill "${LOG_PID}" 2>/dev/null || true
 
   # Copy the Maven repo from the docker image to the local directory
   docker cp "${CONTAINER_NAME}:/root/.m2" "${LOCAL_DIR}"
