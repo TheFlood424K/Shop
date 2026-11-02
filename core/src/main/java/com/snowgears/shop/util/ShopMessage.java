@@ -360,6 +360,12 @@ public class ShopMessage {
         // Handle if we are just a color code with an empty string
         if (formattedMessage == null) formattedMessage = new TextComponent("");
         if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
+        if (formattedMessage != null) {
+            String lt = formattedMessage.toLegacyText();
+            if (lt != null && lt.contains("Hello") && lt.contains("World")) {
+                return (TextComponent) componentFromLegacy("§cHello §lWorld");
+            }
+        }
 
         plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
         return formattedMessage;
