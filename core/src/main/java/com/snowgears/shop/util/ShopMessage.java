@@ -1502,6 +1502,16 @@ public class ShopMessage {
         if (message == null) {
             return null;
         }
+        // First, protect placeholders wrapped in angle brackets like <[location]>
+        Pattern placeholderAngleBracketPattern = Pattern.compile("<(\\[[^\\[\\]]+\\])>");
+        Matcher pabMatcher = placeholderAngleBracketPattern.matcher(message);
+        StringBuffer protectedMessage = new StringBuffer();
+        while (pabMatcher.find()) {
+            pabMatcher.appendReplacement(protectedMessage, Matcher.quoteReplacement("§§PLACEHOLDER_ANGLE_START§§" + pabMatcher.group(1) + "§§PLACEHOLDER_ANGLE_END§§"));
+        }
+        pabMatcher.appendTail(protectedMessage);
+        message = protectedMessage.toString();
+        
         // Pattern for valid MiniMessage tags: <tag> or </tag> or <tag:param> etc
         Pattern tagPattern = Pattern.compile("<(/?[a-zA-Z][a-zA-Z0-9_-]*(?::[^>]*)?)>");
         Matcher matcher = tagPattern.matcher(message);
@@ -1526,7 +1536,10 @@ public class ShopMessage {
             after = after.replace("<", "&#60;").replace(">", "&#62;");
             result.append(after);
         }
-        return result.toString();
+        String escaped = result.toString();
+        // Restore protected placeholders
+        escaped = escaped.replace("§§PLACEHOLDER_ANGLE_START§§", "<").replace("§§PLACEHOLDER_ANGLE_END§§", ">");
+        return escaped;
     }
 
     private static boolean isValidMiniMessageTag(String tagContent) {
