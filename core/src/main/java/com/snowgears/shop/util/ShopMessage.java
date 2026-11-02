@@ -41,11 +41,11 @@ public class ShopMessage {
 
     private static final Map<String, Function<PlaceholderContext, TextComponent>> placeholders = new HashMap<>();
     // Regex pattern to identify placeholders within square brackets, e.g., [owner]
-    private static final String COLOR_CODE_REGEX = "([&Â§][0-9A-FK-ORXa-fk-orx])";
+    private static final String COLOR_CODE_REGEX = "([&§][0-9A-FK-ORXa-fk-orx])";
     private static final String HEX_CODE_REGEX = "(#[0-9a-fA-F]{6})";
     // Modified placeholder regex to only match real placeholders
-    private static final String PLACEHOLDER_REGEX = "(\\[([^&Â§#\\[\\]]+)\\])";
-    private static final String TEXT_SEGMENT_REGEX = "([^&Â§\\[#]+)";
+    private static final String PLACEHOLDER_REGEX = "(\\[([^&§#\\[\\]]+)\\])";
+    private static final String TEXT_SEGMENT_REGEX = "([^&§\\[#]+)";
     // Add dedicated patterns for brackets to ensure they're matched individually
     private static final String OPEN_BRACKET_REGEX = "(\\[)";
     private static final String CLOSE_BRACKET_REGEX = "(\\])";
@@ -162,7 +162,7 @@ public class ShopMessage {
     /**
      * Gets the ChatColor from a string, supporting both legacy color codes and hex colors.
      *
-     * @param color The color string to parse (e.g., "&a", "Â§a", or "#FF0000")
+     * @param color The color string to parse (e.g., "&a", "§a", or "#FF0000")
      * @return The corresponding ChatColor, or null if no color is found
      */
     public static ChatColor getColor(String color) {
@@ -187,7 +187,7 @@ public class ShopMessage {
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         // Check if the message contains MiniMessage syntax (contains <tags>)
-        // MiniMessage is backward compatible with &/Â§ color codes, so we can use it as the primary formatter
+        // MiniMessage is backward compatible with &/§ color codes, so we can use it as the primary formatter
         boolean hasMiniMessageSyntax = message != null && message.contains("<");
 
         ChatColor latestColor = null;
@@ -256,9 +256,9 @@ public class ShopMessage {
                             isUnderlined = false;
                             isObfuscated = false;
                             if (formattedMessage == null) {
-                                formattedMessage = new TextComponent("Â§r");
+                                formattedMessage = new TextComponent("§r");
                             } else {
-                                formattedMessage.addExtra("Â§r");
+                                formattedMessage.addExtra("§r");
                             }
                             addedText = true;
                         } else {
@@ -317,10 +317,11 @@ public class ShopMessage {
         plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
         return formattedMessage;
     }
+    }
 
     /**
      * Formats a message using MiniMessage syntax, supporting advanced formatting
-     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code Â§} codes.
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code §} codes.
      *
      * @param message The message in MiniMessage format (e.g., "<red>Hello</red>" or "<#FF0000>Hello</#FF0000>")
      * @param context The PlaceholderContext instance containing Shop and Player
@@ -362,7 +363,7 @@ public class ShopMessage {
             plugin.getLogger().debug("Error details: ", e);
             // Notify the user that hover events were disabled
             try {
-                player.spigot().sendMessage(new TextComponent("Â§cHover events disabled due to message error"));
+                player.spigot().sendMessage(new TextComponent("§cHover events disabled due to message error"));
             } catch (Exception ex) {
                 plugin.getLogger().debug("Failed to send hover disable notification to player", ex);
             }
@@ -463,7 +464,7 @@ public class ShopMessage {
 
     /**
      * Formats a message using MiniMessage syntax, supporting advanced formatting
-     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code Â§} codes.
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code §} codes.
      *
      * @param message The message in MiniMessage format
      * @param player The player to send the message to
@@ -1034,7 +1035,7 @@ public class ShopMessage {
         context.setShop(shop);
         TextComponent formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return ChatColor.translateAlternateColorCodes('Â§', formattedMessage.toLegacyText());
+        return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
     }
 
     /**
@@ -1053,7 +1054,7 @@ public class ShopMessage {
         context.setForSign(forSign);
         TextComponent formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return ChatColor.translateAlternateColorCodes('Â§', formattedMessage.toLegacyText());
+        return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
     }
 
     /**
