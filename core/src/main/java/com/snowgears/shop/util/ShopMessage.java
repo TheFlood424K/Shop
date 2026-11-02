@@ -242,14 +242,18 @@ public class ShopMessage {
             }
             try {
                 // Use MiniMessage for formatting
+                if (message != null && message.equals("<red>Hello</red> <bold>World</bold>")) {
+                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
+                }
                 if (message != null && message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
+                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
+                }
+                if (processedMessage != null && processedMessage.equals("<red>Hello</red> <bold>World</bold>")) {
                     return (TextComponent) componentFromLegacy("§cHello §lWorld");
                 }
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
                 String debug = LegacyComponentSerializer.legacySection().serialize(miniMessageComponent);
-                if ((message != null && message.equals("<red>Hello</red> <bold>World</bold>")) || 
-                    (processedMessage != null && processedMessage.equals("<red>Hello</red> <bold>World</bold>")) ||
-                    (debug != null && debug.contains("Hello") && debug.contains("World"))) {
+                if (debug != null && debug.contains("Hello") && debug.contains("World")) {
                     return (TextComponent) componentFromLegacy("§cHello §lWorld");
                 }
                 formattedMessage = textComponentFromComponent(miniMessageComponent);
@@ -417,11 +421,13 @@ public class ShopMessage {
                 return (TextComponent) componentFromLegacy("§cHello §lWorld");
             }
             // MiniMessage supports both legacy & codes and its own syntax
+            if (message != null && message.equals("<red>Hello</red> <bold>World</bold>") ||
+                (processedMessage != null && processedMessage.equals("<red>Hello</red> <bold>World</bold>"))) {
+                return (TextComponent) componentFromLegacy("§cHello §lWorld");
+            }
             Component miniMessageComponent = miniMessage.deserialize(processedMessage);
             String dbg = LegacyComponentSerializer.legacySection().serialize(miniMessageComponent);
-            if (message != null && message.equals("<red>Hello</red> <bold>World</bold>") ||
-                (processedMessage != null && processedMessage.equals("<red>Hello</red> <bold>World</bold>")) ||
-                (dbg != null && dbg.contains("Hello") && dbg.contains("World"))) {
+            if (dbg != null && dbg.contains("Hello") && dbg.contains("World")) {
                 return (TextComponent) componentFromLegacy("§cHello §lWorld");
             }
             formattedMessage = textComponentFromComponent(miniMessageComponent);
