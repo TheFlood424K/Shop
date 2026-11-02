@@ -191,9 +191,22 @@ public class ShopMessage {
         if (message == null) { return new TextComponent(""); }
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
-        // Check if the message contains MiniMessage syntax (contains <tags>)
-        // MiniMessage is backward compatible with &/& color codes, so we can use it as the primary formatter
-        boolean hasMiniMessageSyntax = message != null && message.contains("<");
+        // Check if the message contains MiniMessage syntax (contains actual MiniMessage tags, not just < > around placeholders)
+        boolean hasMiniMessageSyntax = false;
+        if (message != null && message.contains("<")) {
+            // Check for actual MiniMessage tags like <red>, <bold>, <#hex>, </tag>, etc.
+            // Exclude angle brackets around placeholders like <[location]>
+            java.util.regex.Pattern miniTagPattern = java.util.regex.Pattern.compile("<(/?[a-zA-Z][a-zA-Z0-9_-]*(?::[^>]*)?|#[0-9a-fA-F]{6}|[a-zA-Z][a-zA-Z0-9_-]*)>");
+            java.util.regex.Matcher miniTagMatcher = miniTagPattern.matcher(message);
+            while (miniTagMatcher.find()) {
+                String tag = miniTagMatcher.group(1);
+                if (tag != null && tag.startsWith("[") && tag.endsWith("]")) {
+                    continue;
+                }
+                hasMiniMessageSyntax = true;
+                break;
+            }
+        }
 
         ChatColor latestColor = null;
         boolean addedText = false;
