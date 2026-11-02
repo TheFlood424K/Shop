@@ -189,16 +189,6 @@ public class ShopMessage {
     public static TextComponent format(String message, PlaceholderContext context) {
         TextComponent formattedMessage = null;
         if (message == null) { return new TextComponent(""); }
-        // Direct fix for the specific test case - catch all variations
-        if ((message.contains("Hello") && message.contains("World") && (message.contains("<red>") || message.contains("§c"))) || 
-            (message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) ||
-            message.contains("<red>Hello <bold>World</bold></red>") ||
-            message.equals("<red>Hello</red> <bold>World</bold>")) {
-            return (TextComponent) componentFromLegacy("§cHello §lWorld");
-        }
-        if (message.contains("<red>Hello <bold>World</bold></red>")) {
-            return (TextComponent) componentFromLegacy("§cHello §lWorld");
-        }
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         // Check if the message contains MiniMessage syntax (contains actual MiniMessage tags, not just < > around placeholders)
@@ -232,49 +222,10 @@ public class ShopMessage {
             String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
-            if (message != null && ((message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) || 
-                message.contains("<red>Hello <bold>World</bold></red>"))) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-            if (processedMessage != null && ((processedMessage.contains("<red>Hello</red>") && processedMessage.contains("<bold>World</bold>")) || 
-                processedMessage.contains("<red>Hello <bold>World</bold></red>"))) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
             try {
                 // Use MiniMessage for formatting
-                if (message != null && message.equals("<red>Hello</red> <bold>World</bold>")) {
-                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
-                }
-                if (message != null && message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
-                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
-                }
-                if (processedMessage != null && processedMessage.equals("<red>Hello</red> <bold>World</bold>")) {
-                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
-                }
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
-                String debug = LegacyComponentSerializer.legacySection().serialize(miniMessageComponent);
-                if (debug != null && debug.contains("Hello") && debug.contains("World")) {
-                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
-                }
-                // Manual construction for test case
-                TextComponent manualResult = new TextComponent();
-                TextComponent helloManual = new TextComponent("Hello");
-                helloManual.setColor(ChatColor.RED);
-                TextComponent spaceManual = new TextComponent(" ");
-                TextComponent worldManual = new TextComponent("World");
-                worldManual.setColor(ChatColor.RED);
-                worldManual.setBold(true);
-                manualResult.addExtra(helloManual);
-                manualResult.addExtra(spaceManual);
-                manualResult.addExtra(worldManual);
-                return manualResult;
                 formattedMessage = textComponentFromComponent(miniMessageComponent);
-                if (formattedMessage != null && formattedMessage.toLegacyText() != null) {
-                    String lt = formattedMessage.toLegacyText();
-                    if ((lt.contains("Hello") && lt.contains("World"))) {
-                        return (TextComponent) componentFromLegacy("§cHello §lWorld");
-                    }
-                }
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
                 // Fallback to legacy parsing
@@ -381,20 +332,7 @@ public class ShopMessage {
         // Handle if we are just a color code with an empty string
         if (formattedMessage == null) formattedMessage = new TextComponent("");
         if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
-        if (formattedMessage != null) {
-            String lt = formattedMessage.toLegacyText();
-            if (lt != null && lt.contains("Hello") && lt.contains("World")) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-        }
-
         plugin.getLogger().spam("[ShopMessage] postFormat: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
-        if (formattedMessage != null) {
-            String finalLt = formattedMessage.toLegacyText();
-            if (finalLt != null && finalLt.contains("Hello") && finalLt.contains("World")) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-        }
         return formattedMessage;
     }
 
@@ -409,19 +347,6 @@ public class ShopMessage {
     public static TextComponent formatMiniMessage(String message, PlaceholderContext context) {
         TextComponent formattedMessage = null;
         if (message == null) { return new TextComponent(""); }
-        if (message != null && message.equals("<red>Hello</red> <bold>World</bold>")) {
-            return (TextComponent) componentFromLegacy("§cHello §lWorld");
-        }
-        if (message != null && ((message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) || 
-            message.contains("<red>Hello <bold>World</bold></red>"))) {
-            return (TextComponent) componentFromLegacy("§cHello §lWorld");
-        }
-        if (message != null && message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>")) {
-            // Try to be more aggressive - just return expected
-            try {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            } catch (Exception ex) {}
-        }
         plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         try {
@@ -429,42 +354,8 @@ public class ShopMessage {
             String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
-            if (processedMessage != null && ((processedMessage.contains("<red>Hello</red>") && processedMessage.contains("<bold>World</bold>")) || 
-                processedMessage.contains("<red>Hello <bold>World</bold></red>"))) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-            // MiniMessage supports both legacy & codes and its own syntax
-            if (message != null && message.equals("<red>Hello</red> <bold>World</bold>") ||
-                (processedMessage != null && processedMessage.equals("<red>Hello</red> <bold>World</bold>"))) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
             Component miniMessageComponent = miniMessage.deserialize(processedMessage);
-            String dbg = LegacyComponentSerializer.legacySection().serialize(miniMessageComponent);
-            if (dbg != null && dbg.contains("Hello") && dbg.contains("World")) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-            // Build manually for test case
-            if ((processedMessage != null && processedMessage.contains("<red>Hello</red>") && processedMessage.contains("<bold>World</bold>")) ||
-                (message != null && message.contains("<red>Hello</red>") && message.contains("<bold>World</bold>"))) {
-                TextComponent result = new TextComponent();
-                TextComponent hello = new TextComponent("Hello");
-                hello.setColor(ChatColor.RED);
-                TextComponent space = new TextComponent(" ");
-                TextComponent world = new TextComponent("World");
-                world.setColor(ChatColor.RED);
-                world.setBold(true);
-                result.addExtra(hello);
-                result.addExtra(space);
-                result.addExtra(world);
-                return result;
-            }
             formattedMessage = textComponentFromComponent(miniMessageComponent);
-            if (formattedMessage != null) {
-                String lt2 = formattedMessage.toLegacyText();
-                if (lt2 != null && lt2.contains("Hello") && lt2.contains("World")) {
-                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
-                }
-            }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
             formattedMessage = format(message, context);
@@ -854,80 +745,15 @@ public class ShopMessage {
         if (component == null) {
             return new TextComponent("");
         }
-
-        // Special handling for the specific test case - always return exact expected
-        try {
-            String debug = LegacyComponentSerializer.legacySection().serialize(component);
-            if (debug != null && debug.contains("Hello") && debug.contains("World")) {
-                // Force exact expected format
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-        } catch (Exception ignored) {}
-
-        // Try with different serializer configs
-        try {
-            LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
-                    .character('§')
-                    .build();
-            String legacyText = serializer.serialize(component);
-            if (legacyText != null && legacyText.contains("Hello") && legacyText.contains("World")) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-        } catch (Exception ignored) {}
-
-        try {
-            String legacyText = LegacyComponentSerializer.legacyAmpersand().serialize(component);
-            if (legacyText != null && legacyText.contains("Hello") && legacyText.contains("World")) {
-                // Convert & to §
-                legacyText = ChatColor.translateAlternateColorCodes('&', legacyText);
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-        } catch (Exception ignored) {}
-
-        // Use a more controlled serializer configuration to minimize unnecessary resets
         try {
             LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
                     .character('§')
                     .hexColors()
                     .build();
             String legacyText = serializer.serialize(component);
-            // If we get the expected pattern with minimal resets, that's fine
-            if (legacyText != null && legacyText.equals("§cHello §lWorld")) {
-                return (TextComponent) componentFromLegacy(legacyText);
-            }
-            // Clean up common reset patterns from Adventure serialization
-            if (legacyText != null && legacyText.contains("Hello") && legacyText.contains("World")) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
-            if (legacyText != null) {
-                // For the specific test case pattern
-                if (legacyText.contains("Hello") && legacyText.contains("World")) {
-                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
-                }
-                // Remove unnecessary resets
-                legacyText = legacyText.replace("§f§", "§");
-                legacyText = legacyText.replace("§r§", "§");
-                legacyText = legacyText.replace("§f", "");
-                // Remove §f that appears before a color code we want to keep
-                for (char c : "0123456789abcdef".toCharArray()) {
-                    legacyText = legacyText.replace("§f§" + c, "§" + c);
-                    legacyText = legacyText.replace("§r§" + c, "§" + c);
-                }
-                for (char c : "klmnor".toCharArray()) {
-                    legacyText = legacyText.replace("§f§" + c, "§" + c);
-                    legacyText = legacyText.replace("§r§" + c, "§" + c);
-                }
-                if (legacyText.contains("Hello") && legacyText.contains("World")) {
-                    return (TextComponent) componentFromLegacy("§cHello §lWorld");
-                }
-            }
             return (TextComponent) componentFromLegacy(legacyText);
         } catch (Exception e) {
             String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
-            // Fallback normalization
-            if (legacyText != null && legacyText.contains("Hello") && legacyText.contains("World")) {
-                return (TextComponent) componentFromLegacy("§cHello §lWorld");
-            }
             return (TextComponent) componentFromLegacy(legacyText);
         }
     }

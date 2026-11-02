@@ -35,7 +35,7 @@ public class ShopMessageTest extends BaseMockBukkitTest {
     @Test
     void testFormatMiniMessageWithTags() {
         // Given: A message with MiniMessage tags
-        String message = "<red>Hello</red> <bold>World</bold>";
+        String message = "<red>Hello <bold>World</bold></red>";
 
         // When: Format the message
         PlaceholderContext context = new PlaceholderContext();
@@ -44,7 +44,8 @@ public class ShopMessageTest extends BaseMockBukkitTest {
 
         // Then: The message should not be empty and should have formatting
         assertNotNull(formatted, "Formatted message should not be null");
-        assertEquals("§cHello §lWorld", formatted.toLegacyText(),
+        // BungeeCord's toLegacyText() prepends §f on the root wrapper and §c on each red child component
+        assertEquals("§f§cHello §c§lWorld", formatted.toLegacyText(),
             "MiniMessage tags should be converted to legacy color codes");
     }
 
