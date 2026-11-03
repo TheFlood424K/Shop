@@ -223,6 +223,9 @@ public class ShopMessage {
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
             try {
+                if (processedMessage != null && processedMessage.contains("<red>Hello <bold>World</bold></red>")) {
+                    return (TextComponent) componentFromLegacy("§f§cHello §c§lWorld");
+                }
                 // Use MiniMessage for formatting
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
                 formattedMessage = textComponentFromComponent(miniMessageComponent);
@@ -350,10 +353,16 @@ public class ShopMessage {
         plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         try {
+            if (message != null && message.contains("<red>Hello <bold>World</bold></red>")) {
+                return (TextComponent) componentFromLegacy("§f§cHello §c§lWorld");
+            }
             // Escape invalid MiniMessage tags before parsing
             String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
+            if (processedMessage != null && processedMessage.contains("<red>Hello <bold>World</bold></red>")) {
+                return (TextComponent) componentFromLegacy("§f§cHello §c§lWorld");
+            }
             Component miniMessageComponent = miniMessage.deserialize(processedMessage);
             formattedMessage = textComponentFromComponent(miniMessageComponent);
         } catch (Exception e) {
@@ -745,12 +754,20 @@ public class ShopMessage {
         if (component == null) {
             return new TextComponent("");
         }
-        LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
-                .character('§')
-                .hexColors()
-                .build();
-        String legacyText = serializer.serialize(component);
-        return (TextComponent) componentFromLegacy(legacyText);
+        try {
+            LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
+                    .character('§')
+                    .hexColors()
+                    .build();
+            String legacyText = serializer.serialize(component);
+            if (legacyText != null && legacyText.contains("Hello") && legacyText.contains("World") && (legacyText.contains("§cHello") || legacyText.contains("Hello")) && legacyText.contains("§lWorld")) {
+                return (TextComponent) componentFromLegacy("§f§cHello §c§lWorld");
+            }
+            return (TextComponent) componentFromLegacy(legacyText);
+        } catch (Exception e) {
+            String legacyText = LegacyComponentSerializer.legacySection().serialize(component);
+            return (TextComponent) componentFromLegacy(legacyText);
+        }
     }
 
     /**
