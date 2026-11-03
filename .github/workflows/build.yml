@@ -36,6 +36,7 @@ jobs:
           ${{ runner.os }}-maven-jdk25-mc26.2-
         
     - name: Cache SpigotBuildTools
+      id: spigot-cache
       uses: actions/cache@v5.1.0
       with:
         path: |
@@ -79,6 +80,7 @@ jobs:
         EOF
 
     - name: Build Maven Repository (Minecraft 26.2)
+      if: steps.spigot-cache.outputs.cache-hit != 'true'
       run: |
         chmod +x ./buildMavenRepo.sh
         SPIGOT_REV="26.2" ./buildMavenRepo.sh
@@ -100,11 +102,11 @@ jobs:
 
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
-        mvn -B -nsu -U -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
+        mvn -B -U -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
       continue-on-error: true
       
     - name: Build and Test
-      run: mvn -B -nsu -U -T 1C -Drevision=${{ env.VERSION }} clean package
+      run: mvn -B -U -T 1C -Drevision=${{ env.VERSION }} clean package
 
     - name: Save Maven repository cache
       if: always() && steps.restore-maven-cache.outputs.cache-hit != 'true'
