@@ -28,7 +28,7 @@ jobs:
 
     - name: Restore Maven repository cache
       id: restore-maven-cache
-      uses: actions/cache/restore@v4.0.0
+      uses: actions/cache/restore@v4.2.0
       with:
         path: ~/.m2/repository
         key: ${{ runner.os }}-maven-jdk25-mc26.2-${{ hashFiles('**/pom.xml') }}
@@ -37,7 +37,7 @@ jobs:
         
     - name: Cache SpigotBuildTools
       id: spigot-cache
-      uses: actions/cache@v4.0.0
+      uses: actions/cache@v4.2.0
       with:
         path: |
           ./SpigotBuildTools
@@ -110,7 +110,7 @@ jobs:
 
     - name: Save Maven repository cache
       if: always() && steps.restore-maven-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4.0.0
+      uses: actions/cache/save@v4.2.0
       with:
         path: ~/.m2/repository
         key: ${{ runner.os }}-maven-jdk25-mc26.2-${{ hashFiles('**/pom.xml') }}
