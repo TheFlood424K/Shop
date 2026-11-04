@@ -3,13 +3,16 @@ FROM adoptopenjdk:13-jdk-hotspot AS jdk13
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y wget git > /dev/null 2>&1
+RUN apt-get update && apt-get install -y wget git ca-certificates ca-certificates-java > /dev/null 2>&1 && update-ca-certificates -f
 
 RUN wget -q -O BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 
 RUN for rev in 1.14.4 1.15.2 1.16.5; do \
       echo "Building Spigot $rev..." && \
-      java -jar BuildTools.jar --rev $rev > build.log 2>&1 || (cat build.log && exit 1); \
+      for i in 1 2 3; do \
+        java -jar BuildTools.jar --rev $rev && break || \
+        (echo "Build failed for $rev on attempt $i, retrying in 10s..." && sleep 10); \
+      done > build.log 2>&1 || (cat build.log && exit 1); \
     done && rm -r /app/*
 
 # Stage 2: Build older versions with JDK 17 (Temurin) (latest minor per major)
