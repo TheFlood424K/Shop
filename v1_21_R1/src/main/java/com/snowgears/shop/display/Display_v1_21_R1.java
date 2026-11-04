@@ -9,7 +9,9 @@ import net.minecraft.core.Rotations;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.*;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerPlayerConnection;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.decoration.GlowItemFrame;
@@ -19,8 +21,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.bukkit.Location;
 import org.bukkit.block.BlockFace;
-import org.bukkit.craftbukkit.v1_18_R1.CraftWorld;
-import org.bukkit.craftbukkit.v1_18_R1.inventory.CraftItemStack;
+import org.bukkit.craftbukkit.v1_21_R1.CraftWorld;
+import org.bukkit.craftbukkit.v1_21_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_21_R1.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -32,9 +35,8 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-public class Display_v1_18_R1 extends AbstractDisplay {
-
-    public Display_v1_18_R1(Location shopSignLocation) {
+public class Display_v1_21_R1 extends AbstractDisplay {
+    public Display_v1_21_R1(Location shopSignLocation) {
         super(shopSignLocation);
         //printDirs();
     }
@@ -65,7 +67,7 @@ public class Display_v1_18_R1 extends AbstractDisplay {
                             ClientboundRemoveEntitiesPacket entityDestroyPacket = new ClientboundRemoveEntitiesPacket(entityID);
                             ClientboundAddEntityPacket entitySpawnPacket = new ClientboundAddEntityPacket(entityItem);
                             ClientboundSetEntityMotionPacket entityVelocityPacket = new ClientboundSetEntityMotionPacket(entityItem);
-                            ClientboundSetEntityDataPacket entityMetadataPacket = new ClientboundSetEntityDataPacket(entityID, entityItem.getEntityData(), true); //entityItem.ai() = entityItem.getDataWatcher()
+                            ClientboundSetEntityDataPacket entityMetadataPacket = new ClientboundSetEntityDataPacket(entityID, entityItem.getEntityData().packDirty());
 
                             sendPacket(player, entityDestroyPacket);
                             sendPacket(player, entitySpawnPacket);
@@ -94,7 +96,7 @@ public class Display_v1_18_R1 extends AbstractDisplay {
         armorStand.setYRot((float)(armorStandData.getYaw()));
 
         if(text != null) {
-            armorStand.setCustomName(Component.Serializer.fromJson("{\"text\": \"" + text + "\"}"));
+            armorStand.setCustomName(Component.Serializer.fromJson("{\"text\": \"" + text + "\"}", armorStand.registryAccess()));
             this.addDisplayTag(player, armorStand.getId());
         }
         else{
@@ -121,8 +123,8 @@ public class Display_v1_18_R1 extends AbstractDisplay {
             armorStand.setSmall(true);
         }
 
-        ClientboundAddMobPacket spawnEntityLivingPacket = new ClientboundAddMobPacket(armorStand);
-        ClientboundSetEntityDataPacket spawnEntityMetadataPacket = new ClientboundSetEntityDataPacket(armorStand.getId(), armorStand.getEntityData(), true);
+        ClientboundAddEntityPacket spawnEntityLivingPacket = new ClientboundAddEntityPacket(armorStand);
+        ClientboundSetEntityDataPacket spawnEntityMetadataPacket = new ClientboundSetEntityDataPacket(armorStand.getId(), armorStand.getEntityData().packDirty());
         ClientboundSetEquipmentPacket spawnEntityEquipmentPacket = null;
 
         //armor stand only going to have equipment if text is not populated
@@ -144,7 +146,7 @@ public class Display_v1_18_R1 extends AbstractDisplay {
     protected void spawnItemFramePacket(Player player, ItemStack is, Location location, BlockFace facing, boolean isGlowing){
         ServerLevel worldServer = ((CraftWorld) location.getWorld()).getHandle();
 
-        BlockPos blockPosition = new BlockPos(location.getX(), location.getY(), location.getZ());
+        BlockPos blockPosition = new BlockPos((int)location.getX(), (int)location.getY(), (int)location.getZ());
 
         ItemFrame itemFrame;
 
@@ -162,7 +164,7 @@ public class Display_v1_18_R1 extends AbstractDisplay {
         itemFrame.setDirection(getMojangDirection(facing));
 
         ClientboundAddEntityPacket entitySpawnPacket = new ClientboundAddEntityPacket(itemFrame, itemFrame.getDirection().get3DDataValue());
-        ClientboundSetEntityDataPacket entityMetadataPacket = new ClientboundSetEntityDataPacket(entityID, itemFrame.getEntityData(), true);
+        ClientboundSetEntityDataPacket entityMetadataPacket = new ClientboundSetEntityDataPacket(entityID, itemFrame.getEntityData().packDirty());
 
         sendPacket(player, entitySpawnPacket);
         sendPacket(player, entityMetadataPacket);
@@ -212,30 +214,37 @@ public class Display_v1_18_R1 extends AbstractDisplay {
         }
     }
 
+//    private ServerPlayerConnection getPlayerConnection(Player player) {
+//        try {
+//            Object craftPlayer = Shop.getPlugin().getNmsBullshitHandler().getCraftPlayerClass().cast(player);
+//            if (craftPlayer != null) {
+//                Method getHandle = craftPlayer.getClass().getMethod("getHandle");
+//                if (getHandle != null) {
+//                    Object entityPlayer = getHandle.invoke(craftPlayer);
+//                    if (entityPlayer != null) {
+//                        Field playerConnection = entityPlayer.getClass().getField("b");
+//                        if(playerConnection != null)
+//                        return (ServerPlayerConnection) playerConnection.get(entityPlayer);
+//                    }
+//                }
+//            }
+//        } catch(NoSuchMethodException e){
+//            e.printStackTrace();
+//        } catch(IllegalAccessException e){
+//            e.printStackTrace();
+//        } catch(InvocationTargetException e){
+//            e.printStackTrace();
+//        } catch (NoSuchFieldException e){
+//            e.printStackTrace();
+//        }
+//        return null;
+//    }
+
     private ServerPlayerConnection getPlayerConnection(Player player) {
-        try {
-            Object craftPlayer = Shop.getPlugin().getNmsBullshitHandler().getCraftPlayerClass().cast(player);
-            if (craftPlayer != null) {
-                Method getHandle = craftPlayer.getClass().getMethod("getHandle");
-                if (getHandle != null) {
-                    Object entityPlayer = getHandle.invoke(craftPlayer);
-                    if (entityPlayer != null) {
-                        Field playerConnection = entityPlayer.getClass().getField("b");
-                        if(playerConnection != null)
-                        return (ServerPlayerConnection) playerConnection.get(entityPlayer);
-                    }
-                }
-            }
-        } catch(NoSuchMethodException e){
-            e.printStackTrace();
-        } catch(IllegalAccessException e){
-            e.printStackTrace();
-        } catch(InvocationTargetException e){
-            e.printStackTrace();
-        } catch (NoSuchFieldException e){
-            e.printStackTrace();
-        }
-        return null;
+        CraftPlayer craftPlayer = (CraftPlayer) player;
+        ServerPlayer entityPlayer = craftPlayer.getHandle();
+        MinecraftServer minecraftServer = entityPlayer.getServer();
+        return entityPlayer.connection;
     }
 
     private Direction getMojangDirection(BlockFace facing){
