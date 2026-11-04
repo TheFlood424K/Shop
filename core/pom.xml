@@ -261,8 +261,8 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>de.bluecolored.bluemap</groupId>
-            <artifactId>BlueMapAPI</artifactId>
+            <groupId>de.bluecolored</groupId>
+            <artifactId>bluemap-api</artifactId>
             <version>${bluemap.version}</version>
             <scope>provided</scope>
         </dependency>
