@@ -45,7 +45,6 @@ jobs:
         key: ${{ runner.os }}-spigot-mc26.x-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
         restore-keys: |
           ${{ runner.os }}-spigot-mc26.x-
-          ${{ runner.os }}-spigot-mc26.2-
         
     - name: Compute version with commit hash
       run: |
@@ -86,6 +85,7 @@ jobs:
       run: |
         chmod +x ./buildMavenRepo.sh
         SPIGOT_REV="26.2" ./buildMavenRepo.sh
+      continue-on-error: false
 
     - name: Install Dynmap API (CI fallback)
       run: |
@@ -105,10 +105,10 @@ jobs:
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
         mvn -B -U -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
-      continue-on-error: true
+      continue-on-error: false
       
     - name: Build and Test
-      run: mvn -B -U -T 1C -Drevision=${{ env.VERSION }} clean package
+      run: mvn -B -U -T 1C -Drevision=${{ env.VERSION }} clean package -Dmaven.repo.local=$HOME/.m2/repository
 
     - name: Save Maven repository cache
       if: always() && steps.restore-maven-cache.outputs.cache-hit != 'true'
