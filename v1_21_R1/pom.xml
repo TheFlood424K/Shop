@@ -9,7 +9,8 @@
     <parent>
         <artifactId>shop-parent</artifactId>
         <groupId>com.snowgears.shop</groupId>
-        <version></version>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>shop-v1_21_R1</artifactId>
