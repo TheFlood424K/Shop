@@ -81,9 +81,9 @@ jobs:
         EOF
 
     - name: Build Maven Repository (Minecraft 26.x)
-      if: steps.spigot-cache.outputs.cache-hit != 'true'
       run: |
         chmod +x ./buildMavenRepo.sh
+        rm -rf ./SpigotBuildTools
         SPIGOT_REV="26.2" ./buildMavenRepo.sh
       continue-on-error: false
 
@@ -101,6 +101,13 @@ jobs:
       run: |
         find ~/.m2/repository -name "*.lastUpdated" -delete
         find ~/.m2/repository -name "_remote.repositories" -delete
+
+    - name: Install Spigot artifacts to local Maven repo
+      run: |
+        if [ -d "./SpigotBuildTools/maven/repository" ]; then
+          mkdir -p ~/.m2/repository
+          cp -r ./SpigotBuildTools/maven/repository/* ~/.m2/repository/ 2>&1 | tail -5 || true
+        fi
 
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
