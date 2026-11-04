@@ -34,7 +34,7 @@
         <plotsquared.bom.version>1.56</plotsquared.bom.version>
         <vault.version>1.7.1</vault.version>
         <worldguard.version>7.0.12</worldguard.version>
-        <towny.version>0.101.1.0</towny.version>
+        <towny.version>0.103.1.1</towny.version>
         <lwc.version>2.3.2</lwc.version>
         <bolt.version>1.1.33</bolt.version>
         <blockprot.version>1.2.6</blockprot.version>
@@ -220,7 +220,7 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.github.TownyAdvanced</groupId>
+            <groupId>com.palmergames.bukkit.towny</groupId>
             <artifactId>Towny</artifactId>
             <version>${towny.version}</version>
             <scope>provided</scope>
