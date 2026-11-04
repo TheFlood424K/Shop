@@ -55,7 +55,7 @@
     <repositories>
         <repository>
             <id>local-m2-repo</id>
-            <url>file://${project.basedir}/../SpigotBuildTools/maven/repository</url>
+            <url>file://${project.basedir}/SpigotBuildTools/maven/repository</url>
         </repository>
     </repositories>
 
