@@ -310,25 +310,7 @@
             <version>${folialib.version}</version>
             <scope>compile</scope>
         </dependency>
-        <!-- DataFixerUpper & brigadier dependencies (needed for the Display class... for now...) -->
-        <dependency>
-            <groupId>com.mojang</groupId>
-            <artifactId>datafixerupper</artifactId>
-            <version>${datafixerupper.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.mojang</groupId>
-            <artifactId>brigadier</artifactId>
-            <version>${brigadier.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>${gson.version}</version>
-            <scope>provided</scope>
-        </dependency>
+        <!-- DataFixerUpper & brigadier dependencies are declared once above (provided). -->
     </dependencies>
 
     <build>
