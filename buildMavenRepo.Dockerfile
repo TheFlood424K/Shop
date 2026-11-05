@@ -92,10 +92,10 @@ RUN apt-get update && apt-get install -y wget git > /dev/null 2>&1
 RUN wget -q -O BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 
 RUN for rev in 26.1.2 26.2 26.3; do \
-      echo "Building Spigot $rev (remapped)..."; \
+      echo "Building Spigot $rev..."; \
       success=false; \
       for i in 1 2 3; do \
-        if java -jar BuildTools.jar --remapped --rev $rev > build.log 2>&1; then \
+        if java -jar BuildTools.jar --rev $rev > build.log 2>&1; then \
           success=true; \
           break; \
         fi; \
