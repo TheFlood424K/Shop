@@ -225,7 +225,7 @@
         </dependency>
         <dependency>
             <groupId>com.palmergames.bukkit.towny</groupId>
-            <artifactId>Towny</artifactId>
+            <artifactId>towny</artifactId>
             <version>${towny.version}</version>
             <scope>provided</scope>
         </dependency>
