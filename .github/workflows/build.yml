@@ -104,10 +104,17 @@ jobs:
 
     - name: Install Spigot artifacts to local Maven repo
       run: |
-        if [ -d "./SpigotBuildTools/maven/repository" ]; then
-          mkdir -p ~/.m2/repository
-          cp -r ./SpigotBuildTools/maven/repository/* ~/.m2/repository/ 2>&1 | tail -5 || true
+        mkdir -p ~/.m2/repository
+        if [ -d "./SpigotBuildTools/repository" ]; then
+          cp -a ./SpigotBuildTools/repository/* ~/.m2/repository/ || true
         fi
+        if [ -d "./SpigotBuildTools/maven/repository" ]; then
+          cp -a ./SpigotBuildTools/maven/repository/* ~/.m2/repository/ || true
+        fi
+        if [ -d "./SpigotBuildTools" ]; then
+          cp -a ./SpigotBuildTools/* ~/.m2/repository/ || true
+        fi
+        find ~/.m2/repository -name "_remote.repositories" -delete || true
 
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
