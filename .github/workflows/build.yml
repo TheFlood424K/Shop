@@ -42,9 +42,9 @@ jobs:
       with:
         path: |
           ./SpigotBuildTools
-        key: ${{ runner.os }}-spigot-mc26.x-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
+        key: ${{ runner.os }}-spigot-mc26.x-v2-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
         restore-keys: |
-          ${{ runner.os }}-spigot-mc26.x-
+          ${{ runner.os }}-spigot-mc26.x-v2-
         
     - name: Compute version with commit hash
       run: |
@@ -81,6 +81,7 @@ jobs:
         EOF
 
     - name: Build Maven Repository (Minecraft 26.x)
+      if: steps.spigot-cache.outputs.cache-hit != 'true'
       run: |
         chmod +x ./buildMavenRepo.sh
         rm -rf ./SpigotBuildTools
