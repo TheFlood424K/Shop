@@ -107,15 +107,29 @@ jobs:
       run: |
         mkdir -p ~/.m2/repository
         if [ -d "./SpigotBuildTools/repository" ]; then
-          cp -a ./SpigotBuildTools/repository/* ~/.m2/repository/ || true
+          cp -a ./SpigotBuildTools/repository/. ~/.m2/repository/ || true
         fi
         if [ -d "./SpigotBuildTools/maven/repository" ]; then
-          cp -a ./SpigotBuildTools/maven/repository/* ~/.m2/repository/ || true
+          cp -a ./SpigotBuildTools/maven/repository/. ~/.m2/repository/ || true
         fi
-        if [ -d "./SpigotBuildTools" ]; then
-          cp -a ./SpigotBuildTools/* ~/.m2/repository/ || true
+        if [ -d "./SpigotBuildTools/.m2/repository" ]; then
+          cp -a ./SpigotBuildTools/.m2/repository/. ~/.m2/repository/ || true
+        fi
+        find ./SpigotBuildTools -type f -path "*org/spigotmc/spigot/*26.2*remapped-mojang*jar" 2>/dev/null | head -5
+        REMAPPED_JAR=$(find ./SpigotBuildTools -type f -path "*org/spigotmc/spigot/*26.2*remapped-mojang*jar" ! -name "*sources*" ! -name "*javadoc*" 2>/dev/null | head -1 || true)
+        REMAPPED_POM=$(find ./SpigotBuildTools -type f -path "*org/spigotmc/spigot/*26.2*remapped-mojang*pom" 2>/dev/null | head -1 || true)
+        if [ -z "$REMAPPED_POM" ]; then
+          REMAPPED_POM=$(find ./SpigotBuildTools -type f -path "*org/spigotmc/spigot/*26.2*R0.1*pom" ! -path "*remapped*" 2>/dev/null | head -1 || true)
+        fi
+        if [ -n "$REMAPPED_JAR" ]; then
+          if [ -n "$REMAPPED_POM" ]; then
+            mvn -B -q install:install-file -Dfile="$REMAPPED_JAR" -DpomFile="$REMAPPED_POM" -Dclassifier=remapped-mojang -Dpackaging=jar || true
+          else
+            mvn -B -q install:install-file -Dfile="$REMAPPED_JAR" -DgroupId=org.spigotmc -DartifactId=spigot -Dversion=26.2-R0.1-SNAPSHOT -Dclassifier=remapped-mojang -Dpackaging=jar || true
+          fi
         fi
         find ~/.m2/repository -name "_remote.repositories" -delete || true
+        find ~/.m2/repository -name "*.lastUpdated" -delete || true
 
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
