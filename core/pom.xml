@@ -220,7 +220,7 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.palmergames.bukkit.towny</groupId>
+            <groupId>com.github.TownyAdvanced</groupId>
             <artifactId>Towny</artifactId>
             <version>${towny.version}</version>
             <scope>provided</scope>
