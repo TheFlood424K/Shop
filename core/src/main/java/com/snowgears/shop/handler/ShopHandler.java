@@ -123,8 +123,24 @@ public class ShopHandler {
         // Check if we are on a Paper 1.20.6+ server, or if we are running Spigot v1.20.6 or later :)
         // Now that our new Display class purely uses Class loading to get the appropriate class, we don't
         // need to load a specific revision version class (unless we are old)
-        if (packageName.equals("org.bukkit.craftbukkit") || plugin.getNmsBullshitHandler().getServerVersion() >= 120.6D) {
+        String bukkitVersion = org.bukkit.Bukkit.getBukkitVersion();
+        if (packageName.equals("org.bukkit.craftbukkit") || plugin.getNmsBullshitHandler().getServerVersion() >= 120.6D || bukkitVersion.matches(".*26\\..*")) {
             // We are on a newer version that does not relocate CB classes, load the default display package
+            // For 26.x, try to load from v26_X module first via reflection
+            if (bukkitVersion.matches(".*26\\..*")) {
+                try {
+                    Shop.getPlugin().getLogger().info("Using item display handler - com.snowgears.shop.display.Display_v26_X");
+                    final Class<?> clazz = Class.forName("com.snowgears.shop.display.Display_v26_X");
+                    if (AbstractDisplay.class.isAssignableFrom(clazz)) {
+                        this.displayClass = clazz;
+                        return true;
+                    }
+                } catch (final Exception e) {
+                    Shop.getPlugin().getLogger().fine("Could not load Display_v26_X from v26_X module, falling back to core Display: " + e.getMessage());
+                } catch (Error e) {
+                    Shop.getPlugin().getLogger().fine("Could not load Display_v26_X from v26_X module, falling back to core Display: " + e.getMessage());
+                }
+            }
             try {
                 Shop.getPlugin().getLogger().info("Using item display handler - com.snowgears.shop.display.Display");
                 final Class<?> clazz = Class.forName("com.snowgears.shop.display.Display");

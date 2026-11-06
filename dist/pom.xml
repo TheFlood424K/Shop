@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-		 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- parent pom -->
     <parent>
         <artifactId>shop-parent</artifactId>
         <groupId>com.snowgears.shop</groupId>
@@ -17,94 +13,67 @@
     <dependencies>
         <dependency>
             <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-core</artifactId>
-            <version>${project.parent.version}</version>
+            <artifactId>shop-v26_X</artifactId>
+            <version>${revision}</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_14_R1</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_15_R1</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_16_R1</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_16_R2</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_16_R3</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_17_R1</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_18_R1</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_18_R2</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_19_R1</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_19_R2</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_19_R3</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <!-- <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_20_R1</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency> -->
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_20_R2</artifactId>
-            <version>${project.parent.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_20_R3</artifactId>
-            <version>${project.parent.version}</version>
+            <artifactId>shop-v1_21_R1</artifactId>
+            <version>${revision}</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.snowgears.shop</groupId>
             <artifactId>shop-v1_20_R4</artifactId>
-            <version>${project.parent.version}</version>
+            <version>${revision}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.snowgears.shop</groupId>
+            <artifactId>shop-v1_19_R3</artifactId>
+            <version>${revision}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.snowgears.shop</groupId>
+            <artifactId>shop-v1_18_R2</artifactId>
+            <version>${revision}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.snowgears.shop</groupId>
+            <artifactId>shop-v1_17_R1</artifactId>
+            <version>${revision}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.snowgears.shop</groupId>
+            <artifactId>shop-v1_16_R3</artifactId>
+            <version>${revision}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.snowgears.shop</groupId>
+            <artifactId>shop-v1_15_R1</artifactId>
+            <version>${revision}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.snowgears.shop</groupId>
+            <artifactId>shop-v1_14_R1</artifactId>
+            <version>${revision}</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 
     <build>
         <directory>../target</directory>
-        <finalName>Shop-${project.version}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.4</version>
+                <version>3.6.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -115,22 +84,14 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <artifactSet>
                                 <includes>
-                                    <include>com.snowgears.shop:shop-*</include>
+                                    <include>com.snowgears.shop:shop-core</include>
+                                    <include>com.snowgears.shop:shop-v*</include>
                                 </includes>
                             </artifactSet>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
-
 </project>

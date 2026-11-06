@@ -1,67 +1,111 @@
-# Stage 1: Build older versions with jdk13
-FROM adoptopenjdk:13-jdk-hotspot as jdk13
+# Stage 1: Build older versions with jdk13 (latest minor per major)
+FROM adoptopenjdk:13-jdk-hotspot AS jdk13
 
-# Set working directory
 WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y wget git
+RUN apt-get update && apt-get install -y wget git ca-certificates ca-certificates-java > /dev/null 2>&1 && update-ca-certificates -f
 
-# Download the latest BuildTools.jar from SpigotMC
-RUN wget -O BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+RUN wget -q -O BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 
-RUN java -jar BuildTools.jar --rev 1.14.4 && \
-    java -jar BuildTools.jar --rev 1.15.2 && \
-    java -jar BuildTools.jar --rev 1.16.1 && \
-    java -jar BuildTools.jar --rev 1.16.3 && \
-    java -jar BuildTools.jar --rev 1.16.5 && \
-    rm -r /app/*
+RUN for rev in 1.14.4 1.15.2 1.16.5; do \
+      echo "Building Spigot $rev..."; \
+      success=false; \
+      for i in 1 2 3; do \
+        if java -jar BuildTools.jar --rev $rev > build.log 2>&1; then \
+          success=true; \
+          break; \
+        fi; \
+        echo "Build failed for $rev on attempt $i, retrying in 10s..."; \
+        sleep 10; \
+      done; \
+      if [ "$success" = false ]; then \
+        cat build.log; \
+        exit 1; \
+      fi; \
+    done && rm -r /app/*
 
-# Stage 2: Build older versions with JDK17
-FROM openjdk:17-slim as jdk17
+# Stage 2: Build older versions with JDK 17 (Temurin) (latest minor per major)
+FROM eclipse-temurin:17-jdk-jammy AS jdk17
 
 COPY --from=jdk13 /root/.m2 /root/.m2
 
 WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y wget git
+RUN apt-get update && apt-get install -y wget git > /dev/null 2>&1
 
-# Download the latest BuildTools.jar from SpigotMC
-RUN wget -O BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+RUN wget -q -O BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 
-# Build our Spigot jar files
-RUN java -jar BuildTools.jar --remapped --rev 1.17.1 && \
-    java -jar BuildTools.jar --remapped --rev 1.18 && \
-    java -jar BuildTools.jar --remapped --rev 1.18.2 && \
-    java -jar BuildTools.jar --remapped --rev 1.19 && \
-    java -jar BuildTools.jar --remapped --rev 1.19.3 && \
-    java -jar BuildTools.jar --remapped --rev 1.19.4 && \
-    java -jar BuildTools.jar --remapped --rev 1.20 && \
-    java -jar BuildTools.jar --remapped --rev 1.20.2 && \
-    java -jar BuildTools.jar --remapped --rev 1.20.4 && \
-    rm -r /app/*
+RUN for rev in 1.17.1 1.18.2 1.19.4 1.20.4; do \
+      echo "Building Spigot $rev (remapped)..."; \
+      success=false; \
+      for i in 1 2 3; do \
+        if java -jar BuildTools.jar --remapped --rev $rev > build.log 2>&1; then \
+          success=true; \
+          break; \
+        fi; \
+        echo "Build failed for $rev on attempt $i, retrying in 10s..."; \
+        sleep 10; \
+      done; \
+      if [ "$success" = false ]; then \
+        cat build.log; \
+        exit 1; \
+      fi; \
+    done && rm -r /app/*
 
-# Stage 3: Build current versions with JDK21
-FROM openjdk:21-slim as jdk21
+# Stage 3: Build versions with JDK 21 (Temurin) (latest minor per major)
+FROM eclipse-temurin:21-jdk-jammy AS jdk21
 
 COPY --from=jdk17 /root/.m2 /root/.m2
 
 WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y wget git
+RUN apt-get update && apt-get install -y wget git > /dev/null 2>&1
 
-# Download the latest BuildTools.jar from SpigotMC
-RUN wget -O BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+RUN wget -q -O BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 
-# Build our Spigot jar files
-RUN java -jar BuildTools.jar --remapped --rev 1.20.6 && \
-    java -jar BuildTools.jar --remapped --rev 1.21 && \
-    java -jar BuildTools.jar --remapped --rev 1.21.1 && \
-    rm -r /app/*
+RUN for rev in 1.20.6 1.21.1; do \
+      echo "Building Spigot $rev (remapped)..."; \
+      success=false; \
+      for i in 1 2 3; do \
+        if java -jar BuildTools.jar --remapped --rev $rev > build.log 2>&1; then \
+          success=true; \
+          break; \
+        fi; \
+        echo "Build failed for $rev on attempt $i, retrying in 10s..."; \
+        sleep 10; \
+      done; \
+      if [ "$success" = false ]; then \
+        cat build.log; \
+        exit 1; \
+      fi; \
+    done && rm -r /app/*
 
-# Keep container running
+# Stage 4: Build Minecraft 26.x with JDK 25 (Temurin)
+FROM eclipse-temurin:25-jdk-jammy AS jdk25
+
+COPY --from=jdk21 /root/.m2 /root/.m2
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y wget git > /dev/null 2>&1
+
+RUN wget -q -O BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+
+RUN for rev in 26.1.2 26.2 26.3; do \
+      echo "Building Spigot $rev..."; \
+      success=false; \
+      for i in 1 2 3; do \
+        if java -jar BuildTools.jar --rev $rev > build.log 2>&1; then \
+          success=true; \
+          break; \
+        fi; \
+        echo "Build failed for $rev on attempt $i, retrying in 10s..."; \
+        sleep 10; \
+      done; \
+      if [ "$success" = false ]; then \
+        cat build.log; \
+        exit 1; \
+      fi; \
+    done && rm -r /app/*
+
 CMD ["sleep", "infinity"]
-
-

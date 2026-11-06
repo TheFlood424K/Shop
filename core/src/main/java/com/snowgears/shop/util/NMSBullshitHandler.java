@@ -40,14 +40,24 @@ public class NMSBullshitHandler {
             return;
         }
 
+        String bukkitVersion = org.bukkit.Bukkit.getBukkitVersion();
+        // Handle Minecraft 26.x (forward compatible)
+        if (bukkitVersion != null && bukkitVersion.matches(".*26\\..*")) {
+            serverVersion = 260.0D;
+        }
+
         // Check if we are on Paper 1.20.5 or later, it will not include the CB relocation version (i.e. "1_20_R3")
         if (!mcVersion.equals("org.bukkit.craftbukkit")) {
-            Shop.getPlugin().getLogger().warning("Minecraft version is old or Spigot, loaded version is: " + mcVersion);
+            if (bukkitVersion != null && bukkitVersion.matches(".*26\\..*")) {
+                // For 26.x on Paper/Spigot with new mappings, treat as modern
+            } else {
+                Shop.getPlugin().getLogger().warning("Minecraft version is old or Spigot, loaded version is: " + mcVersion);
 
-            String[] mcVersionSplit = mcVersion.replace(".", ",").split(",");
-            // Convert mcVersion into a number like 120.4 (1_20_R4) or 121.1 (1_21_R1) so that we can use it later
-            String versionNumberString = mcVersionSplit[mcVersionSplit.length-1].replace("_R", ".").replaceAll("[rvV_]*", "");
-            serverVersion = Double.parseDouble(versionNumberString);
+                String[] mcVersionSplit = mcVersion.replace(".", ",").split(",");
+                // Convert mcVersion into a number like 120.4 (1_20_R4) or 121.1 (1_21_R1) so that we can use it later
+                String versionNumberString = mcVersionSplit[mcVersionSplit.length-1].replace("_R", ".").replaceAll("[rvV_]*", "");
+                serverVersion = Double.parseDouble(versionNumberString);
+            }
         }
 
         // log the server version we are on, it will be 0 when we are on a Paper server

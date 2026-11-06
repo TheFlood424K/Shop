@@ -16,32 +16,35 @@ jobs:
       checks: write
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4.2.2
       with:
         fetch-depth: 0  # Fetch all history for all branches and tags
       
     - name: Set up JDK
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4.2.1
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
 
-    - name: Cache Maven repository (~/.m2/repository)
-      uses: actions/cache@v3
+    - name: Restore Maven repository cache
+      id: restore-maven-cache
+      uses: actions/cache/restore@v4.2.0
       with:
         path: ~/.m2/repository
-        key: ${{ runner.os }}-maven-jdk21-${{ hashFiles('**/pom.xml') }}
+        key: ${{ runner.os }}-maven-jdk25-mc26.x-${{ hashFiles('**/pom.xml') }}
         restore-keys: |
-          ${{ runner.os }}-maven-jdk21-
+          ${{ runner.os }}-maven-jdk25-mc26.x-
+          ${{ runner.os }}-maven-jdk25-mc26.2-
         
     - name: Cache SpigotBuildTools
-      uses: actions/cache@v3
+      id: spigot-cache
+      uses: actions/cache@v4.2.0
       with:
         path: |
           ./SpigotBuildTools
-        key: ${{ runner.os }}-spigot-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
+        key: ${{ runner.os }}-spigot-mc26.x-v2-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
         restore-keys: |
-          ${{ runner.os }}-spigot-
+          ${{ runner.os }}-spigot-mc26.x-v2-
         
     - name: Compute version with commit hash
       run: |
@@ -58,7 +61,7 @@ jobs:
         echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
         echo "JAR_FILENAME=shop-${NEW_VERSION}.jar" >> $GITHUB_ENV
         
-    - name: Generate Maven toolchains.xml (JDK 21)
+    - name: Generate Maven toolchains.xml (JDK 25)
       run: |
         mkdir -p ~/.m2
         cat > ~/.m2/toolchains.xml <<'EOF'
@@ -67,7 +70,7 @@ jobs:
           <toolchain>
             <type>jdk</type>
             <provides>
-              <version>21</version>
+              <version>25</version>
               <vendor>any</vendor>
             </provides>
             <configuration>
@@ -77,34 +80,89 @@ jobs:
         </toolchains>
         EOF
 
-    - name: Build Maven Repository
+    - name: Build Maven Repository (Minecraft 26.x)
+      if: steps.spigot-cache.outputs.cache-hit != 'true'
       run: |
         chmod +x ./buildMavenRepo.sh
-        ./buildMavenRepo.sh
+        rm -rf ./SpigotBuildTools
+        SPIGOT_REV="26.2" ./buildMavenRepo.sh
+      continue-on-error: false
 
     - name: Install Dynmap API (CI fallback)
       run: |
         chmod +x ./scripts/install-dynmap-api.sh
-        ./scripts/install-dynmap-api.sh
+        ./scripts/install-dynmap-api.sh || true
 
     - name: Install BlockProt API (CI fallback)
       run: |
         chmod +x ./scripts/install-blockprot-api.sh
-        ./scripts/install-blockprot-api.sh
+        ./scripts/install-blockprot-api.sh || true
     
+    - name: Clean failed Maven caches
+      run: |
+        find ~/.m2/repository -name "*.lastUpdated" -delete
+        find ~/.m2/repository -name "_remote.repositories" -delete
+
+    - name: Install Spigot artifacts to local Maven repo
+      run: |
+        mkdir -p ~/.m2/repository
+        for src in ./SpigotBuildTools/repository ./SpigotBuildTools/maven/repository ./SpigotBuildTools/.m2/repository ./SpigotBuildTools/maven/.m2/repository; do
+          if [ -d "$src" ]; then
+            cp -a "$src"/. ~/.m2/repository/ || true
+          fi
+        done
+        find ~/.m2/repository -name "_remote.repositories" -delete || true
+        find ~/.m2/repository -name "*.lastUpdated" -delete || true
+
+        echo "== Spigot 26.2 artifacts in BuildTools tree =="
+        find ./SpigotBuildTools -type f -path "*org/spigotmc/spigot*26.2*" \( -name "*remapped-mojang*.jar" -o -name "*remapped-mojang*.pom" -o -name "spigot-26.2-R0.1-SNAPSHOT.jar" -o -name "spigot-26.2-R0.1-SNAPSHOT.pom" \) 2>/dev/null | sort | head -20 || true
+        echo "== Spigot 26.2 artifacts in local Maven repo =="
+        find ~/.m2/repository/org/spigotmc/spigot -type f -path "*26.2*" 2>/dev/null | sort | head -30 || true
+
+        REMAPPED_JAR=$(find ./SpigotBuildTools ~/.m2/repository/org/spigotmc/spigot -type f -path "*26.2*" -name "*remapped-mojang*.jar" ! -name "*sources*" ! -name "*javadoc*" 2>/dev/null | head -1 || true)
+        BASE_POM=$(find ./SpigotBuildTools ~/.m2/repository/org/spigotmc/spigot -type f -path "*26.2-R0.1-SNAPSHOT*" -name "spigot-26.2-R0.1-SNAPSHOT.pom" 2>/dev/null | head -1 || true)
+        if [ -z "$BASE_POM" ]; then
+          BASE_POM=$(find ./SpigotBuildTools -type f -path "*org/spigotmc/spigot*26.2*R0.1*pom" ! -name "*remapped*" 2>/dev/null | head -1 || true)
+        fi
+        if [ -n "$REMAPPED_JAR" ]; then
+          echo "Installing remapped-mojang classifier from: $REMAPPED_JAR"
+          if [ -n "$BASE_POM" ]; then
+            mvn -B -Dmaven.repo.local=$HOME/.m2/repository install:install-file -Dfile="$REMAPPED_JAR" -DpomFile="$BASE_POM" -Dclassifier=remapped-mojang -Dpackaging=jar
+          else
+            mvn -B -Dmaven.repo.local=$HOME/.m2/repository install:install-file -Dfile="$REMAPPED_JAR" -DgroupId=org.spigotmc -DartifactId=spigot -Dversion=26.2-R0.1-SNAPSHOT -Dclassifier=remapped-mojang -Dpackaging=jar
+          fi
+        else
+          echo "WARNING: remapped-mojang 26.2 jar not found under ./SpigotBuildTools or ~/.m2"
+        fi
+
+        BASE_JAR=$(find ./SpigotBuildTools ~/.m2/repository/org/spigotmc/spigot -type f -name "spigot-26.2-R0.1-SNAPSHOT.jar" 2>/dev/null | head -1 || true)
+        if [ -n "$BASE_JAR" ] && [ -n "$BASE_POM" ] && [ ! -f "$HOME/.m2/repository/org/spigotmc/spigot/26.2-R0.1-SNAPSHOT/spigot-26.2-R0.1-SNAPSHOT.pom" ]; then
+          mvn -B -Dmaven.repo.local=$HOME/.m2/repository install:install-file -Dfile="$BASE_JAR" -DpomFile="$BASE_POM" -Dpackaging=jar || true
+        fi
+
+        find ~/.m2/repository -name "_remote.repositories" -delete || true
+        find ~/.m2/repository -name "*.lastUpdated" -delete || true
+        echo "== Installed remapped-mojang check =="
+        ls -la "$HOME/.m2/repository/org/spigotmc/spigot/26.2-R0.1-SNAPSHOT" 2>/dev/null | grep remapped-mojang || true
+
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |
-        mvn -B -nsu -Drevision=${{ env.VERSION }} -DskipTests dependency:go-offline
-      # This is an optimization step only. It is known to be overly strict for some optional/provided integrations
-      # (e.g., external plugin APIs with unpublished transitive deps), which can cause spurious CI failures.
-      continue-on-error: true
+        mvn -B -U -Drevision=${{ env.VERSION }} -DskipTests -Dmaven.repo.local=$HOME/.m2/repository dependency:go-offline
+      continue-on-error: false
       
-    - name: Build
-      run: mvn -B -nsu -T 1C -Drevision=${{ env.VERSION }} clean package
+    - name: Build and Test
+      run: mvn -B -U -T 1C -Drevision=${{ env.VERSION }} clean package -Dmaven.repo.local=$HOME/.m2/repository
+
+    - name: Save Maven repository cache
+      if: always() && steps.restore-maven-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4.2.0
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-jdk25-mc26.x-${{ hashFiles('**/pom.xml') }}
 
     - name: Publish Test Results
       if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-      uses: dorny/test-reporter@v1
+      uses: dorny/test-reporter@v1.9.1
       continue-on-error: true
       with:
         name: JUnit Tests
@@ -113,16 +171,6 @@ jobs:
         fail-on-error: false
         fail-on-empty: false
 
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v4
-    #   continue-on-error: true
-    #   with:
-    #     files: '**/target/site/jacoco/jacoco.xml'
-    #     flags: java
-    #     fail_ci_if_error: false
-    #     verbose: true
-    #     # no need for token, it's not required for our use case
-      
     - name: Generate diff-cover report
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       run: |
@@ -132,7 +180,7 @@ jobs:
 
     - name: Upload Artifact
       id: upload-shop-jar
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.6.2
       with:
         name: ${{ env.JAR_FILENAME }}
         path: target/Shop-*.jar
@@ -140,7 +188,7 @@ jobs:
     - name: Upload diff-cover HTML artifact
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       id: upload-diff-cover-report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.6.2
       with:
         name: diff-cover-report.html
         path: scripts/diff-cover.html
@@ -173,13 +221,13 @@ jobs:
 
     - name: Build Summary
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      uses: marocchino/sticky-pull-request-comment@v2
+      uses: marocchino/sticky-pull-request-comment@v2.9.2
       with:
         path: build-summary.md
 
     - name: Comment PR with JaCoCo Coverage Report
       if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-      uses: madrapps/jacoco-report@v1.6.1
+      uses: madrapps/jacoco-report@v1.7.1
       continue-on-error: true
       with:
         paths: |
@@ -193,7 +241,7 @@ jobs:
         fail-emoji: ':small_orange_diamond:'
       
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2.2.2
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: target/Shop-*.jar 
+        files: target/Shop-*.jar

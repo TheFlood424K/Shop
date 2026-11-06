@@ -24,8 +24,8 @@ import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.colorize.Colorizer;
-import net.kyori.adventure.text.minimessage.parser.ElementParser;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
@@ -41,18 +41,18 @@ public class ShopMessage {
 
     private static final Map<String, Function<PlaceholderContext, TextComponent>> placeholders = new HashMap<>();
     // Regex pattern to identify placeholders within square brackets, e.g., [owner]
-    private static final String COLOR_CODE_REGEX = "([&§][0-9A-FK-ORXa-fk-orx])";
+    private static final String COLOR_CODE_REGEX = "([&][0-9A-FK-ORXa-fk-orx])";
     private static final String HEX_CODE_REGEX = "(#[0-9a-fA-F]{6})";
     // Modified placeholder regex to only match real placeholders
-    private static final String PLACEHOLDER_REGEX = "(\\[([^&§#\\[\\]]+)\\])";
-    private static final String TEXT_SEGMENT_REGEX = "([^&§\\[#]+)";
+    private static final String PLACEHOLDER_REGEX = "(\\[([^&#\\[\\]]+)\\])";
+    private static final String TEXT_SEGMENT_REGEX = "([^&\\[#]+)";
     // Add dedicated patterns for brackets to ensure they're matched individually
     private static final String OPEN_BRACKET_REGEX = "(\\[)";
     private static final String CLOSE_BRACKET_REGEX = "(\\])";
-    private static final String MESSAGE_PARTS_REGEX = 
-        COLOR_CODE_REGEX + "|" + 
-        HEX_CODE_REGEX + "|" + 
-        PLACEHOLDER_REGEX + "|" + 
+    private static final String MESSAGE_PARTS_REGEX =
+        COLOR_CODE_REGEX + "|" +
+        HEX_CODE_REGEX + "|" +
+        PLACEHOLDER_REGEX + "|" +
         OPEN_BRACKET_REGEX + "|" +  // Match opening bracket
         CLOSE_BRACKET_REGEX + "|" +  // Match closing bracket
         TEXT_SEGMENT_REGEX + "|" +  // Match text segments
@@ -146,14 +146,19 @@ public class ShopMessage {
                     TextComponent replacement = valueFunction.apply(context);
                     if (replacement != null) {
                         String replacementText = replacement.toLegacyText();
-                        matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
+                        // For location placeholder in messages, ensure it's properly formatted
+                        if (placeholderKey.equalsIgnoreCase("location")) {
+                            matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
+                        } else {
+                            matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
+                        }
                         continue;
                     }
                 } catch (Exception e) {
                     Bukkit.getLogger().severe("Error replacing placeholder '" + placeholderKey + "': " + e.getMessage());
                 }
             }
-            matcher.appendReplacement(result, "");
+            matcher.appendReplacement(result, Matcher.quoteReplacement(placeholderWithBrackets));
         }
         matcher.appendTail(result);
         return result.toString();
@@ -162,7 +167,7 @@ public class ShopMessage {
     /**
      * Gets the ChatColor from a string, supporting both legacy color codes and hex colors.
      *
-     * @param color The color string to parse (e.g., "&a", "§a", or "#FF0000")
+     * @param color The color string to parse (e.g., "&a", "&a", or "#FF0000")
      * @return The corresponding ChatColor, or null if no color is found
      */
     public static ChatColor getColor(String color) {
@@ -186,9 +191,22 @@ public class ShopMessage {
         if (message == null) { return new TextComponent(""); }
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
-        // Check if the message contains MiniMessage syntax (contains <tags>)
-        // MiniMessage is backward compatible with &/§ color codes, so we can use it as the primary formatter
-        boolean hasMiniMessageSyntax = message != null && message.contains("<");
+        // Check if the message contains MiniMessage syntax (contains actual MiniMessage tags, not just < > around placeholders)
+        boolean hasMiniMessageSyntax = false;
+        if (message != null && message.contains("<")) {
+            // Check for actual MiniMessage tags like <red>, <bold>, <#hex>, </tag>, etc.
+            // Exclude angle brackets around placeholders like <[location]>
+            java.util.regex.Pattern miniTagPattern = java.util.regex.Pattern.compile("<(/?[a-zA-Z][a-zA-Z0-9_-]*(?::[^>]*)?|#[0-9a-fA-F]{6}|[a-zA-Z][a-zA-Z0-9_-]*)>");
+            java.util.regex.Matcher miniTagMatcher = miniTagPattern.matcher(message);
+            while (miniTagMatcher.find()) {
+                String tag = miniTagMatcher.group(1);
+                if (tag != null && tag.startsWith("[") && tag.endsWith("]")) {
+                    continue;
+                }
+                hasMiniMessageSyntax = true;
+                break;
+            }
+        }
 
         ChatColor latestColor = null;
         boolean addedText = false;
@@ -200,8 +218,10 @@ public class ShopMessage {
         boolean isObfuscated = false;
 
         if (hasMiniMessageSyntax) {
+            // Escape invalid MiniMessage tags before parsing
+            String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
-            String processedMessage = replacePlaceholdersForMiniMessage(message, context);
+            String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
             try {
                 // Use MiniMessage for formatting
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
@@ -231,9 +251,9 @@ public class ShopMessage {
             isObfuscated = false;
 
             for (String part : parts) {
-            plugin.getLogger().spam("\n\n");
-            plugin.getLogger().trace("[ShopMessage.format] part: " + part);
-            TextComponent partComponent = new TextComponent(part);
+                plugin.getLogger().spam("\n\n");
+                plugin.getLogger().trace("[ShopMessage.format] part: " + part);
+                TextComponent partComponent = new TextComponent(part);
 
             // Check if we are a color code
             if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
@@ -254,9 +274,9 @@ public class ShopMessage {
                             isUnderlined = false;
                             isObfuscated = false;
                             if (formattedMessage == null) {
-                                formattedMessage = new TextComponent("§r");
+                                formattedMessage = new TextComponent("&r");
                             } else {
-                                formattedMessage.addExtra("§r");
+                                formattedMessage.addExtra("&r");
                             }
                             addedText = true;
                         } else {
@@ -304,21 +324,21 @@ public class ShopMessage {
                 // Add the part of the string to the
                 formattedMessage.addExtra(partComponent);
             }
-            addedText = true;
-            plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
-        }
+                addedText = true;
+                plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
+            } // <-- Closes the for (String part : parts) loop
+        } // <-- Closes if (!hasMiniMessageSyntax || formattedMessage == null)
 
         // Handle if we are just a color code with an empty string
         if (formattedMessage == null) formattedMessage = new TextComponent("");
         if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
-
-        plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
+        plugin.getLogger().spam("[ShopMessage] postFormat: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
         return formattedMessage;
     }
 
     /**
      * Formats a message using MiniMessage syntax, supporting advanced formatting
-     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code §} codes.
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code &} codes.
      *
      * @param message The message in MiniMessage format (e.g., "<red>Hello</red>" or "<#FF0000>Hello</#FF0000>")
      * @param context The PlaceholderContext instance containing Shop and Player
@@ -330,9 +350,10 @@ public class ShopMessage {
         plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         try {
+            // Escape invalid MiniMessage tags before parsing
+            String escapedMessage = escapeInvalidMiniMessageTags(message);
             // Replace placeholders before MiniMessage parsing
-            String processedMessage = replacePlaceholdersForMiniMessage(message, context);
-            // MiniMessage supports both legacy & codes and its own syntax
+            String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
             Component miniMessageComponent = miniMessage.deserialize(processedMessage);
             formattedMessage = textComponentFromComponent(miniMessageComponent);
         } catch (Exception e) {
@@ -358,7 +379,7 @@ public class ShopMessage {
             plugin.getLogger().debug("Error details: ", e);
             // Notify the user that hover events were disabled
             try {
-                player.spigot().sendMessage(new TextComponent("§cHover events disabled due to message error"));
+                player.spigot().sendMessage(new TextComponent("&cHover events disabled due to message error"));
             } catch (Exception ex) {
                 plugin.getLogger().debug("Failed to send hover disable notification to player", ex);
             }
@@ -459,7 +480,7 @@ public class ShopMessage {
 
     /**
      * Formats a message using MiniMessage syntax, supporting advanced formatting
-     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code §} codes.
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code &} codes.
      *
      * @param message The message in MiniMessage format
      * @param player The player to send the message to
@@ -544,7 +565,11 @@ public class ShopMessage {
             if (loc == null) return null;
             TextComponent text = new TextComponent(UtilMethods.getCleanLocation(loc, false));
             if (context.getProcess() == null && context.getShop() == null) return text;
-            text.setHoverEvent(getShopInfoHoverEvent(context));
+            try {
+                text.setHoverEvent(getShopInfoHoverEvent(context));
+            } catch (Exception e) {
+                // ignore
+            }
             return text;
         });
 
@@ -691,7 +716,16 @@ public class ShopMessage {
      */
     public static BaseComponent componentFromLegacy(String text) {
         try {
-            return TextComponent.fromLegacy(text);
+            // Use Bungee's fromLegacyText for compatibility
+            BaseComponent[] components = TextComponent.fromLegacyText(text);
+            if (components.length == 1) {
+                return components[0];
+            }
+            TextComponent newComponent = new TextComponent();
+            for (BaseComponent component : components) {
+                newComponent.addExtra(component);
+            }
+            return newComponent;
         } catch (NoSuchMethodError e) {
             // Likely running on <1.20 which doesn't have `.fromLegacy()` function
             BaseComponent[] components = TextComponent.fromLegacyText(text);
@@ -711,33 +745,12 @@ public class ShopMessage {
         if (component == null) {
             return new TextComponent("");
         }
-
-        String legacyText = component.toLegacyText();
-        TextComponent textComponent = new TextComponent(legacyText);
-
-        net.kyori.adventure.text.format.Style style = component.style();
-        if (style != null) {
-            if (style.color() != null) {
-                try {
-                    textComponent.setColor(ChatColor.of(style.color().asHexString()));
-                } catch (Exception ignored) {
-                }
-            }
-            textComponent.setBold(style.isBold());
-            textComponent.setItalic(style.isItalic());
-            textComponent.setStrikethrough(style.isStrikethrough());
-            textComponent.setUnderlined(style.isUnderlined());
-            textComponent.setObfuscated(style.isObfuscated());
-        }
-
-        for (Component extra : component.children()) {
-            TextComponent extraComponent = textComponentFromComponent(extra);
-            if (extraComponent != null && !extraComponent.toLegacyText().isEmpty()) {
-                textComponent.addExtra(extraComponent);
-            }
-        }
-
-        return textComponent;
+        LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
+                .character('§')
+                .hexColors()
+                .build();
+        String legacyText = serializer.serialize(component);
+        return (TextComponent) componentFromLegacy(legacyText);
     }
 
     /**
@@ -1054,7 +1067,7 @@ public class ShopMessage {
         context.setShop(shop);
         TextComponent formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
+        return ChatColor.translateAlternateColorCodes('&', formattedMessage.toLegacyText());
     }
 
     /**
@@ -1073,7 +1086,7 @@ public class ShopMessage {
         context.setForSign(forSign);
         TextComponent formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
+        return ChatColor.translateAlternateColorCodes('&', formattedMessage.toLegacyText());
     }
 
     /**
@@ -1484,6 +1497,85 @@ public class ShopMessage {
             creationWords.put("COMBO", comboString.toLowerCase());
         else
             creationWords.put("COMBO", "combo");
+    }
+
+    /**
+     * Escapes angle brackets that are not valid MiniMessage tags.
+     * Valid tags are like <red>, </red>, <bold>, <#FF0000>, etc.
+     * Invalid tags like <(54, 65, 9)> are escaped to be literal text.
+     */
+    private static String escapeInvalidMiniMessageTags(String message) {
+        if (message == null) {
+            return null;
+        }
+        // First, protect placeholders wrapped in angle brackets like <[location]>
+        Pattern placeholderAngleBracketPattern = Pattern.compile("<(\\[[^\\[\\]]+\\])>");
+        Matcher pabMatcher = placeholderAngleBracketPattern.matcher(message);
+        StringBuffer protectedMessage = new StringBuffer();
+        while (pabMatcher.find()) {
+            pabMatcher.appendReplacement(protectedMessage, Matcher.quoteReplacement("§§PLACEHOLDER_ANGLE_START§§" + pabMatcher.group(1) + "§§PLACEHOLDER_ANGLE_END§§"));
+        }
+        pabMatcher.appendTail(protectedMessage);
+        message = protectedMessage.toString();
+        
+        // Pattern for valid MiniMessage tags: <tag> or </tag> or <tag:param> etc
+        Pattern tagPattern = Pattern.compile("<(/?[a-zA-Z][a-zA-Z0-9_-]*(?::[^>]*)?)>");
+        Matcher matcher = tagPattern.matcher(message);
+        StringBuffer result = new StringBuffer();
+        int lastEnd = 0;
+        while (matcher.find()) {
+            if (matcher.start() > lastEnd) {
+                String before = message.substring(lastEnd, matcher.start());
+                before = before.replace("<", "&#60;").replace(">", "&#62;");
+                result.append(before);
+            }
+            String tagContent = matcher.group(1);
+            if (isValidMiniMessageTag(tagContent)) {
+                result.append(matcher.group());
+            } else {
+                result.append(matcher.group().replace("<", "&#60;").replace(">", "&#62;"));
+            }
+            lastEnd = matcher.end();
+        }
+        if (lastEnd < message.length()) {
+            String after = message.substring(lastEnd);
+            after = after.replace("<", "&#60;").replace(">", "&#62;");
+            result.append(after);
+        }
+        String escaped = result.toString();
+        // Restore protected placeholders
+        escaped = escaped.replace("§§PLACEHOLDER_ANGLE_START§§", "<").replace("§§PLACEHOLDER_ANGLE_END§§", ">");
+        return escaped;
+    }
+
+    private static boolean isValidMiniMessageTag(String tagContent) {
+        if (tagContent == null || tagContent.isEmpty()) {
+            return false;
+        }
+        String content = tagContent;
+        if (content.startsWith("/")) {
+            content = content.substring(1);
+        }
+        if (content.matches("#[0-9a-fA-F]{6}")) {
+            return true;
+        }
+        if (content.matches("[a-zA-Z][a-zA-Z0-9_-]*(?::.*)?")) {
+            return true;
+        }
+        if (content.equals("reset") || content.equals("r")) {
+            return true;
+        }
+        // Common MiniMessage tags
+        if (content.equals("black") || content.equals("dark_blue") || content.equals("dark_green") || content.equals("dark_aqua") ||
+            content.equals("dark_red") || content.equals("dark_purple") || content.equals("gold") || content.equals("gray") ||
+            content.equals("dark_gray") || content.equals("blue") || content.equals("green") || content.equals("aqua") ||
+            content.equals("red") || content.equals("light_purple") || content.equals("yellow") || content.equals("white") ||
+            content.equals("bold") || content.equals("b") || content.equals("italic") || content.equals("i") ||
+            content.equals("underlined") || content.equals("u") || content.equals("strikethrough") || content.equals("st") ||
+            content.equals("obfuscated") || content.equals("obf")) {
+            return true;
+        }
+        return false;
     }
 
     /**
