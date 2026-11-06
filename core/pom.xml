@@ -15,8 +15,7 @@
     <artifactId>shop-core</artifactId>
 
     <properties>
-        <!-- Minecraft 26.2 Server APIs -->
-        <paper.version>26.2.build.90-stable</paper.version>
+        <!-- Minecraft 26.2 Server APIs (paper.version inherited from root for 26.x modules) -->
         <spigot.version>26.2-R0.1-SNAPSHOT</spigot.version>
         <fastutil.version>8.5.19</fastutil.version>
         <datafixerupper.version>8.0.16</datafixerupper.version>
