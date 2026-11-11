@@ -646,7 +646,7 @@ public class UtilMethods {
             String fallback = ItemNameUtil.readableName(registryPath != null
                     ? registryPath
                     : ItemNameUtil.translationKeyPath(effectType.translationKey()));
-            component = component.fallback(Component.text(fallback.isEmpty() ? "Potion Effect" : fallback));
+            component = component.fallback(fallback.isEmpty() ? "Potion Effect" : fallback);
             formattedEffects = formattedEffects.append(component);
             
             // Show level for all potions, not just those with amplifier > 0

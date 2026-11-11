@@ -87,7 +87,7 @@ public class ItemNameUtil {
 
     public static Component getNameTranslatable(Material material){
         TranslatableComponent component = Component.translatable(material.translationKey());
-        component = component.fallback(Component.text(PlainTextComponentSerializer.plainText().serialize(readableName(material.name()))));
+        component = component.fallback(PlainTextComponentSerializer.plainText().serialize(readableName(material.name())));
         return component;
     }
 
@@ -102,7 +102,7 @@ public class ItemNameUtil {
             if (isBlank(fallback)) {
                 fallback = readableName(translationKeyPath(translatable.key()));
             }
-            component = component.fallback(Component.text(isBlank(fallback) ? "Enchantment" : fallback));
+            component = component.fallback(isBlank(fallback) ? "Enchantment" : fallback);
             return component;
         }
 
