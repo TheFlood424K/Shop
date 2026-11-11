@@ -10,6 +10,8 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.block.BlockFace;
 import java.util.Collections;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.DisplayType;
 import com.snowgears.shop.util.CurrencyType;
@@ -91,9 +93,16 @@ public abstract class BaseMockBukkitTest {
 
     protected static String waitForNextMessage(PlayerMock player) {
         String nextMessage = null;
-        int attempts = 0;   
+        int attempts = 0;
         while (nextMessage == null && attempts < 1000) {
             nextMessage = player.nextMessage();
+            if (nextMessage == null) {
+                // Also check for Adventure Component messages (sent via sendMessage(Component))
+                Component component = player.nextComponentMessage();
+                if (component != null) {
+                    nextMessage = LegacyComponentSerializer.legacy('&').serialize(component);
+                }
+            }
             if (nextMessage == null) {
                 server.getScheduler().performTicks(1);
                 attempts++;
