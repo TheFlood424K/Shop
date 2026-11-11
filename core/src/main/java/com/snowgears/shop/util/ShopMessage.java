@@ -349,7 +349,26 @@ public class ShopMessage {
      */
     private static net.kyori.adventure.text.format.TextColor toAdventureColor(ChatColor chatColor) {
         if (chatColor == null) { return null; }
-        return net.kyori.adventure.text.format.TextColor.color(chatColor.getColor());
+        // ChatColor.getColor() is not available in Paper 26.2; map manually to hex
+        return switch (chatColor) {
+            case WHITE -> TextColor.color(0xFFFFFF);
+            case AQUA -> TextColor.color(0x55FFFF);
+            case YELLOW -> TextColor.color(0xFFFF55);
+            case GREEN -> TextColor.color(0x55AA55);
+            case DARK_GREEN -> TextColor.color(0x005500);
+            case DARK_AQUA -> TextColor.color(0x55AAAA);
+            case DARK_RED -> TextColor.color(0xAA0000);
+            case DARK_PURPLE -> TextColor.color(0xAA00AA);
+            case GOLD -> TextColor.color(0xFFAA00);
+            case BLUE -> TextColor.color(0x5555FF);
+            case DARK_BLUE -> TextColor.color(0x0000AA);
+            case LIGHT_PURPLE -> TextColor.color(0xFFAAFF);
+            case GRAY -> TextColor.color(0xAAAAAA);
+            case DARK_GRAY -> TextColor.color(0x555555);
+            case BLACK -> TextColor.color(0x000000);
+            case RED -> TextColor.color(0xFF5555);
+            default -> TextColor.color(0xFFFFFF);
+        };
     }
 
     /**
@@ -613,7 +632,7 @@ public class ShopMessage {
             return null; 
         });
         registerPlaceholder("[item durability]", context -> { if (context.getShop() != null) { return Component.text(String.valueOf(context.getShop().getItemDurabilityPercent())); } return null; });
-        registerPlaceholder("[item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text("???"); } else { return Component.text(Shop.getPlugin().getItemNameUtil().LegacyComponentSerializer.legacy('&').serialize(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getItemStack().getType()))); } });
+        registerPlaceholder("[item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text("???"); } else { return Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getItemStack().getType()); } });
         registerPlaceholder("[gamble item amount]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text(String.valueOf(context.getShop().getAmount())); } return null; });
         registerPlaceholder("[gamble item]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return embedItem(plugin.getItemNameUtil().getName(plugin.getGambleDisplayItem()), plugin.getGambleDisplayItem()); } return null; });
 
@@ -627,7 +646,7 @@ public class ShopMessage {
         });
         registerPlaceholder("[barter item]", ShopMessage::getBarterItemPlaceholder);
         registerPlaceholder("[barter item durability]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Component.text(String.valueOf(context.getShop().getSecondaryItemDurabilityPercent())); } return null; });
-        registerPlaceholder("[barter item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Component.text(Shop.getPlugin().getItemNameUtil().LegacyComponentSerializer.legacy('&').serialize(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getSecondaryItemStack().getType()))); } return null; });
+        registerPlaceholder("[barter item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getSecondaryItemStack().getType()); } return null; });
         registerPlaceholder("[barter item enchants]", context -> { 
             if (context.getBarterItem() != null) { return embedItem(UtilMethods.getEnchantmentsComponent(context.getBarterItem()), context.getBarterItem()); }
             if (context.getShop() != null && context.getShop().getSecondaryItemStack() != null) { return embedItem(UtilMethods.getEnchantmentsComponent(context.getShop().getSecondaryItemStack()), context.getShop().getSecondaryItemStack()); } 
