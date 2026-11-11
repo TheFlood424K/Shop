@@ -27,7 +27,8 @@ public final class PlayerMessageTestUtil {
             // Also check for Adventure Component messages (sent via sendMessage(Component))
             Component component = player.nextComponentMessage();
             if (component != null) {
-                messages.add(LegacyComponentSerializer.legacy('&').serialize(component));
+                // Serialize with '§' color char to match legacy test assertions
+                messages.add(LegacyComponentSerializer.legacy('§').serialize(component));
                 continue;
             }
             server.getScheduler().performTicks(1);
@@ -41,7 +42,8 @@ public final class PlayerMessageTestUtil {
             }
             Component component = player.nextComponentMessage();
             if (component == null) break;
-            messages.add(LegacyComponentSerializer.legacy('&').serialize(component));
+            // Serialize with '§' color char to match legacy test assertions
+            messages.add(LegacyComponentSerializer.legacy('§').serialize(component));
         }
         return messages;
     }

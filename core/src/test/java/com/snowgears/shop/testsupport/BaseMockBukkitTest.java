@@ -100,7 +100,8 @@ public abstract class BaseMockBukkitTest {
                 // Also check for Adventure Component messages (sent via sendMessage(Component))
                 Component component = player.nextComponentMessage();
                 if (component != null) {
-                    nextMessage = LegacyComponentSerializer.legacy('&').serialize(component);
+                    // Serialize with '§' color char to match legacy test assertions
+                    nextMessage = LegacyComponentSerializer.legacy('§').serialize(component);
                 }
             }
             if (nextMessage == null) {
