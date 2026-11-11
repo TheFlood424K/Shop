@@ -2,8 +2,8 @@ package com.snowgears.shop.util;
 
 import com.snowgears.shop.Shop;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.ClickEvent;
-import net.kyori.adventure.text.HoverEvent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;

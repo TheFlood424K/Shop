@@ -21,8 +21,8 @@ import java.util.regex.Pattern;
 import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.ClickEvent;
-import net.kyori.adventure.text.HoverEvent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -167,18 +167,21 @@ public class ShopMessage {
     }
 
     /**
-     * Gets the ChatColor from a string, supporting both legacy color codes and hex colors.
+     * Gets the Adventure TextColor from a string, supporting both legacy color codes and hex colors.
      *
      * @param color The color string to parse (e.g., "&a", "&a", or "#FF0000")
-     * @return The corresponding ChatColor, or null if no color is found
+     * @return The corresponding TextColor, or null if no color is found
      */
-    public static ChatColor getColor(String color) {
-        ChatColor newColor = null;
-        if (color.matches(HEX_CODE_REGEX)) { newColor = ChatColor.of(color); }
-        else if (color.matches(COLOR_CODE_REGEX)) {
-            newColor = ChatColor.getByChar(color.charAt(1));
+    public static TextColor getColor(String color) {
+        if (color.matches(HEX_CODE_REGEX)) {
+            return TextColor.color(Integer.parseInt(color.substring(1), 16));
+        } else if (color.matches(COLOR_CODE_REGEX)) {
+            ChatColor bukkitColor = ChatColor.getByChar(color.charAt(1));
+            if (bukkitColor != null) {
+                return toAdventureColor(bukkitColor);
+            }
         }
-        return newColor;
+        return null;
     }
 
     /**
@@ -210,7 +213,7 @@ public class ShopMessage {
             }
         }
 
-        ChatColor latestColor = null;
+        TextColor latestColor = null;
         boolean addedText = false;
 
         boolean isBold = false;
@@ -257,37 +260,34 @@ public class ShopMessage {
                 plugin.getLogger().trace("[ShopMessage.format] part: " + part);
                 Component partComponent = Component.text(part);
 
+            // Check if we are a formatting code (bold, italic, etc.) — handle before color parsing
+            if (part.length() == 2 && part.charAt(0) == '&') {
+                char fmtCode = part.charAt(1);
+                if (fmtCode == 'l' || fmtCode == 'L') { isBold = true; continue; }
+                if (fmtCode == 'm' || fmtCode == 'M') { isStrikethrough = true; continue; }
+                if (fmtCode == 'n' || fmtCode == 'N') { isUnderlined = true; continue; }
+                if (fmtCode == 'o' || fmtCode == 'O') { isItalic = true; continue; }
+                if (fmtCode == 'k' || fmtCode == 'K') { isObfuscated = true; continue; }
+                if (fmtCode == 'r' || fmtCode == 'R') {
+                    latestColor = TextColor.WHITE;
+                    isBold = false; isItalic = false; isStrikethrough = false;
+                    isUnderlined = false; isObfuscated = false;
+                    if (formattedMessage == null) { formattedMessage = Component.empty(); }
+                    else { formattedMessage = formattedMessage.append(Component.empty()); }
+                    addedText = true;
+                    continue;
+                }
+            }
+
             // Check if we are a color code
             if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
                 try {
-                    ChatColor newColor = getColor(part);
+                    TextColor newColor = getColor(part);
                     if (newColor != null) {
-                        if (newColor == ChatColor.BOLD) isBold = true;
-                        else if (newColor == ChatColor.ITALIC) isItalic = true;
-                        else if (newColor == ChatColor.STRIKETHROUGH) isStrikethrough = true;
-                        else if (newColor == ChatColor.UNDERLINE) isUnderlined = true;
-                        else if (newColor == ChatColor.MAGIC) isObfuscated = true;
-                        else if (newColor == ChatColor.RESET) {
-                            plugin.getLogger().hyper("[ShopMessage.format]     matched RESET color code: " + part);
-                            latestColor = ChatColor.WHITE;
-                            isBold = false;
-                            isItalic = false;
-                            isStrikethrough = false;
-                            isUnderlined = false;
-                            isObfuscated = false;
-                            if (formattedMessage == null) {
-                                formattedMessage = Component.empty();
-                            } else {
-                                formattedMessage = formattedMessage.append(Component.empty());
-                            }
-                            addedText = true;
-                        } else {
-                            latestColor = newColor;
-                        }
+                        latestColor = newColor;
                     }
                     plugin.getLogger().hyper("[ShopMessage.format]     matched COLOR_CODE_REGEX: " + part);
-                    plugin.getLogger().hyper("[ShopMessage.format]     newColor: " + newColor.toString());
-                    plugin.getLogger().hyper("[ShopMessage.format] *** skipping to next part: " + newColor.getName().toUpperCase());
+                    plugin.getLogger().hyper("[ShopMessage.format]     newColor: " + newColor);
                     plugin.getLogger().hyper("[ShopMessage.format]     isBold: " + isBold + " isItalic: " + isItalic + " isStrikethrough: " + isStrikethrough + " isUnderlined: " + isUnderlined + " isObfuscated: " + isObfuscated);
                     continue; // Don't add this text to the message, just go to the next part
                 } catch (Exception e) {
@@ -305,10 +305,9 @@ public class ShopMessage {
                     // Check if we set a color inside our part (for example [stock color])
                     net.kyori.adventure.text.format.TextColor partColor = partComponent.color().orElse(null);
                     if (partColor != null && latestColor != null) {
-                        ChatColor partChatColor = ChatColor.of(partColor.asHexString());
-                        if (partChatColor != latestColor && partChatColor != ChatColor.WHITE) { 
-                            plugin.getLogger().hyper("[ShopMessage.format]     getting latestColor from partComponent: " + partChatColor.getName().toUpperCase());
-                            latestColor = partChatColor; 
+                        if (!partColor.equals(latestColor) && partColor != TextColor.WHITE) {
+                            plugin.getLogger().hyper("[ShopMessage.format]     getting latestColor from partComponent: " + partColor);
+                            latestColor = partColor;
                         }
                     }
                 }
@@ -316,8 +315,8 @@ public class ShopMessage {
 
             // Set the color
             if (latestColor != null) {
-                plugin.getLogger().hyper("[ShopMessage.format]     setting part color to: " + latestColor.getName().toUpperCase());
-                partComponent = partComponent.color(toAdventureColor(latestColor));
+                plugin.getLogger().hyper("[ShopMessage.format]     setting part color to: " + latestColor);
+                partComponent = partComponent.color(latestColor);
             }
             if (isBold) partComponent = partComponent.decoration(TextDecoration.BOLD, true);
             if (isItalic) partComponent = partComponent.decoration(TextDecoration.ITALIC, true);
@@ -337,7 +336,7 @@ public class ShopMessage {
 
         // Handle if we are just a color code with an empty string
         if (formattedMessage == null) formattedMessage = Component.empty();
-        if (!addedText && latestColor != null) formattedMessage = formattedMessage.color(toAdventureColor(latestColor));
+        if (!addedText && latestColor != null) formattedMessage = formattedMessage.color(latestColor);
         plugin.getLogger().spam("[ShopMessage] postFormat: " + (formattedMessage != null ? LegacyComponentSerializer.legacy('&').serialize(formattedMessage) : ""), true);
         return formattedMessage;
     }
@@ -614,7 +613,7 @@ public class ShopMessage {
             return null; 
         });
         registerPlaceholder("[item durability]", context -> { if (context.getShop() != null) { return Component.text(String.valueOf(context.getShop().getItemDurabilityPercent())); } return null; });
-        registerPlaceholder("[item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text("???"); } else { return Component.text(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getItemStack().getType()).toLegacyText()); } });
+        registerPlaceholder("[item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text("???"); } else { return Component.text(Shop.getPlugin().getItemNameUtil().LegacyComponentSerializer.legacy('&').serialize(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getItemStack().getType()))); } });
         registerPlaceholder("[gamble item amount]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text(String.valueOf(context.getShop().getAmount())); } return null; });
         registerPlaceholder("[gamble item]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return embedItem(plugin.getItemNameUtil().getName(plugin.getGambleDisplayItem()), plugin.getGambleDisplayItem()); } return null; });
 
@@ -628,7 +627,7 @@ public class ShopMessage {
         });
         registerPlaceholder("[barter item]", ShopMessage::getBarterItemPlaceholder);
         registerPlaceholder("[barter item durability]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Component.text(String.valueOf(context.getShop().getSecondaryItemDurabilityPercent())); } return null; });
-        registerPlaceholder("[barter item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Component.text(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getSecondaryItemStack().getType()).toLegacyText()); } return null; });
+        registerPlaceholder("[barter item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Component.text(Shop.getPlugin().getItemNameUtil().LegacyComponentSerializer.legacy('&').serialize(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getSecondaryItemStack().getType()))); } return null; });
         registerPlaceholder("[barter item enchants]", context -> { 
             if (context.getBarterItem() != null) { return embedItem(UtilMethods.getEnchantmentsComponent(context.getBarterItem()), context.getBarterItem()); }
             if (context.getShop() != null && context.getShop().getSecondaryItemStack() != null) { return embedItem(UtilMethods.getEnchantmentsComponent(context.getShop().getSecondaryItemStack()), context.getShop().getSecondaryItemStack()); } 

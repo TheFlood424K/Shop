@@ -24,6 +24,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import com.tcoded.folialib.FoliaLib;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.io.File;
 import java.io.IOException;
@@ -505,7 +506,7 @@ public class Shop extends JavaPlugin {
                 getServer().getPluginManager().disablePlugin(plugin);
                 return;
             }
-            this.getLogger().info("Shops will use " + itemNameUtil.getName(itemCurrency).toPlainText() + "(s) as the currency on the server.");
+            this.getLogger().info("Shops will use " + PlainTextComponentSerializer.plainText().serialize(itemNameUtil.getName(itemCurrency)) + "(s) as the currency on the server.");
         }
 
         // Load CommandHandler by initializing it once

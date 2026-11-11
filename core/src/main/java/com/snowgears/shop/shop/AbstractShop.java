@@ -25,6 +25,8 @@ import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.*;
 
@@ -480,7 +482,7 @@ public abstract class AbstractShop {
      */
     public String getPriceString() {
         if(this.type == ShopType.BARTER && this.isInitialized()){
-            return (int)this.getPrice() + " " + Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()).toPlainText();
+            return (int)this.getPrice() + " " + PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()));
         }
         return Shop.getPlugin().getPriceString(this.price, false);
     }
@@ -678,7 +680,7 @@ public abstract class AbstractShop {
             // Add all lore lines
             PlaceholderContext context = new PlaceholderContext();
             context.setShop(this);
-            lore.add(ShopMessage.format(loreLine, context).toLegacyText());
+            lore.add(LegacyComponentSerializer.legacy('&').serialize(ShopMessage.format(loreLine, context)));
         }
 
         ItemMeta iconMeta = guiIcon.getItemMeta();
@@ -980,8 +982,8 @@ public abstract class AbstractShop {
                 ", price=" + price +
                 ", amount=" + amount +
                 ", stock=" + stock +
-                ", item=" + (item != null ? Shop.getPlugin().getItemNameUtil().getName(item).toPlainText() : "null") +
-                (secondaryItem != null ? ", secondaryItem=" + Shop.getPlugin().getItemNameUtil().getName(secondaryItem).toPlainText() : "") +
+                ", item=" + (item != null ? PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(item)) : "null") +
+                (secondaryItem != null ? ", secondaryItem=" + PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(secondaryItem)) : "") +
                 ", id=" + (this.getId() != null ? this.getId().toString().substring(0, Math.min(5, this.getId().toString().length())) : "null") +
                 ", filename=" + this.getOwnerUUID() + ".yml" +
                 ", needsSave=" + this.needsSave +

@@ -641,7 +641,7 @@ public class UtilMethods {
         for (int i = 0; i < numEffects; i++) {
             PotionEffect effect = effects.get(i);
             PotionEffectType effectType = effect.getType();
-            TranslatableComponent component = TranslatableComponent.translatable(effectType.translationKey());
+            TranslatableComponent component = TranslatableComponent.translatable(effectType.translationKey()).build();
             String registryPath = ItemNameUtil.getRegistryKeyPath(RegistryKey.MOB_EFFECT, effectType);
             String fallback = ItemNameUtil.readableName(registryPath != null
                     ? registryPath

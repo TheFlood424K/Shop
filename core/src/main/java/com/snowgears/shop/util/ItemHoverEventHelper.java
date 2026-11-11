@@ -31,8 +31,8 @@ public final class ItemHoverEventHelper {
         if (bukkitItem == null) {
             return null;
         }
-        // Use Adventure's built-in showItem which handles Paper item serialization
-        return HoverEvent.showItem(bukkitItem);
+        // Bukkit ItemStack implements HoverEventSource<ShowItem>; Paper serializes it internally
+        return bukkitItem.asHoverEvent(op -> op);
     }
 
     // Legacy fallback kept for API compatibility; delegates to createFrom.
