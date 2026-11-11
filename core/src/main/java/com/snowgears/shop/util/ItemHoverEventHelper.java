@@ -14,17 +14,15 @@ import org.bukkit.inventory.ItemStack;
  * Creates Bungee SHOW_ITEM hover events from a Bukkit ItemStack.
  *
  * Behavior:
- * - Paper 1.20.5+: Uses Paper’s serializeItemAsJson(..) which emits {id,count,components} on modern clients.
- * - Older/Non-Paper: Falls back to legacy NBT using ItemMeta#getAsString() → ItemTag (may miss components).
+ * - Uses Paper's public serialization API, which emits {id,count,components} for modern clients.
+ * - MockBukkit uses the legacy Bungee item content because it does not expose Paper's unsafe serializer.
  *
  * Requirements:
  * - Paper API providing Bukkit.getUnsafe().serializeItemAsJson(ItemStack)
  * - Bungee chat serializer 1.21.5+ will inline show_item payloads automatically.
  *
  * Notes:
- * - This helper avoids NMS/CraftBukkit compile deps; relies only on Paper/Bukkit API.
- * - Components path preserves enchantments, names, lore, custom_data in hover.
- * - Fallback is best-effort for pre-1.20.5 servers or when components are unavailable.
+ * - Components path preserves enchantments, names, lore, and custom data in hover.
  *
  * Example:
  *   HoverEvent hover = ItemHoverEventHelper.createFrom(itemStack);
@@ -36,28 +34,25 @@ public final class ItemHoverEventHelper {
 
     /**
      * Build a SHOW_ITEM hover event for the provided Bukkit ItemStack.
-     * Prefers modern components; falls back to legacy NBT tag if unavailable.
      *
      * @param bukkitItem Bukkit ItemStack
      * @return HoverEvent with SHOW_ITEM action suitable for modern clients
      */
     public static HoverEvent createFrom(final ItemStack bukkitItem) {
-        if (Shop.getPlugin().isMockBukkit()) { return new HoverEvent(HoverEvent.Action.SHOW_ITEM, new net.md_5.bungee.api.chat.hover.content.Item(bukkitItem.getType().getKey().toString(), bukkitItem.getAmount(), null)); }
-
-        // If we are 1.20.5+, we have to use the new Item Components Data system
-        // If we are below 1.20.5, we have to use the old NBT tag system
-        if (MCVersion.atLeast("1.20.5")) {
-            try {
-                // Uses the Paper API where available, NMS otherwise
-                JsonObject obj = ItemStackUtils.serializeItemAsJson(bukkitItem);
-                if (obj != null) {
-                    return new HoverEvent(HoverEvent.Action.SHOW_ITEM, new HoverItem(obj));
-                }
-            } catch (Exception ignored) {
-                // Paper-specific API not available, and/or NMS hook not working, or old version; fall back to legacy tag path below
-            }
+        if (Shop.getPlugin().isMockBukkit()) {
+            return new HoverEvent(HoverEvent.Action.SHOW_ITEM,
+                    new net.md_5.bungee.api.chat.hover.content.Item(
+                            bukkitItem.getType().getKey().toString(), bukkitItem.getAmount(), null));
         }
-        // There was either no json object returned (<1.20.5) or there was an error, regardless attempt the legacy method
+
+        try {
+            JsonObject obj = ItemStackUtils.serializeItemAsJson(bukkitItem);
+            if (obj != null) {
+                return new HoverEvent(HoverEvent.Action.SHOW_ITEM, new HoverItem(obj));
+            }
+        } catch (Exception ignored) {
+            // Fall back to legacy content if the server cannot serialize this item.
+        }
         return createFromLegacy(bukkitItem);
     }
 

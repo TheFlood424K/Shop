@@ -83,7 +83,7 @@ public class BluemapHookListener implements Listener {
                 POIMarker marker = POIMarker.builder()
                         .label(shopDetails)
                         .icon(markerIcon, 0, 0)
-                        .position(x, shop.getSignLocation().getBlockY()+1, z)
+                        .position((double) x, (double) (shop.getSignLocation().getBlockY() + 1), (double) z)
                         .minDistance(markerMinDistance)
                         .maxDistance(markerMaxDistance)
                         .build();

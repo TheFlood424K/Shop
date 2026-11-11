@@ -28,7 +28,6 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.*;
 
-import static com.snowgears.shop.util.UtilMethods.isMCVersion17Plus;
 
 /**
  * Abstract base class for all shop types.
@@ -779,12 +778,10 @@ public abstract class AbstractShop {
                 signBlock.setLine(3, newLines[3]);
             }
             // If the sign is glowing, update it if the setting has changed
-            if(isMCVersion17Plus()) {
-                boolean shouldGlow = Shop.getPlugin().getGlowingSignText();
-                if (shouldGlow != signBlock.isGlowingText()) { 
-                    hasSignUpdate = true;
-                    signBlock.setGlowingText(shouldGlow);
-                }
+            boolean shouldGlow = Shop.getPlugin().getGlowingSignText();
+            if (shouldGlow != signBlock.isGlowingText()) {
+                hasSignUpdate = true;
+                signBlock.setGlowingText(shouldGlow);
             }
             // Update the sign if it has changed
             if (hasSignUpdate) { signBlock.update(true); }
@@ -808,7 +805,7 @@ public abstract class AbstractShop {
             // First, remove the shop from the shop handler in case of any errors with later methods.
             Shop.getPlugin().getShopHandler().removeShop(this, forceSave);
 
-            if(UtilMethods.isMCVersion17Plus() && Shop.getPlugin().getDisplayLightLevel() > 0 && this.getChestLocation() != null) {
+            if(Shop.getPlugin().getDisplayLightLevel() > 0 && this.getChestLocation() != null) {
                 Block chestBlock = this.getChestLocation().getBlock();
                 if (chestBlock != null && Shop.getPlugin().getShopHandler().isChest(chestBlock)) {
                     Block displayBlock = chestBlock.getRelative(BlockFace.UP);
@@ -952,10 +949,10 @@ public abstract class AbstractShop {
         try {
             if (success) {
                 if (Shop.getPlugin().playSounds()) player.playSound(this.getSignLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0F, 1.0F);
-                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.STEP_SOUND, Material.EMERALD_BLOCK);
+                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.DESTROY_BLOCK, Material.EMERALD_BLOCK.createBlockData());
             } else {
                 if (Shop.getPlugin().playSounds()) player.playSound(this.getSignLocation(), Sound.ITEM_SHIELD_BLOCK, 1.0F, 1.0F);
-                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.STEP_SOUND, Material.REDSTONE_BLOCK);
+                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.DESTROY_BLOCK, Material.REDSTONE_BLOCK.createBlockData());
             }
         } catch (Error e) {
             Shop.getPlugin().getLogger().debug("Error playing shop effects: " + e.getMessage());

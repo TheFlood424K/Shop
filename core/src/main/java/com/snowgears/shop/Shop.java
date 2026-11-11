@@ -74,8 +74,6 @@ public class Shop extends JavaPlugin {
     private ItemNameUtil itemNameUtil;
     private ShopCreationUtil shopCreationUtil;
 
-    private NMSBullshitHandler nmsBullshitHandler;
-
     private boolean usePerms;
     private boolean checkUpdates;
     private boolean enableGUI;
@@ -284,8 +282,6 @@ public class Shop extends JavaPlugin {
         this.getLogger().setLogLevel(config.getString("logLevel"));
         this.getLogger().enableColor(config.getBoolean("enableLogColor"));
 
-        nmsBullshitHandler = new NMSBullshitHandler(this);
-        
         shopCreationUtil = new ShopCreationUtil(this);
 
         shopListener = new ShopListener(this);
@@ -1198,10 +1194,6 @@ public class Shop extends JavaPlugin {
 
     public ShopAction getShopAction(ShopClickType shopClickType){
         return clickTypeActionMap.get(shopClickType);
-    }
-
-    public NMSBullshitHandler getNmsBullshitHandler() {
-        return nmsBullshitHandler;
     }
 
     public NamespacedKey getSignLocationNameSpacedKey(){

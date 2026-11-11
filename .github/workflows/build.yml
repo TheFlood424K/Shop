@@ -36,16 +36,6 @@ jobs:
           ${{ runner.os }}-maven-jdk25-mc26.x-
           ${{ runner.os }}-maven-jdk25-mc26.2-
         
-    - name: Cache SpigotBuildTools
-      id: spigot-cache
-      uses: actions/cache@v4.2.0
-      with:
-        path: |
-          ./SpigotBuildTools
-        key: ${{ runner.os }}-spigot-mc26.x-v2-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
-        restore-keys: |
-          ${{ runner.os }}-spigot-mc26.x-v2-
-        
     - name: Compute version with commit hash
       run: |
         if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -80,14 +70,6 @@ jobs:
         </toolchains>
         EOF
 
-    - name: Build Maven Repository (Minecraft 26.x)
-      if: steps.spigot-cache.outputs.cache-hit != 'true'
-      run: |
-        chmod +x ./buildMavenRepo.sh
-        rm -rf ./SpigotBuildTools
-        SPIGOT_REV="26.2" ./buildMavenRepo.sh
-      continue-on-error: false
-
     - name: Install Dynmap API (CI fallback)
       run: |
         chmod +x ./scripts/install-dynmap-api.sh
@@ -102,48 +84,6 @@ jobs:
       run: |
         find ~/.m2/repository -name "*.lastUpdated" -delete
         find ~/.m2/repository -name "_remote.repositories" -delete
-
-    - name: Install Spigot artifacts to local Maven repo
-      run: |
-        mkdir -p ~/.m2/repository
-        for src in ./SpigotBuildTools/repository ./SpigotBuildTools/maven/repository ./SpigotBuildTools/.m2/repository ./SpigotBuildTools/maven/.m2/repository; do
-          if [ -d "$src" ]; then
-            cp -a "$src"/. ~/.m2/repository/ || true
-          fi
-        done
-        find ~/.m2/repository -name "_remote.repositories" -delete || true
-        find ~/.m2/repository -name "*.lastUpdated" -delete || true
-
-        echo "== Spigot 26.2 artifacts in BuildTools tree =="
-        find ./SpigotBuildTools -type f -path "*org/spigotmc/spigot*26.2*" \( -name "*remapped-mojang*.jar" -o -name "*remapped-mojang*.pom" -o -name "spigot-26.2-R0.1-SNAPSHOT.jar" -o -name "spigot-26.2-R0.1-SNAPSHOT.pom" \) 2>/dev/null | sort | head -20 || true
-        echo "== Spigot 26.2 artifacts in local Maven repo =="
-        find ~/.m2/repository/org/spigotmc/spigot -type f -path "*26.2*" 2>/dev/null | sort | head -30 || true
-
-        REMAPPED_JAR=$(find ./SpigotBuildTools ~/.m2/repository/org/spigotmc/spigot -type f -path "*26.2*" -name "*remapped-mojang*.jar" ! -name "*sources*" ! -name "*javadoc*" 2>/dev/null | head -1 || true)
-        BASE_POM=$(find ./SpigotBuildTools ~/.m2/repository/org/spigotmc/spigot -type f -path "*26.2-R0.1-SNAPSHOT*" -name "spigot-26.2-R0.1-SNAPSHOT.pom" 2>/dev/null | head -1 || true)
-        if [ -z "$BASE_POM" ]; then
-          BASE_POM=$(find ./SpigotBuildTools -type f -path "*org/spigotmc/spigot*26.2*R0.1*pom" ! -name "*remapped*" 2>/dev/null | head -1 || true)
-        fi
-        if [ -n "$REMAPPED_JAR" ]; then
-          echo "Installing remapped-mojang classifier from: $REMAPPED_JAR"
-          if [ -n "$BASE_POM" ]; then
-            mvn -B -Dmaven.repo.local=$HOME/.m2/repository install:install-file -Dfile="$REMAPPED_JAR" -DpomFile="$BASE_POM" -Dclassifier=remapped-mojang -Dpackaging=jar
-          else
-            mvn -B -Dmaven.repo.local=$HOME/.m2/repository install:install-file -Dfile="$REMAPPED_JAR" -DgroupId=org.spigotmc -DartifactId=spigot -Dversion=26.2-R0.1-SNAPSHOT -Dclassifier=remapped-mojang -Dpackaging=jar
-          fi
-        else
-          echo "WARNING: remapped-mojang 26.2 jar not found under ./SpigotBuildTools or ~/.m2"
-        fi
-
-        BASE_JAR=$(find ./SpigotBuildTools ~/.m2/repository/org/spigotmc/spigot -type f -name "spigot-26.2-R0.1-SNAPSHOT.jar" 2>/dev/null | head -1 || true)
-        if [ -n "$BASE_JAR" ] && [ -n "$BASE_POM" ] && [ ! -f "$HOME/.m2/repository/org/spigotmc/spigot/26.2-R0.1-SNAPSHOT/spigot-26.2-R0.1-SNAPSHOT.pom" ]; then
-          mvn -B -Dmaven.repo.local=$HOME/.m2/repository install:install-file -Dfile="$BASE_JAR" -DpomFile="$BASE_POM" -Dpackaging=jar || true
-        fi
-
-        find ~/.m2/repository -name "_remote.repositories" -delete || true
-        find ~/.m2/repository -name "*.lastUpdated" -delete || true
-        echo "== Installed remapped-mojang check =="
-        ls -la "$HOME/.m2/repository/org/spigotmc/spigot/26.2-R0.1-SNAPSHOT" 2>/dev/null | grep remapped-mojang || true
 
     - name: Pre-fetch Maven dependencies (go-offline)
       run: |

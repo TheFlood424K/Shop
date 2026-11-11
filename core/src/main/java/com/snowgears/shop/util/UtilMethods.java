@@ -1,5 +1,8 @@
 package com.snowgears.shop.util;
 
+import io.papermc.paper.registry.RegistryKey;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.md_5.bungee.api.ChatColor;
 import com.snowgears.shop.Shop;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -15,11 +18,15 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.ArmorMeta;
+import org.bukkit.inventory.meta.MusicInstrumentMeta;
+import org.bukkit.inventory.meta.trim.TrimMaterial;
+import org.bukkit.inventory.meta.trim.TrimPattern;
 import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.block.Sign;
 import net.md_5.bungee.api.chat.TranslatableComponent;
 import java.io.File;
@@ -429,11 +436,7 @@ public class UtilMethods {
     public static String getLoreString(ItemStack is){
         if(is.getItemMeta() == null || is.getItemMeta().getLore() == null || is.getItemMeta().getLore().isEmpty())
             return "";
-        return is.getItemMeta().getLore().toString();
-    }
-
-    public static String translate(String key){
-        return new TranslatableComponent(key).toPlainText();
+        return String.join("\n", is.getItemMeta().getLore());
     }
 
     public static String formatTickTime(int ticks){
@@ -499,12 +502,12 @@ public class UtilMethods {
         if(item.getItemMeta() != null && item.getItemMeta() instanceof ArmorMeta){
             ArmorMeta armorMeta = (ArmorMeta) item.getItemMeta();
             if (armorMeta.getTrim() != null) {
-                String material = translate(armorMeta.getTrim().getMaterial().getTranslationKey());
-                String pattern = translate(armorMeta.getTrim().getPattern().getTranslationKey());
-                // Since we want to remove the "Armor Trim" and "Material" from the string, we have to translate it first
-                // causing translatable components to not work clientside.
-                formattedMessage.addExtra(" [" + pattern.replace(" Armor Trim", ""));
-                formattedMessage.addExtra(" (" + material.replace(" Material", "") + ")]");
+                TrimMaterial trimMaterial = armorMeta.getTrim().getMaterial();
+                TrimPattern trimPattern = armorMeta.getTrim().getPattern();
+                String material = getTrimName(trimMaterial.description(), RegistryKey.TRIM_MATERIAL, trimMaterial, " Material");
+                String pattern = getTrimName(trimPattern.description(), RegistryKey.TRIM_PATTERN, trimPattern, " Armor Trim");
+                formattedMessage.addExtra(" [" + pattern);
+                formattedMessage.addExtra(" (" + material + ")]");
             }
         }
         
@@ -527,19 +530,11 @@ public class UtilMethods {
             
             // Add support for displaying goat horn sounds
             else if(itemType.equals("GOAT_HORN")) {
-                // Try to get the instrument type from item data if available
-                try {
-                    org.bukkit.inventory.meta.MusicInstrumentMeta instrumentMeta = (org.bukkit.inventory.meta.MusicInstrumentMeta) item.getItemMeta();
-                    if (instrumentMeta != null && instrumentMeta.getInstrument() != null) {
-                        String instrumentKey = instrumentMeta.getInstrument().getKey().getKey();
-                        // Format the instrument key properly (e.g., "ponder_goat_horn" -> "Ponder")
-                        String soundType = instrumentKey.replace("_goat_horn", "");
-                        formattedMessage.addExtra(" [Sound: " + capitalize(soundType) + "]");
-                    } else {
-                        formattedMessage.addExtra(" [Sound: Unknown]");
-                    }
-                } catch (Exception e) {
-                    // Fallback for older versions or if the meta is not available
+                if (item.getItemMeta() instanceof MusicInstrumentMeta instrumentMeta && instrumentMeta.getInstrument() != null) {
+                    MusicInstrument instrument = instrumentMeta.getInstrument();
+                    String instrumentName = getMusicInstrumentName(instrument);
+                    formattedMessage.addExtra(" [Sound: " + instrumentName + "]");
+                } else {
                     formattedMessage.addExtra(" [Sound: Unknown]");
                 }
             }
@@ -582,13 +577,11 @@ public class UtilMethods {
         }
 
         // Add Ominous Bottle support (Bad Omen level)
-        try {
-            if(item.getItemMeta() != null && item.getItemMeta() instanceof org.bukkit.inventory.meta.OminousBottleMeta) {
-                org.bukkit.inventory.meta.OminousBottleMeta ominousMeta = (org.bukkit.inventory.meta.OminousBottleMeta) item.getItemMeta();
-                int level = ominousMeta.hasAmplifier() ? ominousMeta.getAmplifier() + 1 : 1; // zero based
-                formattedMessage.addExtra(" [Bad Omen" + formatRomanNumerals(level) + "]");
-            }
-        } catch (Error e) {} catch (Exception e) {  /* This might happen on older versions where OminousBottleMeta isn't available */ }
+        if(item.getItemMeta() != null && item.getItemMeta() instanceof org.bukkit.inventory.meta.OminousBottleMeta) {
+            org.bukkit.inventory.meta.OminousBottleMeta ominousMeta = (org.bukkit.inventory.meta.OminousBottleMeta) item.getItemMeta();
+            int level = ominousMeta.hasAmplifier() ? ominousMeta.getAmplifier() + 1 : 1; // zero based
+            formattedMessage.addExtra(" [Bad Omen" + formatRomanNumerals(level) + "]");
+        }
 
         // Add custom potion formatting
         if(item.getItemMeta() != null && item.getItemMeta() instanceof PotionMeta){
@@ -649,7 +642,14 @@ public class UtilMethods {
         formattedEffects.addExtra(" (");
         for (int i = 0; i < numEffects; i++) {
             PotionEffect effect = effects.get(i);
-            formattedEffects.addExtra(new TranslatableComponent(effect.getType().getTranslationKey()));
+            PotionEffectType effectType = effect.getType();
+            TranslatableComponent component = new TranslatableComponent(effectType.translationKey());
+            String registryPath = ItemNameUtil.getRegistryKeyPath(RegistryKey.MOB_EFFECT, effectType);
+            String fallback = ItemNameUtil.readableName(registryPath != null
+                    ? registryPath
+                    : ItemNameUtil.translationKeyPath(effectType.translationKey()));
+            component.setFallback(fallback.isEmpty() ? "Potion Effect" : fallback);
+            formattedEffects.addExtra(component);
             
             // Show level for all potions, not just those with amplifier > 0
             // For potions with amplifier 0, we don't add any suffix (it's the base level)
@@ -659,8 +659,8 @@ public class UtilMethods {
             
             // Only add duration for non-instant effects
             // Instant effects like Instant Health and Instant Damage shouldn't show duration
-            boolean isInstantEffect = effect.getType().equals(org.bukkit.potion.PotionEffectType.INSTANT_HEALTH) || 
-                                     effect.getType().equals(org.bukkit.potion.PotionEffectType.INSTANT_DAMAGE);
+            boolean isInstantEffect = effectType.equals(PotionEffectType.INSTANT_HEALTH) ||
+                                     effectType.equals(PotionEffectType.INSTANT_DAMAGE);
             
             if(effect.getDuration() > 0 && !isInstantEffect) {
                 formattedEffects.addExtra(formatTickTime(effect.getDuration()));
@@ -672,6 +672,52 @@ public class UtilMethods {
         }
         formattedEffects.addExtra(")");
         return formattedEffects;
+    }
+
+    private static <T extends Keyed> String getTrimName(Component description, RegistryKey<T> registryKey, T trim, String suffix) {
+        String registryPath = ItemNameUtil.getRegistryKeyPath(registryKey, trim);
+        if (registryPath != null) {
+            return ItemNameUtil.readableName(registryPath);
+        }
+
+        if (description instanceof net.kyori.adventure.text.TranslatableComponent translatable) {
+            String fallback = translatable.fallback();
+            if (fallback != null && !fallback.isBlank()) {
+                return removeSuffix(fallback, suffix);
+            }
+            String keyPath = ItemNameUtil.translationKeyPath(translatable.key());
+            if (keyPath != null) {
+                return removeSuffix(ItemNameUtil.readableName(keyPath), suffix);
+            }
+        }
+
+        return removeSuffix(PlainTextComponentSerializer.plainText().serialize(description), suffix);
+    }
+
+    private static String getMusicInstrumentName(MusicInstrument instrument) {
+        String registryPath = ItemNameUtil.getRegistryKeyPath(RegistryKey.INSTRUMENT, instrument);
+        if (registryPath != null) {
+            return ItemNameUtil.readableName(registryPath).replace(" Goat Horn", "");
+        }
+
+        Component description = instrument.description();
+        if (description instanceof net.kyori.adventure.text.TranslatableComponent translatable) {
+            String fallback = translatable.fallback();
+            if (fallback != null && !fallback.isBlank()) {
+                return fallback.replace(" Goat Horn", "");
+            }
+            String keyPath = ItemNameUtil.translationKeyPath(translatable.key());
+            if (keyPath != null) {
+                return ItemNameUtil.readableName(keyPath).replace(" Goat Horn", "");
+            }
+        }
+
+        return PlainTextComponentSerializer.plainText().serialize(description).replace(" Goat Horn", "");
+    }
+
+    private static String removeSuffix(String value, String suffix) {
+        String trimmed = value.trim();
+        return trimmed.endsWith(suffix) ? trimmed.substring(0, trimmed.length() - suffix.length()).trim() : trimmed;
     }
 
     /**
@@ -822,18 +868,14 @@ public class UtilMethods {
             if(!m.isSolid())
                 nonIntrusiveMaterials.add(m);
         }
-        try{
-            nonIntrusiveMaterials.add(Material.WARPED_WALL_SIGN);
-            nonIntrusiveMaterials.add(Material.ACACIA_WALL_SIGN);
-            nonIntrusiveMaterials.add(Material.BIRCH_WALL_SIGN);
-            nonIntrusiveMaterials.add(Material.CRIMSON_WALL_SIGN);
-            nonIntrusiveMaterials.add(Material.DARK_OAK_WALL_SIGN);
-            nonIntrusiveMaterials.add(Material.JUNGLE_WALL_SIGN);
-            nonIntrusiveMaterials.add(Material.OAK_WALL_SIGN);
-            nonIntrusiveMaterials.add(Material.SPRUCE_WALL_SIGN);
-        } catch(NoSuchFieldError e){
-            nonIntrusiveMaterials.add(Material.LEGACY_WALL_SIGN);
-        }
+        nonIntrusiveMaterials.add(Material.WARPED_WALL_SIGN);
+        nonIntrusiveMaterials.add(Material.ACACIA_WALL_SIGN);
+        nonIntrusiveMaterials.add(Material.BIRCH_WALL_SIGN);
+        nonIntrusiveMaterials.add(Material.CRIMSON_WALL_SIGN);
+        nonIntrusiveMaterials.add(Material.DARK_OAK_WALL_SIGN);
+        nonIntrusiveMaterials.add(Material.JUNGLE_WALL_SIGN);
+        nonIntrusiveMaterials.add(Material.OAK_WALL_SIGN);
+        nonIntrusiveMaterials.add(Material.SPRUCE_WALL_SIGN);
         nonIntrusiveMaterials.remove(Material.WATER);
         nonIntrusiveMaterials.remove(Material.LAVA);
         nonIntrusiveMaterials.remove(Material.FIRE);
@@ -844,7 +886,7 @@ public class UtilMethods {
         nonIntrusiveMaterials.remove(Material.PLAYER_HEAD);
         nonIntrusiveMaterials.remove(Material.CREEPER_HEAD);
 
-        try{ nonIntrusiveMaterials.add(Material.LIGHT); } catch(NoSuchFieldError e){}
+        nonIntrusiveMaterials.add(Material.LIGHT);
     }
 
     public static BlockFace getDirectionOfChest(Block block){

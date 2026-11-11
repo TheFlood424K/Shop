@@ -13,62 +13,14 @@
     <dependencies>
         <dependency>
             <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v26_X</artifactId>
+            <artifactId>shop-core</artifactId>
             <version>${revision}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_21_R1</artifactId>
-            <version>${revision}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_20_R4</artifactId>
-            <version>${revision}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_19_R3</artifactId>
-            <version>${revision}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_18_R2</artifactId>
-            <version>${revision}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_17_R1</artifactId>
-            <version>${revision}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_16_R3</artifactId>
-            <version>${revision}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_15_R1</artifactId>
-            <version>${revision}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.snowgears.shop</groupId>
-            <artifactId>shop-v1_14_R1</artifactId>
-            <version>${revision}</version>
-            <scope>compile</scope>
         </dependency>
     </dependencies>
 
     <build>
         <directory>../target</directory>
+        <finalName>Shop-${project.version}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -85,7 +37,6 @@
                             <artifactSet>
                                 <includes>
                                     <include>com.snowgears.shop:shop-core</include>
-                                    <include>com.snowgears.shop:shop-v*</include>
                                 </includes>
                             </artifactSet>
                         </configuration>

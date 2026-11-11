@@ -15,24 +15,21 @@
     <artifactId>shop-core</artifactId>
 
     <properties>
-        <!-- Minecraft 26.2 Server APIs (paper.version inherited from root for 26.x modules) -->
-        <spigot.version>26.2-R0.1-SNAPSHOT</spigot.version>
-        <fastutil.version>8.5.19</fastutil.version>
-        <datafixerupper.version>8.0.16</datafixerupper.version>
-        <brigadier.version>1.3.10</brigadier.version>
-        <gson.version>2.12.1</gson.version>
+        <!-- Minecraft 26.2 Server APIs (paper.version inherited from root) -->
+        <gson.version>2.14.0</gson.version>
         <annotations.version>26.0.2</annotations.version>
 
         <!-- Shaded Runtime Libraries -->
         <hikari.version>6.2.1</hikari.version>
         <mariadb.version>3.5.1</mariadb.version>
         <h2.version>2.1.214</h2.version> <!-- Pinning 2.1.214: 2.2.220+ introduces breaking changes -->
-        <folialib.version>0.4.4</folialib.version>
+        <folialib.version>0.5.2</folialib.version>
 
         <!-- Plugin Integrations -->
-        <plotsquared.bom.version>1.56</plotsquared.bom.version>
+        <adventure.bom.version>5.2.0</adventure.bom.version>
+        <plotsquared.version>7.6.0</plotsquared.version>
         <vault.version>1.7.1</vault.version>
-        <worldguard.version>7.0.12</worldguard.version>
+        <worldguard.version>7.0.21</worldguard.version>
         <towny.version>0.103.1.1</towny.version>
         <lwc.version>2.3.2</lwc.version>
         <bolt.version>1.1.33</bolt.version>
@@ -47,6 +44,7 @@
         <mockito.version>5.24.0</mockito.version>
         <mockbukkit.version>4.117.0</mockbukkit.version>
         <slf4j.version>2.0.20</slf4j.version>
+        <json-simple.version>1.1.1</json-simple.version>
 
         <!-- Build Plugins -->
         <surefire.plugin.version>3.6.1</surefire.plugin.version>
@@ -59,10 +57,6 @@
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
-        </repository>
-        <repository>
-            <id>spigot-repo</id>
-            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
         <repository>
             <id>codemc-repo</id>
@@ -97,6 +91,10 @@
             <id>dynmap-repo</id>
             <url>https://repo.mikeprimm.com/</url>
         </repository>
+        <repository>
+            <id>tcoded-releases</id>
+            <url>https://repo.tcoded.com/releases/</url>
+        </repository>
     </repositories>
 
     <dependencyManagement>
@@ -109,11 +107,11 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- PlotSquared BOM -->
+            <!-- Adventure 5.x is required by Paper 26.2's API surface. -->
             <dependency>
-                <groupId>com.intellectualsites.bom</groupId>
-                <artifactId>bom-newest</artifactId>
-                <version>${plotsquared.bom.version}</version>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-bom</artifactId>
+                <version>${adventure.bom.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -157,36 +155,31 @@
             <version>${slf4j.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <!--
+                LWC 2.3.2 does not declare json-simple as a transitive dependency, but its
+                Protection model references org.json.simple.JSONObject. Mockito's inline mock
+                maker needs that type resolvable to instrument the class, so it is required on
+                the test classpath. The production server provides LWC (and its own copy) at runtime.
+            -->
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>${json-simple.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <!-- json-simple 1.1.1 declares JUnit 4.10 at compile scope; exclude it so it does not clash with JUnit 6 -->
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
 
         <!-- Server & Mojang Provided APIs (Minecraft 26.2) -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>${paper.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot</artifactId>
-            <version>${spigot.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>it.unimi.dsi</groupId>
-            <artifactId>fastutil</artifactId>
-            <version>${fastutil.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.mojang</groupId>
-            <artifactId>datafixerupper</artifactId>
-            <version>${datafixerupper.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.mojang</groupId>
-            <artifactId>brigadier</artifactId>
-            <version>${brigadier.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -256,9 +249,15 @@
             </exclusions>
         </dependency>
         <dependency>
-            <!-- Note: see scripts/install-dynmap-api.sh for CI environments that cannot reach repo.mikeprimm.com -->
             <groupId>us.dynmap</groupId>
             <artifactId>dynmap-api</artifactId>
+            <version>${dynmap.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <!-- Dynmap 3.6+ splits the marker/common API into a separate artifact. -->
+            <groupId>us.dynmap</groupId>
+            <artifactId>DynmapCoreAPI</artifactId>
             <version>${dynmap.version}</version>
             <scope>provided</scope>
         </dependency>
@@ -283,6 +282,7 @@
         <dependency>
             <groupId>com.intellectualsites.plotsquared</groupId>
             <artifactId>plotsquared-core</artifactId>
+            <version>${plotsquared.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -303,12 +303,12 @@
             <version>${h2.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.github.technicallycoded</groupId>
+            <groupId>com.tcoded</groupId>
             <artifactId>FoliaLib</artifactId>
             <version>${folialib.version}</version>
             <scope>compile</scope>
         </dependency>
-        <!-- DataFixerUpper & brigadier dependencies are declared once above (provided). -->
+        <!-- DataFixerUpper and Gson dependencies are declared once above (provided). -->
     </dependencies>
 
     <build>

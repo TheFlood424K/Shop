@@ -34,16 +34,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-jdk25-mc26.2-
 
-      - name: Cache SpigotBuildTools
-        id: spigot-cache
-        uses: actions/cache@v4.2.0
-        with:
-          path: |
-            ./SpigotBuildTools
-          key: ${{ runner.os }}-spigot-mc26.2-${{ hashFiles('buildMavenRepo.sh', 'buildMavenRepo.Dockerfile') }}
-          restore-keys: |
-            ${{ runner.os }}-spigot-mc26.2-
-
       - name: Compute version with commit hash
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -76,12 +66,6 @@ jobs:
             </toolchain>
           </toolchains>
           EOF
-
-      - name: Build Maven Repository (Minecraft 26.2)
-        if: steps.spigot-cache.outputs.cache-hit != 'true'
-        run: |
-          chmod +x ./buildMavenRepo.sh
-          SPIGOT_REV="26.2" ./buildMavenRepo.sh
 
       - name: Install Dynmap API (CI fallback)
         run: |
