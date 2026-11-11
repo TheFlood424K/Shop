@@ -1,12 +1,12 @@
 package com.snowgears.shop.util;
 
 import com.snowgears.shop.Shop;
-import net.md_5.bungee.api.chat.ComponentBuilder;
-import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.TextComponent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ClickEvent;
+import net.kyori.adventure.text.HoverEvent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.chat.ClickEvent;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -43,7 +43,6 @@ public class UpdateChecker {
     private static final long CHECK_INTERVAL = 12_000; //In ticks.
     private WrappedTask task;
 
-
     public UpdateChecker(final Shop plugin) {
         this.plugin = plugin;
         this.localPluginVersion = plugin.getDescription().getVersion();
@@ -56,12 +55,13 @@ public class UpdateChecker {
                 //The request is executed asynchronously as to not block the main thread.
                 plugin.getFoliaLib().getScheduler().runAsync(task -> {
                     //Request the current version of your plugin on SpigotMC.
+                    // TODO: Migrate from SpigotMC API to Paper/Modrinth/CurseForge API
                     try {
                         final HttpsURLConnection connection = (HttpsURLConnection) new URL("https://api.spigotmc.org/legacy/update.php?resource=" + ID).openConnection();
                         connection.setRequestMethod("GET");
                         spigotPluginVersion = new BufferedReader(new InputStreamReader(connection.getInputStream())).readLine();
                     } catch (final IOException e) {
-                        Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', ERR_MSG));
+                        Bukkit.getServer().getConsoleSender().sendMessage(LegacyComponentSerializer.legacy('&').deserialize(ERR_MSG));
                         e.printStackTrace();
                         cancelTask();
                         return;
@@ -71,7 +71,7 @@ public class UpdateChecker {
                     if (compareVersions(localPluginVersion, spigotPluginVersion) == 0) return;
                     // Are we running an older verion?
                     if (compareVersions(localPluginVersion, spigotPluginVersion) < 0) {
-                        Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
+                        Bukkit.getServer().getConsoleSender().sendMessage(LegacyComponentSerializer.legacy('&').deserialize(embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
 
                         //Register the PlayerJoinEvent
                         plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> Bukkit.getPluginManager().registerEvents(new Listener() {
@@ -79,16 +79,16 @@ public class UpdateChecker {
                             public void onPlayerJoin(final PlayerJoinEvent event) {
                                 final Player player = event.getPlayer();
                                 if (!player.isOp()) return;
-                                TextComponent updateMsg = new TextComponent(ChatColor.translateAlternateColorCodes('&', embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
-                                updateMsg.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Click to open Shop plugin page").create()));
-                                updateMsg.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/updates"));
-                                player.spigot().sendMessage(updateMsg);
+                                Component updateMsg = LegacyComponentSerializer.legacy('&').deserialize(embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion));
+                                updateMsg = updateMsg.hoverEvent(HoverEvent.showText(Component.text("Click to open Shop plugin page")));
+                                updateMsg = updateMsg.clickEvent(ClickEvent.openUrl("https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/updates"));
+                                player.sendMessage(updateMsg);
                             }
                         }, plugin));
                     }
                     /* RUNNING SHOP DEV VERSION */
                     if (compareVersions(localPluginVersion, spigotPluginVersion) > 0) {
-                        Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                        Bukkit.getServer().getConsoleSender().sendMessage(LegacyComponentSerializer.legacy('&').deserialize(embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
 
                         //Register the PlayerJoinEvent
                         plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> Bukkit.getPluginManager().registerEvents(new Listener() {
@@ -96,7 +96,7 @@ public class UpdateChecker {
                             public void onPlayerJoin(final PlayerJoinEvent event) {
                                 final Player player = event.getPlayer();
                                 if (!player.isOp()) return;
-                                player.sendMessage(ChatColor.translateAlternateColorCodes('&', embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                                player.sendMessage(LegacyComponentSerializer.legacy('&').deserialize(embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
                             }
                         }, plugin));
                     }

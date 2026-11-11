@@ -6,10 +6,8 @@ import com.snowgears.shop.handler.ShopGuiHandler;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ComboShop;
 import com.snowgears.shop.shop.ShopType;
-import net.md_5.bungee.api.chat.*;
-
 import org.bukkit.Bukkit;
-import net.md_5.bungee.api.ChatColor;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -23,9 +21,13 @@ import java.util.regex.Pattern;
 import com.google.gson.JsonParseException;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ClickEvent;
+import net.kyori.adventure.text.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
  * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
@@ -39,7 +41,7 @@ public class ShopMessage {
 
     private static final MiniMessage miniMessage = MiniMessage.miniMessage();
 
-    private static final Map<String, Function<PlaceholderContext, TextComponent>> placeholders = new HashMap<>();
+    private static final Map<String, Function<PlaceholderContext, Component>> placeholders = new HashMap<>();
     // Regex pattern to identify placeholders within square brackets, e.g., [owner]
     private static final String COLOR_CODE_REGEX = "([&][0-9A-FK-ORXa-fk-orx])";
     private static final String HEX_CODE_REGEX = "(#[0-9a-fA-F]{6})";
@@ -98,7 +100,7 @@ public class ShopMessage {
      * @param placeholder The placeholder string without brackets, e.g., "owner"
      * @param valueFunction A function that takes a PlaceholderContext instance and returns the replacement string
      */
-    public static void registerPlaceholder(String placeholder, Function<PlaceholderContext, TextComponent> valueFunction) {
+    public static void registerPlaceholder(String placeholder, Function<PlaceholderContext, Component> valueFunction) {
         placeholders.put(placeholder.toLowerCase(), valueFunction);
     }
 
@@ -107,15 +109,15 @@ public class ShopMessage {
      *
      * @param placeholder The placeholder string without brackets, e.g., "owner"
      * @param context     The PlaceholderContext instance containing Shop and Player
-     * @return The replacement string or an empty string if replacement fails
+     * @return The replacement component or an empty component if replacement fails
      */
-    public static TextComponent replacePlaceholder(String placeholder, PlaceholderContext context) {
+    public static Component replacePlaceholder(String placeholder, PlaceholderContext context) {
         plugin.getLogger().spam("[ShopMessage.replacePlaceholder] Attempting to replace placeholder: " + placeholder + " " + context);
-        Function<PlaceholderContext, TextComponent> valueFunction = placeholders.get(placeholder.toLowerCase());
+        Function<PlaceholderContext, Component> valueFunction = placeholders.get(placeholder.toLowerCase());
         if (valueFunction != null) {
             try {
                 plugin.getLogger().spam("[ShopMessage.replacePlaceholder]     Running placeholder function... " + placeholder);
-                TextComponent message = valueFunction.apply(context);
+                Component message = valueFunction.apply(context);
                 if (message != null) {
                     plugin.getLogger().trace("[ShopMessage.replacePlaceholder]  *** placeholder " + placeholder + "  value: " + message);
                     return message;
@@ -127,7 +129,7 @@ public class ShopMessage {
         }
         // If placeholder not found, remove the placeholder and just return an empty string
         plugin.getLogger().spam("[ShopMessage.replacePlaceholder] *** returning empty string, unable to get function to replace placeholder: " + placeholder);
-        return new TextComponent("");
+        return Component.empty();
     }
 
     private static String replacePlaceholdersForMiniMessage(String message, PlaceholderContext context) {
@@ -140,12 +142,12 @@ public class ShopMessage {
         while (matcher.find()) {
             String placeholderKey = matcher.group(1);
             String placeholderWithBrackets = matcher.group();
-            Function<PlaceholderContext, TextComponent> valueFunction = placeholders.get(placeholderKey.toLowerCase());
+            Function<PlaceholderContext, Component> valueFunction = placeholders.get(placeholderKey.toLowerCase());
             if (valueFunction != null) {
                 try {
-                    TextComponent replacement = valueFunction.apply(context);
+                    Component replacement = valueFunction.apply(context);
                     if (replacement != null) {
-                        String replacementText = replacement.toLegacyText();
+                        String replacementText = PlainTextComponentSerializer.plainText().serialize(replacement);
                         // For location placeholder in messages, ensure it's properly formatted
                         if (placeholderKey.equalsIgnoreCase("location")) {
                             matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
@@ -186,9 +188,9 @@ public class ShopMessage {
      * @param context The PlaceholderContext instance containing Shop and Player
      * @return The formatted message with all placeholders replaced
      */
-    public static TextComponent format(String message, PlaceholderContext context) {
-        TextComponent formattedMessage = null;
-        if (message == null) { return new TextComponent(""); }
+    public static Component format(String message, PlaceholderContext context) {
+        Component formattedMessage = null;
+        if (message == null) { return Component.empty(); }
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         // Check if the message contains MiniMessage syntax (contains actual MiniMessage tags, not just < > around placeholders)
@@ -225,7 +227,7 @@ public class ShopMessage {
             try {
                 // Use MiniMessage for formatting
                 Component miniMessageComponent = miniMessage.deserialize(processedMessage);
-                formattedMessage = textComponentFromComponent(miniMessageComponent);
+                formattedMessage = miniMessageComponent;
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
                 // Fallback to legacy parsing
@@ -253,7 +255,7 @@ public class ShopMessage {
             for (String part : parts) {
                 plugin.getLogger().spam("\n\n");
                 plugin.getLogger().trace("[ShopMessage.format] part: " + part);
-                TextComponent partComponent = new TextComponent(part);
+                Component partComponent = Component.text(part);
 
             // Check if we are a color code
             if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
@@ -274,9 +276,9 @@ public class ShopMessage {
                             isUnderlined = false;
                             isObfuscated = false;
                             if (formattedMessage == null) {
-                                formattedMessage = new TextComponent("&r");
+                                formattedMessage = Component.empty();
                             } else {
-                                formattedMessage.addExtra("&r");
+                                formattedMessage = formattedMessage.append(Component.empty());
                             }
                             addedText = true;
                         } else {
@@ -293,7 +295,7 @@ public class ShopMessage {
                 }
             }
 
-            // If we match to a placeholder, then we want to use it's TextComponent instead of the "normal" one
+            // If we match to a placeholder, then we want to use it's Component instead of the "normal" one
             if (part.matches(PLACEHOLDER_REGEX)) {
                 plugin.getLogger().hyper("[ShopMessage.format]     matched PLACEHOLDER_REGEX: " + part);
                 plugin.getLogger().hyper("[ShopMessage.format]     is part placeholder? " + (placeholders.get(part) != null));
@@ -301,9 +303,13 @@ public class ShopMessage {
                     plugin.getLogger().hyper("[ShopMessage.format]     replacing placeholder... " + part);
                     partComponent = replacePlaceholder(part, context);
                     // Check if we set a color inside our part (for example [stock color])
-                    if (partComponent.getColor() != latestColor && partComponent.getColor() != null && partComponent.getColor() != ChatColor.WHITE) { 
-                        plugin.getLogger().hyper("[ShopMessage.format]     getting latestColor from partComponent: " + partComponent.getColor().getName().toUpperCase());
-                        latestColor = partComponent.getColor(); 
+                    net.kyori.adventure.text.format.TextColor partColor = partComponent.color().orElse(null);
+                    if (partColor != null && latestColor != null) {
+                        ChatColor partChatColor = ChatColor.of(partColor.asHexString());
+                        if (partChatColor != latestColor && partChatColor != ChatColor.WHITE) { 
+                            plugin.getLogger().hyper("[ShopMessage.format]     getting latestColor from partComponent: " + partChatColor.getName().toUpperCase());
+                            latestColor = partChatColor; 
+                        }
                     }
                 }
             }
@@ -311,29 +317,40 @@ public class ShopMessage {
             // Set the color
             if (latestColor != null) {
                 plugin.getLogger().hyper("[ShopMessage.format]     setting part color to: " + latestColor.getName().toUpperCase());
-                partComponent.setColor(latestColor);
+                partComponent = partComponent.color(toAdventureColor(latestColor));
             }
-            partComponent.setBold(isBold);
-            partComponent.setItalic(isItalic);
-            partComponent.setStrikethrough(isStrikethrough);
-            partComponent.setUnderlined(isUnderlined);
-            partComponent.setObfuscated(isObfuscated);
+            if (isBold) partComponent = partComponent.decoration(TextDecoration.BOLD, true);
+            if (isItalic) partComponent = partComponent.decoration(TextDecoration.ITALIC, true);
+            if (isStrikethrough) partComponent = partComponent.decoration(TextDecoration.STRIKETHROUGH, true);
+            if (isUnderlined) partComponent = partComponent.decoration(TextDecoration.UNDERLINED, true);
+            if (isObfuscated) partComponent = partComponent.decoration(TextDecoration.OBFUSCATED, true);
             if (formattedMessage == null) {
                 formattedMessage = partComponent;
             } else {
                 // Add the part of the string to the
-                formattedMessage.addExtra(partComponent);
+                formattedMessage = formattedMessage.append(partComponent);
             }
                 addedText = true;
-                plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
+                plugin.getLogger().hyper("[ShopMessage.format] *** add part Component to main message: " + partComponent);
             } // <-- Closes the for (String part : parts) loop
         } // <-- Closes if (!hasMiniMessageSyntax || formattedMessage == null)
 
         // Handle if we are just a color code with an empty string
-        if (formattedMessage == null) formattedMessage = new TextComponent("");
-        if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
-        plugin.getLogger().spam("[ShopMessage] postFormat: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
+        if (formattedMessage == null) formattedMessage = Component.empty();
+        if (!addedText && latestColor != null) formattedMessage = formattedMessage.color(toAdventureColor(latestColor));
+        plugin.getLogger().spam("[ShopMessage] postFormat: " + (formattedMessage != null ? LegacyComponentSerializer.legacy('&').serialize(formattedMessage) : ""), true);
         return formattedMessage;
+    }
+
+    /**
+     * Converts a Bukkit ChatColor to an Adventure TextColor.
+     *
+     * @param chatColor The ChatColor to convert
+     * @return The equivalent Adventure TextColor, or null if chatColor is null
+     */
+    private static net.kyori.adventure.text.format.TextColor toAdventureColor(ChatColor chatColor) {
+        if (chatColor == null) { return null; }
+        return net.kyori.adventure.text.format.TextColor.color(chatColor.getColor());
     }
 
     /**
@@ -342,11 +359,11 @@ public class ShopMessage {
      *
      * @param message The message in MiniMessage format (e.g., "<red>Hello</red>" or "<#FF0000>Hello</#FF0000>")
      * @param context The PlaceholderContext instance containing Shop and Player
-     * @return The formatted message as a TextComponent
+     * @return The formatted message as a Component
      */
-    public static TextComponent formatMiniMessage(String message, PlaceholderContext context) {
-        TextComponent formattedMessage = null;
-        if (message == null) { return new TextComponent(""); }
+    public static Component formatMiniMessage(String message, PlaceholderContext context) {
+        Component formattedMessage = null;
+        if (message == null) { return Component.empty(); }
         plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         try {
@@ -355,31 +372,31 @@ public class ShopMessage {
             // Replace placeholders before MiniMessage parsing
             String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
             Component miniMessageComponent = miniMessage.deserialize(processedMessage);
-            formattedMessage = textComponentFromComponent(miniMessageComponent);
+            formattedMessage = miniMessageComponent;
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
             formattedMessage = format(message, context);
         }
 
-        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + (formattedMessage != null ? formattedMessage.toLegacyText() : ""), true);
-        return formattedMessage != null ? formattedMessage : new TextComponent("");
+        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + (formattedMessage != null ? LegacyComponentSerializer.legacy('&').serialize(formattedMessage) : ""), true);
+        return formattedMessage != null ? formattedMessage : Component.empty();
     }
 
     /**
      * Swaps in placeholder values, sends fancy message with Click/Hover events to Player
      */
     public static void sendMessage(String message, Player player, PlaceholderContext context) {
-        TextComponent fancyMessage = format(message, context);
-        plugin.getLogger().debug("Sent msg to player " + player.getName() + ": " + fancyMessage.toLegacyText(), true);
+        Component fancyMessage = format(message, context);
+        plugin.getLogger().debug("Sent msg to player " + player.getName() + ": " + LegacyComponentSerializer.legacy('&').serialize(fancyMessage), true);
         try {
-            player.spigot().sendMessage(fancyMessage);
+            player.sendMessage(fancyMessage);
             return;
         } catch (JsonParseException e) {
             plugin.getLogger().warning("Possible NBT error while sending message to player, Item Hover events will now be disabled! Details: " + e.getMessage());
             plugin.getLogger().debug("Error details: ", e);
             // Notify the user that hover events were disabled
             try {
-                player.spigot().sendMessage(new TextComponent("&cHover events disabled due to message error"));
+                player.sendMessage(Component.text("&cHover events disabled due to message error"));
             } catch (Exception ex) {
                 plugin.getLogger().debug("Failed to send hover disable notification to player", ex);
             }
@@ -391,7 +408,7 @@ public class ShopMessage {
 
         // If we get here, we have an error, we should at least try to send it as legacy text
         try {
-            player.sendMessage(fancyMessage.toLegacyText());
+            player.sendMessage(LegacyComponentSerializer.legacy('&').serialize(fancyMessage));
             plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
         } catch (Error | Exception e) {
             plugin.getLogger().debug("Error sending message to player", e);
@@ -487,16 +504,16 @@ public class ShopMessage {
      * @param context The PlaceholderContext instance
      */
     public static void sendMiniMessage(String message, Player player, PlaceholderContext context) {
-        TextComponent fancyMessage = formatMiniMessage(message, context);
-        plugin.getLogger().debug("Sent minimessage to player " + player.getName() + ": " + fancyMessage.toLegacyText(), true);
+        Component fancyMessage = formatMiniMessage(message, context);
+        plugin.getLogger().debug("Sent minimessage to player " + player.getName() + ": " + LegacyComponentSerializer.legacy('&').serialize(fancyMessage), true);
         try {
-            player.spigot().sendMessage(fancyMessage);
+            player.sendMessage(fancyMessage);
             return;
         } catch (Exception e) {
             plugin.getLogger().warning("Error sending minimessage to player: " + e.getMessage());
             // Fall back to legacy text
             try {
-                player.sendMessage(fancyMessage.toLegacyText());
+                player.sendMessage(LegacyComponentSerializer.legacy('&').serialize(fancyMessage));
                 plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
             } catch (Error | Exception e2) {
                 plugin.getLogger().debug("Error sending legacy message to player", e2);
@@ -521,40 +538,40 @@ public class ShopMessage {
      * This method should be called during the plugin's initialization phase.
      */
     public static void loadPlaceholders() {
-        registerPlaceholder("[plugin]", context -> new TextComponent(plugin.getCommandAlias()));
-        registerPlaceholder("[server name]", context -> new TextComponent(ShopMessage.getServerDisplayName()));
-        registerPlaceholder("[player]", context -> { Player player = context.getPlayer(); return new TextComponent((player != null) ? player.getName() : ""); });
+        registerPlaceholder("[plugin]", context -> Component.text(plugin.getCommandAlias()));
+        registerPlaceholder("[server name]", context -> Component.text(ShopMessage.getServerDisplayName()));
+        registerPlaceholder("[player]", context -> { Player player = context.getPlayer(); return Component.text((player != null) ? player.getName() : ""); });
         registerPlaceholder("[user]", context -> {
-            if (context.getPlayer() != null) return new TextComponent(context.getPlayer().getName());
-            if (context.getOfflinePlayer() != null) return new TextComponent(context.getOfflinePlayer().getName());
-            return new TextComponent("Unknown Player");
+            if (context.getPlayer() != null) return Component.text(context.getPlayer().getName());
+            if (context.getOfflinePlayer() != null) return Component.text(context.getOfflinePlayer().getName());
+            return Component.text("Unknown Player");
         });
         registerPlaceholder("[shop type]", context -> {
-            if (context.getProcess() != null && context.getProcess().getShopType() != null) return new TextComponent(context.getProcess().getShopType().toString());
-            if (context.getShop() != null) return new TextComponent(ShopMessage.getCreationWord(context.getShop().getType().toString().toUpperCase()));
+            if (context.getProcess() != null && context.getProcess().getShopType() != null) return Component.text(context.getProcess().getShopType().toString());
+            if (context.getShop() != null) return Component.text(ShopMessage.getCreationWord(context.getShop().getType().toString().toUpperCase()));
             return null;
         });
         registerPlaceholder("[shop types]", ShopMessage::getShopTypesPlaceholder);
-        registerPlaceholder("[total shops]", context -> new TextComponent(String.valueOf(plugin.getShopHandler().getNumberOfShops())));
+        registerPlaceholder("[total shops]", context -> Component.text(String.valueOf(plugin.getShopHandler().getNumberOfShops())));
 
         // Player Info Placeholders
         registerPlaceholder("[owner]", context -> {
-            if (context.getProcess() != null) return new TextComponent(String.valueOf(Bukkit.getOfflinePlayer(context.getProcess().getPlayerUUID())));
-            else if (context.getShop() != null) return new TextComponent(context.getShop().isAdmin() ? ShopMessage.getServerDisplayName() : context.getShop().getOwnerName());
+            if (context.getProcess() != null) return Component.text(String.valueOf(Bukkit.getOfflinePlayer(context.getProcess().getPlayerUUID())));
+            else if (context.getShop() != null) return Component.text(context.getShop().isAdmin() ? ShopMessage.getServerDisplayName() : context.getShop().getOwnerName());
             return null;
         });
         registerPlaceholder("[user amount]", context -> {
-            if (context.getPlayer() != null) return new TextComponent(String.valueOf(plugin.getShopHandler().getNumberOfShops(context.getPlayer())));
-            else if (context.getShop().getOwner() != null) return new TextComponent(String.valueOf(plugin.getShopHandler().getNumberOfShops(context.getShop().getOwner().getUniqueId())));
-            return new TextComponent("0"); // If they don't have any shops, it should be 0
+            if (context.getPlayer() != null) return Component.text(String.valueOf(plugin.getShopHandler().getNumberOfShops(context.getPlayer())));
+            else if (context.getShop().getOwner() != null) return Component.text(String.valueOf(plugin.getShopHandler().getNumberOfShops(context.getShop().getOwner().getUniqueId())));
+            return Component.text("0"); // If they don't have any shops, it should be 0
         });
-        registerPlaceholder("[build limit]", context -> new TextComponent(String.valueOf(plugin.getShopListener().getBuildLimit(context.getPlayer()))));
-        registerPlaceholder("[tp time remaining]", context -> new TextComponent(String.valueOf(plugin.getShopListener().getTeleportCooldownRemaining(context.getPlayer()))));
+        registerPlaceholder("[build limit]", context -> Component.text(String.valueOf(plugin.getShopListener().getBuildLimit(context.getPlayer()))));
+        registerPlaceholder("[tp time remaining]", context -> Component.text(String.valueOf(plugin.getShopListener().getTeleportCooldownRemaining(context.getPlayer()))));
 
         // Location Placeholders
         registerPlaceholder("[world]", context -> {
-            if (context.getProcess() != null && context.getProcess().getClickedChest() != null) return new TextComponent(context.getProcess().getClickedChest().getWorld().getName());
-            else if (context.getShop() != null) return new TextComponent(context.getShop().getSignLocation().getWorld().getName());
+            if (context.getProcess() != null && context.getProcess().getClickedChest() != null) return Component.text(context.getProcess().getClickedChest().getWorld().getName());
+            else if (context.getShop() != null) return Component.text(context.getShop().getSignLocation().getWorld().getName());
             return null;
         });
         registerPlaceholder("[location]", context -> {
@@ -563,10 +580,10 @@ public class ShopMessage {
             else if (context.getProcess() != null && context.getProcess().getClickedChest() != null) loc = context.getProcess().getClickedChest().getLocation();
             else if (context.getShop() != null) loc = context.getShop().getSignLocation();
             if (loc == null) return null;
-            TextComponent text = new TextComponent(UtilMethods.getCleanLocation(loc, false));
+            Component text = Component.text(UtilMethods.getCleanLocation(loc, false));
             if (context.getProcess() == null && context.getShop() == null) return text;
             try {
-                text.setHoverEvent(getShopInfoHoverEvent(context));
+                text = text.hoverEvent(getShopInfoHoverEvent(context));
             } catch (Exception e) {
                 // ignore
             }
@@ -574,15 +591,15 @@ public class ShopMessage {
         });
 
         // Currency Placeholders
-        registerPlaceholder("[currency name]", context -> new TextComponent(plugin.getCurrencyName()));
+        registerPlaceholder("[currency name]", context -> Component.text(plugin.getCurrencyName()));
         registerPlaceholder("[currency item]", context -> embedItem(plugin.getItemNameUtil().getName(plugin.getItemCurrency()), plugin.getItemCurrency()));
 
         // Shop Item placeholders
         registerPlaceholder("[item]", ShopMessage::getItemPlaceholder);
         registerPlaceholder("[item amount]", context -> {
-            if (context.getItem() != null) return new TextComponent(String.valueOf(context.getItem().getAmount()));
-            else if (context.getProcess() != null) return new TextComponent(String.valueOf(context.getProcess().getItemAmount()));
-            else if (context.getShop() != null && context.getShop().getItemStack() != null) return new TextComponent(String.valueOf(context.getShop().getItemStack().getAmount()));
+            if (context.getItem() != null) return Component.text(String.valueOf(context.getItem().getAmount()));
+            else if (context.getProcess() != null) return Component.text(String.valueOf(context.getProcess().getItemAmount()));
+            else if (context.getShop() != null && context.getShop().getItemStack() != null) return Component.text(String.valueOf(context.getShop().getItemStack().getAmount()));
             return null;
         });
         registerPlaceholder("[item enchants]", context -> { 
@@ -596,22 +613,22 @@ public class ShopMessage {
             if (context.getItem() != null) { return embedItem(UtilMethods.getLoreString(context.getItem()), context.getItem()); }
             return null; 
         });
-        registerPlaceholder("[item durability]", context -> { if (context.getShop() != null) { return new TextComponent(String.valueOf(context.getShop().getItemDurabilityPercent())); } return null; });
-        registerPlaceholder("[item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return new TextComponent("???"); } else { return new TextComponent(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getItemStack().getType()).toLegacyText()); } });
-        registerPlaceholder("[gamble item amount]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return new TextComponent(String.valueOf(context.getShop().getAmount())); } return null; });
+        registerPlaceholder("[item durability]", context -> { if (context.getShop() != null) { return Component.text(String.valueOf(context.getShop().getItemDurabilityPercent())); } return null; });
+        registerPlaceholder("[item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text("???"); } else { return Component.text(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getItemStack().getType()).toLegacyText()); } });
+        registerPlaceholder("[gamble item amount]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text(String.valueOf(context.getShop().getAmount())); } return null; });
         registerPlaceholder("[gamble item]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return embedItem(plugin.getItemNameUtil().getName(plugin.getGambleDisplayItem()), plugin.getGambleDisplayItem()); } return null; });
 
         // Shop Barter Item Placeholders
         registerPlaceholder("[barter item amount]", context -> {
-            if (context.getBarterItem() != null) return new TextComponent(String.valueOf(context.getBarterItem().getAmount()));
-            if (context.getShop() != null && context.getShop().getSecondaryItemStack() != null) return new TextComponent(String.valueOf(context.getShop().getSecondaryItemStack().getAmount()));
-            if (context.getProcess() != null) return new TextComponent(String.valueOf(context.getProcess().getBarterItemAmount()));
-            if (context.getItem() != null) return new TextComponent(String.valueOf(context.getItem().getAmount()));
+            if (context.getBarterItem() != null) return Component.text(String.valueOf(context.getBarterItem().getAmount()));
+            if (context.getShop() != null && context.getShop().getSecondaryItemStack() != null) return Component.text(String.valueOf(context.getShop().getSecondaryItemStack().getAmount()));
+            if (context.getProcess() != null) return Component.text(String.valueOf(context.getProcess().getBarterItemAmount()));
+            if (context.getItem() != null) return Component.text(String.valueOf(context.getItem().getAmount()));
             return null;
         });
         registerPlaceholder("[barter item]", ShopMessage::getBarterItemPlaceholder);
-        registerPlaceholder("[barter item durability]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return new TextComponent(String.valueOf(context.getShop().getSecondaryItemDurabilityPercent())); } return null; });
-        registerPlaceholder("[barter item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return new TextComponent(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getSecondaryItemStack().getType())); } return null; });
+        registerPlaceholder("[barter item durability]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Component.text(String.valueOf(context.getShop().getSecondaryItemDurabilityPercent())); } return null; });
+        registerPlaceholder("[barter item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Component.text(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getSecondaryItemStack().getType()).toLegacyText()); } return null; });
         registerPlaceholder("[barter item enchants]", context -> { 
             if (context.getBarterItem() != null) { return embedItem(UtilMethods.getEnchantmentsComponent(context.getBarterItem()), context.getBarterItem()); }
             if (context.getShop() != null && context.getShop().getSecondaryItemStack() != null) { return embedItem(UtilMethods.getEnchantmentsComponent(context.getShop().getSecondaryItemStack()), context.getShop().getSecondaryItemStack()); } 
@@ -628,18 +645,18 @@ public class ShopMessage {
         });
 
         // Shop Pricing Placeholders
-        registerPlaceholder("[amount]", context -> { if (context.getShop() != null) { return new TextComponent(String.valueOf(context.getShop().getAmount())); } return null; });
-        registerPlaceholder("[price sell]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return new TextComponent(((ComboShop) context.getShop()).getPriceSellString()); } return null; });
-        registerPlaceholder("[price sell per item]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return new TextComponent(((ComboShop) context.getShop()).getPriceSellPerItemString()); } return null; });
-        registerPlaceholder("[price combo]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return new TextComponent(((ComboShop) context.getShop()).getPriceComboString()); } return null; });
-        registerPlaceholder("[price per item]", context -> { if (context.getShop() != null) { return new TextComponent(context.getShop().getPricePerItemString()); } return null; });
-        registerPlaceholder("[price]", context -> { if (context.getShop() != null) { return new TextComponent(context.getShop().getPriceString()); } return null; });
+        registerPlaceholder("[amount]", context -> { if (context.getShop() != null) { return Component.text(String.valueOf(context.getShop().getAmount())); } return null; });
+        registerPlaceholder("[price sell]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return Component.text(((ComboShop) context.getShop()).getPriceSellString()); } return null; });
+        registerPlaceholder("[price sell per item]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return Component.text(((ComboShop) context.getShop()).getPriceSellPerItemString()); } return null; });
+        registerPlaceholder("[price combo]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return Component.text(((ComboShop) context.getShop()).getPriceComboString()); } return null; });
+        registerPlaceholder("[price per item]", context -> { if (context.getShop() != null) { return Component.text(context.getShop().getPricePerItemString()); } return null; });
+        registerPlaceholder("[price]", context -> { if (context.getShop() != null) { return Component.text(context.getShop().getPriceString()); } return null; });
         registerPlaceholder("[stock]", context -> {
             if (context.getShop() == null) { return null; }
             else if (context.getShop().isAdmin()) {
-                return new TextComponent(String.valueOf(ShopMessage.getAdminStockWord()));
+                return Component.text(String.valueOf(ShopMessage.getAdminStockWord()));
             } else {
-                return new TextComponent(String.valueOf(context.getShop().getStock()));
+                return Component.text(String.valueOf(context.getShop().getStock()));
             }
         });
         registerPlaceholder("[stock color]", context -> {
@@ -657,7 +674,7 @@ public class ShopMessage {
 
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_USER);
             // Returns text_on if notifications are set to ON, otherwise text_off
-            return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) ? text_on : text_off);
+            return Component.text((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) ? text_on : text_off);
         });
 
         registerPlaceholder("[notify owner]", context -> {
@@ -665,7 +682,7 @@ public class ShopMessage {
             String text_off = getUnformattedMessage("command", "notify_off");
 
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_OWNER);
-            return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) ? text_on : text_off);
+            return Component.text((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) ? text_on : text_off);
         });
 
         registerPlaceholder("[notify stock]", context -> {
@@ -673,24 +690,24 @@ public class ShopMessage {
             String text_off = getUnformattedMessage("command", "notify_off");
 
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_STOCK);
-            return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) ? text_on : text_off);
+            return Component.text((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) ? text_on : text_off);
         });
 
         // Offline Transaction Updates
         registerPlaceholder("[offline transactions]", context -> {
-            TextComponent numOfTransactions = new TextComponent(String.valueOf(context.getOfflineTransactions().getNumTransactions()));
-            numOfTransactions.setHoverEvent(getTransactionsHoverEvent(context));
+            Component numOfTransactions = Component.text(String.valueOf(context.getOfflineTransactions().getNumTransactions()));
+            numOfTransactions = numOfTransactions.hoverEvent(getTransactionsHoverEvent(context));
             return numOfTransactions;
         });
         registerPlaceholder("[offline profit]", context -> {
             String boughtString = Shop.getPlugin().getPriceString(context.getOfflineTransactions().getTotalProfit(), false);
             if (boughtString.equals(freePriceWord)) { boughtString = "0"; }
-            return new TextComponent(boughtString);
+            return Component.text(boughtString);
         });
         registerPlaceholder("[offline spent]", context -> {
             String spentString = Shop.getPlugin().getPriceString(context.getOfflineTransactions().getTotalSpent(), false);
             if (spentString.equals(freePriceWord)) { spentString = "0"; }
-            return new TextComponent(spentString);
+            return Component.text(spentString);
         });
         registerPlaceholder("[offline items sold]", context -> ShopMessage.getOfflineItemsPlaceholder(context, context.getOfflineTransactions().getItemsSold()));
         registerPlaceholder("[offline items bought]", context -> ShopMessage.getOfflineItemsPlaceholder(context, context.getOfflineTransactions().getItemsBought()));
@@ -709,48 +726,29 @@ public class ShopMessage {
     }
 
     /**
-     * Converts legacy text to a BaseComponent, with fallback for older Bukkit versions.
+     * Converts legacy text to a Component, with fallback for older Bukkit versions.
+     * Uses Adventure's LegacyComponentSerializer instead of Bungee's TextComponent.fromLegacyText.
      *
      * @param text The legacy formatted text to convert
-     * @return The converted BaseComponent
+     * @return The converted Component
      */
-    public static BaseComponent componentFromLegacy(String text) {
+    public static Component componentFromLegacy(String text) {
         try {
-            // Use Bungee's fromLegacyText for compatibility
-            BaseComponent[] components = TextComponent.fromLegacyText(text);
-            if (components.length == 1) {
-                return components[0];
-            }
-            TextComponent newComponent = new TextComponent();
-            for (BaseComponent component : components) {
-                newComponent.addExtra(component);
-            }
-            return newComponent;
-        } catch (NoSuchMethodError e) {
-            // Likely running on <1.20 which doesn't have `.fromLegacy()` function
-            BaseComponent[] components = TextComponent.fromLegacyText(text);
-            TextComponent newComponent = new TextComponent();
-            for (BaseComponent component : components) {
-                newComponent.addExtra(component);
-            }
-            return newComponent;
+            // Use Adventure's LegacyComponentSerializer for compatibility
+            return LegacyComponentSerializer.legacy('&').deserialize(text);
+        } catch (Exception e) {
+            // Fallback: return empty component on parse failure
+            plugin.getLogger().warning("Failed to parse legacy text: " + text + " - " + e.getMessage());
+            return Component.empty();
         }
     }
 
     /**
-     * Converts a kyori adventure Component to a Bukkit TextComponent,
-     * preserving color and style information from MiniMessage parsing.
+     * Converts a legacy formatted string to an Adventure Component.
+     * This is kept as a pass-through since componentFromLegacy now returns Component directly.
      */
-    private static TextComponent textComponentFromComponent(Component component) {
-        if (component == null) {
-            return new TextComponent("");
-        }
-        LegacyComponentSerializer serializer = LegacyComponentSerializer.builder()
-                .character('§')
-                .hexColors()
-                .build();
-        String legacyText = serializer.serialize(component);
-        return (TextComponent) componentFromLegacy(legacyText);
+    private static Component textComponentFromComponent(Component component) {
+        return component;
     }
 
     /**
@@ -760,26 +758,26 @@ public class ShopMessage {
      * @param item The item stack to embed
      * @return The message with item hover event attached
      */
-    private static TextComponent embedItem(String message, ItemStack item) {
-        return embedItem(new TextComponent(message), item);
+    private static Component embedItem(String message, ItemStack item) {
+        return embedItem(Component.text(message), item);
     }
 
     /**
-     * Embeds item hover information into a TextComponent.
+     * Embeds item hover information into a Component.
      *
-     * @param message The TextComponent message
+     * @param message The Component message
      * @param item The item stack to embed
      * @return The message with item hover event attached
      */
-    private static TextComponent embedItem(TextComponent message, ItemStack item) {
+    private static Component embedItem(Component message, ItemStack item) {
         // If we have any NBT errors, don't try to embed the item hover text
         if (disableItemHover) { return message; }
         try {
             if (item == null) { return null; }
-            BaseComponent msg = componentFromLegacy(UtilMethods.removeColorsIfOnlyWhite(message.toLegacyText()));
+            Component msg = componentFromLegacy(UtilMethods.removeColorsIfOnlyWhite(LegacyComponentSerializer.legacy('&').serialize(message)));
             HoverEvent event = getItemHoverEvent(item);
-            if (event != null) { msg.setHoverEvent(event); }
-            return (TextComponent) msg;
+            if (event != null) { msg = msg.hoverEvent(event); }
+            return msg;
         } catch (Error | Exception e) {
             plugin.getLogger().severe("Unable to embed item hover text, disabling item hover text for all players! Your version of : " + e.getMessage());
             plugin.getLogger().debug("Error details: ", e);
@@ -799,8 +797,8 @@ public class ShopMessage {
             if (context == null || context.getOfflineTransactions() == null) {
                 return null;
             }
-            BaseComponent hoverText = componentFromLegacy(context.getOfflineTransactions().getTransactionsLore());
-            return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{hoverText});
+            Component hoverText = componentFromLegacy(context.getOfflineTransactions().getTransactionsLore());
+            return HoverEvent.showText(hoverText);
         } catch (Exception e) {
             plugin.getLogger().debug("Failed to create transactions hover event", e);
         }
@@ -818,16 +816,16 @@ public class ShopMessage {
             if (context == null) {
                 return null;
             }
-            TextComponent hoverText = new TextComponent();
+            Component hoverText = Component.empty();
             List<String> hoverLines = getUnformattedMessageList("hover", "location");
             int i = 0;
             for (String line : hoverLines) {
                 i++;
                 // Add new lines between text
-                hoverText.addExtra(format(line + (i == hoverLines.size() ? "" : "\n"), context));
+                hoverText = hoverText.append(format(line + (i == hoverLines.size() ? "" : "\n"), context));
             }
-            BaseComponent flatText = componentFromLegacy(hoverText.toLegacyText());
-            return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{flatText});
+            Component flatText = componentFromLegacy(LegacyComponentSerializer.legacy('&').serialize(hoverText));
+            return HoverEvent.showText(flatText);
         } catch (Exception e) {
             plugin.getLogger().debug("Failed to create shop info hover event", e);
         }
@@ -840,7 +838,7 @@ public class ShopMessage {
      * @param context The PlaceholderContext instance.
      * @return A comma-separated list of shop types the player can create.
      */
-    private static TextComponent getShopTypesPlaceholder(PlaceholderContext context) {
+    private static Component getShopTypesPlaceholder(PlaceholderContext context) {
         List<ShopType> typeList = new ArrayList<>(Arrays.asList(ShopType.values()));
         Player player = context.getPlayer();
 
@@ -868,7 +866,7 @@ public class ShopMessage {
                 types.append(", ");
             }
         }
-        return new TextComponent(types.toString());
+        return Component.text(types.toString());
     }
 
     /**
@@ -877,7 +875,7 @@ public class ShopMessage {
      * @param context The PlaceholderContext instance.
      * @return The item name, potentially truncated to fit sign constraints.
      */
-    private static TextComponent getItemPlaceholder(PlaceholderContext context) {
+    private static Component getItemPlaceholder(PlaceholderContext context) {
         ItemStack item = null;
         if (context.getItem() != null) {
             item = context.getItem();
@@ -890,9 +888,9 @@ public class ShopMessage {
         }
         if (item == null) { return null; }
 
-        TextComponent itemName = plugin.getItemNameUtil().getName(item);
+        Component itemName = plugin.getItemNameUtil().getName(item);
         if (context.isForSign()) {
-            return new TextComponent(UtilMethods.trimForSign(itemName.toPlainText()));
+            return Component.text(UtilMethods.trimForSign(PlainTextComponentSerializer.plainText().serialize(itemName)));
         }
         return embedItem(itemName, item);
     }
@@ -903,7 +901,7 @@ public class ShopMessage {
      * @param context The PlaceholderContext instance.
      * @return The barter item name, potentially truncated to fit sign constraints.
      */
-    private static TextComponent getBarterItemPlaceholder(PlaceholderContext context) {
+    private static Component getBarterItemPlaceholder(PlaceholderContext context) {
         ItemStack item = null;
         if (context.getBarterItem() != null) {
             item = context.getBarterItem();
@@ -922,15 +920,15 @@ public class ShopMessage {
         }
         if (item == null) { return null; }
 
-        TextComponent itemName = plugin.getItemNameUtil().getName(item);
+        Component itemName = plugin.getItemNameUtil().getName(item);
         if (context.isForSign()) {
-            return new TextComponent(UtilMethods.trimForSign(itemName.toLegacyText()));
+            return Component.text(UtilMethods.trimForSign(PlainTextComponentSerializer.plainText().serialize(itemName)));
         }
         return embedItem(itemName, item);
     }
 
-    private static TextComponent getOfflineItemsPlaceholder(PlaceholderContext context, Map<ItemStack, Integer> items) {
-        TextComponent itemRowsText = new TextComponent("");
+    private static Component getOfflineItemsPlaceholder(PlaceholderContext context, Map<ItemStack, Integer> items) {
+        Component itemRowsText = Component.empty();
         String itemRow = getUnformattedMessage("offline", "itemRow");
 
         int i = 0;
@@ -945,8 +943,8 @@ public class ShopMessage {
             itemContext.setPlayer(context.getPlayer());
             itemContext.setItem(item);
 
-            TextComponent currentRow = format(itemRow + addNewLine, itemContext);
-            itemRowsText.addExtra(currentRow);
+            Component currentRow = format(itemRow + addNewLine, itemContext);
+            itemRowsText = itemRowsText.append(currentRow);
         }
         // If there were no lines added, just return null so that we don't log a blank line!
         if (i == 0) return null;
@@ -954,8 +952,8 @@ public class ShopMessage {
         return itemRowsText;
     }
 
-    private static TextComponent getShopsOutOfStockPlaceholder(PlaceholderContext context) {
-        TextComponent shopsOutOfStock = new TextComponent("");
+    private static Component getShopsOutOfStockPlaceholder(PlaceholderContext context) {
+        Component shopsOutOfStock = Component.empty();
         List<AbstractShop> playerShops = Shop.getPlugin().getShopHandler().getShops(context.getPlayer().getUniqueId());
         if (playerShops != null && !playerShops.isEmpty()) {
             // Collect all the out of stock shops
@@ -980,20 +978,20 @@ public class ShopMessage {
 
                 // For each item, generate a line based on the template line
                 String addNewLine = (i < (outOfStock.size()) && i <= 3) ? "\n" : "";
-                TextComponent currentRow = format(getUnformattedMessage("offline", "outOfStockShop") + addNewLine, shopContext);
+                Component currentRow = format(getUnformattedMessage("offline", "outOfStockShop") + addNewLine, shopContext);
                 // Limit out of stock shops to 3
                 if (i > 3) {
-                    remainingShopsMsgs.add(currentRow.toLegacyText());
+                    remainingShopsMsgs.add(LegacyComponentSerializer.legacy('&').serialize(currentRow));
                 } else {
-                    shopsOutOfStock.addExtra(currentRow);
+                    shopsOutOfStock = shopsOutOfStock.append(currentRow);
                 }
             }
 
             if (!remainingShopsMsgs.isEmpty()) {
                 String remainingMsg = getUnformattedMessage("offline", "moreOutOfStock");
-                TextComponent remaining = format(remainingMsg.replace("[out of stock remaining]", "" + remainingShopsMsgs.size()), context);
-                remaining.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(String.join("\n", remainingShopsMsgs)).create()));
-                shopsOutOfStock.addExtra(remaining);
+                Component remaining = format(remainingMsg.replace("[out of stock remaining]", "" + remainingShopsMsgs.size()), context);
+                remaining = remaining.hoverEvent(HoverEvent.showText(Component.text(String.join("\n", remainingShopsMsgs))));
+                shopsOutOfStock = shopsOutOfStock.append(remaining);
             }
 
             return shopsOutOfStock;
@@ -1065,9 +1063,9 @@ public class ShopMessage {
     public static String formatMessage(String unformattedMessage, AbstractShop shop) {
         PlaceholderContext context = new PlaceholderContext();
         context.setShop(shop);
-        TextComponent formattedMessage = format(unformattedMessage, context);
+        Component formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return ChatColor.translateAlternateColorCodes('&', formattedMessage.toLegacyText());
+        return LegacyComponentSerializer.legacy('&').serialize(formattedMessage);
     }
 
     /**
@@ -1084,9 +1082,9 @@ public class ShopMessage {
         context.setPlayer(player);
         context.setShop(shop);
         context.setForSign(forSign);
-        TextComponent formattedMessage = format(unformattedMessage, context);
+        Component formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return ChatColor.translateAlternateColorCodes('&', formattedMessage.toLegacyText());
+        return LegacyComponentSerializer.legacy('&').serialize(formattedMessage);
     }
 
     /**

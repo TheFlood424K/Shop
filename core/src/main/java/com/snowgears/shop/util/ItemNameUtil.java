@@ -3,9 +3,8 @@ package com.snowgears.shop.util;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import net.md_5.bungee.api.chat.TextComponent;
-import net.md_5.bungee.api.chat.TranslatableComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
@@ -21,21 +20,21 @@ public class ItemNameUtil {
 
     public ItemNameUtil() { }
 
-    public TextComponent getName(ItemStack item){
+    public Component getName(ItemStack item){
         if(item == null)
-            return new TextComponent("");
+            return Component.empty();
 
 
         // Check if there is a name embedded in the item, aka named by an anvil or command
         if(item.getItemMeta() != null && item.getItemMeta().getDisplayName() != null && !item.getItemMeta().getDisplayName().isEmpty()){
-            return (TextComponent) ShopMessage.componentFromLegacy(item.getItemMeta().getDisplayName());
+            return ShopMessage.componentFromLegacy(item.getItemMeta().getDisplayName());
         }
 
         // Add custom formatting for player heads
         if(item.getItemMeta() != null && item.getItemMeta() instanceof SkullMeta){
             SkullMeta skullMeta = (SkullMeta) item.getItemMeta();
             if (skullMeta.getOwningPlayer() != null) {
-                return new TextComponent(skullMeta.getOwnerProfile().getName() + "'s Head");
+                return Component.text(skullMeta.getOwnerProfile().getName() + "'s Head");
             }
         }
 
@@ -46,19 +45,20 @@ public class ItemNameUtil {
                 String templateType = itemType.replace("_SMITHING_TEMPLATE", "");
                 // Extract the template pattern name (e.g., "EYE" from "EYE_ARMOR_TRIM_SMITHING_TEMPLATE")
                 if(templateType.endsWith("_ARMOR_TRIM")) {
-                    ChatColor trimNameColor = ChatColor.YELLOW;
+                    net.kyori.adventure.text.format.TextColor trimNameColor = net.kyori.adventure.text.format.TextColor.color(0xFFFF00); // YELLOW
                     // Aqua: "Vex", "Spire", "Eye" and "Ward"
                     if (templateType.contains("VEX") || templateType.contains("SPIRE") || templateType.contains("EYE") || templateType.contains("WARD")) {
-                        trimNameColor = ChatColor.AQUA;
-                    } else if (templateType.contains("SILENCE")) {  trimNameColor = ChatColor.LIGHT_PURPLE; }
+                        trimNameColor = net.kyori.adventure.text.format.TextColor.color(0x00FFFF); // AQUA
+                    } else if (templateType.contains("SILENCE")) {  trimNameColor = net.kyori.adventure.text.format.TextColor.color(0xD080FF); // LIGHT_PURPLE
+                    }
                     String formattedName = UtilMethods.capitalize(templateType.toLowerCase().replace("_", " "));
-                    return new TextComponent(trimNameColor.toString() + formattedName);
+                    return Component.text(trimNameColor + formattedName);
                 } else if(templateType.equals("NETHERITE_UPGRADE")) {
-                    return new TextComponent(ChatColor.YELLOW.toString() + "Netherite Upgrade Template");
+                    return Component.text(net.kyori.adventure.text.format.TextColor.color(0xFFFF00) + "Netherite Upgrade Template");
                 } else {
                     // For any other potential smithing templates
                     String formattedName = UtilMethods.capitalize(templateType.toLowerCase().replace("_", " "));
-                    return new TextComponent(ChatColor.YELLOW.toString() + formattedName);
+                    return Component.text(net.kyori.adventure.text.format.TextColor.color(0xFFFF00) + formattedName);
                 }
             }
         }
@@ -70,14 +70,14 @@ public class ItemNameUtil {
                 String formattedName = UtilMethods.capitalize(item.getType().name().replace("_", " ").toLowerCase());
                 formattedName += " of ";
                 formattedName += UtilMethods.capitalize(potionMeta.getBasePotionType().toString().replace("_", " ").toLowerCase());
-                return new TextComponent(formattedName);
+                return Component.text(formattedName);
             }
         }
 
         // Ominous Bottle's are Yellow *shrug*
         if (item.getItemMeta() != null && item.getItemMeta() instanceof org.bukkit.inventory.meta.OminousBottleMeta) {
-            TextComponent name = getNameTranslatable(item.getType());
-            name.setColor(net.md_5.bungee.api.ChatColor.YELLOW);
+            Component name = getNameTranslatable(item.getType());
+            name = name.color(net.kyori.adventure.text.format.TextColor.color(0xFFFF00));
             return name;
         }
 
@@ -85,16 +85,16 @@ public class ItemNameUtil {
         return getNameTranslatable(item.getType());
     }
 
-    public static TextComponent getNameTranslatable(Material material){
-        TranslatableComponent component = new TranslatableComponent(material.translationKey());
-        component.setFallback(readableName(material.name()));
-        return new TextComponent(component);
+    public static Component getNameTranslatable(Material material){
+        TranslatableComponent component = TranslatableComponent.translatable(material.translationKey());
+        component = component.fallback(PlainTextComponentSerializer.plainText().serialize(readableName(material.name())));
+        return component;
     }
 
-    public static TextComponent getEnchantmentTranslatable(Enchantment enchantment){
+    public static Component getEnchantmentTranslatable(Enchantment enchantment){
         Component description = enchantment.description();
         if (description instanceof net.kyori.adventure.text.TranslatableComponent translatable) {
-            TranslatableComponent component = new TranslatableComponent(translatable.key());
+            TranslatableComponent component = TranslatableComponent.translatable(translatable.key());
             String fallback = translatable.fallback();
             if (isBlank(fallback)) {
                 fallback = readableName(getRegistryKeyPath(RegistryKey.ENCHANTMENT, enchantment));
@@ -102,11 +102,13 @@ public class ItemNameUtil {
             if (isBlank(fallback)) {
                 fallback = readableName(translationKeyPath(translatable.key()));
             }
-            component.setFallback(isBlank(fallback) ? "Enchantment" : fallback);
-            return new TextComponent(component);
+            component = component.fallback(isBlank(fallback) ? "Enchantment" : fallback);
+            return component;
         }
 
-        return new TextComponent(PlainTextComponentSerializer.plainText().serialize(description));
+        return PlainTextComponentSerializer.plainText().serialize(description) != null 
+            ? Component.text(PlainTextComponentSerializer.plainText().serialize(description)) 
+            : Component.empty();
     }
 
     static <T extends Keyed> String getRegistryKeyPath(RegistryKey<T> registryKey, T keyed) {
