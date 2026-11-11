@@ -86,15 +86,15 @@ public class ItemNameUtil {
     }
 
     public static Component getNameTranslatable(Material material){
-        TranslatableComponent component = TranslatableComponent.translatable(material.translationKey()).build();
-        component = component.fallback(PlainTextComponentSerializer.plainText().serialize(readableName(material.name())));
+        TranslatableComponent component = Component.translatable(material.translationKey()).build();
+        component = component.fallback(Component.text(PlainTextComponentSerializer.plainText().serialize(readableName(material.name()))));
         return component;
     }
 
     public static Component getEnchantmentTranslatable(Enchantment enchantment){
         Component description = enchantment.description();
         if (description instanceof net.kyori.adventure.text.TranslatableComponent translatable) {
-            TranslatableComponent component = TranslatableComponent.translatable(translatable.key()).build();
+            TranslatableComponent component = Component.translatable(translatable.key()).build();
             String fallback = translatable.fallback();
             if (isBlank(fallback)) {
                 fallback = readableName(getRegistryKeyPath(RegistryKey.ENCHANTMENT, enchantment));
@@ -102,7 +102,7 @@ public class ItemNameUtil {
             if (isBlank(fallback)) {
                 fallback = readableName(translationKeyPath(translatable.key()));
             }
-            component = component.fallback(isBlank(fallback) ? "Enchantment" : fallback);
+            component = component.fallback(Component.text(isBlank(fallback) ? "Enchantment" : fallback));
             return component;
         }
 

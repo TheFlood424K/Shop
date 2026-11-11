@@ -269,7 +269,7 @@ public class ShopMessage {
                 if (fmtCode == 'o' || fmtCode == 'O') { isItalic = true; continue; }
                 if (fmtCode == 'k' || fmtCode == 'K') { isObfuscated = true; continue; }
                 if (fmtCode == 'r' || fmtCode == 'R') {
-                    latestColor = TextColor.WHITE;
+                    latestColor = TextColor.color(0xFFFFFF);
                     isBold = false; isItalic = false; isStrikethrough = false;
                     isUnderlined = false; isObfuscated = false;
                     if (formattedMessage == null) { formattedMessage = Component.empty(); }
@@ -303,9 +303,9 @@ public class ShopMessage {
                     plugin.getLogger().hyper("[ShopMessage.format]     replacing placeholder... " + part);
                     partComponent = replacePlaceholder(part, context);
                     // Check if we set a color inside our part (for example [stock color])
-                    net.kyori.adventure.text.format.TextColor partColor = partComponent.color().orElse(null);
+                    net.kyori.adventure.text.format.TextColor partColor = partComponent.color();
                     if (partColor != null && latestColor != null) {
-                        if (!partColor.equals(latestColor) && partColor != TextColor.WHITE) {
+                        if (!partColor.equals(latestColor) && partColor != TextColor.color(0xFFFFFF)) {
                             plugin.getLogger().hyper("[ShopMessage.format]     getting latestColor from partComponent: " + partColor);
                             latestColor = partColor;
                         }
