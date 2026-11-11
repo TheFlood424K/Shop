@@ -426,7 +426,7 @@ public class ShopMessage {
 
         // If we get here, we have an error, we should at least try to send it as legacy text
         try {
-            player.sendMessage(LegacyComponentSerializer.legacy('&').serialize(fancyMessage));
+            player.sendMessage(LegacyComponentSerializer.legacy('§').serialize(fancyMessage));
             plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
         } catch (Error | Exception e) {
             plugin.getLogger().debug("Error sending message to player", e);
@@ -531,7 +531,7 @@ public class ShopMessage {
             plugin.getLogger().warning("Error sending minimessage to player: " + e.getMessage());
             // Fall back to legacy text
             try {
-                player.sendMessage(LegacyComponentSerializer.legacy('&').serialize(fancyMessage));
+                player.sendMessage(LegacyComponentSerializer.legacy('§').serialize(fancyMessage));
                 plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
             } catch (Error | Exception e2) {
                 plugin.getLogger().debug("Error sending legacy message to player", e2);
@@ -792,7 +792,7 @@ public class ShopMessage {
         if (disableItemHover) { return message; }
         try {
             if (item == null) { return null; }
-            Component msg = componentFromLegacy(UtilMethods.removeColorsIfOnlyWhite(LegacyComponentSerializer.legacy('&').serialize(message)));
+            Component msg = componentFromLegacy(UtilMethods.removeColorsIfOnlyWhite(LegacyComponentSerializer.legacy('§').serialize(message)));
             HoverEvent event = getItemHoverEvent(item);
             if (event != null) { msg = msg.hoverEvent(event); }
             return msg;
@@ -842,7 +842,7 @@ public class ShopMessage {
                 // Add new lines between text
                 hoverText = hoverText.append(format(line + (i == hoverLines.size() ? "" : "\n"), context));
             }
-            Component flatText = componentFromLegacy(LegacyComponentSerializer.legacy('&').serialize(hoverText));
+            Component flatText = componentFromLegacy(LegacyComponentSerializer.legacy('§').serialize(hoverText));
             return HoverEvent.showText(flatText);
         } catch (Exception e) {
             plugin.getLogger().debug("Failed to create shop info hover event", e);
@@ -999,7 +999,7 @@ public class ShopMessage {
                 Component currentRow = format(getUnformattedMessage("offline", "outOfStockShop") + addNewLine, shopContext);
                 // Limit out of stock shops to 3
                 if (i > 3) {
-                    remainingShopsMsgs.add(LegacyComponentSerializer.legacy('&').serialize(currentRow));
+                    remainingShopsMsgs.add(LegacyComponentSerializer.legacy('§').serialize(currentRow));
                 } else {
                     shopsOutOfStock = shopsOutOfStock.append(currentRow);
                 }
@@ -1083,7 +1083,7 @@ public class ShopMessage {
         context.setShop(shop);
         Component formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return LegacyComponentSerializer.legacy('&').serialize(formattedMessage);
+        return LegacyComponentSerializer.legacy('§').serialize(formattedMessage);
     }
 
     /**
@@ -1102,7 +1102,7 @@ public class ShopMessage {
         context.setForSign(forSign);
         Component formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return LegacyComponentSerializer.legacy('&').serialize(formattedMessage);
+        return LegacyComponentSerializer.legacy('§').serialize(formattedMessage);
     }
 
     /**

@@ -40,7 +40,7 @@ public class OfflineTransactions {
         context.setItem(itemSold);
         context.setBarterItem(barterItem);
         context.setLocation(location);
-        formattedMessage = LegacyComponentSerializer.legacy('&').serialize(ShopMessage.format("• " + formattedMessage, context));
+        formattedMessage = LegacyComponentSerializer.legacy('§').serialize(ShopMessage.format("• " + formattedMessage, context));
         txStrings.add(formattedMessage);
     }
 

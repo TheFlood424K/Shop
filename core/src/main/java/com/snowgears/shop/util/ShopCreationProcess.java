@@ -241,7 +241,7 @@ public class ShopCreationProcess {
         }
         // Build the lines
         String unformatted = ShopMessage.getUnformattedMessage(key, subkey);
-        String formatted = LegacyComponentSerializer.legacy('&').serialize(ShopMessage.format(unformatted, this.placeholderContext));
+        String formatted = LegacyComponentSerializer.legacy('§').serialize(ShopMessage.format(unformatted, this.placeholderContext));
         List<String> lines = UtilMethods.splitStringIntoLines(formatted, ShopMessage.getTargetMaxLength());
         // Display the lines
         displayFloatingLines(lines);
@@ -260,7 +260,7 @@ public class ShopCreationProcess {
         // Build the lines
         for (String unformatted : ShopMessage.getUnformattedMessageList(key, subkey)) {
             if (unformatted != null && !unformatted.isEmpty()){
-                String formatted = LegacyComponentSerializer.legacy('&').serialize(ShopMessage.format(unformatted, this.placeholderContext));
+                String formatted = LegacyComponentSerializer.legacy('§').serialize(ShopMessage.format(unformatted, this.placeholderContext));
                 lines.addAll(UtilMethods.splitStringIntoLines(formatted, ShopMessage.getTargetMaxLength()));
             }
         }

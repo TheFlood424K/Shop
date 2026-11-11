@@ -680,7 +680,7 @@ public abstract class AbstractShop {
             // Add all lore lines
             PlaceholderContext context = new PlaceholderContext();
             context.setShop(this);
-            lore.add(LegacyComponentSerializer.legacy('&').serialize(ShopMessage.format(loreLine, context)));
+            lore.add(LegacyComponentSerializer.legacy('§').serialize(ShopMessage.format(loreLine, context)));
         }
 
         ItemMeta iconMeta = guiIcon.getItemMeta();

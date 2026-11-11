@@ -630,7 +630,7 @@ public class UtilMethods {
             }
         }
 
-        return Component.text(removeColorsIfOnlyWhite(LegacyComponentSerializer.legacy('&').serialize(formattedMessage)));
+        return Component.text(removeColorsIfOnlyWhite(LegacyComponentSerializer.legacy('§').serialize(formattedMessage)));
     }
 
     private static Component getPotionEffects(List<PotionEffect> effects){
