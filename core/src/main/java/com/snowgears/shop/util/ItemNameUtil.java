@@ -87,7 +87,7 @@ public class ItemNameUtil {
 
     public static Component getNameTranslatable(Material material){
         TranslatableComponent component = Component.translatable(material.translationKey());
-        component = component.fallback(PlainTextComponentSerializer.plainText().serialize(readableName(material.name())));
+        component = component.fallback(readableName(material.name()));
         return component;
     }
 
