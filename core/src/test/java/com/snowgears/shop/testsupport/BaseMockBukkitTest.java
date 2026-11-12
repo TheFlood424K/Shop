@@ -57,6 +57,8 @@ public abstract class BaseMockBukkitTest {
         // No cooldown between shop creations to allow us to create multiple. We can change this in tests if needed.
         setConfig("debug_shopCreateCooldown", 0);
 
+        // Disable floating create text so creation dialogs are sent via chat (MockBukkit can't render tag entities)
+        setConfig("displayFloatingCreateText", false);
         // Test worlds can opt into a chunk auto-load patch via addSimpleWorldPatched(name)
     }
 
