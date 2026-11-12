@@ -345,6 +345,8 @@ cashierLock:
       enabled: true
 griefprevention:
    enabled: true
+geyser:
+   enabled: true
 land:
    enabled: true
 arclight:

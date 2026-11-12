@@ -45,6 +45,7 @@ public class Shop extends JavaPlugin {
     private static final String CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED = "blockProt.trustIntegration.enabled";
     private static final String CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED = "cashierLock.trustIntegration.enabled";
     private static final String CONFIG_PATH_GRIEF_PREVENTION_ENABLED = "griefprevention.enabled";
+    private static final String CONFIG_PATH_GEYSER_ENABLED = "geyser.enabled";
 
     private ShopListener shopListener;
     private DisplayListener displayListener;
@@ -65,6 +66,7 @@ public class Shop extends JavaPlugin {
     private BlockProtTrustListener blockProtTrustListener;
     private CashierLockTrustListener cashierLockTrustListener;
     private GriefPreventionHookListener griefPreventionHookListener;
+    private GeyserFloodgateHook geyserFloodgateHook;
     private Boolean arclightExists = false;
 
     private boolean worldGuardIntegrationEnabled;
@@ -76,6 +78,7 @@ public class Shop extends JavaPlugin {
     private boolean blockProtTrustIntegrationEnabled;
     private boolean cashierLockTrustIntegrationEnabled;
     private boolean griefPreventionIntegrationEnabled;
+    private boolean geyserIntegrationEnabled;
 
     private ShopHandler shopHandler;
     private ShopGuiHandler guiHandler;
@@ -355,6 +358,7 @@ public class Shop extends JavaPlugin {
         blockProtTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED, true);
         cashierLockTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED, true);
         griefPreventionIntegrationEnabled = config.getBoolean(CONFIG_PATH_GRIEF_PREVENTION_ENABLED, true);
+        geyserIntegrationEnabled = config.getBoolean(CONFIG_PATH_GEYSER_ENABLED, true);
 
         // WorldGuard integration is only active if the plugin is installed AND the integration toggle is enabled.
         boolean worldGuardDetected = getServer().getPluginManager().getPlugin("WorldGuard") != null;
@@ -502,9 +506,9 @@ public class Shop extends JavaPlugin {
         // Check if we should load VAULT economy
         if (currencyType == CurrencyType.VAULT) {
             if (setupEconomy()) {
-                this.getLogger().info("Shops will use the Vault economy (" + currencyName + ") as currency on the server.");
+                this.getLogger().info("Shops will use the VaultUnlocked economy (" + currencyName + ") as currency on the server.");
             } else {
-                this.getLogger().severe("Unable to connect to Vault Economy! Are both Vault AND an Economy plugin installed?");
+                this.getLogger().severe("Unable to connect to VaultUnlocked Economy! Are both VaultUnlocked AND an Economy plugin installed?");
                 this.getLogger().severe("Plugin Disabled: Invalid configuration value `economy.type` config.yml. If you do not wish to use Vault with Shop, make sure to set `economy.type` in the config file to `ITEM`.");
                 getServer().getPluginManager().disablePlugin(plugin);
                 return;
@@ -672,14 +676,29 @@ public class Shop extends JavaPlugin {
             }
         }
 
-        // Register GriefPrevention hook listener
-        if(getServer().getPluginManager().getPlugin("GriefPrevention") != null){
+        // Register GriefPrevention3D hook listener
+        if(getServer().getPluginManager().getPlugin("GriefPrevention3D") != null){
             if (griefPreventionIntegrationEnabled) {
                 griefPreventionHookListener = new GriefPreventionHookListener(this);
                 getServer().getPluginManager().registerEvents(griefPreventionHookListener, this);
-                this.getLogger().notice("GriefPrevention is installed, enabling grief prevention integration");
+                this.getLogger().notice("GriefPrevention3D is installed, enabling grief prevention integration");
             } else {
-                this.getLogger().notice("GriefPrevention detected, but Shop GriefPrevention integration is disabled via `" + CONFIG_PATH_GRIEF_PREVENTION_ENABLED + ": false`");
+                this.getLogger().notice("GriefPrevention3D detected, but Shop GriefPrevention3D integration is disabled via `" + CONFIG_PATH_GRIEF_PREVENTION_ENABLED + ": false`");
+            }
+        }
+
+        // GeyserMC / Floodgate compatibility hook
+        if(getServer().getPluginManager().getPlugin("Geyser-Spigot") != null || getServer().getPluginManager().getPlugin("Floodgate") != null){
+            if (geyserIntegrationEnabled) {
+                try {
+                    geyserFloodgateHook = new GeyserFloodgateHook(this);
+                    getServer().getPluginManager().registerEvents(geyserFloodgateHook, this);
+                    this.getLogger().notice("GeyserMC/Floodgate detected, enabling Bedrock player compatibility");
+                } catch (Exception e) {
+                    this.getLogger().warning("GeyserMC/Floodgate detected but could not enable compatibility: " + e.getMessage());
+                }
+            } else {
+                this.getLogger().notice("GeyserMC/Floodgate detected, but Shop Geyser integration is disabled via `" + CONFIG_PATH_GEYSER_ENABLED + ": false`");
             }
         }
 
@@ -914,6 +933,9 @@ public class Shop extends JavaPlugin {
         if(griefPreventionHookListener != null){
             HandlerList.unregisterAll(griefPreventionHookListener);
         }
+        if(geyserFloodgateHook != null){
+            HandlerList.unregisterAll(geyserFloodgateHook);
+        }
 
         plugin.getShopHandler().removeAllDisplays(null);
 
@@ -922,10 +944,10 @@ public class Shop extends JavaPlugin {
     }
 
     private boolean setupEconomy() {
-        if (getServer().getPluginManager().getPlugin("Vault") == null) {
+        if (getServer().getPluginManager().getPlugin("VaultUnlocked") == null) {
             return false;
         }
-        this.getLogger().notice("Vault is installed, creating Vault integration for Economy support");
+        this.getLogger().notice("VaultUnlocked is installed, creating VaultUnlocked integration for Economy support");
         RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
         if (rsp == null) {
             return false;
@@ -998,6 +1020,7 @@ public class Shop extends JavaPlugin {
     public boolean isBlockProtTrustIntegrationEnabled() { return blockProtTrustIntegrationEnabled; }
     public boolean isCashierLockTrustIntegrationEnabled() { return cashierLockTrustIntegrationEnabled; }
     public boolean isGriefPreventionIntegrationEnabled() { return griefPreventionIntegrationEnabled; }
+    public boolean isGeyserIntegrationEnabled() { return geyserIntegrationEnabled; }
     public boolean arclightExists() { return arclightExists != null && arclightExists; }
 
     public boolean hookTowny(){

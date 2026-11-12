@@ -28,7 +28,10 @@
         <!-- Plugin Integrations -->
         <adventure.bom.version>5.2.0</adventure.bom.version>
         <plotsquared.version>7.6.0</plotsquared.version>
-        <vault.version>1.7.1</vault.version>
+        <vaultunlocked.version>2.15.0</vaultunlocked.version>
+        <griefprevention3d.version>19.0.7</griefprevention3d.version>
+        <geyser.api.version>2.11.2-SNAPSHOT</geyser.api.version>
+        <floodgate.api.version>2.2.5-SNAPSHOT</floodgate.api.version>
         <worldguard.version>7.0.21</worldguard.version>
         <towny.version>0.103.1.1</towny.version>
         <lwc.version>2.5.0</lwc.version>
@@ -94,6 +97,14 @@
         <repository>
             <id>tcoded-releases</id>
             <url>https://repo.tcoded.com/releases/</url>
+        </repository>
+        <repository>
+            <id>opencollab</id>
+            <url>https://repo.opencollab.dev/main/</url>
+        </repository>
+        <repository>
+            <id>modrinth</id>
+            <url>https://api.modrinth.com/maven</url>
         </repository>
     </repositories>
 
@@ -197,9 +208,9 @@
 
         <!-- Third-Party Plugin Integrations -->
         <dependency>
-            <groupId>com.github.MilkBowl</groupId>
-            <artifactId>VaultAPI</artifactId>
-            <version>${vault.version}</version>
+            <groupId>net.milkbowl.vault</groupId>
+            <artifactId>VaultUnlocked</artifactId>
+            <version>${vaultunlocked.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -285,11 +296,25 @@
             <version>${plotsquared.version}</version>
             <scope>provided</scope>
         </dependency>
-        <!-- for GriefPrevention -->
+        <!-- for GriefPrevention3D -->
         <dependency>
-            <groupId>com.github.GriefPrevention</groupId>
-            <artifactId>GriefPrevention</artifactId>
-            <version>16.18.2</version>
+            <groupId>maven.modrinth</groupId>
+            <artifactId>pqVXF7b5</artifactId>
+            <version>f9qqpIb7</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- GeyserMC / Floodgate compatibility -->
+        <dependency>
+            <groupId>org.geysermc.geyser</groupId>
+            <artifactId>api</artifactId>
+            <version>${geyser.api.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.geysermc.floodgate</groupId>
+            <artifactId>api</artifactId>
+            <version>${floodgate.api.version}</version>
             <scope>provided</scope>
         </dependency>
 
