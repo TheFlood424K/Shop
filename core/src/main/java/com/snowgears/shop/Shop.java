@@ -43,6 +43,8 @@ public class Shop extends JavaPlugin {
     private static final String CONFIG_PATH_PLOT_SQUARED_ENABLED = "plotSquared.enabled";
     private static final String CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED = "bolt.trustIntegration.enabled";
     private static final String CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED = "blockProt.trustIntegration.enabled";
+    private static final String CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED = "cashierLock.trustIntegration.enabled";
+    private static final String CONFIG_PATH_GRIEF_PREVENTION_ENABLED = "griefprevention.enabled";
 
     private ShopListener shopListener;
     private DisplayListener displayListener;
@@ -61,6 +63,9 @@ public class Shop extends JavaPlugin {
     private PlotSquaredHookListener plotSquaredHookListener;
     private BoltTrustListener boltTrustListener;
     private BlockProtTrustListener blockProtTrustListener;
+    private CashierLockTrustListener cashierLockTrustListener;
+    private GriefPreventionHookListener griefPreventionHookListener;
+    private Boolean arclightExists = false;
 
     private boolean worldGuardIntegrationEnabled;
     private boolean lwcIntegrationEnabled;
@@ -69,6 +74,8 @@ public class Shop extends JavaPlugin {
     private boolean plotSquaredIntegrationEnabled;
     private boolean boltTrustIntegrationEnabled;
     private boolean blockProtTrustIntegrationEnabled;
+    private boolean cashierLockTrustIntegrationEnabled;
+    private boolean griefPreventionIntegrationEnabled;
 
     private ShopHandler shopHandler;
     private ShopGuiHandler guiHandler;
@@ -346,6 +353,8 @@ public class Shop extends JavaPlugin {
         plotSquaredIntegrationEnabled = config.getBoolean(CONFIG_PATH_PLOT_SQUARED_ENABLED, true);
         boltTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED, true);
         blockProtTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED, true);
+        cashierLockTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED, true);
+        griefPreventionIntegrationEnabled = config.getBoolean(CONFIG_PATH_GRIEF_PREVENTION_ENABLED, true);
 
         // WorldGuard integration is only active if the plugin is installed AND the integration toggle is enabled.
         boolean worldGuardDetected = getServer().getPluginManager().getPlugin("WorldGuard") != null;
@@ -633,6 +642,47 @@ public class Shop extends JavaPlugin {
             }
         }
 
+        // Arclight integration
+        boolean arclightDetected = getServer().getPluginManager().getPlugin("Arclight") != null;
+        boolean arclightIntegrationEnabled = config.getBoolean("arclight.enabled", true);
+        if (arclightDetected) {
+            if (arclightIntegrationEnabled) {
+                this.getLogger().notice("Arclight detected, Shop will respect Arclight claimed areas during shop creation!");
+                this.arclightExists = true;
+            } else {
+                this.arclightExists = false;
+                this.getLogger().notice("Arclight detected, but Shop Arclight integration is disabled via `arclight.enabled: false`");
+            }
+        } else {
+            this.arclightExists = false;
+        }
+
+        // CashierLock trust integration
+        if(getServer().getPluginManager().getPlugin("CashierLock") != null){
+            if (cashierLockTrustIntegrationEnabled) {
+                try {
+                    cashierLockTrustListener = new CashierLockTrustListener();
+                    getServer().getPluginManager().registerEvents(cashierLockTrustListener, this);
+                    this.getLogger().notice("CashierLock is installed, enabling trust integration for opening shop containers");
+                } catch (Exception e) {
+                    this.getLogger().warning("CashierLock detected but could not enable trust integration: " + e.getMessage());
+                }
+            } else {
+                this.getLogger().notice("CashierLock detected, but Shop CashierLock trust integration is disabled via `" + CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED + ": false`");
+            }
+        }
+
+        // Register GriefPrevention hook listener
+        if(getServer().getPluginManager().getPlugin("GriefPrevention") != null){
+            if (griefPreventionIntegrationEnabled) {
+                griefPreventionHookListener = new GriefPreventionHookListener(this);
+                getServer().getPluginManager().registerEvents(griefPreventionHookListener, this);
+                this.getLogger().notice("GriefPrevention is installed, enabling grief prevention integration");
+            } else {
+                this.getLogger().notice("GriefPrevention detected, but Shop GriefPrevention integration is disabled via `" + CONFIG_PATH_GRIEF_PREVENTION_ENABLED + ": false`");
+            }
+        }
+
         int bstatsPluginId = 25211;
         metrics = new Metrics(plugin, bstatsPluginId);
         metrics.addCustomChart(new SingleLineChart("transactions", () -> logHandler.getRecentTransactionCount()));
@@ -858,6 +908,12 @@ public class Shop extends JavaPlugin {
         if(blockProtTrustListener != null){
             HandlerList.unregisterAll(blockProtTrustListener);
         }
+        if(cashierLockTrustListener != null){
+            HandlerList.unregisterAll(cashierLockTrustListener);
+        }
+        if(griefPreventionHookListener != null){
+            HandlerList.unregisterAll(griefPreventionHookListener);
+        }
 
         plugin.getShopHandler().removeAllDisplays(null);
 
@@ -940,6 +996,9 @@ public class Shop extends JavaPlugin {
     public boolean isPlotSquaredIntegrationEnabled() { return plotSquaredIntegrationEnabled; }
     public boolean isBoltTrustIntegrationEnabled() { return boltTrustIntegrationEnabled; }
     public boolean isBlockProtTrustIntegrationEnabled() { return blockProtTrustIntegrationEnabled; }
+    public boolean isCashierLockTrustIntegrationEnabled() { return cashierLockTrustIntegrationEnabled; }
+    public boolean isGriefPreventionIntegrationEnabled() { return griefPreventionIntegrationEnabled; }
+    public boolean arclightExists() { return arclightExists != null && arclightExists; }
 
     public boolean hookTowny(){
         return hookTowny;
