@@ -24,6 +24,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import com.tcoded.folialib.FoliaLib;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.io.File;
 import java.io.IOException;
@@ -73,8 +74,6 @@ public class Shop extends JavaPlugin {
     private ShopGuiHandler guiHandler;
     private ItemNameUtil itemNameUtil;
     private ShopCreationUtil shopCreationUtil;
-
-    private NMSBullshitHandler nmsBullshitHandler;
 
     private boolean usePerms;
     private boolean checkUpdates;
@@ -284,8 +283,6 @@ public class Shop extends JavaPlugin {
         this.getLogger().setLogLevel(config.getString("logLevel"));
         this.getLogger().enableColor(config.getBoolean("enableLogColor"));
 
-        nmsBullshitHandler = new NMSBullshitHandler(this);
-        
         shopCreationUtil = new ShopCreationUtil(this);
 
         shopListener = new ShopListener(this);
@@ -509,7 +506,7 @@ public class Shop extends JavaPlugin {
                 getServer().getPluginManager().disablePlugin(plugin);
                 return;
             }
-            this.getLogger().info("Shops will use " + itemNameUtil.getName(itemCurrency).toPlainText() + "(s) as the currency on the server.");
+            this.getLogger().info("Shops will use " + PlainTextComponentSerializer.plainText().serialize(itemNameUtil.getName(itemCurrency)) + "(s) as the currency on the server.");
         }
 
         // Load CommandHandler by initializing it once
@@ -1198,10 +1195,6 @@ public class Shop extends JavaPlugin {
 
     public ShopAction getShopAction(ShopClickType shopClickType){
         return clickTypeActionMap.get(shopClickType);
-    }
-
-    public NMSBullshitHandler getNmsBullshitHandler() {
-        return nmsBullshitHandler;
     }
 
     public NamespacedKey getSignLocationNameSpacedKey(){

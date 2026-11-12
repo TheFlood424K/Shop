@@ -34,8 +34,17 @@ Simply place a sign on a container (chest, barrel, etc.) and format it according
 
 Players can then interact with the shop by right-clicking the sign.
 
+## Requirements
+Shop requires Paper 26.2 or newer and supports DivineMC 26.2–26.3. Folia-compatible deployments remain supported. Building from source requires JDK 25 and Maven.
+
+From PowerShell at the repository root:
+
+```powershell
+mvn clean package
+```
+
 ## Developer Resources
-Check out the [Developer Documentation](https://www.spigotmc.org/wiki/shop-developer-wiki/) for API usage and integration information.
+See the [Paper API documentation](https://docs.papermc.io/paper/dev/) for server API usage and integration information.
 
 ## Contributing
 Interested in contributing to Shop? Check out our [CONTRIBUTING.md](CONTRIBUTING.md) guide for instructions on building the project locally and contributing to the codebase.

@@ -1,6 +1,6 @@
 package com.snowgears.shop.util;
 
-import net.md_5.bungee.api.ChatColor;
+import org.bukkit.ChatColor;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Comparator;

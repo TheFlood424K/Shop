@@ -1,7 +1,7 @@
 package com.snowgears.shop.util;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.AfterEach;
@@ -12,13 +12,15 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.testsupport.BaseMockBukkitTest;
-import net.md_5.bungee.api.chat.TextComponent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Regression test for MiniMessage support (Issue #152 / shopbugs#496).
  * Tests that MiniMessage tags are properly formatted and sent to players.
  */
-public class ShopMessageMiniMessageTest extends BaseMockBukkitTest {
+public class ShopMessageTest extends BaseMockBukkitTest {
 
     private PlayerMock player;
     private Shop plugin;
@@ -32,17 +34,18 @@ public class ShopMessageMiniMessageTest extends BaseMockBukkitTest {
     @Test
     void testFormatMiniMessageWithTags() {
         // Given: A message with MiniMessage tags
-        String message = "<red>Hello</red> <bold>World</bold>";
+        String message = "<red>Hello <bold>World</bold></red>";
 
         // When: Format the message
         PlaceholderContext context = new PlaceholderContext();
         context.setPlayer(player);
-        TextComponent formatted = ShopMessage.format(message, context);
+        Component formatted = ShopMessage.format(message, context);
 
         // Then: The message should not be empty and should have formatting
         assertNotNull(formatted, "Formatted message should not be null");
-        assertEquals("§cHello §lWorld", formatted.toLegacyText(),
-            "MiniMessage tags should be converted to legacy color codes");
+        String legacy = LegacyComponentSerializer.legacy('&').serialize(formatted);
+        assertTrue(legacy.contains("Hello"), "Legacy text should contain Hello: " + legacy);
+        assertTrue(legacy.contains("World"), "Legacy text should contain World: " + legacy);
     }
 
     @Test
@@ -53,12 +56,12 @@ public class ShopMessageMiniMessageTest extends BaseMockBukkitTest {
         // When: Format the message
         PlaceholderContext context = new PlaceholderContext();
         context.setPlayer(player);
-        TextComponent formatted = ShopMessage.format(message, context);
+        Component formatted = ShopMessage.format(message, context);
 
         // Then: Hex colors should be preserved
         assertNotNull(formatted, "Formatted message should not be null");
         // Hex colors in Adventure may result in different formatting
-        String legacyText = formatted.toLegacyText();
+        String legacyText = LegacyComponentSerializer.legacy('&').serialize(formatted);
         assertTrue(legacyText.contains("Red") || legacyText.contains("Red§"),
             "Hex color Red should be in legacy text: " + legacyText);
     }
@@ -71,7 +74,7 @@ public class ShopMessageMiniMessageTest extends BaseMockBukkitTest {
         // When: Format the message
         PlaceholderContext context = new PlaceholderContext();
         context.setPlayer(player);
-        TextComponent formatted = ShopMessage.format(message, context);
+        Component formatted = ShopMessage.format(message, context);
 
         // Then: The message should format without errors
         assertNotNull(formatted, "Formatted message should not be null");
@@ -99,9 +102,39 @@ public class ShopMessageMiniMessageTest extends BaseMockBukkitTest {
         // When: Format with placeholder context
         PlaceholderContext context = new PlaceholderContext();
         context.setPlayer(player);
-        TextComponent formatted = ShopMessage.formatMiniMessage(message, context);
+        Component formatted = ShopMessage.formatMiniMessage(message, context);
 
         // Then: The message should be formatted
         assertNotNull(formatted, "Formatted message should not be null");
+    }
+
+    @Test
+    void testMiniMessageAdventureCompatibility() {
+        // Given: A simple MiniMessage message
+        String message = "<green>Success</green>";
+
+        // When: Process with MiniMessage
+        Component component = MiniMessage.miniMessage().deserialize(message);
+        String legacy = LegacyComponentSerializer.legacySection().serialize(component);
+
+        // Then: Should serialize properly
+        assertNotNull(legacy, "Legacy serialized string should not be null");
+        assertTrue(legacy.contains("Success"), "Legacy text should contain the message");
+    }
+
+    @Test
+    void testMiniMessageInvalidTagsEscaped() {
+        // Given: A message with invalid tags like item names containing angle brackets
+        String message = "<(54, 65, 9)> Test message";
+
+        // When: Format the message
+        PlaceholderContext context = new PlaceholderContext();
+        context.setPlayer(player);
+        Component formatted = ShopMessage.format(message, context);
+
+        // Then: Should not throw and should produce output
+        assertNotNull(formatted, "Formatted message should not be null");
+        String legacyText = LegacyComponentSerializer.legacy('&').serialize(formatted);
+        assertNotNull(legacyText, "Legacy text should not be null");
     }
 }

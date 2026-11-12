@@ -5,6 +5,7 @@ import com.snowgears.shop.shop.ShopType;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.ItemStack;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +40,7 @@ public class OfflineTransactions {
         context.setItem(itemSold);
         context.setBarterItem(barterItem);
         context.setLocation(location);
-        formattedMessage = ShopMessage.format("• " + formattedMessage, context).toLegacyText();
+        formattedMessage = LegacyComponentSerializer.legacy('§').serialize(ShopMessage.format("• " + formattedMessage, context));
         txStrings.add(formattedMessage);
     }
 

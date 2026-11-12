@@ -14,6 +14,7 @@ import org.bukkit.command.defaults.BukkitCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.StringUtil;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -142,7 +143,7 @@ public class CommandHandler extends BukkitCommand {
                         return true;
                     }
                 } else {
-                    sender.sendMessage("The server is using "+plugin.getItemNameUtil().getName(plugin.getItemCurrency()).toPlainText()+" as currency.");
+                    sender.sendMessage("The server is using "+PlainTextComponentSerializer.plainText().serialize(plugin.getItemNameUtil().getName(plugin.getItemCurrency()))+" as currency.");
                 }
             }
             else if(args[0].equalsIgnoreCase("setgamble")){
