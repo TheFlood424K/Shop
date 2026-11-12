@@ -8,8 +8,8 @@ Thank you for your interest in contributing to Shop, the intuitive shop plugin f
 
 Before you begin, ensure you have the following requirements installed:
 
-- **Docker**: Install Docker from the [official website](https://www.docker.com/get-started)
-- **JDK 21**: Ensure you have JDK 21 installed. You can download it from the [Oracle website](https://www.oracle.com/java/technologies/downloads/#java21)
+- **Paper 26.2+**: Shop targets Paper 26.2 and newer, including Folia and DivineMC 26.2–26.3 deployments.
+- **JDK 25**: Ensure you have JDK 25 installed. You can download it from the [Oracle website](https://www.oracle.com/java/technologies/downloads/#java25)
 - **Maven**: Verify Maven is installed. You can download it from the [Maven website](https://maven.apache.org/download.cgi)
 
 ### Setting Up Your Development Environment
@@ -23,51 +23,36 @@ Before you begin, ensure you have the following requirements installed:
 
 ## Building the Project
 
-### Building the Local Maven Repository
-
-Before compiling the plugin, you need to set up the local Maven repository with the supported versions of Spigot:
-
-1. Navigate to the root directory of the repository.
-2. Run the script to build the local Maven repository:
-   ```shell
-   # Pull the latest image from Docker Hub and extract the Maven repo from it
-   ./buildMavenRepo.sh
-   
-   # Alternatively, you can build the image locally on your machine, it just might take an hour or two
-   # Useful if you add a new version to the Dockerfile
-   ./buildMavenRepo.sh local
-   ```
-
-This script will compile all supported versions of Spigot and copy the Maven repository into the Shop folder for later use.
+Paper API dependencies are resolved directly from Maven, so no local Spigot or BuildTools repository is required.
 
 ### Build Environment Setup
 
-Building also requires a JDK 21 Maven toolchain (MockBukkit 4 runs the tests on JDK 21) and two integration APIs
-(Dynmap and BlockProt) that are not reliably resolvable from their upstream Maven/JitPack repositories. The
-`compile.sh` and `runDev.sh` scripts handle all of this automatically by invoking `scripts/setup-build-env.sh`,
-which registers the toolchain and installs those APIs from their stable GitHub Releases (each step is a no-op once
-satisfied). Ensure `JAVA_HOME` points at your JDK 21 installation before running them. To run the setup on its own:
+Building requires JDK 25 and Maven. Ensure `JAVA_HOME` points to your JDK 25 installation. Paper API dependencies are
+resolved directly from the Paper Maven repository; no Spigot server or BuildTools checkout is needed.
 
-```shell
-./scripts/setup-build-env.sh
-```
+If an optional integration API cannot be resolved from its upstream repository, install it into your local Maven
+repository as described by that integration's documentation, then rerun the build.
 
 ### Compiling the Plugin
 
-After setting up the local Maven repository, you can compile the Shop plugin:
+From the repository root, use Maven to compile and test the plugin:
 
-1. Navigate to the root directory of the repository.
-2. Run the script to compile the plugin:
-   ```shell
-   ./compile.sh
-   ```
+```powershell
+mvn clean package
+```
 
-The compiled plugin will be stored in the `target` directory with the filename `shop-{version}.jar`.
+To skip tests while building the plugin:
+
+```powershell
+mvn clean package -DskipTests
+```
+
+The compiled plugin will be stored in the `target` directory with the filename `Shop-{version}.jar`.
 
 If you need to update the version:
-1. Update the version in `/pom.xml`
-2. Run `./compile.sh`
-3. The plugin will be built to `/target/shop-{version}.jar`
+1. Update `revision` in the root `pom.xml`.
+2. Run `mvn clean package`.
+3. The plugin will be built to `target/Shop-{version}.jar`.
 
 ## Versioning Guidelines
 

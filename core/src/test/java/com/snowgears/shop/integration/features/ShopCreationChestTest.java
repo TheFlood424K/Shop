@@ -72,7 +72,7 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         String msg = waitForNextMessage(player);
         assertEquals("§eTo set up your shop, please type your responses in chat when prompted.", msg, "Player should be sent dialog to set up shop");
         msg = waitForNextMessage(player);
-        assertTrue(msg.contains("§eEnter in chat what to do with §a"), "Player should be sent dialog for shop type");
+        assertTrue(msg.contains("§eEnter in chat what to do with"), "Player should be sent dialog for shop type");
         assertTrue(msg.contains("(s)§b §7("), "Player should be sent dialog for shop type");
         msg = player.nextMessage();
         if (msg != null) {
@@ -85,12 +85,12 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         sendChatMessage(player, type);
         // Step 2: Item amount
         msg = waitForNextMessage(player);
-        assertTrue(msg.contains("§eEnter in chat the amount of §a"), "Player should be sent dialog for amount");
+        assertTrue(msg.contains("§eEnter in chat the amount of"), "Player should be sent dialog for amount");
         assertTrue(msg.contains("(s)§b §eyou want to sell per transaction."), "Player should be sent dialog for amount");
         sendChatMessage(player, amount + "");
         // Step 3: Price
         msg = waitForNextMessage(player);
-        assertTrue(msg.contains("§eEnter in chat the price you will sell §a"), "Player should be sent dialog for price");
+        assertTrue(msg.contains("§eEnter in chat the price you will sell"), "Player should be sent dialog for price");
         sendChatMessage(player, price);
         msg = waitForNextMessage(player);
         assertTrue(msg.contains("§eYou have created a shop that sells §6"), "Player should be sent dialog for successfully setup shop");

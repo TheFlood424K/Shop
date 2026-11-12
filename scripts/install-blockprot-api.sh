@@ -15,7 +15,7 @@ set -euo pipefail
 # This installs that jar as a "provided" compile-time dependency with a generated (dependency-less) POM. We only
 # need the de.sean.blockprot.bukkit.* API classes to compile; the runtime plugin still supplies the real impl.
 
-# The Maven coordinate version we want present locally (must match core/pom.xml).
+# The Maven coordinate version we want present locally (must match <blockprot.version> in shop-core/pom.xml).
 BLOCKPROT_VERSION="${BLOCKPROT_VERSION:-1.2.6}"
 
 GROUP_ID="com.github.spnda"
@@ -28,8 +28,9 @@ DOWNLOAD_URL="https://github.com/spnda/BlockProt/releases/download/${BLOCKPROT_V
 LOCAL_REPO="${MAVEN_LOCAL_REPO:-$HOME/.m2/repository}"
 DEST_DIR="${LOCAL_REPO}/${GROUP_ID//.//}/${ARTIFACT_ID}/${BLOCKPROT_VERSION}"
 DEST_JAR="${DEST_DIR}/${ARTIFACT_ID}-${BLOCKPROT_VERSION}.jar"
+DEST_POM="${DEST_DIR}/${ARTIFACT_ID}-${BLOCKPROT_VERSION}.pom"
 
-if [ -f "${DEST_JAR}" ]; then
+if [ -f "${DEST_JAR}" ] && [ -f "${DEST_POM}" ]; then
   echo "BlockProt API already installed: ${DEST_JAR}"
   exit 0
 fi
@@ -42,15 +43,17 @@ jar_path="${tmp_dir}/blockprot-spigot-${BLOCKPROT_VERSION}-all.jar"
 echo "Downloading BlockProt from: ${DOWNLOAD_URL}"
 curl -fsSL --retry 3 --retry-delay 2 --max-time 120 -o "${jar_path}" "${DOWNLOAD_URL}"
 
+mkdir -p "${DEST_DIR}"
+
 echo "Installing into Maven local repo (${LOCAL_REPO}) as ${GROUP_ID}:${ARTIFACT_ID}:${BLOCKPROT_VERSION}"
 mvn -B -q \
   -Dmaven.repo.local="${LOCAL_REPO}" \
+  org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
   -DgroupId="${GROUP_ID}" \
   -DartifactId="${ARTIFACT_ID}" \
   -Dversion="${BLOCKPROT_VERSION}" \
   -Dpackaging="${PACKAGING}" \
   -Dfile="${jar_path}" \
-  -DgeneratePom=true \
-  install:install-file
+  -DgeneratePom=true
 
 echo "Installed: ${DEST_JAR}"
