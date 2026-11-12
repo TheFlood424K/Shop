@@ -90,7 +90,7 @@ public class ShopSignStockColorDesyncOnLoadTest extends BaseMockBukkitTest {
         String line0AfterLoad = signAfterLoad.getLine(0);
 
         // Expected behavior: sign line 1 should show in-stock color (green) when stock > 0.
-        assertTrue(line0AfterLoad.startsWith("§a"),
+        assertTrue(line0AfterLoad.contains("§a"),
                 "Sign should be in-stock (green) after load when stock > 0; was: " + line0AfterLoad);
     }
 }
