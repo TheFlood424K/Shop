@@ -58,7 +58,7 @@ public abstract class BaseMockBukkitTest {
         setConfig("debug_shopCreateCooldown", 0);
 
         // Disable floating create text so creation dialogs are sent via chat (MockBukkit can't render tag entities)
-        setRawConfig("displayFloatingCreateText", false);
+        setRawConfig("displayFloatingCreateText", "false");
         // Test worlds can opt into a chunk auto-load patch via addSimpleWorldPatched(name)
     }
 
