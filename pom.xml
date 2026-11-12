@@ -39,7 +39,7 @@
         <revision>1.12.0</revision>
         <maven.compiler.release>25</maven.compiler.release>
         <java.version>25</java.version>
-        <paper.version>26.2.build.135-stable</paper.version>
+        <paper.version>26.3.build.245-stable</paper.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
