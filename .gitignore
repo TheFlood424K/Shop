@@ -11,12 +11,12 @@ scripts/diff-cover.md
 /build/maven-repo
 /.appmod
 /.mvn
-/.cursor
+*/.cursor
 /.vscode
-*mvnw
 plan.md
 progress.md
 PROJECT_BRIEF.md
 SPRINT_PLAN.md
 summary.md
 /.github/modernize
+job_logs.txt
