@@ -2,6 +2,8 @@ package com.snowgears.shop.handler;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.AbstractDisplay;
+import com.snowgears.shop.display.Display;
+import com.snowgears.shop.display.DisplayDisabled;
 import com.snowgears.shop.display.DisplayType;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ComboShop;
@@ -47,7 +49,6 @@ import java.nio.file.StandardCopyOption;
 public class ShopHandler {
 
     public Shop plugin;
-    private Class<?> displayClass;
 
     private ConcurrentHashMap<Location, AbstractShop> allShops = new ConcurrentHashMap<>();
     private ConcurrentHashMap<UUID, List<Location>> playerShops = new ConcurrentHashMap<>();
@@ -68,9 +69,6 @@ public class ShopHandler {
     // Map to track player last processed locations for movement-based display updates
     private ConcurrentHashMap<UUID, Location> lastProcessedLocations = new ConcurrentHashMap<>();
 
-    // Cache for player connections to avoid expensive reflection calls
-    private ConcurrentHashMap<UUID, Object> playerConnectionCache = new ConcurrentHashMap<>();
-
     // Teleport cooldown map to prevent multiple display updates during teleportation
     private ConcurrentHashMap<UUID, Long> teleportCooldowns = new ConcurrentHashMap<>();
     // Cooldown time in milliseconds (500ms = half a second)
@@ -84,7 +82,6 @@ public class ShopHandler {
     public ShopHandler(Shop instance) {
         plugin = instance;
         adminUUID = UUID.randomUUID();
-        initDisplayClass();
         initItemList();
 
         plugin.getFoliaLib().getScheduler().runLater(() -> {
@@ -93,102 +90,20 @@ public class ShopHandler {
     }
 
     /**
-     * Disables the display class by loading the disabled display implementation.
-     */
-    /**
-     * Disables the display class by loading the disabled display implementation.
-     */
-    public void disableDisplayClass() {
-        try {
-            final Class<?> clazz = Class.forName("com.snowgears.shop.display.DisplayDisabled");
-            if (AbstractDisplay.class.isAssignableFrom(clazz))
-                this.displayClass = clazz;
-        } catch (final Exception e) {
-            Shop.getPlugin().getLogger().severe("Failed to load DisplayDisabled class.");
-            Shop.getPlugin().onDisable();
-        } catch (Error e) {
-            Shop.getPlugin().getLogger().severe("Failed to load DisplayDisabled class.");
-            Shop.getPlugin().onDisable();
-        }
-    }
-
-    /**
-     * Initializes the display class based on server version.
+     * Creates a Paper-backed display instance at the specified location.
      *
-     * @return true if display class was successfully initialized
-     */
-    private boolean initDisplayClass(){
-        String packageName = plugin.getServer().getClass().getPackage().getName();
-
-        // Check if we are on a Paper 1.20.6+ server, or if we are running Spigot v1.20.6 or later :)
-        // Now that our new Display class purely uses Class loading to get the appropriate class, we don't
-        // need to load a specific revision version class (unless we are old)
-        if (packageName.equals("org.bukkit.craftbukkit") || plugin.getNmsBullshitHandler().getServerVersion() >= 120.6D) {
-            // We are on a newer version that does not relocate CB classes, load the default display package
-            try {
-                Shop.getPlugin().getLogger().info("Using item display handler - com.snowgears.shop.display.Display");
-                final Class<?> clazz = Class.forName("com.snowgears.shop.display.Display");
-                if (AbstractDisplay.class.isAssignableFrom(clazz)) {
-                    this.displayClass = clazz;
-                    return true;
-                }
-            } catch (final Exception e) {
-                Shop.getPlugin().getLogger().severe("Error while loading 'com.snowgears.shop.display.Display'. " + e.getMessage());
-                e.printStackTrace();
-                disableDisplayClass();
-                return false;
-            } catch (Error e) {
-                Shop.getPlugin().getLogger().severe("Error while loading 'com.snowgears.shop.display.Display'. " + e.getMessage());
-                e.printStackTrace();
-                disableDisplayClass();
-                return false;
-            }
-            return false;
-        } else {
-            // We are still on an older version, so go ahead
-            String nmsVersion = packageName.substring(packageName.lastIndexOf('.') + 1);
-
-            // MockBukkit testing does not support NMS, so we need to just return early
-            if (plugin.isMockBukkit()) {
-                disableDisplayClass();
-                return false;
-            }
-
-            try {
-                Shop.getPlugin().getLogger().info( "Minecraft version is old or Spigot, watch out for bugs!");
-                Shop.getPlugin().getLogger().info("Using display class - com.snowgears.shop.display.Display_" + nmsVersion);
-                final Class<?> clazz = Class.forName("com.snowgears.shop.display.Display_" + nmsVersion);
-                if (AbstractDisplay.class.isAssignableFrom(clazz)) {
-                    this.displayClass = clazz;
-                    return true;
-                }
-            } catch (final Error | Exception e) {
-                Shop.getPlugin().getLogger().severe("Error while loading com.snowgears.shop.display.Display_" + nmsVersion + " " + e.getMessage());
-                e.printStackTrace();
-                disableDisplayClass();
-                return false;
-            }
-            
-            Shop.getPlugin().getLogger().severe("Unknown issue hooking into Minecraft Packet Classes, disabling display features.");
-            disableDisplayClass();
-            return false;
-        }
-    }
-
-    /**
-     * Creates a display instance at the specified location.
+     * <p>MockBukkit does not implement the region/entity schedulers the
+     * Paper-backed display relies on, so displays are disabled there and the
+     * plugin falls back to chat-based prompts.</p>
      *
      * @param loc The location to create the display at
-     * @return A new display instance, or null if creation fails
+     * @return A new display instance
      */
-    public AbstractDisplay createDisplay(Location loc){
-        try {
-            AbstractDisplay display = (AbstractDisplay) displayClass.getConstructor(Location.class).newInstance(loc);
-            return display;
-        } catch (Exception e){
-            plugin.getLogger().warning("Error creating display at | World: " + loc.getWorld().getName() + " at " + loc.getX() + ", " + loc.getY() + ", " + loc.getZ());
+    public AbstractDisplay createDisplay(Location loc) {
+        if (plugin.isMockBukkit()) {
+            return new DisplayDisabled(loc);
         }
-        return null;
+        return new Display(loc);
     }
 
     /**
@@ -835,8 +750,6 @@ public class ShopHandler {
         // Clear teleport cooldown as well
         teleportCooldowns.remove(player.getUniqueId());
 
-        // Clear the cached connection when displays are removed
-        removeCachedPlayerConnection(player);
     }
 
     /**
@@ -1296,7 +1209,7 @@ public class ShopHandler {
                         plugin.getLogger().severe("Do not startup the plugin again until you have traced and fixed the issue! You may delete a new player file with each startup if the issue is not fixed!");
                         // Immediate shutdown of server. Something is very wrong.
                         plugin.getLogger().severe("Shutting down plugin immediately to prevent Shop save data loss...");
-                        plugin.getPluginLoader().disablePlugin(plugin);
+                        Bukkit.getPluginManager().disablePlugin(plugin);
                         this.immediateShutdown = true;
                         return -5;
                     }
@@ -1847,38 +1760,4 @@ public class ShopHandler {
         }
     }
 
-    /**
-     * Gets the cached player connection for packet sending
-     * @param player The player to get connection for
-     * @return The player's network connection object
-     */
-    public Object getCachedPlayerConnection(Player player) {
-        UUID playerId = player.getUniqueId();
-        // Check if we have a cached connection
-        Object connection = playerConnectionCache.get(playerId);
-        if (connection == null) {
-            // If not cached, get it and store it
-            connection = plugin.getNmsBullshitHandler().getPlayerConnection(player);
-            if (connection != null) {
-                playerConnectionCache.put(playerId, connection);
-            }
-        }
-        return connection;
-    }
-
-    /**
-     * Removes the cached player connection
-     * @param player The player whose connection to remove
-     */
-    public void removeCachedPlayerConnection(Player player) {
-        playerConnectionCache.remove(player.getUniqueId());
-    }
-
-    /**
-     * Removes the cached player connection by UUID
-     * @param playerId UUID of the player whose connection to remove
-     */
-    public void removeCachedPlayerConnection(UUID playerId) {
-        playerConnectionCache.remove(playerId);
-    }
 }

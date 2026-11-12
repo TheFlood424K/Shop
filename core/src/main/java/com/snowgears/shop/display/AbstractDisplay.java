@@ -7,636 +7,1276 @@ import com.snowgears.shop.util.ArmorStandData;
 import com.snowgears.shop.util.DisplayUtil;
 import com.snowgears.shop.util.ShopMessage;
 import com.snowgears.shop.util.UtilMethods;
+import io.papermc.paper.threadedregions.scheduler.EntityScheduler;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.GlowItemFrame;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Vector;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
-
+/**
+ * Paper entity-backed shop display.
+ *
+ * <p>The main display is shared by all viewers of a shop. Every main entity is
+ * created hidden by default and is revealed with Paper's per-player visibility
+ * API. Tags are intentionally player-specific entities.</p>
+ */
 public abstract class AbstractDisplay {
 
-    protected Location shopSignLocation;
-    protected DisplayType type;
-    protected HashMap<UUID, ArrayList<Integer>> entityIDs; //player UUID. display entities
-    protected HashMap<UUID, ArrayList<Integer>> displayTagEntityIDs; //player UUID. display tags
+    protected final Location shopSignLocation;
+    protected volatile DisplayType type;
+
+    private final Object sharedLock = new Object();
+    private final Object tagLock = new Object();
+
+    private final Set<UUID> visiblePlayers = ConcurrentHashMap.newKeySet();
+    private final ConcurrentMap<UUID, Set<Entity>> tagEntities = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, TagRequest> pendingTagRequests = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> playerTagEpochs = new HashMap<>();
+
+    private volatile SharedGeneration sharedGeneration;
+    private long sharedGenerationCounter;
+    private long globalTagEpoch;
 
     public AbstractDisplay(Location shopSignLocation) {
-        this.shopSignLocation = shopSignLocation;
-        entityIDs = new HashMap<>();
-        displayTagEntityIDs = new HashMap<>();
+        this.shopSignLocation = shopSignLocation == null ? null : shopSignLocation.clone();
     }
 
-    public boolean isEnabled() { return true; }
-
-    public boolean isChunkLoaded(){
-        return UtilMethods.isChunkLoaded(this.shopSignLocation);
+    public boolean isEnabled() {
+        return true;
     }
 
-    //spawns a floating item packet for a specific player
-    //if player is null, all online players will get the packet
-    protected abstract void spawnItemPacket(Player player, ItemStack is, Location location);
+    public boolean isChunkLoaded() {
+        return shopSignLocation != null && UtilMethods.isChunkLoaded(shopSignLocation);
+    }
 
-    //spawns an armor stand packet for a specific player
-    //if player is null, all online players will get the packet
-    protected abstract void spawnArmorStandPacket(Player player, ArmorStandData armorStandData, String text);
-
-    //spawns an item frame packet for a specific player
-    //if player is null, all online players will get the packet
-    protected abstract void spawnItemFramePacket(Player player, ItemStack is, Location location, BlockFace facing, boolean isGlowing);
-
-    public abstract void removeDisplayEntities(Player player, boolean onlyDisplayTags);
-
+    /**
+     * Reveals this shop's shared display to one player, or to every eligible
+     * player in the shop world when {@code player} is {@code null}.
+     */
     public void spawn(Player player) {
-        if(player != null){
-            //don't spawn the display if the player is in a different world
-            if(!player.getWorld().getUID().equals(this.shopSignLocation.getWorld().getUID()))
-                return;
-        }
-        remove(player);
-
-        AbstractShop shop = this.getShop();
-
-        if (shop == null || shop.getItemStack() == null || shop.getChestLocation() == null)
+        if (!isEnabled() || shopSignLocation == null || shopSignLocation.getWorld() == null) {
             return;
+        }
 
-        //define the initial display item
-        ItemStack item = shop.getItemStack().clone();
-        item.setAmount(1);
+        AbstractShop shop = getShop();
+        if (shop == null || shop.getItemStack() == null || shop.getChestLocation() == null) {
+            return;
+        }
 
-        DisplayType displayType = this.getType();
-        if(displayType == null)
-            displayType = Shop.getPlugin().getDisplayType();
-
-        //two display entities on the chest
-        if (shop.getSecondaryItemStack() != null) {
-            //define the barter display item
-            ItemStack barterItem = shop.getSecondaryItemStack().clone();
-            barterItem.setAmount(1);
-
-            switch (displayType){
-                case NONE:
-                    //do nothing
-                    break;
-                case ITEM:
-                    //drop first item on left
-                    spawnItemPacket(player, item, this.getItemDropLocation(false));
-
-                    //drop second item on right
-                    spawnItemPacket(player, barterItem, this.getItemDropLocation(true));
-                    break;
-                case LARGE_ITEM:
-                    //put first large display down
-                    Location leftLoc = shop.getChestLocation().clone().add(0,1,0);
-                    leftLoc.add(getLargeItemBarterOffset(false));
-                    ArmorStandData armorStandData = DisplayUtil.getArmorStandData(item, leftLoc, shop.getFacing(), false);
-                    spawnArmorStandPacket(player, armorStandData, null);
-
-                    //put second large display down
-                    Location rightLoc = shop.getChestLocation().clone().add(0,1,0);
-                    rightLoc.add(getLargeItemBarterOffset(true));
-                    ArmorStandData armorStandData2 = DisplayUtil.getArmorStandData(barterItem, rightLoc, shop.getFacing(), false);
-                    spawnArmorStandPacket(player, armorStandData2, null);
-                    break;
-                case GLASS_CASE:
-                    //put the extra large glass casing down
-                    Location caseLoc = shop.getChestLocation().clone().add(0,1,0);
-                    ArmorStandData caseStandData = DisplayUtil.getArmorStandData(new ItemStack(Material.GLASS), caseLoc, shop.getFacing(), true);
-                    spawnArmorStandPacket(player, caseStandData, null);
-
-                    //Drop initial display item
-                    spawnItemPacket(player, item, this.getItemDropLocation(false));
-
-                    //Drop the barter display item
-                    spawnItemPacket(player, barterItem, this.getItemDropLocation(true));
-                    break;
+        if (player != null) {
+            if (!player.isOnline() || !isSameWorld(player)) {
+                return;
+            }
+            visiblePlayers.add(player.getUniqueId());
+        } else {
+            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                if (onlinePlayer.isOnline() && isSameWorld(onlinePlayer)) {
+                    visiblePlayers.add(onlinePlayer.getUniqueId());
+                }
             }
         }
-        //one display entity on the chest
-        else {
-            switch (displayType){
-                case NONE:
-                    //do nothing
-                    break;
-                case ITEM:
-                    spawnItemPacket(player, item, this.getItemDropLocation(false));
-                    break;
-                case LARGE_ITEM:
-                    ArmorStandData armorStandData = DisplayUtil.getArmorStandData(item, shop.getChestLocation().clone().add(0,1,0), shop.getFacing(), false);
-                    spawnArmorStandPacket(player, armorStandData, null);
-                    break;
-                case GLASS_CASE:
-                    //put the extra large glass casing down
-                    Location caseLoc = shop.getChestLocation().clone().add(0,1,0);
-                    ArmorStandData caseStandData = DisplayUtil.getArmorStandData(new ItemStack(Material.GLASS), caseLoc, shop.getFacing(), true);
-                    spawnArmorStandPacket(player, caseStandData, null);
 
-                    //drop the display item in the glass case
-                    spawnItemPacket(player, item, this.getItemDropLocation(false));
-                    break;
-                case ITEM_FRAME:
-                    Location frameLocation;
-                    //only calculate the item frame location if the shop is in a loaded chunk (because Block is used)
-                    if(this.isChunkLoaded()) {
-                        Block aboveShop = shop.getChestLocation().getBlock().getRelative(BlockFace.UP);
-                        frameLocation = aboveShop.getLocation();
-                        //if display is blocked, put item frame on front
-                        if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
-                            frameLocation = aboveShop.getRelative(shop.getFacing()).getLocation();
-                        }
-                    }
-                    else{
-                        frameLocation = shop.getChestLocation().clone().add(0,1,0);
-                    }
+        DisplayType displayType = getType();
+        if (displayType == null) {
+            displayType = Shop.getPlugin().getDisplayType();
+        }
 
-                    if(UtilMethods.isMCVersion17Plus() && Shop.getPlugin().getGlowingItemFrame()){
-                        spawnItemFramePacket(player, shop.getItemStack(), frameLocation, shop.getFacing(), true);
-                    }
-                    else {
-                        spawnItemFramePacket(player, shop.getItemStack(), frameLocation, shop.getFacing(), false);
-                    }
-                    break;
+        ensureSharedDisplay(displayType, shop);
+
+        SharedGeneration generation = sharedGeneration;
+        if (generation != null && generation.complete) {
+            if (player == null) {
+                revealSharedGeneration(generation);
+            } else {
+                revealSharedEntity(generation, player);
             }
         }
     }
 
-    //DISPLAY TAGS
+    /**
+     * Removes one player's tag entities and visibility exception. Shared main
+     * entities remain available to other viewers. Passing {@code null} destroys
+     * the shared main entities and all tags for every viewer.
+     */
+    public void remove(Player player) {
+        try {
+            removeDisplayEntities(player, false);
+            removeDisplayEntities(player, true);
+        } catch (RuntimeException exception) {
+            Shop.getPlugin().getLogger().fine("Unable to remove display entities: " + exception.getMessage());
+        }
+    }
 
-    public void showDisplayTags(Player player){
-        if(displayTagsVisible(player) || !getShop().isInitialized() || Shop.getPlugin().getDisplayTagOption() == DisplayTagOption.NONE || getShop().getFacing() == null) {
+    /**
+     * Explicit logout/player-cleanup entry point. This is equivalent to
+     * {@link #remove(Player)} and never destroys shared entities needed by
+     * other players.
+     */
+    public void removePlayer(Player player) {
+        remove(player);
+    }
+
+    /**
+     * Removes main display visibility for a player, or all shared entities when
+     * {@code player} is {@code null}. When {@code onlyDisplayTags} is true, only
+     * that player's tags (or all tags for {@code null}) are removed.
+     */
+    public void removeDisplayEntities(Player player, boolean onlyDisplayTags) {
+        if (!isEnabled()) {
             return;
         }
 
         try {
-            ArrayList<String> displayTags = ShopMessage.getDisplayTags(getShop(), getShop().getType());
-
-            Location lowerTagLocation = getShop().getChestLocation().clone().add(0,1,0);
-            lowerTagLocation = lowerTagLocation.add(0.5, 0.5, 0.5);
-
-            //push the tag slightly closer to the front of the shop so it doesnt collide with the display and hide the text
-            lowerTagLocation = UtilMethods.pushLocationInDirection(lowerTagLocation, this.getShop().getFacing(), 0.2);
-
-            Block displayBlock = lowerTagLocation.getBlock();
-            if(UtilMethods.isMCVersion14Plus() && this.isChunkLoaded()) {
-                if (displayBlock.getType() == Material.BARREL || displayBlock.getRelative(BlockFace.DOWN).getType() == Material.BARREL) {
-                    lowerTagLocation = lowerTagLocation.add(0, .25, 0);
-                }
-                // If there is a block above our display, offset the tag location
-                // so that it doesn't become hidden inside the block. (most noticible with chests)
-                if (getShop().getChestLocation().clone().add(0,2,0).getBlock().getType() != Material.AIR) {
-                    // Adds 0.35 on top of the 0.2 added above (total of 0.55)
-                    // 0.3 to get to edge of block, 0.05 to give a lil more wiggle room when the player isnt looking directly at the display
-                    lowerTagLocation = UtilMethods.pushLocationInDirection(lowerTagLocation, this.getShop().getFacing(), 0.35);
-                }
+            if (onlyDisplayTags) {
+                removeTagEntities(player);
+            } else if (player == null) {
+                removeSharedEntities();
+            } else {
+                removePlayerVisibility(player);
             }
-
-            // Create a list to store tag data
-            List<Map.Entry<String, Location>> tagData = new ArrayList<>();
-
-            double verticalAddition = 0;
-            //iterate through list backwards to build from bottom -> up
-            for (int i = displayTags.size() - 1; i >= 0; i--) {
-                Location asTagLocation = lowerTagLocation.clone();
-
-                String tagLine = displayTags.get(i);
-                if (tagLine.contains("[lshift]")) {
-                    asTagLocation = asTagLocation.add(getShiftOffset(true, false));
-                    tagLine = tagLine.replace("[lshift]", "");
-                }
-                if (tagLine.contains("[rshift]")) {
-                    asTagLocation = asTagLocation.add(getShiftOffset(false, true));
-                    tagLine = tagLine.replace("[rshift]", "");
-                }
-
-                asTagLocation = asTagLocation.add(0, verticalAddition, 0);
-                
-                // Store the tag data instead of creating it immediately
-                tagData.add(new AbstractMap.SimpleEntry<>(tagLine, asTagLocation));
-                
-                verticalAddition += 0.3;
-            }
-            
-            // Now create the tags in reverse order (top to bottom)
-            for (int i = tagData.size() - 1; i >= 0; i--) {
-                Map.Entry<String, Location> entry = tagData.get(i);
-                String tagLine = entry.getKey();
-                Location asTagLocation = entry.getValue();
-                
-                Shop.getPlugin().getLogger().spam("[Display] Adding tag line: " + tagLine, true);
-                createTagEntity(player, tagLine, asTagLocation);
-            }
-
-            Shop.getPlugin().getShopHandler().addActiveShopDisplayTag(player, this.shopSignLocation);
-
-            //this handles getting rid of the display tags after a configured amount of time after the player looks away from the shop sign
-            removeDisplayTagsDelayedTask(player);
-
-        } catch (NullPointerException e){
-            e.printStackTrace();
+        } catch (RuntimeException exception) {
+            Shop.getPlugin().getLogger().fine("Unable to remove display entities: " + exception.getMessage());
         }
     }
 
-    public void updateDisplayTags(){
-        // Update any players display tags who currently have them open
-        if (displayTagEntityIDs == null || displayTagEntityIDs.isEmpty()) {
+    /** Returns whether this display has been requested for the player. */
+    public boolean hasActiveDisplay(Player player) {
+        return player != null && visiblePlayers.contains(player.getUniqueId());
+    }
+
+    /** Returns whether the player currently owns visible tag entities or a pending tag request. */
+    public boolean hasActiveDisplayTags(Player player) {
+        return player != null && displayTagsVisible(player);
+    }
+
+    private void ensureSharedDisplay(DisplayType displayType, AbstractShop shop) {
+        SharedGeneration previous;
+        SharedGeneration next;
+
+        synchronized (sharedLock) {
+            SharedGeneration current = sharedGeneration;
+            if (current != null && current.displayType == displayType && !current.failed) {
+                return;
+            }
+
+            previous = current;
+            next = new SharedGeneration(++sharedGenerationCounter, displayType);
+            sharedGeneration = next;
+        }
+
+        if (previous != null) {
+            removeEntities(previous.entities);
+        }
+
+        if (displayType == DisplayType.NONE) {
+            next.complete = true;
+            next.expectedEntityCount = 0;
             return;
         }
-        
-        // Get a copy of the keys to avoid concurrent modification issues
-        Set<UUID> playerUUIDs = new HashSet<>(displayTagEntityIDs.keySet());
-        
-        for (UUID playerUUID : playerUUIDs) {
-            Player player = Shop.getPlugin().getServer().getPlayer(playerUUID);
-            
-            // Skip if player is offline or in a different world
-            if (player == null || !player.isOnline() || !isSameWorld(player)) {
-                continue;
+
+        Location chestLocation = shop.getChestLocation().clone();
+        if (!executeAtLocation(chestLocation, () -> buildSharedGeneration(next, shop))) {
+            next.complete = true;
+            next.failed = true;
+        }
+    }
+
+    private void buildSharedGeneration(SharedGeneration generation, AbstractShop shop) {
+        if (!isCurrentGeneration(generation)) {
+            return;
+        }
+
+        List<MainEntitySpec> specs;
+        try {
+            specs = createMainEntitySpecs(shop, generation.displayType);
+        } catch (RuntimeException exception) {
+            Shop.getPlugin().getLogger().fine("Unable to prepare shop display entities: " + exception.getMessage());
+            generation.complete = true;
+            generation.failed = true;
+            return;
+        }
+
+        generation.expectedEntityCount = specs.size();
+        if (specs.isEmpty()) {
+            generation.complete = true;
+            revealSharedGeneration(generation);
+            return;
+        }
+
+        AtomicInteger remaining = new AtomicInteger(specs.size());
+        for (MainEntitySpec spec : specs) {
+            if (!isCurrentGeneration(generation)) {
+                removeEntities(generation.entities);
+                return;
             }
-            
-            // Check if player has display tags visible
-            if (displayTagsVisible(player)) {
-                // Remove the current display tags
-                removeDisplayEntities(player, true);
-                
-                // Show updated display tags
-                showDisplayTags(player);
+
+            Location entityLocation = spec.location.clone();
+            if (!executeAtLocation(entityLocation, () -> {
+                try {
+                    if (!isCurrentGeneration(generation)) {
+                        return;
+                    }
+
+                    Entity entity = spawnMainEntity(spec);
+                    if (entity != null) {
+                        generation.entities.add(entity);
+                    }
+                } finally {
+                    if (remaining.decrementAndGet() == 0) {
+                        generation.complete = true;
+                        revealSharedGeneration(generation);
+                    }
+                }
+            })) {
+                if (remaining.decrementAndGet() == 0) {
+                    generation.complete = true;
+                    revealSharedGeneration(generation);
+                }
             }
         }
     }
 
-    public void createTagEntity(Player player, String text, Location location){
-        Shop.getPlugin().getLogger().debug("Spawning hologram for player " + player.getName() + " at " + location.getBlockX() + "/" + location.getBlockY() + "/" + location.getBlockZ() + ": " + text, true);
-        ArmorStandData caseStandData = new ArmorStandData();
-        caseStandData.setSmall(false);
-        caseStandData.setLocation(location);
+    private boolean isCurrentGeneration(SharedGeneration generation) {
+        return sharedGeneration == generation;
+    }
 
-        spawnArmorStandPacket(player, caseStandData, text);
+    private List<MainEntitySpec> createMainEntitySpecs(AbstractShop shop, DisplayType displayType) {
+        List<MainEntitySpec> specs = new ArrayList<>();
+
+        ItemStack item = shop.getItemStack().clone();
+        item.setAmount(1);
+        ItemStack barterItem = null;
+        if (shop.getSecondaryItemStack() != null) {
+            barterItem = shop.getSecondaryItemStack().clone();
+            barterItem.setAmount(1);
+        }
+
+        switch (displayType) {
+            case NONE -> {
+                // No main entities.
+            }
+            case ITEM -> {
+                Location itemLocation = getItemDropLocation(shop, false);
+                if (itemLocation != null) {
+                    specs.add(MainEntitySpec.item(itemLocation, item));
+                }
+                if (barterItem != null) {
+                    Location barterLocation = getItemDropLocation(shop, true);
+                    if (barterLocation != null) {
+                        specs.add(MainEntitySpec.item(barterLocation, barterItem));
+                    }
+                }
+            }
+            case LARGE_ITEM -> {
+                if (shop.getFacing() != null) {
+                    Location leftLocation = shop.getChestLocation().clone().add(0, 1, 0);
+                    leftLocation.add(getLargeItemBarterOffset(shop, false));
+                    specs.add(MainEntitySpec.armorStand(
+                            DisplayUtil.getArmorStandData(item, leftLocation, shop.getFacing(), false)));
+
+                    if (barterItem != null) {
+                        Location rightLocation = shop.getChestLocation().clone().add(0, 1, 0);
+                        rightLocation.add(getLargeItemBarterOffset(shop, true));
+                        specs.add(MainEntitySpec.armorStand(
+                                DisplayUtil.getArmorStandData(barterItem, rightLocation, shop.getFacing(), false)));
+                    }
+                }
+            }
+            case GLASS_CASE -> {
+                if (shop.getFacing() != null) {
+                    Location caseLocation = shop.getChestLocation().clone().add(0, 1, 0);
+                    specs.add(MainEntitySpec.armorStand(
+                            DisplayUtil.getArmorStandData(new ItemStack(Material.GLASS), caseLocation, shop.getFacing(), true)));
+                }
+
+                Location itemLocation = getItemDropLocation(shop, false);
+                if (itemLocation != null) {
+                    specs.add(MainEntitySpec.item(itemLocation, item));
+                }
+                if (barterItem != null) {
+                    Location barterLocation = getItemDropLocation(shop, true);
+                    if (barterLocation != null) {
+                        specs.add(MainEntitySpec.item(barterLocation, barterItem));
+                    }
+                }
+            }
+            case ITEM_FRAME -> {
+                if (barterItem == null) {
+                    Location frameLocation = getItemFrameLocation(shop);
+                    if (frameLocation != null) {
+                        specs.add(MainEntitySpec.itemFrame(
+                                frameLocation,
+                                shop.getItemStack(),
+                                shop.getFacing(),
+                                Shop.getPlugin().getGlowingItemFrame()));
+                    }
+                }
+            }
+        }
+
+        return specs;
+    }
+
+    private Location getItemFrameLocation(AbstractShop shop) {
+        Location chestLocation = shop.getChestLocation();
+        if (chestLocation == null) {
+            return null;
+        }
+
+        if (!isChunkLoaded()) {
+            return chestLocation.clone().add(0, 1, 0);
+        }
+
+        Block aboveShop = chestLocation.getBlock().getRelative(BlockFace.UP);
+        Location frameLocation = aboveShop.getLocation();
+        if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
+            if (shop.getFacing() == null) {
+                return frameLocation;
+            }
+            frameLocation = aboveShop.getRelative(shop.getFacing()).getLocation();
+        }
+        return frameLocation;
+    }
+
+    private Entity spawnMainEntity(MainEntitySpec spec) {
+        if (spec.location == null || spec.location.getWorld() == null) {
+            return null;
+        }
+
+        try {
+            return switch (spec.kind) {
+                case ITEM -> spec.location.getWorld().spawn(spec.location, Item.class,
+                        item -> configureItem(item, spec.itemStack));
+                case ARMOR_STAND -> spec.location.getWorld().spawn(spec.location, ArmorStand.class,
+                        armorStand -> configureArmorStand(armorStand, spec.armorStandData));
+                case ITEM_FRAME -> spec.location.getWorld().spawn(spec.location, ItemFrame.class,
+                        itemFrame -> configureItemFrame(itemFrame, spec.itemStack, spec.facing));
+                case GLOW_ITEM_FRAME -> spec.location.getWorld().spawn(spec.location, GlowItemFrame.class,
+                        itemFrame -> configureItemFrame(itemFrame, spec.itemStack, spec.facing));
+            };
+        } catch (RuntimeException exception) {
+            Shop.getPlugin().getLogger().fine("Unable to spawn shop display entity: " + exception.getMessage());
+            return null;
+        }
+    }
+
+    private void configureItem(Item item, ItemStack itemStack) {
+        item.setItemStack(itemStack);
+        item.setUnlimitedLifetime(true);
+        item.setWillAge(false);
+        item.setPickupDelay(Integer.MAX_VALUE);
+        item.setCanPlayerPickup(false);
+        item.setCanMobPickup(false);
+        item.setVelocity(new Vector());
+        configureBaseEntity(item);
+    }
+
+    private void configureArmorStand(ArmorStand armorStand, ArmorStandData data) {
+        armorStand.setVisible(false);
+        armorStand.setBasePlate(false);
+        armorStand.setMarker(true);
+        armorStand.setGravity(false);
+        armorStand.setPersistent(false);
+        armorStand.setInvulnerable(true);
+        armorStand.setVisibleByDefault(false);
+        armorStand.setCanMove(false);
+        armorStand.setCanTick(false);
+        armorStand.setAI(false);
+        armorStand.setCollidable(false);
+        armorStand.setCanPickupItems(false);
+        armorStand.setCustomNameVisible(false);
+        armorStand.setSilent(true);
+        armorStand.setSmall(data.isSmall());
+        armorStand.setRotation((float) data.getYaw(), 0.0f);
+
+        if (data.getRightArmPose() != null) {
+            armorStand.setRightArmPose(data.getRightArmPose());
+        }
+
+        ItemStack equipment = data.getEquipment();
+        if (equipment != null) {
+            switch (data.getEquipmentSlot()) {
+                case HEAD -> armorStand.getEquipment().setHelmet(equipment);
+                case CHEST -> armorStand.getEquipment().setChestplate(equipment);
+                case LEGS -> armorStand.getEquipment().setLeggings(equipment);
+                case FEET -> armorStand.getEquipment().setBoots(equipment);
+                case OFF_HAND -> armorStand.getEquipment().setItemInOffHand(equipment);
+                case HAND -> armorStand.getEquipment().setItemInMainHand(equipment);
+            }
+        }
+
+        PaperDisplayMarker.mark(armorStand);
+    }
+
+    private void configureItemFrame(ItemFrame itemFrame, ItemStack itemStack, BlockFace facing) {
+        itemFrame.setItem(itemStack);
+        if (facing != null) {
+            itemFrame.setFacingDirection(facing, true);
+        }
+        itemFrame.setFixed(true);
+        itemFrame.setItemDropChance(0.0f);
+        itemFrame.setGravity(false);
+        itemFrame.setPersistent(false);
+        itemFrame.setInvulnerable(true);
+        itemFrame.setVisibleByDefault(false);
+        itemFrame.setSilent(true);
+        PaperDisplayMarker.mark(itemFrame);
+    }
+
+    private void configureBaseEntity(Entity entity) {
+        entity.setGravity(false);
+        entity.setPersistent(false);
+        entity.setInvulnerable(true);
+        entity.setVisibleByDefault(false);
+        entity.setSilent(true);
+        PaperDisplayMarker.mark(entity);
+    }
+
+    private void revealSharedGeneration(SharedGeneration generation) {
+        if (!isCurrentGeneration(generation)) {
+            return;
+        }
+
+        for (UUID playerId : new HashSet<>(visiblePlayers)) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline() && isSameWorld(player)) {
+                revealSharedEntity(generation, player);
+            }
+        }
+    }
+
+    private void revealSharedEntity(SharedGeneration generation, Player player) {
+        for (Entity entity : new HashSet<>(generation.entities)) {
+            executeOnEntity(entity, () -> {
+                if (!isCurrentGeneration(generation)
+                        || !generation.entities.contains(entity)
+                        || !visiblePlayers.contains(player.getUniqueId())
+                        || !player.isOnline()) {
+                    return;
+                }
+
+                try {
+                    player.showEntity(Shop.getPlugin(), entity);
+                } catch (RuntimeException exception) {
+                    Shop.getPlugin().getLogger().fine("Unable to reveal shop display entity: " + exception.getMessage());
+                }
+            }, null);
+        }
+    }
+
+    private void removePlayerVisibility(Player player) {
+        visiblePlayers.remove(player.getUniqueId());
+
+        SharedGeneration generation = sharedGeneration;
+        if (generation == null) {
+            return;
+        }
+
+        for (Entity entity : new HashSet<>(generation.entities)) {
+            executeOnEntity(entity, () -> {
+                if (visiblePlayers.contains(player.getUniqueId())) {
+                    return;
+                }
+                try {
+                    player.hideEntity(Shop.getPlugin(), entity);
+                } catch (RuntimeException exception) {
+                    Shop.getPlugin().getLogger().fine("Unable to hide shop display entity: " + exception.getMessage());
+                }
+            }, null);
+        }
+    }
+
+    private void removeSharedEntities() {
+        SharedGeneration generation;
+        synchronized (sharedLock) {
+            generation = sharedGeneration;
+            sharedGeneration = null;
+            sharedGenerationCounter++;
+        }
+        visiblePlayers.clear();
+
+        if (generation != null) {
+            removeEntities(generation.entities);
+        }
+    }
+
+    private void removeEntities(Set<Entity> entities) {
+        for (Entity entity : new HashSet<>(entities)) {
+            executeOnEntity(entity, () -> {
+                try {
+                    entity.remove();
+                } catch (RuntimeException exception) {
+                    Shop.getPlugin().getLogger().fine("Unable to remove shop display entity: " + exception.getMessage());
+                }
+            }, null);
+        }
+    }
+
+    // Display tags
+
+    public void showDisplayTags(Player player) {
+        if (!isEnabled() || player == null || !player.isOnline() || !isSameWorld(player)) {
+            return;
+        }
+
+        AbstractShop shop = getShop();
+        if (shop == null || !shop.isInitialized() || shop.getChestLocation() == null || shop.getFacing() == null) {
+            return;
+        }
+
+        long globalEpoch;
+        long playerEpoch;
+        TagRequest request;
+        synchronized (tagLock) {
+            if (displayTagsVisible(player)) {
+                return;
+            }
+            globalEpoch = this.globalTagEpoch;
+            playerEpoch = playerTagEpochs.getOrDefault(player.getUniqueId(), 0L);
+            request = new TagRequest(player.getUniqueId(), globalEpoch, playerEpoch);
+            if (pendingTagRequests.putIfAbsent(player.getUniqueId(), request) != null) {
+                return;
+            }
+        }
+
+        Location chestLocation = shop.getChestLocation().clone();
+        boolean scheduled = executeAtLocation(chestLocation, () -> {
+            try {
+                if (!isCurrentTagRequest(player, request)) {
+                    return;
+                }
+
+                AbstractShop currentShop = getShop();
+                if (currentShop == null
+                        || !currentShop.isInitialized()
+                        || currentShop.getChestLocation() == null
+                        || currentShop.getFacing() == null
+                        || Shop.getPlugin().getDisplayTagOption() == DisplayTagOption.NONE) {
+                    return;
+                }
+
+                List<String> displayTags = ShopMessage.getDisplayTags(currentShop, currentShop.getType());
+                if (displayTags == null || displayTags.isEmpty()) {
+                    return;
+                }
+
+                Location lowerTagLocation = currentShop.getChestLocation().clone().add(0, 1, 0);
+                lowerTagLocation.add(0.5, 0.5, 0.5);
+                lowerTagLocation = UtilMethods.pushLocationInDirection(lowerTagLocation, currentShop.getFacing(), 0.2);
+
+                Block displayBlock = lowerTagLocation.getBlock();
+                if (isChunkLoaded()) {
+                    if (displayBlock.getType() == Material.BARREL
+                            || displayBlock.getRelative(BlockFace.DOWN).getType() == Material.BARREL) {
+                        lowerTagLocation.add(0, 0.25, 0);
+                    }
+                    if (currentShop.getChestLocation().clone().add(0, 2, 0).getBlock().getType() != Material.AIR) {
+                        lowerTagLocation = UtilMethods.pushLocationInDirection(
+                                lowerTagLocation, currentShop.getFacing(), 0.35);
+                    }
+                }
+
+                List<TagData> tagData = new ArrayList<>();
+                double verticalAddition = 0;
+                for (int index = displayTags.size() - 1; index >= 0; index--) {
+                    Location tagLocation = lowerTagLocation.clone();
+                    String tagLine = displayTags.get(index);
+
+                    if (tagLine.contains("[lshift]")) {
+                        tagLocation.add(getShiftOffset(currentShop, true, false));
+                        tagLine = tagLine.replace("[lshift]", "");
+                    }
+                    if (tagLine.contains("[rshift]")) {
+                        tagLocation.add(getShiftOffset(currentShop, false, true));
+                        tagLine = tagLine.replace("[rshift]", "");
+                    }
+
+                    tagLocation.add(0, verticalAddition, 0);
+                    tagData.add(new TagData(tagLine, tagLocation));
+                    verticalAddition += 0.3;
+                }
+
+                request.expectedCount = tagData.size();
+                for (int index = tagData.size() - 1; index >= 0; index--) {
+                    TagData data = tagData.get(index);
+                    if (!scheduleTagEntity(player, data.text, data.location, request)) {
+                        request.completedCount.incrementAndGet();
+                    }
+                }
+                request.completeIfFinished();
+
+                Shop.getPlugin().getShopHandler().addActiveShopDisplayTag(player, shopSignLocation);
+                removeDisplayTagsDelayedTask(player);
+            } catch (RuntimeException exception) {
+                Shop.getPlugin().getLogger().fine("Unable to create shop display tags: " + exception.getMessage());
+            } finally {
+                if (request.expectedCount == 0) {
+                    pendingTagRequests.remove(player.getUniqueId(), request);
+                }
+            }
+        });
+        if (!scheduled) {
+            pendingTagRequests.remove(player.getUniqueId(), request);
+        }
+    }
+
+    public void updateDisplayTags() {
+        Set<UUID> playerIds = new HashSet<>(tagEntities.keySet());
+        playerIds.addAll(pendingTagRequests.keySet());
+        if (playerIds.isEmpty()) {
+            return;
+        }
+
+        for (UUID playerId : new HashSet<>(playerIds)) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player == null || !player.isOnline() || !isSameWorld(player) || !displayTagsVisible(player)) {
+                continue;
+            }
+
+            removeDisplayEntities(player, true);
+            showDisplayTags(player);
+        }
+    }
+
+    public void createTagEntity(Player player, String text, Location location) {
+        if (!isEnabled() || player == null || text == null || location == null || location.getWorld() == null) {
+            return;
+        }
+
+        long globalEpoch;
+        long playerEpoch;
+        synchronized (tagLock) {
+            globalEpoch = this.globalTagEpoch;
+            playerEpoch = playerTagEpochs.getOrDefault(player.getUniqueId(), 0L);
+        }
+        createTagEntity(player, text, location, globalEpoch, playerEpoch);
+    }
+
+    /**
+     * Creates one player-specific floating text entity. This overload is used
+     * by the independent shop creation display and does not participate in the
+     * shop tag request lifecycle.
+     */
+    private void createTagEntity(Player player, String text, Location location, long globalEpoch, long playerEpoch) {
+        if (!isCurrentTagRequest(player, globalEpoch, playerEpoch)) {
+            return;
+        }
+
+        executeAtLocation(location, () -> createTagEntityAtLocation(player, text, location, globalEpoch, playerEpoch));
+    }
+
+    private boolean scheduleTagEntity(Player player, String text, Location location, TagRequest request) {
+        if (!isCurrentTagRequest(player, request)) {
+            return false;
+        }
+
+        return executeAtLocation(location, () -> {
+            try {
+                createTagEntityAtLocation(player, text, location, request);
+            } finally {
+                request.completedCount.incrementAndGet();
+                request.completeIfFinished();
+            }
+        });
+    }
+
+    private void createTagEntityAtLocation(Player player, String text, Location location,
+                                           long globalEpoch, long playerEpoch) {
+        createTagEntityAtLocationInternal(player, text, location, globalEpoch, playerEpoch, null, false);
+    }
+
+    private void createTagEntityAtLocation(Player player, String text, Location location, TagRequest request) {
+        createTagEntityAtLocationInternal(
+                player, text, location, request.globalEpoch, request.playerEpoch, request, true);
+    }
+
+    private void createTagEntityAtLocationInternal(Player player, String text, Location location,
+                                                   long globalEpoch, long playerEpoch, TagRequest request,
+                                                   boolean trackedRequest) {
+        if (trackedRequest) {
+            if (!isCurrentTagRequest(player, request)) {
+                return;
+            }
+        } else if (!isCurrentTagRequest(player, globalEpoch, playerEpoch)) {
+            return;
+        }
+
+        Component component;
+        try {
+            component = LegacyComponentSerializer.legacySection().deserialize(text);
+        } catch (RuntimeException exception) {
+            component = Component.text(text);
+        }
+
+        TextDisplay tag;
+        try {
+            Component tagComponent = component;
+            tag = location.getWorld().spawn(location, TextDisplay.class, textDisplay -> {
+                textDisplay.text(tagComponent);
+                textDisplay.setAlignment(TextDisplay.TextAlignment.CENTER);
+                textDisplay.setDefaultBackground(false);
+                textDisplay.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+                textDisplay.setBillboard(org.bukkit.entity.Display.Billboard.CENTER);
+                textDisplay.setGravity(false);
+                textDisplay.setPersistent(false);
+                textDisplay.setInvulnerable(true);
+                textDisplay.setVisibleByDefault(false);
+                textDisplay.setSilent(true);
+                PaperDisplayMarker.mark(textDisplay);
+            });
+        } catch (RuntimeException exception) {
+            Shop.getPlugin().getLogger().fine("Unable to spawn shop display tag: " + exception.getMessage());
+            return;
+        }
+
+        boolean stale;
+        synchronized (tagLock) {
+            stale = trackedRequest
+                    ? !isCurrentTagRequestLocked(player, request)
+                    : !isCurrentTagRequestLocked(player, globalEpoch, playerEpoch);
+            if (!stale) {
+                tagEntities.computeIfAbsent(player.getUniqueId(), ignored -> ConcurrentHashMap.newKeySet())
+                        .add(tag);
+            }
+        }
+
+        if (stale) {
+            removeEntity(tag);
+            return;
+        }
+
+        executeOnEntity(tag, () -> {
+            if (!player.isOnline() || !tagEntities.getOrDefault(player.getUniqueId(), Set.of()).contains(tag)) {
+                return;
+            }
+            try {
+                player.showEntity(Shop.getPlugin(), tag);
+            } catch (RuntimeException exception) {
+                Shop.getPlugin().getLogger().fine("Unable to reveal shop display tag: " + exception.getMessage());
+            }
+        }, null);
+    }
+
+    private void removeTagEntities(Player player) {
+        Set<Entity> entitiesToRemove = new HashSet<>();
+
+        synchronized (tagLock) {
+            if (player == null) {
+                globalTagEpoch++;
+                for (Set<Entity> entities : tagEntities.values()) {
+                    entitiesToRemove.addAll(entities);
+                }
+                tagEntities.clear();
+                for (TagRequest request : pendingTagRequests.values()) {
+                    request.cancel();
+                }
+                pendingTagRequests.clear();
+                for (UUID playerId : new HashSet<>(playerTagEpochs.keySet())) {
+                    playerTagEpochs.put(playerId, playerTagEpochs.get(playerId) + 1);
+                }
+            } else {
+                UUID playerId = player.getUniqueId();
+                playerTagEpochs.put(playerId, playerTagEpochs.getOrDefault(playerId, 0L) + 1);
+                Set<Entity> entities = tagEntities.remove(playerId);
+                if (entities != null) {
+                    entitiesToRemove.addAll(entities);
+                }
+                TagRequest request = pendingTagRequests.remove(playerId);
+                if (request != null) {
+                    request.cancel();
+                }
+            }
+        }
+
+        for (Entity entity : entitiesToRemove) {
+            removeEntity(entity);
+        }
+    }
+
+    private void removeEntity(Entity entity) {
+        if (entity == null) {
+            return;
+        }
+        executeOnEntity(entity, () -> {
+            try {
+                entity.remove();
+            } catch (RuntimeException exception) {
+                Shop.getPlugin().getLogger().fine("Unable to remove shop display tag: " + exception.getMessage());
+            }
+        }, null);
+    }
+
+    private boolean isCurrentTagRequest(Player player, long globalEpoch, long playerEpoch) {
+        synchronized (tagLock) {
+            return isCurrentTagRequestLocked(player, globalEpoch, playerEpoch);
+        }
+    }
+
+    private boolean isCurrentTagRequest(Player player, TagRequest request) {
+        synchronized (tagLock) {
+            return isCurrentTagRequestLocked(player, request);
+        }
+    }
+
+    private boolean isCurrentTagRequest(Player player, TagRequest request, boolean trackedRequest) {
+        synchronized (tagLock) {
+            return trackedRequest
+                    ? isCurrentTagRequestLocked(player, request)
+                    : isCurrentTagRequestLocked(player, request.globalEpoch, request.playerEpoch);
+        }
+    }
+
+    private boolean isCurrentTagRequestLocked(Player player, long globalEpoch, long playerEpoch) {
+        return globalEpoch == this.globalTagEpoch
+                && playerEpoch == playerTagEpochs.getOrDefault(player.getUniqueId(), 0L);
+    }
+
+    private boolean isCurrentTagRequestLocked(Player player, TagRequest request) {
+        return pendingTagRequests.get(player.getUniqueId()) == request
+                && isCurrentTagRequestLocked(player, request.globalEpoch, request.playerEpoch);
+    }
+
+    protected boolean displayTagsVisible(Player player) {
+        if (player == null) {
+            return false;
+        }
+        UUID playerId = player.getUniqueId();
+        Set<Entity> entities = tagEntities.get(playerId);
+        return (entities != null && !entities.isEmpty()) || pendingTagRequests.containsKey(playerId);
     }
 
     public void addRemoveDisplayTask(Player player) {
         removeDisplayTagsDelayedTask(player);
     }
 
-    public DisplayType getType(){
+    protected void removeDisplayTagsDelayedTask(Player player) {
+        if (!isEnabled() || player == null) {
+            return;
+        }
+
+        try {
+            EntityScheduler scheduler = player.getScheduler();
+            scheduler.execute(Shop.getPlugin(), () -> {
+                if (!player.isOnline() || !displayTagsVisible(player)) {
+                    removeDisplayEntities(player, true);
+                    return;
+                }
+                if (playerIsLookingTowardShop(player)) {
+                    removeDisplayTagsDelayedTask(player);
+                } else {
+                    removeDisplayEntities(player, true);
+                }
+            }, () -> removeDisplayEntities(player, true), 20L);
+        } catch (RuntimeException exception) {
+            Shop.getPlugin().getLogger().fine("Unable to schedule shop display tag cleanup: " + exception.getMessage());
+        }
+    }
+
+    protected boolean playerIsLookingTowardShop(Player player) {
+        try {
+            if (player.getLocation().distanceSquared(this.shopSignLocation) > 64) {
+                return false;
+            }
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            return false;
+        }
+
+        AbstractShop shop = getShop();
+        if (shop == null || shop.getChestLocation() == null) {
+            return false;
+        }
+
+        Vector lookDirection = player.getEyeLocation().getDirection();
+        Location displayLocation = shop.getChestLocation().clone().add(0.5, 0.9, 0.5);
+        Vector blockDirection = displayLocation.subtract(player.getEyeLocation()).toVector().normalize();
+        return blockDirection.angle(lookDirection) < 1;
+    }
+
+    public DisplayType getType() {
         return type;
     }
 
-    public AbstractShop getShop(){
+    public AbstractShop getShop() {
         return Shop.getPlugin().getShopHandler().getShop(this.shopSignLocation);
     }
 
-    public void setType(DisplayType type, boolean checkDisplayBlock){
-        DisplayType oldType = this.type;
-
-        if(checkDisplayBlock && getShop().getChestLocation() != null) {
-            if ((oldType == DisplayType.NONE && type != DisplayType.ITEM_FRAME) || (oldType == DisplayType.ITEM_FRAME && type != DisplayType.NONE)) {
-                if(this.isChunkLoaded()) {
-                    //make sure there is room above the shop for the display
-                    Block aboveShop = this.getShop().getChestLocation().getBlock().getRelative(BlockFace.UP);
-                    if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
-                        return;
-                    }
-                }
-            }
+    public void setType(DisplayType displayType, boolean checkDisplayBlock) {
+        if (displayType == null) {
+            return;
         }
 
-        this.type = type;
+        if (!checkDisplayBlock) {
+            this.type = displayType;
+            return;
+        }
+
+        AbstractShop shop = getShop();
+        if (shop == null || shop.getChestLocation() == null) {
+            return;
+        }
+
+        Location chestLocation = shop.getChestLocation().clone();
+        executeAtLocation(chestLocation, () -> {
+            if (hasDisplayRoom(shop, displayType)) {
+                this.type = displayType;
+            }
+        });
     }
 
-    public void cycleType(Player player){
-        if(getShop().getFacing() == null)
+    private boolean hasDisplayRoom(AbstractShop shop, DisplayType displayType) {
+        DisplayType oldType = this.type;
+        boolean roomRequired = (oldType == DisplayType.NONE && displayType != DisplayType.ITEM_FRAME)
+                || (oldType == DisplayType.ITEM_FRAME && displayType != DisplayType.NONE);
+        if (!roomRequired || !isChunkLoaded()) {
+            return true;
+        }
+
+        Block aboveShop = shop.getChestLocation().getBlock().getRelative(BlockFace.UP);
+        return UtilMethods.materialIsNonIntrusive(aboveShop.getType());
+    }
+
+    public void cycleType(Player player) {
+        AbstractShop shop = getShop();
+        if (shop == null || shop.getChestLocation() == null) {
             return;
+        }
+
+        Location chestLocation = shop.getChestLocation().clone();
+        executeAtLocation(chestLocation, () -> cycleTypeAtLocation(player, shop));
+    }
+
+    private void cycleTypeAtLocation(Player player, AbstractShop shop) {
+        if (shop.getFacing() == null) {
+            return;
+        }
+
         DisplayType[] cycle = Shop.getPlugin().getDisplayCycle();
+        if (cycle == null || cycle.length == 0) {
+            return;
+        }
+
         DisplayType displayType = this.type;
-        if(displayType == null) {
+        if (displayType == null) {
             displayType = Shop.getPlugin().getDisplayType();
         }
 
         int index = -1;
-        if(displayType == DisplayType.NONE){
-            //make sure there is room above the shop for the display
-            Block aboveShop = this.getShop().getChestLocation().getBlock().getRelative(BlockFace.UP);
-            if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
-                //if the cycle contains the ITEM_FRAME display type
-                for(int i=0; i<cycle.length; i++){
-                    if(cycle[i] == DisplayType.ITEM_FRAME){
-                        index = i;
-                    }
-                }
-                //there is no ITEM_FRAME in cycle, return because display is blocked
-                if(index == -1)
-                    return;
-            }
-        }
-        else if(displayType == DisplayType.ITEM_FRAME){
-            //make sure there is room above the shop for the display
-            Block aboveShop = this.getShop().getChestLocation().getBlock().getRelative(BlockFace.UP);
-            if (!UtilMethods.materialIsNonIntrusive(aboveShop.getType())) {
-                //if the cycle contains the NONE display type
-                for(int i=0; i<cycle.length; i++){
-                    if(cycle[i] == DisplayType.NONE){
-                        index = i;
-                    }
-                }
-                //there is no NONE in cycle, return because display is blocked
-                if(index == -1)
-                    return;
-            }
-        }
+        boolean blocked = isChunkLoaded()
+                && !UtilMethods.materialIsNonIntrusive(
+                        shop.getChestLocation().getBlock().getRelative(BlockFace.UP).getType());
 
-        //index is still not set, continue and cycle index to next display type
-        if(index == -1) {
+        if (displayType == DisplayType.NONE && blocked) {
+            for (int cycleIndex = 0; cycleIndex < cycle.length; cycleIndex++) {
+                if (cycle[cycleIndex] == DisplayType.ITEM_FRAME) {
+                    index = cycleIndex;
+                }
+            }
+            if (index == -1) {
+                return;
+            }
+        } else if (displayType == DisplayType.ITEM_FRAME && blocked) {
+            for (int cycleIndex = 0; cycleIndex < cycle.length; cycleIndex++) {
+                if (cycle[cycleIndex] == DisplayType.NONE) {
+                    index = cycleIndex;
+                }
+            }
+            if (index == -1) {
+                return;
+            }
+        } else {
             index = 0;
-            for (int i = 0; i < cycle.length; i++) {
-                if (cycle[i] == displayType)
-                    index = i + 1;
+            for (int cycleIndex = 0; cycleIndex < cycle.length; cycleIndex++) {
+                if (cycle[cycleIndex] == displayType) {
+                    index = cycleIndex + 1;
+                }
             }
-            if (index >= cycle.length)
+            if (index >= cycle.length) {
                 index = 0;
+            }
         }
 
-        //don't allow barter shops to have ITEM_FRAME display types (for NOW)
-        if(cycle[index] == DisplayType.ITEM_FRAME){
-
-            boolean skip = false;
-            if(getShop().getType() == ShopType.BARTER){
-                skip = true;
-            }
-            else {
-                //calculate where ITEM_FRAME display may be
-                for(Entity e : this.getShop().getChestLocation().getWorld().getNearbyEntities(this.getItemDropLocation(false), 1, 1, 1)){
-                    if(e.getType() == EntityType.ITEM_FRAME){
-                        ItemFrame i = (ItemFrame)e;
-                        if(i.getAttachedFace() == getShop().getSign().getFacing().getOppositeFace()) {
-                            skip = true;
-                            break;
-                        }
+        if (cycle[index] == DisplayType.ITEM_FRAME) {
+            boolean skip = shop.getType() == ShopType.BARTER;
+            if (!skip) {
+                for (Entity entity : shop.getChestLocation().getWorld().getNearbyEntities(
+                        getItemDropLocation(shop, false), 1, 1, 1)) {
+                    if (entity.getType() == EntityType.ITEM_FRAME
+                            && entity instanceof ItemFrame itemFrame
+                            && shop.getFacing() != null
+                            && itemFrame.getAttachedFace() == shop.getFacing().getOppositeFace()) {
+                        skip = true;
+                        break;
                     }
                 }
             }
 
-            if(skip) {
+            if (skip) {
                 index++;
-                if (index >= cycle.length)
+                if (index >= cycle.length) {
                     index = 0;
+                }
             }
         }
 
-        this.setType(cycle[index], true);
+        this.type = cycle[index];
         this.spawn(player);
         Shop.getPlugin().getShopHandler().addActiveShopDisplay(player, this.shopSignLocation);
-        getShop().setNeedsSave(true);
+        shop.setNeedsSave(true);
     }
 
-    public void remove(Player player) {
-        try {
-            removeDisplayEntities(player, false);
-            removeDisplayEntities(player, true);
-        } catch (Error | Exception e) { /** Allow other logic to continue even if this fails (non-critical) */ }
+    public Vector getShiftOffset(boolean isLeftShift, boolean isRightShift) {
+        AbstractShop shop = getShop();
+        return shop == null ? new Vector() : getShiftOffset(shop, isLeftShift, isRightShift);
     }
 
-    private Location getItemDropLocation(boolean isBarterItem) {
-        AbstractShop shop = this.getShop();
+    private Vector getShiftOffset(AbstractShop shop, boolean isLeftShift, boolean isRightShift) {
+        Vector offset = new Vector(0, 0, 0);
+        double space = 0.48;
 
-        if(shop == null || shop.getFacing() == null)
+        if (shop.getFacing() == null) {
+            return offset;
+        }
+
+        switch (shop.getFacing()) {
+            case NORTH -> {
+                if (isRightShift) {
+                    offset.setX(-space);
+                } else if (isLeftShift) {
+                    offset.setX(space);
+                }
+            }
+            case EAST -> {
+                if (isRightShift) {
+                    offset.setZ(-space);
+                } else if (isLeftShift) {
+                    offset.setZ(space);
+                }
+            }
+            case SOUTH -> {
+                if (isRightShift) {
+                    offset.setX(space);
+                } else if (isLeftShift) {
+                    offset.setX(-space);
+                }
+            }
+            case WEST -> {
+                if (isRightShift) {
+                    offset.setZ(-space);
+                } else if (isLeftShift) {
+                    offset.setZ(space);
+                }
+            }
+            default -> {
+                // No offset.
+            }
+        }
+        return offset;
+    }
+
+    private Vector getLargeItemBarterOffset(AbstractShop shop, boolean isBarterItem) {
+        Vector offset = new Vector(0, 0, 0);
+        double space = 0.24;
+
+        if (shop.getType() == ShopType.BARTER && shop.getFacing() != null) {
+            switch (shop.getFacing()) {
+                case NORTH -> offset.setX(isBarterItem ? -space : space);
+                case EAST -> offset.setZ(isBarterItem ? -space : space);
+                case SOUTH -> offset.setX(isBarterItem ? space : -space);
+                case WEST -> offset.setZ(isBarterItem ? space : -space);
+                default -> {
+                    // No offset.
+                }
+            }
+        }
+        return offset;
+    }
+
+    private Location getItemDropLocation(AbstractShop shop, boolean isBarterItem) {
+        if (shop == null || shop.getFacing() == null || shop.getChestLocation() == null) {
             return null;
+        }
 
-        //calculate which x,z to drop items at depending on direction of the shop sign
-        double dropY = 0.98; // 1 - 0.02 to account for dropped item shadow
+        double dropY = 0.98;
         Material blockType = shop.getChestLocation().getBlock().getType();
         if (blockType == Material.CHEST || blockType == Material.TRAPPED_CHEST) {
             dropY = 0.9;
         }
+
         double dropX = 0.5;
         double dropZ = 0.5;
         if (shop.getType() == ShopType.BARTER) {
             switch (shop.getFacing()) {
-                case NORTH:
-                    if (isBarterItem)
-                        dropX = 0.3;
-                    else
-                        dropX = 0.7;
-                    break;
-                case EAST:
-                    if (isBarterItem)
-                        dropZ = 0.3;
-                    else
-                        dropZ = 0.7;
-                    break;
-                case SOUTH:
-                    if (isBarterItem)
-                        dropX = 0.7;
-                    else
-                        dropX = 0.3;
-                    break;
-                case WEST:
-                    if (isBarterItem)
-                        dropZ = 0.7;
-                    else
-                        dropZ = 0.3;
-                    break;
-                default:
-                    dropX = 0.5;
-                    dropZ = 0.5;
-                    break;
+                case NORTH -> dropX = isBarterItem ? 0.3 : 0.7;
+                case EAST -> dropZ = isBarterItem ? 0.3 : 0.7;
+                case SOUTH -> dropX = isBarterItem ? 0.7 : 0.3;
+                case WEST -> dropZ = isBarterItem ? 0.7 : 0.3;
+                default -> {
+                    // Centered drop.
+                }
             }
         }
         return shop.getChestLocation().clone().add(dropX, dropY, dropZ);
     }
 
-    public Vector getShiftOffset(boolean isLeftShift, boolean isRightShift){
-        AbstractShop shop = this.getShop();
-
-        Vector offset = new Vector(0,0,0);
-        double space = 0.48;
-
-        switch (shop.getFacing()) {
-            case NORTH:
-                if (isRightShift)
-                    offset.setX(-space);
-                else if (isLeftShift)
-                    offset.setX(space);
-                break;
-            case EAST:
-                if (isRightShift)
-                    offset.setZ(-space);
-                else if (isLeftShift)
-                    offset.setZ(space);
-                break;
-            case SOUTH:
-                if (isRightShift)
-                    offset.setX(space);
-                else if (isLeftShift)
-                    offset.setX(-space);
-                break;
-            case WEST:
-                if (isRightShift)
-                    offset.setZ(space);
-                else if (isLeftShift)
-                    offset.setZ(-space);
-                break;
-        }
-        return offset;
+    protected boolean isSameWorld(Player player) {
+        return player != null
+                && shopSignLocation != null
+                && shopSignLocation.getWorld() != null
+                && player.getWorld().getUID().equals(shopSignLocation.getWorld().getUID());
     }
 
+    /**
+     * Compatibility method retained for callers compiled against the old
+     * display API. It now uses public Paper item metadata only.
+     */
+    public String getItemNameNMS(ItemStack item) {
+        if (item == null) {
+            return "";
+        }
 
-    private Vector getLargeItemBarterOffset(boolean isBarterItem){
-        AbstractShop shop = this.getShop();
-
-        Vector offset = new Vector(0,0,0);
-        double space = 0.24;
-        if (shop.getType() == ShopType.BARTER) {
-            switch (shop.getFacing()) {
-                case NORTH:
-                    if (isBarterItem)
-                        offset.setX(-space);
-                    else
-                        offset.setX(space);
-                    break;
-                case EAST:
-                    if (isBarterItem)
-                        offset.setZ(-space);
-                    else
-                        offset.setZ(space);
-                    break;
-                case SOUTH:
-                    if (isBarterItem)
-                        offset.setX(space);
-                    else
-                        offset.setX(-space);
-                    break;
-                case WEST:
-                    if (isBarterItem)
-                        offset.setZ(space);
-                    else
-                        offset.setZ(-space);
-                    break;
+        ItemMeta itemMeta = item.getItemMeta();
+        if (itemMeta != null) {
+            if (itemMeta.hasDisplayName()) {
+                return itemMeta.getDisplayName();
+            }
+            if (itemMeta.hasItemName()) {
+                return itemMeta.getItemName();
             }
         }
-        return offset;
+        return item.getType().getKey().getKey();
     }
 
-    protected boolean playerIsLookingTowardShop(Player player) {
+    private boolean executeAtLocation(Location location, Runnable task) {
+        if (location == null || location.getWorld() == null) {
+            return false;
+        }
+
         try {
-            if (player.getLocation().distanceSquared(this.shopSignLocation) > 64) { //player is more than 8 blocks away
-                return false;
-            }
-        } catch (IllegalArgumentException e) {
+            Bukkit.getRegionScheduler().execute(Shop.getPlugin(), location, task);
+            return true;
+        } catch (RuntimeException exception) {
+            Shop.getPlugin().getLogger().fine("Unable to schedule shop display work: " + exception.getMessage());
             return false;
         }
-        Vector lookDirection = player.getEyeLocation().getDirection();
-        Location displayLocation = this.getItemDropLocation(false);
-        if(displayLocation == null)
-            return false;
-        Vector blockDirection = displayLocation.subtract(player.getEyeLocation()).toVector().normalize();
-        double angle = blockDirection.angle(lookDirection);
-        //return true if angle (in radians) is less than 1
-        return angle < 1;
     }
 
-    protected void removeDisplayTagsDelayedTask(Player player) {
-        //remove all armor stand name tag entities after x seconds
-        Shop.getPlugin().getFoliaLib().getScheduler().runAtEntityLater(player, () -> {
-            if(!displayTagsVisible(player)){
-                removeDisplayEntities(player, true);
-                return;
-            }
-            if (playerIsLookingTowardShop(player)) {
-                removeDisplayTagsDelayedTask(player);
-            }
-            else {
-                removeDisplayEntities(player, true);
-            }
-        }, 20);
-    }
-
-    protected boolean displayTagsVisible(Player player){
-        if(player == null || displayTagEntityIDs == null)
-            return false;
-        ArrayList<Integer> entityTagIDs = displayTagEntityIDs.get(player.getUniqueId());
-        if(entityTagIDs == null || entityTagIDs.isEmpty())
-            return false;
-        return true;
-    }
-
-    protected void addDisplayTag(Player player, int displayTagID){
-        if(player == null)
+    private void executeOnEntity(Entity entity, Runnable task, Runnable retiredTask) {
+        if (entity == null) {
             return;
-        ArrayList<Integer> tagIDs = displayTagEntityIDs.get(player.getUniqueId());
-        if(tagIDs == null){
-            tagIDs = new ArrayList<>();
         }
-        tagIDs.add(displayTagID);
-        displayTagEntityIDs.put(player.getUniqueId(), tagIDs);
+
+        try {
+            entity.getScheduler().execute(Shop.getPlugin(), task, retiredTask, 1L);
+        } catch (RuntimeException exception) {
+            Shop.getPlugin().getLogger().fine("Unable to schedule shop display entity work: " + exception.getMessage());
+        }
     }
 
-    protected void addEntityID(Player player, int entityID){
-        if(player == null)
-            return;
-        ArrayList<Integer> entityIDs = this.entityIDs.get(player.getUniqueId());
-        if(entityIDs == null){
-            entityIDs = new ArrayList<>();
+    private static final class SharedGeneration {
+        private final long id;
+        private final DisplayType displayType;
+        private final Set<Entity> entities = ConcurrentHashMap.newKeySet();
+        private volatile boolean complete;
+        private volatile boolean failed;
+        private volatile int expectedEntityCount;
+
+        private SharedGeneration(long id, DisplayType displayType) {
+            this.id = id;
+            this.displayType = displayType;
         }
-        entityIDs.add(entityID);
-        this.entityIDs.put(player.getUniqueId(), entityIDs);
     }
 
-    protected ArrayList<Integer> getAllDisplayTagEntityIDs(){
-        ArrayList<Integer> allDisplayTagEntityIDs = new ArrayList<>();
-        if(displayTagEntityIDs != null) {
-            for (Map.Entry<UUID, ArrayList<Integer>> entry : displayTagEntityIDs.entrySet()) {
-                allDisplayTagEntityIDs.addAll(entry.getValue());
-            }
-        }
-        return allDisplayTagEntityIDs;
+    private enum MainEntityKind {
+        ITEM,
+        ARMOR_STAND,
+        ITEM_FRAME,
+        GLOW_ITEM_FRAME
     }
 
-    protected ArrayList<Integer> getAllEntityIDs(){
-        ArrayList<Integer> allEntityIDs = new ArrayList<>();
-        if(entityIDs != null) {
-            for (Map.Entry<UUID, ArrayList<Integer>> entry : entityIDs.entrySet()) {
-                allEntityIDs.addAll(entry.getValue());
-            }
+    private static final class MainEntitySpec {
+        private final MainEntityKind kind;
+        private final Location location;
+        private final ItemStack itemStack;
+        private final ArmorStandData armorStandData;
+        private final BlockFace facing;
+
+        private MainEntitySpec(MainEntityKind kind, Location location, ItemStack itemStack,
+                              ArmorStandData armorStandData, BlockFace facing) {
+            this.kind = kind;
+            this.location = location;
+            this.itemStack = itemStack;
+            this.armorStandData = armorStandData;
+            this.facing = facing;
         }
-        return allEntityIDs;
+
+        private static MainEntitySpec item(Location location, ItemStack itemStack) {
+            return new MainEntitySpec(MainEntityKind.ITEM, location, itemStack, null, null);
+        }
+
+        private static MainEntitySpec armorStand(ArmorStandData armorStandData) {
+            return new MainEntitySpec(MainEntityKind.ARMOR_STAND, armorStandData.getLocation(), null,
+                    armorStandData, null);
+        }
+
+        private static MainEntitySpec itemFrame(Location location, ItemStack itemStack, BlockFace facing,
+                                                boolean glowing) {
+            return new MainEntitySpec(glowing ? MainEntityKind.GLOW_ITEM_FRAME : MainEntityKind.ITEM_FRAME,
+                    location, itemStack, null, facing);
+        }
     }
 
-    protected Iterator<Integer> getDisplayEntityIDIterator(Player player, boolean onlyDisplayTags){
-        Iterator<Integer> entityIterator;
-        if(onlyDisplayTags){
-            if(player == null){
-                entityIterator = getAllDisplayTagEntityIDs().iterator();
-            }
-            else{
-                if(!this.displayTagsVisible(player))
-                    return null;
-                entityIterator = this.displayTagEntityIDs.get(player.getUniqueId()).iterator();
-            }
-        }
-        else {
-            if(player == null){
-                entityIterator = getAllEntityIDs().iterator();
-            }
-            else{
-                if(this.entityIDs.get(player.getUniqueId()) == null){
-                    this.entityIDs.put(player.getUniqueId(), new ArrayList<>());
-                }
-                entityIterator = this.entityIDs.get(player.getUniqueId()).iterator();
-            }
-        }
-        return entityIterator;
+    private record TagData(String text, Location location) {
     }
 
-    protected boolean isSameWorld(Player player){
-        return player.getWorld().getUID().equals(this.shopSignLocation.getWorld().getUID());
-    }
+    private final class TagRequest {
+        private final UUID playerId;
+        private final long globalEpoch;
+        private final long playerEpoch;
+        private final AtomicInteger completedCount = new AtomicInteger();
+        private volatile int expectedCount;
 
-    public abstract String getItemNameNMS(ItemStack item);
+        private TagRequest(UUID playerId, long globalEpoch, long playerEpoch) {
+            this.playerId = playerId;
+            this.globalEpoch = globalEpoch;
+            this.playerEpoch = playerEpoch;
+        }
+
+        private void completeIfFinished() {
+            if (expectedCount > 0 && completedCount.get() >= expectedCount) {
+                pendingTagRequests.remove(playerId, this);
+            }
+        }
+
+        private void cancel() {
+            expectedCount = 0;
+            pendingTagRequests.remove(playerId, this);
+        }
+    }
 }

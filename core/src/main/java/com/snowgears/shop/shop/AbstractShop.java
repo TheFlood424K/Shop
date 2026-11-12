@@ -4,7 +4,7 @@ import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.AbstractDisplay;
 import com.snowgears.shop.handler.ShopGuiHandler;
 import com.snowgears.shop.util.*;
-import net.md_5.bungee.api.ChatColor;
+import org.bukkit.ChatColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -25,10 +25,11 @@ import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.*;
 
-import static com.snowgears.shop.util.UtilMethods.isMCVersion17Plus;
 
 /**
  * Abstract base class for all shop types.
@@ -481,7 +482,7 @@ public abstract class AbstractShop {
      */
     public String getPriceString() {
         if(this.type == ShopType.BARTER && this.isInitialized()){
-            return (int)this.getPrice() + " " + Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()).toPlainText();
+            return (int)this.getPrice() + " " + PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()));
         }
         return Shop.getPlugin().getPriceString(this.price, false);
     }
@@ -679,7 +680,7 @@ public abstract class AbstractShop {
             // Add all lore lines
             PlaceholderContext context = new PlaceholderContext();
             context.setShop(this);
-            lore.add(ShopMessage.format(loreLine, context).toLegacyText());
+            lore.add(LegacyComponentSerializer.legacy('§').serialize(ShopMessage.format(loreLine, context)));
         }
 
         ItemMeta iconMeta = guiIcon.getItemMeta();
@@ -779,12 +780,10 @@ public abstract class AbstractShop {
                 signBlock.setLine(3, newLines[3]);
             }
             // If the sign is glowing, update it if the setting has changed
-            if(isMCVersion17Plus()) {
-                boolean shouldGlow = Shop.getPlugin().getGlowingSignText();
-                if (shouldGlow != signBlock.isGlowingText()) { 
-                    hasSignUpdate = true;
-                    signBlock.setGlowingText(shouldGlow);
-                }
+            boolean shouldGlow = Shop.getPlugin().getGlowingSignText();
+            if (shouldGlow != signBlock.isGlowingText()) {
+                hasSignUpdate = true;
+                signBlock.setGlowingText(shouldGlow);
             }
             // Update the sign if it has changed
             if (hasSignUpdate) { signBlock.update(true); }
@@ -808,7 +807,7 @@ public abstract class AbstractShop {
             // First, remove the shop from the shop handler in case of any errors with later methods.
             Shop.getPlugin().getShopHandler().removeShop(this, forceSave);
 
-            if(UtilMethods.isMCVersion17Plus() && Shop.getPlugin().getDisplayLightLevel() > 0 && this.getChestLocation() != null) {
+            if(Shop.getPlugin().getDisplayLightLevel() > 0 && this.getChestLocation() != null) {
                 Block chestBlock = this.getChestLocation().getBlock();
                 if (chestBlock != null && Shop.getPlugin().getShopHandler().isChest(chestBlock)) {
                     Block displayBlock = chestBlock.getRelative(BlockFace.UP);
@@ -852,14 +851,14 @@ public abstract class AbstractShop {
         if(chestLocation == null) {
             this.load();
             Location loc = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
-            player.teleport(loc);
+            Shop.getPlugin().getFoliaLib().getScheduler().teleportAsync(player, loc);
         }
         else {
             Location loc = this.getSignLocation().getBlock().getRelative(facing).getLocation().add(0.5, 0, 0.5);
             loc.setYaw(UtilMethods.faceToYaw(facing.getOppositeFace()));
             loc.setPitch(25.0f);
 
-            player.teleport(loc);
+            Shop.getPlugin().getFoliaLib().getScheduler().teleportAsync(player, loc);
         }
         Shop.getPlugin().getShopListener().addTeleportCooldown(player);
     }
@@ -952,10 +951,10 @@ public abstract class AbstractShop {
         try {
             if (success) {
                 if (Shop.getPlugin().playSounds()) player.playSound(this.getSignLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0F, 1.0F);
-                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.STEP_SOUND, Material.EMERALD_BLOCK);
+                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.DESTROY_BLOCK, Material.EMERALD_BLOCK.createBlockData());
             } else {
                 if (Shop.getPlugin().playSounds()) player.playSound(this.getSignLocation(), Sound.ITEM_SHIELD_BLOCK, 1.0F, 1.0F);
-                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.STEP_SOUND, Material.REDSTONE_BLOCK);
+                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.DESTROY_BLOCK, Material.REDSTONE_BLOCK.createBlockData());
             }
         } catch (Error e) {
             Shop.getPlugin().getLogger().debug("Error playing shop effects: " + e.getMessage());
@@ -983,8 +982,8 @@ public abstract class AbstractShop {
                 ", price=" + price +
                 ", amount=" + amount +
                 ", stock=" + stock +
-                ", item=" + (item != null ? Shop.getPlugin().getItemNameUtil().getName(item).toPlainText() : "null") +
-                (secondaryItem != null ? ", secondaryItem=" + Shop.getPlugin().getItemNameUtil().getName(secondaryItem).toPlainText() : "") +
+                ", item=" + (item != null ? PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(item)) : "null") +
+                (secondaryItem != null ? ", secondaryItem=" + PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(secondaryItem)) : "") +
                 ", id=" + (this.getId() != null ? this.getId().toString().substring(0, Math.min(5, this.getId().toString().length())) : "null") +
                 ", filename=" + this.getOwnerUUID() + ".yml" +
                 ", needsSave=" + this.needsSave +
