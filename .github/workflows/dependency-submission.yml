@@ -27,7 +27,7 @@ jobs:
 
       - name: Restore Maven repository cache
         id: restore-maven-cache
-        uses: actions/cache/restore@v4.2.0
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-jdk25-mc26.2-${{ hashFiles('**/pom.xml') }}
