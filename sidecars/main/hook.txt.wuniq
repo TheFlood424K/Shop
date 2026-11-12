@@ -1,0 +1,32 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+7965b96e-bf7b-454d-b9e1-1cd5b0db815d
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:7aff55147afb79a3b53a8e42de941815fb892dd7dfd82d77504184e0e07c41e9
+
+[_description]
+Package: com.snowgears.shop.hook. Arclight, Bolt, CashierLock, GeyserFloodgate, Land, Lands, Residence, WorldGuard hooks.
+
+[_does]
+Checks player permissions in claimed areas (Arclight, Land, Lands, Residence, WorldGuard), allows trusted players to open shop containers (Bolt, CashierLock), detects Bedrock players via Geyser/Floodgate.
+
+[_careful]
+
+[_careful/Compatibility]
+CashierLock API accessed via reflection; fails open if API not found. GeyserFloodgateHook checks GeyserApi.api() and FloodgateApi.getInstance(). GriefPrevention3D hook uses same me.ryanhamshire.GriefPrevention package.
+
+[_summary]
+Integration hooks for external protection and economy plugins. Provides compatibility with Arclight, Bolt, CashierLock, GeyserMC/Floodgate, Land, Lands, Residence, and WorldGuard.
+
+[_conclusions]
+Hooks use best-effort integration: if a plugin is not installed, the hook does nothing. GriefPrevention3D replaces standard GriefPrevention.
+

@@ -1,0 +1,26 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+996b1977-73b9-4e17-a9d7-cc815e2d7f4d
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:4f6ae5a05c9428b83430d91f6bd4155e5a4105b18cf31ad5c4dbf2928f87c0dd
+
+[_description]
+Package: com.snowgears.shop.listener. CreativeSelectionListener with creative mode protection methods and public isCreativeSelectionMode checks.
+
+[_careful]
+
+[_careful/Compatibility]
+Creative selection state is tracked per-player and per-UUID. State restoration on death/respawn is enforced to prevent stuck selection mode.
+
+[_conclusions]
+Listeners provide protection layers during creative selection and shop interactions, preventing unintended player actions.
+

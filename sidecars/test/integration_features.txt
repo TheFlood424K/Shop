@@ -1,0 +1,3 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\integration\features\OwnerHeadLazyBuildTest.java ===
+* Owner heads must not be built while shops are added: on Paper each build of an untextured head sends a
+ * Mojang profile lookup, and building one per shop floods the session server at startup.

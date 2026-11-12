@@ -1,0 +1,27 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+6bf08e9a-9970-47c5-bc13-b1bc2f853c9a
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:7913b9314669118c95fb7b0a0ec57ebbdbeeed1cb54c2fd48abf1843029fceff
+
+[_description]
+Package: com.snowgears.shop.event. PlayerOpenShopEvent for shop container access control.
+
+[_conclusions]
+Provides extension point for protection plugins to integrate with shop container access without modifying core code.
+
+[_does]
+Fired when a player attempts to open a shop's container. Allows external listeners to request direct container open or cancel the event to hard-deny access.
+
+[_summary]
+Custom events for the Shop plugin. Defines PlayerOpenShopEvent for external listeners to intercept shop container open attempts.
+

@@ -1,0 +1,15 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\PluginLoadTest.java ===
+* Basic sanity check to verify the plugin can be loaded and enabled inside a MockBukkit environment.
+ * <p>
+ * This ensures that MockBukkit is correctly wired into the build and that the plugin’s lifecycle
+ * methods do not immediately throw exceptions when run on a mock server.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\ShopCompatibilityTest.java ===
+* Tests for Spigot-to-Paper migration compatibility changes:
+ * VaultUnlocked economy integration, GriefPrevention3D hook, and GeyserMC/Floodgate compatibility.
+ * <p>
+ * Note: {@link Shop#setupEconomy()} calls {@code getServer().getPluginManager().getPlugin("VaultUnlocked")}
+ * and {@code getServer().getServicesManager().getRegistration(Economy.class)}. The MockBukkit
+ * {@code ServerMock.pluginManager} field is final, so it cannot be replaced with a stub to simulate
+ * VaultUnlocked being installed. The positive VaultUnlocked path is therefore verified by directly
+ * injecting the {@code econ} field (which setupEconomy populates) and checking {@link Shop#getEconomy()}.
