@@ -36,7 +36,7 @@
         <blockprot.version>1.2.6</blockprot.version>
         <dynmap.version>3.6</dynmap.version>
         <bluemap.version>2.7.3</bluemap.version>
-        <bentobox.version>2.5.0</bentobox.version>
+        <bentobox.version>2.7.0</bentobox.version>
         <arm.version>3.5.4</arm.version>
 
         <!-- Testing (JUnit 6 + MockBukkit for MC 26.2) -->
