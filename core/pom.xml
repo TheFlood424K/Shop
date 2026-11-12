@@ -22,7 +22,7 @@
         <!-- Shaded Runtime Libraries -->
         <hikari.version>7.1.0</hikari.version>
         <mariadb.version>4.0.0</mariadb.version>
-        <h2.version>2.5.252</h2.version> <!-- Pinning 2.1.214: 2.2.220+ introduces breaking changes -->
+        <h2.version>2.5.252</h2.version> <!-- H2 2.5.252 in use; verify compatibility before changing version -->
         <folialib.version>0.5.2</folialib.version>
 
         <!-- Plugin Integrations -->

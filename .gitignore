@@ -9,3 +9,14 @@ scripts/diff-cover.html
 scripts/diff-cover.md
 /.m2
 /build/maven-repo
+/.appmod
+/.mvn
+/.cursor
+/.vscode
+*mvnw
+plan.md
+progress.md
+PROJECT_BRIEF.md
+SPRINT_PLAN.md
+summary.md
+/.github/modernize
