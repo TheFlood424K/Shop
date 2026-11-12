@@ -10,6 +10,8 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.block.BlockFace;
 import java.util.Collections;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.DisplayType;
 import com.snowgears.shop.util.CurrencyType;
@@ -55,6 +57,8 @@ public abstract class BaseMockBukkitTest {
         // No cooldown between shop creations to allow us to create multiple. We can change this in tests if needed.
         setConfig("debug_shopCreateCooldown", 0);
 
+        // Disable floating create text so creation dialogs are sent via chat (MockBukkit can't render tag entities)
+        setRawConfig("displayFloatingCreateText", "false");
         // Test worlds can opt into a chunk auto-load patch via addSimpleWorldPatched(name)
     }
 
@@ -91,9 +95,17 @@ public abstract class BaseMockBukkitTest {
 
     protected static String waitForNextMessage(PlayerMock player) {
         String nextMessage = null;
-        int attempts = 0;   
+        int attempts = 0;
         while (nextMessage == null && attempts < 1000) {
             nextMessage = player.nextMessage();
+            if (nextMessage == null) {
+                // Also check for Adventure Component messages (sent via sendMessage(Component))
+                Component component = player.nextComponentMessage();
+                if (component != null) {
+                    // Serialize with '§' color char to match legacy test assertions
+                    nextMessage = LegacyComponentSerializer.legacy('§').serialize(component);
+                }
+            }
             if (nextMessage == null) {
                 server.getScheduler().performTicks(1);
                 attempts++;

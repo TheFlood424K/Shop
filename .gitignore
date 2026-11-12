@@ -3,7 +3,6 @@ target
 .idea
 .DS_Store
 dependency-reduced-pom.xml
-SpigotBuildTools
 */node_modules
 .vscode/settings.json
 scripts/diff-cover.html

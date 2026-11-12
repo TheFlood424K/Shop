@@ -268,18 +268,18 @@ public class ShopSaveTest extends BaseMockBukkitTest {
         assertEquals(4, getAtPath(root1, "shops." + playerUuid + ".1.amount"));
         assertEquals(2.0, ((Number) getAtPath(root1, "shops." + playerUuid + ".1.price")).doubleValue(), 0.0001);
         assertEquals("sell", getAtPath(root1, "shops." + playerUuid + ".1.type"));
-        assertEquals("DIRT", getAtPath(root1, "shops." + playerUuid + ".1.item.type"));
+        assertEquals("minecraft:dirt", getAtPath(root1, "shops." + playerUuid + ".1.item.id"));
         // Player1 shop 2 assertions
         assertEquals(8, getAtPath(root1, "shops." + playerUuid + ".2.amount"));
         assertEquals(3.0, ((Number) getAtPath(root1, "shops." + playerUuid + ".2.price")).doubleValue(), 0.0001);
         assertEquals("sell", getAtPath(root1, "shops." + playerUuid + ".2.type"));
-        assertEquals("STONE", getAtPath(root1, "shops." + playerUuid + ".2.item.type"));
+        assertEquals("minecraft:stone", getAtPath(root1, "shops." + playerUuid + ".2.item.id"));
 
         // Player2 only one shop (index 1)
         assertEquals(4, getAtPath(root2, "shops." + player2Uuid + ".1.amount"));
         assertEquals(1.0, ((Number) getAtPath(root2, "shops." + player2Uuid + ".1.price")).doubleValue(), 0.0001);
         assertEquals("sell", getAtPath(root2, "shops." + player2Uuid + ".1.type"));
-        assertEquals("OAK_LOG", getAtPath(root2, "shops." + player2Uuid + ".1.item.type"));
+        assertEquals("minecraft:oak_log", getAtPath(root2, "shops." + player2Uuid + ".1.item.id"));
     }
 
     @Test
