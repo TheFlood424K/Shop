@@ -193,10 +193,8 @@ public class MiscListener implements Listener {
 
         // Remove player from creative selection if they are in it!
         // The Bukkit API can only change player game modes in a sync task, not an async task
-        plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
-            public void run() {
-                plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
-            }
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
+            plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
         }, 1);
     }
 

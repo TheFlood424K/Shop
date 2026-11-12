@@ -53,6 +53,8 @@ public class BluemapHookListener implements Listener {
             return;
 
         BlueMapAPI.getInstance().ifPresent(api -> {
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             String shopDetails = ChatColor.stripColor(ShopMessage.formatMessage(markerLabel, shop, null, false));
             // Remove any newline characters, or the literal string \n from the shop details
             shopDetails = shopDetails.replaceAll("\\n", "").replaceAll("\\\\n", "");

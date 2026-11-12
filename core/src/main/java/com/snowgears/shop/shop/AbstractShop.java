@@ -393,6 +393,8 @@ public abstract class AbstractShop {
             return PlayerNameCache.getName(this.getOwnerUUID());
         }
 
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         return ChatColor.RED + "CLOSED";
     }
 
@@ -768,9 +770,17 @@ public abstract class AbstractShop {
 
             if (!isInitialized()) {
                 hasSignUpdate = true; // force update the sign
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 signBlock.setLine(0, ChatColor.RED + ChatColor.stripColor(newLines[0]));
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 signBlock.setLine(1, ChatColor.RED + ChatColor.stripColor(newLines[1]));
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 signBlock.setLine(2, ChatColor.RED + ChatColor.stripColor(newLines[2]));
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 signBlock.setLine(3, ChatColor.RED + ChatColor.stripColor(newLines[3]));
             } else if (!linesMatch) {
                 hasSignUpdate = true; // force update the sign

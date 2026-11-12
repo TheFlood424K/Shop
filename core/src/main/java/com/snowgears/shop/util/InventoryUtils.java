@@ -19,9 +19,9 @@ public class InventoryUtils {
     //removes itemstack from inventory
     //returns the amount of items it could not remove
     public static int removeItem(Inventory inventory, ItemStack itemStack) {
-        if(inventory == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
-            return itemStack.getAmount();
-        if (itemStack == null || itemStack.getAmount() <= 0)
+        if(inventory == null || itemStack == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
+            return itemStack == null ? 0 : itemStack.getAmount();
+        if (itemStack.getAmount() <= 0)
             return 0;
 
         ItemStack[] contents = inventory.getContents();
@@ -58,8 +58,8 @@ public class InventoryUtils {
     //takes an ItemStack and splits it up into multiple ItemStacks with correct stack sizes
     //then adds those items to the given inventory
     public static int addItem(Inventory inventory, ItemStack itemStack) {
-        if(inventory == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
-            return itemStack.getAmount();
+        if(inventory == null || itemStack == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
+            return itemStack == null ? 0 : itemStack.getAmount();
         if (itemStack.getAmount() <= 0)
             return 0;
         ArrayList<ItemStack> itemStacksAdding = new ArrayList<ItemStack>();
@@ -89,7 +89,7 @@ public class InventoryUtils {
     }
 
     public static boolean hasRoom(Inventory inventory, ItemStack itemStack) {
-        if (inventory == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
+        if (inventory == null || itemStack == null || itemStack.getAmount() >= (27 * 64)) // 27 stacks max, large values > 27 stacks can crash server!
             return false;
         if (itemStack.getAmount() <= 0)
             return true;
@@ -139,28 +139,19 @@ public class InventoryUtils {
         ItemStack itemStack1 = i1.clone();
         ItemStack itemStack2 = i2.clone();
 
-        // Check if we are ignoring item durability, if so, reset the durability of both items and continue with later checks
+        ItemMeta meta1 = itemStack1.getItemMeta();
+        ItemMeta meta2 = itemStack2.getItemMeta();
         if (!Shop.getPlugin().checkItemDurability()) {
-            Damageable is1Damagable = (Damageable) itemStack1.getItemMeta();
-            is1Damagable.setDamage(0);
-
-            Damageable is2Damagable = (Damageable) itemStack2.getItemMeta();
-            is2Damagable.setDamage(0);
-
-            itemStack1.setItemMeta(is1Damagable);
-            itemStack2.setItemMeta(is2Damagable);
+            if (meta1 instanceof Damageable) ((Damageable) meta1).setDamage(0);
+            if (meta2 instanceof Damageable) ((Damageable) meta2).setDamage(0);
+            if (meta1 != null) itemStack1.setItemMeta(meta1);
+            if (meta2 != null) itemStack2.setItemMeta(meta2);
         }
-
-        // Check if we are ignoring item durability, if so, reset the durability of both items and continue with later checks
         if (Shop.getPlugin().ignoreItemRepairCost()) {
-            Repairable item1Cost = (Repairable) itemStack1.getItemMeta();
-            item1Cost.setRepairCost(0);
-
-            Repairable item2Cost = (Repairable) itemStack2.getItemMeta();
-            item2Cost.setRepairCost(0);
-
-            itemStack1.setItemMeta(item1Cost);
-            itemStack2.setItemMeta(item2Cost);
+            if (meta1 instanceof Repairable) ((Repairable) meta1).setRepairCost(0);
+            if (meta2 instanceof Repairable) ((Repairable) meta2).setRepairCost(0);
+            if (meta1 != null) itemStack1.setItemMeta(meta1);
+            if (meta2 != null) itemStack2.setItemMeta(meta2);
         }
 
         ItemMeta i1Meta = itemStack1.getItemMeta();
@@ -172,8 +163,11 @@ public class InventoryUtils {
             if (!itemStack2.getType().toString().toLowerCase().contains("shulker_box")) return false;
 
             // Note: You must reference i1 and i2 here, if you do not then both inventories are identical for some reason... Do not reference the cloned item stacks here...
-            BlockStateMeta bsm1 = (BlockStateMeta) i1.getItemMeta();
-            BlockStateMeta bsm2 = (BlockStateMeta) i2.getItemMeta();
+            ItemMeta bsm1Meta = i1.getItemMeta();
+            ItemMeta bsm2Meta = i2.getItemMeta();
+            if (!(bsm1Meta instanceof BlockStateMeta) || !(bsm2Meta instanceof BlockStateMeta)) return false;
+            BlockStateMeta bsm1 = (BlockStateMeta) bsm1Meta;
+            BlockStateMeta bsm2 = (BlockStateMeta) bsm2Meta;
             Inventory inv1 = ((ShulkerBox) bsm1.getBlockState()).getInventory();
             Inventory inv2 = ((ShulkerBox) bsm2.getBlockState()).getInventory();
 

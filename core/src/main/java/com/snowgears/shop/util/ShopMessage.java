@@ -176,6 +176,8 @@ public class ShopMessage {
         if (color.matches(HEX_CODE_REGEX)) {
             return TextColor.color(Integer.parseInt(color.substring(1), 16));
         } else if (color.matches(COLOR_CODE_REGEX)) {
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             ChatColor bukkitColor = ChatColor.getByChar(color.charAt(1));
             if (bukkitColor != null) {
                 return toAdventureColor(bukkitColor);
@@ -194,6 +196,8 @@ public class ShopMessage {
     public static Component format(String message, PlaceholderContext context) {
         Component formattedMessage = null;
         if (message == null) { return Component.empty(); }
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         // Check if the message contains MiniMessage syntax (contains actual MiniMessage tags, not just < > around placeholders)
@@ -347,6 +351,8 @@ public class ShopMessage {
      * @param chatColor The ChatColor to convert
      * @return The equivalent Adventure TextColor, or null if chatColor is null
      */
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
     private static net.kyori.adventure.text.format.TextColor toAdventureColor(ChatColor chatColor) {
         if (chatColor == null) { return null; }
         // ChatColor.getColor() is not available in Paper 26.2; map manually to hex
@@ -382,6 +388,8 @@ public class ShopMessage {
     public static Component formatMiniMessage(String message, PlaceholderContext context) {
         Component formattedMessage = null;
         if (message == null) { return Component.empty(); }
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
         try {
@@ -1160,6 +1168,8 @@ public class ShopMessage {
 
         for(int i=0; i<lines.length; i++) {
             lines[i] = formatMessage(lines[i], shop, null, true);
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             lines[i] = ChatColor.translateAlternateColorCodes('&', lines[i]);
             lines[i] = UtilMethods.trimForSign(lines[i]);
         }
@@ -1177,6 +1187,8 @@ public class ShopMessage {
         String[] lines = shopSignTextMap.get(key);
         for(int i=0; i<lines.length; i++) {
             lines[i] = formatMessage(lines[i], shop, null, true);
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             lines[i] = ChatColor.translateAlternateColorCodes('&', lines[i]);
             lines[i] = UtilMethods.trimForSign(lines[i]);
         }
@@ -1200,6 +1212,8 @@ public class ShopMessage {
 
             Boolean splitLine = formattedLine.contains("[split]");
             formattedLine = formattedLine.replace("[split]", "");
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             if(formattedLine != null && !formattedLine.isEmpty() && !ChatColor.stripColor(formattedLine).trim().isEmpty()) {
                 if (splitLine) {
                     List<String> splitLines = UtilMethods.splitStringIntoLines(formattedLine, targetMaxLength);
