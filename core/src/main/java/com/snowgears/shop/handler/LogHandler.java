@@ -368,6 +368,15 @@ public class LogHandler {
     }
 
     /**
+     * Holds the data needed to build a single offline transaction. Collected off the region
+     * thread so that Bukkit API (e.g. {@link Bukkit#getWorld(String)}) stays off it on Folia.
+     */
+    private record PendingTx(String shopWorld, int shopX, int shopY, int shopZ,
+                             String tType, double price, String purchaserUUID,
+                             int amount, ItemStack itemstack, ItemStack barterItemstack) {
+    }
+
+    /**
      * Calculates offline transactions for a player by querying the database.
      *
      * @param offlineTransactions The offline transactions object to populate with calculated data
@@ -391,6 +400,7 @@ public class LogHandler {
                 double totalSpent = 0.0;
                 Map<ItemStack, Integer> itemsBought = new HashMap<>();
                 Map<ItemStack, Integer> itemsSold = new HashMap<>();
+                List<PendingTx> pendingTx = new ArrayList<>();
 
                 // Prepare and execute the statement
 
@@ -415,8 +425,6 @@ public class LogHandler {
                         int shopX = resultSet.getInt("shop_x");
                         int shopY = resultSet.getInt("shop_y");
                         int shopZ = resultSet.getInt("shop_z");
-
-                        Location loc = new Location(Bukkit.getWorld(shopWorld), shopX, shopY, shopZ);
 
                         ItemStack itemstack = UtilMethods.itemStackFromBase64(item);
                         ItemStack barterItemstack = null;
@@ -448,22 +456,41 @@ public class LogHandler {
                             }
                         }
 
-                        OfflinePlayer purchaser = null;
-                        if (purchaserUUID != null && !purchaserUUID.isEmpty()) {
-                            purchaser = Bukkit.getServer().getOfflinePlayer(UUID.fromString(purchaserUUID));
-                        }
-
-                        offlineTransactions.addTx(loc, ShopType.valueOf(tType), price, purchaser, amount, itemstack, barterItemstack);
+                        // Defer Location creation and transaction recording: Bukkit.getWorld() is not
+                        // region-safe on Folia, so collect the data off-thread and build Locations
+                        // on the main thread below.
+                        pendingTx.add(new PendingTx(shopWorld, shopX, shopY, shopZ, tType, price, purchaserUUID, amount, itemstack, barterItemstack));
                     }
                 }
 
-                // Update offlineTransactions object with the calculated data
-                offlineTransactions.setNumTransactions(size);
-                offlineTransactions.setTotalProfit(totalProfit);
-                offlineTransactions.setTotalSpent(totalSpent);
-                offlineTransactions.setItemsBought(itemsBought);
-                offlineTransactions.setItemsSold(itemsSold);
-                offlineTransactions.setIsCalculating(false);
+                // Create Locations and record transactions on the main thread since Bukkit API is
+                // not region-safe on Folia. OfflinePlayer lookups are also moved onto the main thread.
+                final int numTransactions = size;
+                final double finalTotalProfit = totalProfit;
+                final double finalTotalSpent = totalSpent;
+                final Map<ItemStack, Integer> finalItemsBought = itemsBought;
+                final Map<ItemStack, Integer> finalItemsSold = itemsSold;
+
+                plugin.getFoliaLib().getScheduler().runLater(() -> {
+                    for (PendingTx tx : pendingTx) {
+                        Location loc = new Location(Bukkit.getWorld(tx.shopWorld()), tx.shopX(), tx.shopY(), tx.shopZ());
+
+                        OfflinePlayer purchaser = null;
+                        if (tx.purchaserUUID() != null && !tx.purchaserUUID().isEmpty()) {
+                            purchaser = Bukkit.getServer().getOfflinePlayer(UUID.fromString(tx.purchaserUUID()));
+                        }
+
+                        offlineTransactions.addTx(loc, ShopType.valueOf(tx.tType()), tx.price(), purchaser, tx.amount(), tx.itemstack(), tx.barterItemstack());
+                    }
+
+                    // Update offlineTransactions object with the calculated data
+                    offlineTransactions.setNumTransactions(numTransactions);
+                    offlineTransactions.setTotalProfit(finalTotalProfit);
+                    offlineTransactions.setTotalSpent(finalTotalSpent);
+                    offlineTransactions.setItemsBought(finalItemsBought);
+                    offlineTransactions.setItemsSold(finalItemsSold);
+                    offlineTransactions.setIsCalculating(false);
+                }, 0);
             } catch (SQLException e){
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to get offline transactions.");
                 e.printStackTrace();

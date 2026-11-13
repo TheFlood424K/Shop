@@ -1,0 +1,29 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+affdbe01-f05d-4a6c-82d2-7c28b85df98c
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:42c143b618a6613c21eaf851f4cacc40e5601527c0bbc2817ba829a7a287c1cd
+
+[_description]
+Package: com.snowgears.shop.shop. AbstractShop.java base class for all shop types with full Javadoc on all methods.
+
+[_does]
+Manages shop state (ID, owner, item, price, stock), loads/saves shop data, calculates stock levels, updates sign displays, handles click actions, teleports players, manages GUI icons.
+
+[_summary]
+Abstract base class for all shop types in the Shop plugin. Defines core shop behavior including stock, price, ownership, persistence, and transaction execution.
+
+[_careful]
+
+[_careful/Compatibility]
+setAdmin() should only be called before the shop is added to handler maps. Chunk loading is validated during loadFromSignAndChest(). Admin shops return Integer.MAX_VALUE for stock.
+

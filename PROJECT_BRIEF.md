@@ -20,7 +20,6 @@ Migrate the Shop Minecraft plugin from Spigot to Paper MC. Fully support Minecra
 **Out of scope**
 - NMS modules
 - Full migration to latest APIs beyond stability (can be done later)
-- Local compilation (CI handles builds)
 
 ## 3. Stack and Architecture
 
@@ -49,15 +48,15 @@ Architecture: Maven multi-module (parent pom + core + dist). Core contains all p
 
 ## 5. How to Work
 
-- Setup: No local setup needed (CI handles builds)
-- Run: `mvn clean package` (via GitHub Actions)
+- Setup: Java 25 + Maven; `mvn clean compile` works locally for verification
+- Run: `mvn clean package` (via GitHub Actions CI)
 - Test: GitHub Actions build workflow
 - Deploy: Not applicable (plugin JAR)
-- Repository rules: No local compilation; commit and push periodically
+- Repository rules: Commit and push periodically
 
 ## 6. Safety and Constraints
 
-- No local compilation permitted — CI (GitHub Actions) validates builds
+- CI (GitHub Actions) validates builds; local `mvn clean compile` can be used for verification
 - Only use Spigot dependencies when absolutely necessary, with TODO doc strings
 - Prioritize newer, more up-to-date APIs where there is a choice
 - Stability and plugin functionality over full migration
@@ -68,19 +67,18 @@ Architecture: Maven multi-module (parent pom + core + dist). Core contains all p
 - Project already uses Paper API 26.2, Java 25, FoliaLib 0.5.2
 - plugin.yml already Paper-native (api-version 26.2, folia-supported: true)
 - ShopMessage.java imports updated (Bungee `*` import removed, Adventure imports added)
+- No `net.md_5.bungee.*`, `player.spigot()`, `TextComponent`/`BaseComponent`, or `org.spigotmc.*` imports remain
 
 **Known issues**
-- 443 `org.bukkit` imports across 72 files (most are Bukkit API, not Spigot — acceptable)
-- Bungee chat classes still used in ShopMessage.java, ItemNameUtil.java, ItemHoverEventHelper.java, UpdateChecker.java
-- `player.spigot().sendMessage()` still used in multiple files
-- `ChatColor.translateAlternateColorCodes` still used in multiple files
+- ~443 `org.bukkit` imports across ~72 files (most are Bukkit API, not Spigot — acceptable)
+- `ChatColor` still used in multiple files (ShopMessage, ShopGuiHandler, AbstractShop, UtilMethods, ShopLogger, ComparatorItemstackName, BluemapHookListener) — Phase 3 TODO doc strings added at all usage sites
+- `CommandHandler` registration now uses Paper `Bukkit.getCommandMap()` instead of reflection
+- `TransactionHandler.shopMessageCooldown` changed to `ConcurrentHashMap` for Folia region-thread safety
 
 **Next**
-- Complete ShopMessage.java migration (replacePlaceholder, format, formatMiniMessage, componentFromLegacy, textComponentFromComponent, embedItem, hover events, all placeholders)
-- Migrate ItemNameUtil.java, ItemHoverEventHelper.java, UpdateChecker.java, ShopGuiHandler.java, AbstractShop.java, MiscListener.java
 - Verify CI build passes
-- Commit and push changes
-- Create migration plan for remaining work
+- Commit and push changes to branch `theflood424k-plugin-compatibility-audit`
+- Create migration plan for remaining Phase 3 work (ChatColor → Adventure component replacement)
 
 ## 8. Team and Handoff
 

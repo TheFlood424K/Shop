@@ -1,0 +1,6 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\event\PlayerOpenShopEvent.java ===
+* Fired when a player attempts to open a shop's container by interacting with the chest/barrel/etc.
+ *
+ * This event allows external listeners (e.g., protection plugins) to request that the container
+ * be opened directly for the player instead of executing the shop action. Listeners can also
+ * cancel the event to hard-deny access.

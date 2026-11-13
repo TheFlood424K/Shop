@@ -25,17 +25,19 @@ import java.net.URL;
 
 //author: Benz56
 //https://github.com/Benz56/Async-Update-Checker/blob/master/UpdateChecker.java
+//Migrated from SpigotMC API to GitHub Releases API (stable) + GitHub Actions (nightly)
 
 public class UpdateChecker {
 
     private final Shop plugin;
     private final String localPluginVersion;
-    private String spigotPluginVersion;
+    private String githubReleaseVersion;
 
     //Constants. Customize to your liking.
-    private static final int ID = 9628; //The ID of your resource. Can be found in the resource URL.
+    private static final String REPO_OWNER = "TheFlood424K";
+    private static final String REPO_NAME = "Shop";
     private static final String ERR_MSG = "&cShop update checker failed!";
-    private static final String UPDATE_MSG = "&fNew Shop update &av{latestReleasedVersion} &fis available &f(your running: &ev{runningVersion}&f)\n&bhttps://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/updates";
+    private static final String UPDATE_MSG = "&fNew Shop update &av{latestReleasedVersion} &fis available &f(your running: &ev{runningVersion}&f)\n&bhttps://github.com/TheFlood424K/Shop/releases";
     private static final String DEV_VERSION_MSG = "&l&e[Shop] &r&6Running development version &l&c{runningVersion}&r&6. If you encounter bugs, please roll back to the latest stable version.";
     //PermissionDefault.FALSE == OPs need the permission to be notified.
     //PermissionDefault.TRUE == all OPs are notified regardless of having the permission.
@@ -54,12 +56,13 @@ public class UpdateChecker {
             public void run() {
                 //The request is executed asynchronously as to not block the main thread.
                 plugin.getFoliaLib().getScheduler().runAsync(task -> {
-                    //Request the current version of your plugin on SpigotMC.
-                    // TODO: Migrate from SpigotMC API to Paper/Modrinth/CurseForge API
+                    //Request the latest stable release from GitHub Releases API.
                     try {
-                        final HttpsURLConnection connection = (HttpsURLConnection) new URL("https://api.spigotmc.org/legacy/update.php?resource=" + ID).openConnection();
+                        final URL url = new URL("https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/releases/latest");
+                        final HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
                         connection.setRequestMethod("GET");
-                        spigotPluginVersion = new BufferedReader(new InputStreamReader(connection.getInputStream())).readLine();
+                        connection.setRequestProperty("User-Agent", "Shop-UpdateChecker");
+                        githubReleaseVersion = new BufferedReader(new InputStreamReader(connection.getInputStream())).readLine();
                     } catch (final IOException e) {
                         Bukkit.getServer().getConsoleSender().sendMessage(LegacyComponentSerializer.legacy('&').deserialize(ERR_MSG));
                         e.printStackTrace();
@@ -67,11 +70,22 @@ public class UpdateChecker {
                         return;
                     }
 
+                    // Parse the tag_name from the GitHub release JSON response.
+                    String tagName = parseTagName(githubReleaseVersion);
+                    if (tagName == null) {
+                        Bukkit.getServer().getConsoleSender().sendMessage(LegacyComponentSerializer.legacy('&').deserialize(ERR_MSG));
+                        cancelTask();
+                        return;
+                    }
+
+                    // Strip leading 'v' from tag (e.g. "v1.12.0" -> "1.12.0").
+                    String latestVersion = tagName.startsWith("v") ? tagName.substring(1) : tagName;
+
                     // Are we running the current version?
-                    if (compareVersions(localPluginVersion, spigotPluginVersion) == 0) return;
-                    // Are we running an older verion?
-                    if (compareVersions(localPluginVersion, spigotPluginVersion) < 0) {
-                        Bukkit.getServer().getConsoleSender().sendMessage(LegacyComponentSerializer.legacy('&').deserialize(embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion)));
+                    if (compareVersions(localPluginVersion, latestVersion) == 0) return;
+                    // Are we running an older version?
+                    if (compareVersions(localPluginVersion, latestVersion) < 0) {
+                        Bukkit.getServer().getConsoleSender().sendMessage(LegacyComponentSerializer.legacy('&').deserialize(embedVersions(UPDATE_MSG, localPluginVersion, latestVersion)));
 
                         //Register the PlayerJoinEvent
                         plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> Bukkit.getPluginManager().registerEvents(new Listener() {
@@ -79,16 +93,16 @@ public class UpdateChecker {
                             public void onPlayerJoin(final PlayerJoinEvent event) {
                                 final Player player = event.getPlayer();
                                 if (!player.isOp()) return;
-                                Component updateMsg = LegacyComponentSerializer.legacy('&').deserialize(embedVersions(UPDATE_MSG, localPluginVersion, spigotPluginVersion));
+                                Component updateMsg = LegacyComponentSerializer.legacy('&').deserialize(embedVersions(UPDATE_MSG, localPluginVersion, latestVersion));
                                 updateMsg = updateMsg.hoverEvent(HoverEvent.showText(Component.text("Click to open Shop plugin page")));
-                                updateMsg = updateMsg.clickEvent(ClickEvent.openUrl("https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/updates"));
+                                updateMsg = updateMsg.clickEvent(ClickEvent.openUrl("https://github.com/TheFlood424K/Shop/releases"));
                                 player.sendMessage(updateMsg);
                             }
                         }, plugin));
                     }
                     /* RUNNING SHOP DEV VERSION */
-                    if (compareVersions(localPluginVersion, spigotPluginVersion) > 0) {
-                        Bukkit.getServer().getConsoleSender().sendMessage(LegacyComponentSerializer.legacy('&').deserialize(embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                    if (compareVersions(localPluginVersion, latestVersion) > 0) {
+                        Bukkit.getServer().getConsoleSender().sendMessage(LegacyComponentSerializer.legacy('&').deserialize(embedVersions(DEV_VERSION_MSG, localPluginVersion, latestVersion)));
 
                         //Register the PlayerJoinEvent
                         plugin.getFoliaLib().getScheduler().runNextTick(nextTask -> Bukkit.getPluginManager().registerEvents(new Listener() {
@@ -96,7 +110,7 @@ public class UpdateChecker {
                             public void onPlayerJoin(final PlayerJoinEvent event) {
                                 final Player player = event.getPlayer();
                                 if (!player.isOp()) return;
-                                player.sendMessage(LegacyComponentSerializer.legacy('&').deserialize(embedVersions(DEV_VERSION_MSG, localPluginVersion, spigotPluginVersion)));
+                                player.sendMessage(LegacyComponentSerializer.legacy('&').deserialize(embedVersions(DEV_VERSION_MSG, localPluginVersion, latestVersion)));
                             }
                         }, plugin));
                     }
@@ -113,6 +127,26 @@ public class UpdateChecker {
 
     private String embedVersions(String msg, String runningVersion, String latestReleasedVersion) {
         return msg.replace("{runningVersion}", runningVersion).replace("{latestReleasedVersion}", latestReleasedVersion);
+    }
+
+    /**
+     * Extracts the value of the "tag_name" field from a GitHub release JSON response
+     * using simple string scanning (no JSON library dependency).
+     */
+    private String parseTagName(String jsonResponse) {
+        try {
+            int tagIdx = jsonResponse.indexOf("\"tag_name\"");
+            if (tagIdx == -1) return null;
+            int colonIdx = jsonResponse.indexOf(":", tagIdx);
+            if (colonIdx == -1) return null;
+            int quoteIdx = jsonResponse.indexOf("\"", colonIdx + 1);
+            if (quoteIdx == -1) return null;
+            int endQuoteIdx = jsonResponse.indexOf("\"", quoteIdx + 1);
+            if (endQuoteIdx == -1) return null;
+            return jsonResponse.substring(quoteIdx + 1, endQuoteIdx);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public int compareVersions(String localVersion, String latestVersion) {
@@ -142,7 +176,7 @@ public class UpdateChecker {
         }
         // If we get here, all numeric parts are equal
         // For now, ignore the tags, since it is likely the "commit" tag on the local version
-        // but on the spigot version we do not include the commit hash in the version string
+        // but on the github release we do not include the commit hash in the version string
         return 0;
     }
 }

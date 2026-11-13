@@ -1,0 +1,27 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+826336b8-cff1-4320-a3dd-830891e0e1a4
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:de213d1c308af70cf59ac989f2dd4ba87807eb7b422761aedff9bea95eaae40a
+
+[_description]
+Package: com.snowgears.shop.util. EconomyUtils, InventoryUtils, Transaction utility classes. Bug sweep verified no issues in EconomyUtils, InventoryUtils, Transaction.
+
+[_summary]
+Utility classes for the Shop plugin. Provides helper methods for messaging, formatting, and common operations used across the plugin.
+
+[_conclusions]
+Utility classes are shared across main and test code, reducing duplication.
+
+[_does]
+Handles MiniMessage formatting, player messaging, and other utility functions used across main and test code.
+

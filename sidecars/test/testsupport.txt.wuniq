@@ -1,0 +1,32 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+e30ebe83-cebf-4103-a117-c4e8adf1a167
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:a5a825d0bec60d7a2fd0821438a804879cd7cbcd15311622bd583918cc4a7afc
+
+[_description]
+Package: com.snowgears.shop.test.testsupport. Test support docstrings.
+
+[_summary]
+Test support utilities for the Shop plugin. Base classes and helpers for MockBukkit-based testing including server lifecycle, message assertions, and shop creation flow.
+
+[_careful]
+
+[_careful/Compatibility]
+BaseMockBukkitTest brings up a single ServerMock once per test-class. WorldMock spy auto-loads chunks on accessors. Can be removed once changes are pulled into MockBukkit.
+
+[_conclusions]
+Test support utilities reduce duplication across test classes and centralize common testing patterns.
+
+[_does]
+Provides BaseMockBukkitTest (server lifecycle), PlayerMessageTestUtil (message queue assertions), ShopCreationFlowTestUtil (chest-based shop creation), ShopSpyTestUtil (Mockito spy replacement), TestReflection (reflection helpers).
+

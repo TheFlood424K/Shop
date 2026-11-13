@@ -470,6 +470,8 @@ public class UtilMethods {
         // Check if there are any non-white color codes in the message
         boolean hasOtherColors = Pattern.compile(COLOR_CODE_REGEX_NO_WHITE).matcher(message).find();
         String msgStr = message;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         if (!hasOtherColors) { msgStr = ChatColor.stripColor(msgStr); }
         return msgStr;
     }
@@ -922,6 +924,8 @@ public class UtilMethods {
     //this utility allows the input of numbers like 1.2k (1200)
     public static double getMultiplyValue(String text){
         // Remove color formatting, whitespace, and make sure the string is lowercase for matching our suffixes below
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         String priceString = ChatColor.stripColor(text).replaceAll("\\s", "").toLowerCase();
         // Get just the suffix from the price string, remove all numbers and decimals
         String priceSuffix = priceString.replaceAll("[0-9.]", "");
@@ -946,6 +950,8 @@ public class UtilMethods {
 
     public static String cleanNumberText(String text){
         String cleaned = "";
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         String toClean = ChatColor.stripColor(text).trim(); // remove color and whitespace not between characters
         for(int i=0; i<toClean.length(); i++) {
             if(Character.isDigit(toClean.charAt(i)))
@@ -961,57 +967,109 @@ public class UtilMethods {
     public static ChatColor getChatColorByCode(String colorCode) {
         switch (colorCode) {
             case "&b":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.AQUA;
             case "&0":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.BLACK;
             case "&9":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.BLUE;
             case "&l":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.BOLD;
             case "&3":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.DARK_AQUA;
             case "&1":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.DARK_BLUE;
             case "&8":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.DARK_GRAY;
             case "&2":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.DARK_GREEN;
             case "&5":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.DARK_PURPLE;
             case "&4":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.DARK_RED;
             case "&6":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.GOLD;
             case "&7":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.GRAY;
             case "&a":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.GREEN;
             case "&o":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.ITALIC;
             case "&d":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.LIGHT_PURPLE;
             case "&k":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.MAGIC;
             case "&c":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.RED;
             case "&r":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.RESET;
             case "&m":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.STRIKETHROUGH;
             case "&n":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.UNDERLINE;
             case "&f" :
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.WHITE;
             case "&e":
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.YELLOW;
             default:
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 return ChatColor.RESET;
         }
     }
 
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
     public static ChatColor getChatColor(String message) {
         if(message.startsWith("&") && message.length() > 1){
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             ChatColor cc = getChatColorByCode(message.substring(0,2));
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             if(cc != ChatColor.RESET)
                 return cc;
         }
@@ -1082,6 +1140,8 @@ public class UtilMethods {
 
         Matcher matcher = Pattern
             .compile(HEX_COLOR_CODE_REGEX + "|" + COLOR_CODE_REGEX + "| |[^&§\\s]+")
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             .matcher(ChatColor.translateAlternateColorCodes('&', text));
         List<String> words = new ArrayList<>();
         while (matcher.find()) {
@@ -1093,6 +1153,8 @@ public class UtilMethods {
 
         String latestColors = "";
         String latestHexColor = ""; // For tracking hex colors
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         ChatColor latestColor = ChatColor.WHITE; // Initially white in case user provides no color codes
         boolean isBold = false;
         boolean isItalic = false;
@@ -1106,14 +1168,30 @@ public class UtilMethods {
             boolean isHexColor = word.matches(HEX_COLOR_CODE_REGEX);
             if (isStandardColor || isHexColor) {
                 if (isStandardColor) {
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                     ChatColor newColor = ChatColor.getByChar(word.charAt(1));
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                     if (newColor == ChatColor.BOLD) isBold = true;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                     else if (newColor == ChatColor.ITALIC) isItalic = true;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                     else if (newColor == ChatColor.STRIKETHROUGH) isStrikethrough = true;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                     else if (newColor == ChatColor.UNDERLINE) isUnderlined = true;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                     else if (newColor == ChatColor.MAGIC) isObfuscated = true;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                     else if (newColor == ChatColor.RESET) {
                         if (Shop.getPlugin() != null) Shop.getPlugin().getLogger().hyper("[ShopMessage.format]     matched RESET color code: " + word);
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                         latestColor = ChatColor.WHITE;
                         latestHexColor = ""; // Reset hex color when RESET code is found
                         isBold = false;
@@ -1136,16 +1214,28 @@ public class UtilMethods {
                 if (latestColor != null) newColors += latestColor.toString();
                 else if (!latestHexColor.isEmpty()) newColors += latestHexColor;
                 // SECOND Add formatting codes
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 if (isBold) newColors += ChatColor.BOLD;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 if (isItalic) newColors += ChatColor.ITALIC;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 if (isStrikethrough) newColors += ChatColor.STRIKETHROUGH;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 if (isUnderlined) newColors += ChatColor.UNDERLINE;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 if (isObfuscated) newColors += ChatColor.MAGIC;
 
                 if (!latestColors.equals(newColors)) {
                     latestColors = newColors;
                     if (currentLine.toString().contains(" ")) {
                         // New color, add the line and start a new line
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                         if (ChatColor.stripColor(currentLine.toString()).length() > 0) {
                             linesByColor.add(currentLine.toString());
                         }
@@ -1153,6 +1243,8 @@ public class UtilMethods {
                         currentLine = new StringBuilder(latestColors);
                     } else {
                         // If our current line has text other than color codes, add the latest color code.
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                         if (ChatColor.stripColor(currentLine.toString()).length() > 0) {
                             currentLine.append(word);
                         } else {
@@ -1166,7 +1258,11 @@ public class UtilMethods {
             }
 
             // Also split if the single color line is too long!
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             int currentLineLength = ChatColor.stripColor(currentLine.toString()).length();
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             int nextWordLength = ChatColor.stripColor(word).length();
             int potentialLength = currentLineLength + nextWordLength;
             if (Shop.getPlugin() != null) Shop.getPlugin().getLogger().spam("[ShopMessage.format]     potentialLength: " + potentialLength + " maxLineLength: " + maxLineLength);
@@ -1190,7 +1286,11 @@ public class UtilMethods {
         List<String> result = new ArrayList<>();
         currentLine = new StringBuilder();
         for (String line : linesByColor) {
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             int lineLengthNoColors = ChatColor.stripColor(line).length();
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             int currentLineLengthNoColors = ChatColor.stripColor(currentLine.toString()).length();
             // If we are less than the max line length
             // OR if the line/currentLine is empty add it
