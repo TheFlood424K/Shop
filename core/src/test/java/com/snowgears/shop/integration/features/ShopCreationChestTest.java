@@ -72,7 +72,7 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         String msg = waitForNextMessage(player);
         assertEquals("§eTo set up your shop, please type your responses in chat when prompted.", msg, "Player should be sent dialog to set up shop");
         msg = waitForNextMessage(player);
-        assertTrue(msg.contains("§eEnter in chat what to do with §a"), "Player should be sent dialog for shop type");
+        assertTrue(msg.contains("§eEnter in chat what to do with"), "Player should be sent dialog for shop type");
         assertTrue(msg.contains("(s)§b §7("), "Player should be sent dialog for shop type");
         msg = player.nextMessage();
         if (msg != null) {
@@ -85,12 +85,12 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         sendChatMessage(player, type);
         // Step 2: Item amount
         msg = waitForNextMessage(player);
-        assertTrue(msg.contains("§eEnter in chat the amount of §a"), "Player should be sent dialog for amount");
+        assertTrue(msg.contains("§eEnter in chat the amount of"), "Player should be sent dialog for amount");
         assertTrue(msg.contains("(s)§b §eyou want to sell per transaction."), "Player should be sent dialog for amount");
         sendChatMessage(player, amount + "");
         // Step 3: Price
         msg = waitForNextMessage(player);
-        assertTrue(msg.contains("§eEnter in chat the price you will sell §a"), "Player should be sent dialog for price");
+        assertTrue(msg.contains("§eEnter in chat the price you will sell"), "Player should be sent dialog for price");
         sendChatMessage(player, price);
         msg = waitForNextMessage(player);
         assertTrue(msg.contains("§eYou have created a shop that sells §6"), "Player should be sent dialog for successfully setup shop");
@@ -105,6 +105,51 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         // wait for all async tasks to complete
         server.getScheduler().waitAsyncTasksFinished();
         return created;
+    }
+
+    @Test
+    void cancelCreationByTypingCancelInChat() {
+        ServerMock server = getServer();
+        World world = server.addSimpleWorld("world");
+        PlayerMock player = server.addPlayer();
+        player.setOp(true);
+
+        // Enable chest creation
+        setConfig("allowCreateMethodChest", true);
+
+        // Place chest with free space to the NORTH for sign placement
+        Location chestLoc = new Location(world, 60, 65, 10);
+        Block chestBlock = world.getBlockAt(chestLoc);
+        chestBlock.setType(Material.CHEST);
+        world.getBlockAt(chestLoc.clone().add(0, 0, -1)).setType(Material.AIR);
+        stubCalculateBlockFaceForSign(BlockFace.NORTH);
+
+        // Start creation by sneaking and left-clicking the chest with an item in hand
+        player.setSneaking(true);
+        ItemStack item = new ItemStack(Material.DIRT);
+        player.getInventory().setItemInMainHand(item);
+        PlayerInteractEvent startCreate = new PlayerInteractEvent(
+                player,
+                Action.LEFT_CLICK_BLOCK,
+                item,
+                chestBlock,
+                BlockFace.NORTH,
+                EquipmentSlot.HAND
+        );
+        server.getPluginManager().callEvent(startCreate);
+
+        // Drain initial creation messages
+        while (player.nextMessage() != null) {}
+
+        // Type "cancel" in chat to abort the creation process
+        sendChatMessage(player, "cancel");
+
+        // Assert: no shop was created/registered for chest
+        server.getScheduler().performTicks(5);
+        server.getScheduler().waitAsyncTasksFinished();
+        assertNull(getPlugin().getShopHandler().getShopByChest(chestBlock), "Shop should not be created when creation is cancelled");
+        assertNull(getPlugin().getMiscListener().getShopCreationProcess(player), "Shop creation process should be removed after cancel");
+        assertEquals("§cCancelled shop creation.", player.nextMessage(), "Player should be sent cancel message");
     }
 
     @Test

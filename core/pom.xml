@@ -1,52 +1,65 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-		 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <!-- parent pom -->
     <parent>
-        <artifactId>shop-parent</artifactId>
         <groupId>com.snowgears.shop</groupId>
+        <artifactId>shop-parent</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <properties>
-        <spigot.version>1.21.1-R0.1-SNAPSHOT</spigot.version>
-    </properties>
-
-    <!-- core module info -->
     <artifactId>shop-core</artifactId>
+
+    <properties>
+        <!-- Minecraft 26.2 Server APIs (paper.version inherited from root) -->
+        <gson.version>2.14.0</gson.version>
+        <annotations.version>26.1.0</annotations.version>
+
+        <!-- Shaded Runtime Libraries -->
+        <hikari.version>7.1.0</hikari.version>
+        <mariadb.version>4.0.0</mariadb.version>
+        <h2.version>2.5.252</h2.version> <!-- H2 2.5.252 in use; verify compatibility before changing version -->
+        <folialib.version>0.5.2</folialib.version>
+
+        <!-- Plugin Integrations -->
+        <adventure.bom.version>5.2.0</adventure.bom.version>
+        <plotsquared.version>7.6.0</plotsquared.version>
+        <vaultunlocked.version>2.15.0</vaultunlocked.version>
+        <griefprevention3d.version>19.0.7</griefprevention3d.version>
+        <geyser.api.version>2.11.2-SNAPSHOT</geyser.api.version>
+        <floodgate.api.version>2.2.5-SNAPSHOT</floodgate.api.version>
+        <worldguard.version>7.0.21</worldguard.version>
+        <towny.version>0.103.1.1</towny.version>
+        <lwc.version>2.5.0</lwc.version>
+        <bolt.version>1.2.86</bolt.version>
+        <blockprot.version>1.2.6</blockprot.version>
+        <dynmap.version>3.6</dynmap.version>
+        <bluemap.version>2.7.3</bluemap.version>
+        <bentobox.version>2.7.0</bentobox.version>
+        <arm.version>3.5.4</arm.version>
+
+        <!-- Testing (JUnit 6 + MockBukkit for MC 26.2) -->
+        <junit.version>6.1.3</junit.version>
+        <mockito.version>5.24.0</mockito.version>
+        <mockbukkit.version>4.117.0</mockbukkit.version>
+        <slf4j.version>2.0.20</slf4j.version>
+        <json-simple.version>1.1.1</json-simple.version>
+
+        <!-- Build Plugins -->
+        <surefire.plugin.version>3.6.1</surefire.plugin.version>
+        <toolchains.plugin.version>3.3.0</toolchains.plugin.version>
+        <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
+        <shade.plugin.version>3.6.2</shade.plugin.version>
+    </properties>
 
     <repositories>
         <repository>
-            <id>central</id>
-            <name>Central Repository</name>
-            <url>https://repo1.maven.org/maven2/</url>
-            <layout>default</layout>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-        <repository>
-            <id>central-apache</id>
-            <name>Central Apache Repository</name>
-            <url>https://repo.maven.apache.org/maven2</url>
-            <layout>default</layout>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-        <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
-        </repository>
-        <repository>
-            <id>spigot-repo</id>
-            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
         <repository>
             <id>codemc-repo</id>
@@ -66,6 +79,10 @@
             <url>https://repo.bluecolored.de/releases</url>
         </repository>
         <repository>
+            <id>towny-repo</id>
+            <url>https://repo.glaremasters.me/repository/towny/</url>
+        </repository>
+        <repository>
             <id>ender-zone-repo</id>
             <url>https://ci.ender.zone/plugin/repository/everything/</url>
         </repository>
@@ -77,77 +94,129 @@
             <id>dynmap-repo</id>
             <url>https://repo.mikeprimm.com/</url>
         </repository>
+        <repository>
+            <id>tcoded-releases</id>
+            <url>https://repo.tcoded.com/releases/</url>
+        </repository>
+        <repository>
+            <id>opencollab</id>
+            <url>https://repo.opencollab.dev/main/</url>
+        </repository>
+        <repository>
+            <id>modrinth</id>
+            <url>https://api.modrinth.com/maven</url>
+        </repository>
     </repositories>
 
     <dependencyManagement>
         <dependencies>
+            <!-- Enforces JUnit 6 across Mockito and MockBukkit transitive dependencies -->
             <dependency>
-                <groupId>com.intellectualsites.bom</groupId> <!-- PlotSquared -->
-                <artifactId>bom-newest</artifactId>
-                <version>1.52</version>
-                <scope>import</scope>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
                 <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Adventure 5.x is required by Paper 26.2's API surface. -->
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-bom</artifactId>
+                <version>${adventure.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
 
     <dependencies>
-        <!-- Unit Testing -->
+        <!-- Unit Testing (JUnit 6 + MockBukkit 26.2) -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.11.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.10.0</version>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
-            <version>5.10.0</version>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockbukkit.mockbukkit</groupId>
-            <artifactId>mockbukkit-v1.21</artifactId>
-            <version>4.0.0</version>
+            <artifactId>mockbukkit-v26.2</artifactId>
+            <version>${mockbukkit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <!-- (binds Hikari / other libs during MockBukkit runtime to prevent errors) -->
+            <!-- Binds Hikari / other libs during MockBukkit runtime to prevent errors -->
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
-            <version>2.0.13</version>
+            <version>${slf4j.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <!--
+                LWC 2.3.2 does not declare json-simple as a transitive dependency, but its
+                Protection model references org.json.simple.JSONObject. Mockito's inline mock
+                maker needs that type resolvable to instrument the class, so it is required on
+                the test classpath. The production server provides LWC (and its own copy) at runtime.
+            -->
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>${json-simple.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <!-- json-simple 1.1.1 declares JUnit 4.10 at compile scope; exclude it so it does not clash with JUnit 6 -->
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
 
-        <!-- Core Dependencies -->
+        <!-- Server & Mojang Provided APIs (Minecraft 26.2) -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>${spigot.version}</version>
+            <version>${paper.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>it.unimi.dsi</groupId>
-            <artifactId>fastutil</artifactId>
-            <version>8.5.6</version>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>${annotations.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Third-Party Plugin Integrations -->
         <dependency>
             <groupId>net.milkbowl.vault</groupId>
-            <artifactId>VaultAPI</artifactId>
-            <version>1.7</version>
+            <artifactId>VaultUnlocked</artifactId>
+            <version>${vaultunlocked.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.sk89q.worldguard</groupId>
             <artifactId>worldguard-bukkit</artifactId>
-            <version>7.0.0</version>
+            <version>${worldguard.version}</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -157,29 +226,27 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.github.TownyAdvanced</groupId>
-            <artifactId>Towny</artifactId>
-            <version>0.96.7.0</version>
+            <groupId>com.palmergames.bukkit.towny</groupId>
+            <artifactId>towny</artifactId>
+            <version>${towny.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.griefcraft</groupId>
             <artifactId>lwc</artifactId>
-            <version>2.3.2</version>
+            <version>${lwc.version}</version>
             <scope>provided</scope>
         </dependency>
-        <!-- Bolt chest protection API -->
         <dependency>
             <groupId>org.popcraft</groupId>
             <artifactId>bolt-bukkit</artifactId>
-            <version>1.1.33</version>
+            <version>${bolt.version}</version>
             <scope>provided</scope>
         </dependency>
-        <!-- BlockProt API -->
         <dependency>
             <groupId>com.github.spnda</groupId>
             <artifactId>BlockProt</artifactId>
-            <version>1.2.6</version>
+            <version>${blockprot.version}</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -195,128 +262,93 @@
         <dependency>
             <groupId>us.dynmap</groupId>
             <artifactId>dynmap-api</artifactId>
-            <!--
-              Dynmap publishes this artifact on https://repo.mikeprimm.com/.
-              Note: some CI environments cannot reach that host; see scripts/install-dynmap-api.sh for a CI-safe
-              alternative that installs the same coordinates from GitHub Releases.
-            -->
-            <version>3.2-beta-1</version>
+            <version>${dynmap.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>de.bluecolored.bluemap</groupId>
-            <artifactId>BlueMapAPI</artifactId>
-            <version>2.7.2</version>
+            <!-- Dynmap 3.6+ splits the marker/common API into a separate artifact. -->
+            <groupId>us.dynmap</groupId>
+            <artifactId>DynmapCoreAPI</artifactId>
+            <version>${dynmap.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>de.bluecolored</groupId>
+            <artifactId>bluemap-api</artifactId>
+            <version>${bluemap.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>world.bentobox</groupId>
             <artifactId>bentobox</artifactId>
-            <version>1.21.1</version>
+            <version>${bentobox.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.alex9849</groupId>
             <artifactId>advanced-region-market</artifactId>
-            <version>3.5.3</version>
+            <version>${arm.version}</version>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
-            <version>5.0.1</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mariadb.jdbc</groupId>
-            <artifactId>mariadb-java-client</artifactId>
-            <version>2.7.5</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>2.1.214</version> <!-- Updating to 2.2.220 broke things, leave it here for now -->
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.intellectualsites.plotsquared</groupId>
             <artifactId>plotsquared-core</artifactId>
+            <version>${plotsquared.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- for GriefPrevention3D -->
+        <dependency>
+            <groupId>maven.modrinth</groupId>
+            <artifactId>pqVXF7b5</artifactId>
+            <version>f9qqpIb7</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- GeyserMC / Floodgate compatibility -->
+        <dependency>
+            <groupId>org.geysermc.geyser</groupId>
+            <artifactId>api</artifactId>
+            <version>${geyser.api.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot</artifactId>
-            <version>${spigot.version}</version>
-            <classifier>remapped-mojang</classifier>
+            <groupId>org.geysermc.floodgate</groupId>
+            <artifactId>api</artifactId>
+            <version>${floodgate.api.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- Shaded Compile Dependencies -->
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <version>24.0.1</version>
-            <scope>provided</scope>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>${hikari.version}</version>
         </dependency>
-        <!-- FoliaLib dependency -->
         <dependency>
-            <groupId>com.github.technicallycoded</groupId>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>${mariadb.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>${h2.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.tcoded</groupId>
             <artifactId>FoliaLib</artifactId>
-            <version>0.4.4</version>
+            <version>${folialib.version}</version>
             <scope>compile</scope>
         </dependency>
-        <!-- DataFixerUpper & brigadier dependencies (needed for the Display class... for now...) -->
-        <dependency>
-            <groupId>com.mojang</groupId>
-            <artifactId>datafixerupper</artifactId>
-            <version>8.0.16</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.mojang</groupId>
-            <artifactId>brigadier</artifactId>
-            <version>1.0.500</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.11.0</version>
-            <scope>provided</scope>
-        </dependency>
+        <!-- DataFixerUpper and Gson dependencies are declared once above (provided). -->
     </dependencies>
 
-    <!--  this shade plugin is to shade in hikari so that database connections can be used -->
     <build>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.1.2</version>
-                    <configuration>
-                        <!-- When we eventually drop the compile target to Java 8, MockBukkit (still on 21) may
-                             need reflective access to JDK internals.  Keep the add-opens flag now so we don’t
-                             forget later.  Harmless on 17+ runtimes. -->
-                        <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
-                        <!-- Parallel test execution -->
-                        <parallel>methods</parallel>
-                        <forkCount>1</forkCount>
-                        <reuseForks>true</reuseForks>
-                        <!-- Ensure JDK 21 is available for tests because MockBukkit 4 requires 21 -->
-                        <jdkToolchain>
-                            <version>21</version>
-                            <vendor>any</vendor>
-                        </jdkToolchain>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
         <plugins>
-            <!-- Toolchains plugin: ensure JDK 21 is available for tests because MockBukkit 4 requires 21, but we still want to compile with a lower Java target in mind -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-toolchains-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>${toolchains.plugin.version}</version>
                 <executions>
                     <execution>
                         <goals>
@@ -325,19 +357,20 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <failOnMissingToolchain>false</failOnMissingToolchain>
                     <toolchains>
                         <jdk>
-                            <version>21</version>
+                            <version>25</version>
                             <vendor>any</vendor>
                         </jdk>
                     </toolchains>
                 </configuration>
             </plugin>
-            <!-- Always enable JaCoCo agent and reporting by default -->
+
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
+                <version>${jacoco.plugin.version}</version>
                 <configuration>
                     <propertyName>argLine</propertyName>
                     <append>true</append>
@@ -363,10 +396,27 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.plugin.version}</version>
+                <configuration>
+                    <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+                    <parallel>methods</parallel>
+                    <forkCount>1</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <jdkToolchain>
+                        <version>25</version>
+                        <vendor>any</vendor>
+                    </jdkToolchain>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.4.1</version>
+                <version>${shade.plugin.version}</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -383,7 +433,6 @@
                                     <pattern>org.mariadb.jdbc</pattern>
                                     <shadedPattern>com.snowgears.shop.artifact.mariadbjdbc</shadedPattern>
                                 </relocation>
-                                <!-- FoliaLib relocation -->
                                 <relocation>
                                     <pattern>com.tcoded.folialib</pattern>
                                     <shadedPattern>com.snowgears.shop.artifact.folialib</shadedPattern>
@@ -393,27 +442,10 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Ensure Surefire picks up ${argLine} (JaCoCo agent) in this module -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.1.2</version>
-                <configuration>
-                    <argLine>${argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
-                    <parallel>methods</parallel>
-                    <forkCount>1</forkCount>
-                    <reuseForks>true</reuseForks>
-                    <jdkToolchain>
-                        <version>21</version>
-                        <vendor>any</vendor>
-                    </jdkToolchain>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 
     <profiles>
-        
         <profile>
             <id>coverage-report</id>
             <build>
@@ -421,7 +453,7 @@
                     <plugin>
                         <groupId>org.jacoco</groupId>
                         <artifactId>jacoco-maven-plugin</artifactId>
-                        <version>0.8.11</version>
+                        <version>${jacoco.plugin.version}</version>
                         <executions>
                             <execution>
                                 <id>report-only</id>

@@ -2,6 +2,8 @@ package com.snowgears.shop.handler;
 
 import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.AbstractDisplay;
+import com.snowgears.shop.display.Display;
+import com.snowgears.shop.display.DisplayDisabled;
 import com.snowgears.shop.display.DisplayType;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ComboShop;
@@ -32,6 +34,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.nio.file.Files;
@@ -39,14 +42,18 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 
+/**
+ * Handles shop management, storage, display, and lookup operations.
+ * Manages all shops across the server, tracks player ownership, handles
+ * chunk-based organization, and coordinates shop display rendering.
+ */
 public class ShopHandler {
 
     public Shop plugin;
-    private Class<?> displayClass;
 
     private ConcurrentHashMap<Location, AbstractShop> allShops = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<UUID, List<Location>> playerShops = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<String, List<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
+    private ConcurrentHashMap<UUID, CopyOnWriteArrayList<Location>> playerShops = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, CopyOnWriteArrayList<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
     private ConcurrentHashMap<UUID, HashSet<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
     private Set<UUID> playersProcessingShopDisplays = ConcurrentHashMap.newKeySet();
     private ConcurrentHashMap<UUID, Location> playersActiveShopDisplayTag = new ConcurrentHashMap<>();
@@ -63,111 +70,59 @@ public class ShopHandler {
     // Map to track player last processed locations for movement-based display updates
     private ConcurrentHashMap<UUID, Location> lastProcessedLocations = new ConcurrentHashMap<>();
 
-    // Cache for player connections to avoid expensive reflection calls
-    private ConcurrentHashMap<UUID, Object> playerConnectionCache = new ConcurrentHashMap<>();
-
     // Teleport cooldown map to prevent multiple display updates during teleportation
     private ConcurrentHashMap<UUID, Long> teleportCooldowns = new ConcurrentHashMap<>();
     // Cooldown time in milliseconds (500ms = half a second)
     private static final long TELEPORT_COOLDOWN_MS = 500;
 
+    /**
+     * Creates a new ShopHandler and initializes shops and displays.
+     *
+     * @param instance The plugin instance
+     */
     public ShopHandler(Shop instance) {
         plugin = instance;
         adminUUID = UUID.randomUUID();
-        initDisplayClass();
         initItemList();
 
         plugin.getFoliaLib().getScheduler().runLater(() -> {
             loadShops();
-        }, 10);
+        }, 100);
     }
 
-    public void disableDisplayClass() {
-        try {
-            final Class<?> clazz = Class.forName("com.snowgears.shop.display.DisplayDisabled");
-            if (AbstractDisplay.class.isAssignableFrom(clazz))
-                this.displayClass = clazz;
-        } catch (final Exception e) {
-            Shop.getPlugin().getLogger().severe("Failed to load DisplayDisabled class.");
-            Shop.getPlugin().onDisable();
-        } catch (Error e) {
-            Shop.getPlugin().getLogger().severe("Failed to load DisplayDisabled class.");
-            Shop.getPlugin().onDisable();
+    /**
+     * Creates a Paper-backed display instance at the specified location.
+     *
+     * <p>MockBukkit does not implement the region/entity schedulers the
+     * Paper-backed display relies on, so displays are disabled there and the
+     * plugin falls back to chat-based prompts.</p>
+     *
+     * @param loc The location to create the display at
+     * @return A new display instance
+     */
+    public AbstractDisplay createDisplay(Location loc) {
+        if (plugin.isMockBukkit()) {
+            return new DisplayDisabled(loc);
         }
+        return new Display(loc);
     }
 
-    private boolean initDisplayClass(){
-        String packageName = plugin.getServer().getClass().getPackage().getName();
-
-        // Check if we are on a Paper 1.20.6+ server, or if we are running Spigot v1.20.6 or later :)
-        // Now that our new Display class purely uses Class loading to get the appropriate class, we don't
-        // need to load a specific revision version class (unless we are old)
-        if (packageName.equals("org.bukkit.craftbukkit") || plugin.getNmsBullshitHandler().getServerVersion() >= 120.6D) {
-            // We are on a newer version that does not relocate CB classes, load the default display package
-            try {
-                Shop.getPlugin().getLogger().info("Using item display handler - com.snowgears.shop.display.Display");
-                final Class<?> clazz = Class.forName("com.snowgears.shop.display.Display");
-                if (AbstractDisplay.class.isAssignableFrom(clazz)) {
-                    this.displayClass = clazz;
-                    return true;
-                }
-            } catch (final Exception e) {
-                Shop.getPlugin().getLogger().severe("Error while loading 'com.snowgears.shop.display.Display'. " + e.getMessage());
-                e.printStackTrace();
-                disableDisplayClass();
-                return false;
-            } catch (Error e) {
-                Shop.getPlugin().getLogger().severe("Error while loading 'com.snowgears.shop.display.Display'. " + e.getMessage());
-                e.printStackTrace();
-                disableDisplayClass();
-                return false;
-            }
-            return false;
-        } else {
-            // We are still on an older version, so go ahead
-            String nmsVersion = packageName.substring(packageName.lastIndexOf('.') + 1);
-
-            // MockBukkit testing does not support NMS, so we need to just return early
-            if (plugin.isMockBukkit()) {
-                disableDisplayClass();
-                return false;
-            }
-
-            try {
-                Shop.getPlugin().getLogger().info( "Minecraft version is old or Spigot, watch out for bugs!");
-                Shop.getPlugin().getLogger().info("Using display class - com.snowgears.shop.display.Display_" + nmsVersion);
-                final Class<?> clazz = Class.forName("com.snowgears.shop.display.Display_" + nmsVersion);
-                if (AbstractDisplay.class.isAssignableFrom(clazz)) {
-                    this.displayClass = clazz;
-                    return true;
-                }
-            } catch (final Error | Exception e) {
-                Shop.getPlugin().getLogger().severe("Error while loading com.snowgears.shop.display.Display_" + nmsVersion + " " + e.getMessage());
-                e.printStackTrace();
-                disableDisplayClass();
-                return false;
-            }
-            
-            Shop.getPlugin().getLogger().severe("Unknown issue hooking into Minecraft Packet Classes, disabling display features.");
-            disableDisplayClass();
-            return false;
-        }
-    }
-
-    public AbstractDisplay createDisplay(Location loc){
-        try {
-            AbstractDisplay display = (AbstractDisplay) displayClass.getConstructor(Location.class).newInstance(loc);
-            return display;
-        } catch (Exception e){
-            plugin.getLogger().warning("Error creating display at | World: " + loc.getWorld().getName() + " at " + loc.getX() + ", " + loc.getY() + ", " + loc.getZ());
-        }
-        return null;
-    }
-
+    /**
+     * Gets a shop by its sign location.
+     *
+     * @param loc The sign location of the shop
+     * @return The shop at the location, or null if none exists
+     */
     public AbstractShop getShop(Location loc) {
         return allShops.get(loc);
     }
 
+    /**
+     * Gets a shop by its chest block.
+     *
+     * @param shopChest The chest block of the shop
+     * @return The shop associated with the chest, or null if none exists
+     */
     public AbstractShop getShopByChest(Block shopChest) {
 
         try {
@@ -215,11 +170,22 @@ public class ShopHandler {
                 }
                 return null;
             }
-        } catch (NoClassDefFoundError e) {}
+        } catch (NoClassDefFoundError e) {
+            plugin.getLogger().warning("NoClassDefFoundError caught in getShopByChest: " + e.getMessage());
+            // Class not found - cannot look up shop, returning null
+        } catch (Exception e) {
+            plugin.getLogger().warning("Exception caught in getShopByChest: " + e.getMessage());
+        }
 
         return null;
     }
 
+    /**
+     * Gets a shop touching the specified block.
+     *
+     * @param block The block to check for adjacent shops
+     * @return The shop touching the block, or null if none exists
+     */
     public AbstractShop getShopTouchingBlock(Block block){
         BlockFace[] faces = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
         for(BlockFace face : faces){
@@ -237,6 +203,11 @@ public class ShopHandler {
         return null;
     }
 
+    /**
+     * Adds a shop to the handler's tracking structures.
+     *
+     * @param shop The shop to add
+     */
     public void addShop(AbstractShop shop) {
 
         //this is to remove a bug that caused one shop to be saved to multiple files at one point
@@ -246,14 +217,14 @@ public class ShopHandler {
         }
         allShops.put(shop.getSignLocation(), shop);
 
-        List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
+        CopyOnWriteArrayList<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
         if(!playerShopLocations.contains(shop.getSignLocation())) {
             playerShopLocations.add(shop.getSignLocation());
             playerShops.put(shop.getOwnerUUID(), playerShopLocations);
         }
 
         String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-        List<Location> chunkShopLocations = getShopLocations(chunkKey);
+        CopyOnWriteArrayList<Location> chunkShopLocations = getShopLocations(chunkKey);
         if(!chunkShopLocations.contains(shop.getSignLocation())) {
             chunkShopLocations.add(shop.getSignLocation());
             chunkShops.put(chunkKey, chunkShopLocations);
@@ -262,7 +233,13 @@ public class ShopHandler {
         plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
     }
 
-    //This method should only be used by AbstractShop object to delete
+    /**
+     * Removes a shop from the handler's tracking structures.
+     * This method should only be used by AbstractShop object to delete.
+     *
+     * @param shop The shop to remove
+     * @param forceSave Whether to force immediate save
+     */
     public void removeShop(AbstractShop shop, boolean forceSave) {
         boolean changed = false;
         if (allShops.containsKey(shop.getSignLocation())) {
@@ -270,7 +247,7 @@ public class ShopHandler {
             changed = true;
         }
         if(playerShops.containsKey(shop.getOwnerUUID())){
-            List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
+            CopyOnWriteArrayList<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
             if(playerShopLocations.contains(shop.getSignLocation())) {
                 playerShopLocations.remove(shop.getSignLocation());
                 if (playerShopLocations.isEmpty()) {
@@ -283,7 +260,7 @@ public class ShopHandler {
         }
         String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
         if(chunkShops.containsKey(chunkKey)){
-            List<Location> chunkShopLocations = getShopLocations(chunkKey);
+            CopyOnWriteArrayList<Location> chunkShopLocations = getShopLocations(chunkKey);
             if(chunkShopLocations.contains(shop.getSignLocation())) {
                 chunkShopLocations.remove(shop.getSignLocation());
                 if (chunkShopLocations.isEmpty()) {
@@ -308,6 +285,11 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Processes all unloaded shops in the specified chunk.
+     *
+     * @param chunk The chunk containing unloaded shops
+     */
     public void processUnloadedShopsInChunk(Chunk chunk){
         String key = UtilMethods.getChunkKey(chunk);
         if(unloadedShopsByChunk.containsKey(key)){
@@ -331,6 +313,11 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Adds a shop to the unloaded shops list for its chunk.
+     *
+     * @param shop The shop to add
+     */
     public void addUnloadedShopToChunkList(AbstractShop shop){
         String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
         List<Location> shopLocations = getUnloadedShopsByChunk(chunkKey);
@@ -340,12 +327,23 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Gets all shops on the server.
+     *
+     * @return List of all shops
+     */
     public List<AbstractShop> getAllShops(){
         return allShops.values().stream().collect(
                 Collectors.toCollection(ArrayList::new)
         );
     }
 
+    /**
+     * Gets all shops owned by the specified player.
+     *
+     * @param player The player's UUID
+     * @return List of shops owned by the player
+     */
     public List<AbstractShop> getShops(UUID player){
         List<AbstractShop> shops = new ArrayList<>();
         for(Location shopSign : getShopLocations(player)){
@@ -356,6 +354,12 @@ public class ShopHandler {
         return shops;
     }
 
+    /**
+     * Gets the number of shops that need to be saved for the player.
+     *
+     * @param player The player's UUID
+     * @return Number of shops needing save
+     */
     public int numShopsNeedSave(UUID player){
         List<AbstractShop> shops = getShops(player);
 
@@ -368,6 +372,12 @@ public class ShopHandler {
         return needToBeSaved;
     }
 
+    /**
+     * Gets all shops selling or buying the specified item.
+     *
+     * @param itemStack The item to search for
+     * @return List of shops dealing with the item
+     */
     public List<AbstractShop> getShopsByItem(ItemStack itemStack){
         List<AbstractShop> shops = new ArrayList<>();
         for(AbstractShop shop : allShops.values()){
@@ -380,6 +390,11 @@ public class ShopHandler {
     }
 
     // Note: this is resource intensive on large servers, maybe refactor at some point
+    /**
+     * Gets all offline players that own shops.
+     *
+     * @return List of shop owners
+     */
     public List<OfflinePlayer> getShopOwners(){
         ArrayList<OfflinePlayer> owners = new ArrayList<>();
         for(UUID player : playerShops.keySet()) {
@@ -388,6 +403,11 @@ public class ShopHandler {
         return owners;
     }
 
+    /**
+     * Gets all UUIDs of players that own shops.
+     *
+     * @return List of shop owner UUIDs
+     */
     public List<UUID> getShopOwnerUUIDs(){
         ArrayList<UUID> owners = new ArrayList<>();
         for(UUID player : playerShops.keySet()) {
@@ -396,23 +416,35 @@ public class ShopHandler {
         return owners;
     }
 
-    private List<Location> getShopLocations(UUID player){
-        List<Location> shopLocations;
+    /**
+     * Gets shop locations for a player.
+     *
+     * @param player The player's UUID
+     * @return List of shop locations
+     */
+    private CopyOnWriteArrayList<Location> getShopLocations(UUID player){
+        CopyOnWriteArrayList<Location> shopLocations;
         if(playerShops.containsKey(player)) {
             shopLocations = playerShops.get(player);
         }
         else
-            shopLocations = new ArrayList<>();
+            shopLocations = new CopyOnWriteArrayList<>();
         return shopLocations;
     }
 
-    private List<Location> getShopLocations(String chunkKey){
-        List<Location> shopLocations;
+    /**
+     * Gets shop locations for a chunk.
+     *
+     * @param chunkKey The chunk key
+     * @return List of shop locations
+     */
+    private CopyOnWriteArrayList<Location> getShopLocations(String chunkKey){
+        CopyOnWriteArrayList<Location> shopLocations;
         if(chunkShops.containsKey(chunkKey)) {
             shopLocations = chunkShops.get(chunkKey);
         }
         else {
-            shopLocations = new ArrayList<>();
+            shopLocations = new CopyOnWriteArrayList<>();
         }
         return shopLocations;
     }
@@ -541,6 +573,11 @@ public class ShopHandler {
         return shops;
     }
 
+    /**
+     * Processes shop displays near the specified player.
+     *
+     * @param player The player to update displays for
+     */
     public void processShopDisplaysNearPlayer(Player player){
         // If the player is already being processed, don't start another process
         if (playersProcessingShopDisplays.contains(player.getUniqueId())) {
@@ -696,6 +733,11 @@ public class ShopHandler {
         }, 2); // 2 tick delay after removals
     }
 
+    /**
+     * Clears all shop displays near the specified player.
+     *
+     * @param player The player
+     */
     public void clearShopDisplaysNearPlayer(Player player){
         if(playersWithActiveShopDisplays.containsKey(player.getUniqueId()))
             playersWithActiveShopDisplays.remove(player.getUniqueId());
@@ -709,8 +751,6 @@ public class ShopHandler {
         // Clear teleport cooldown as well
         teleportCooldowns.remove(player.getUniqueId());
 
-        // Clear the cached connection when displays are removed
-        removeCachedPlayerConnection(player);
     }
 
     /**
@@ -768,11 +808,24 @@ public class ShopHandler {
         }, 1);
     }
 
-    public boolean hasActiveDisplay(Player player, Location shopSignLocation) { 
+    /**
+     * Checks if a player has an active display at the specified shop location.
+     *
+     * @param player The player to check
+     * @param shopSignLocation The shop sign location
+     * @return true if the player has an active display
+     */
+    public boolean hasActiveDisplay(Player player, Location shopSignLocation) {
         HashSet<Location> shops = playersWithActiveShopDisplays.get(player.getUniqueId());
         return shops != null && shops.contains(shopSignLocation);
     }
 
+    /**
+     * Adds an active shop display for a player.
+     *
+     * @param player The player
+     * @param shopSignLocation The shop sign location
+     */
     public void addActiveShopDisplay(Player player, Location shopSignLocation){
         HashSet<Location> shops;
         if(playersWithActiveShopDisplays.containsKey(player.getUniqueId())){
@@ -785,6 +838,12 @@ public class ShopHandler {
         playersWithActiveShopDisplays.put(player.getUniqueId(), shops);
     }
 
+    /**
+     * Removes an active shop display for a player.
+     *
+     * @param player The player
+     * @param shopSignLocation The shop sign location
+     */
     public void removeActiveShopDisplay(Player player, Location shopSignLocation){
         HashSet<Location> shops;
         if(playersWithActiveShopDisplays.containsKey(player.getUniqueId())){
@@ -797,6 +856,12 @@ public class ShopHandler {
         playersWithActiveShopDisplays.put(player.getUniqueId(), shops);
     }
 
+    /**
+     * Adds an active shop display tag for a player.
+     *
+     * @param player The player
+     * @param shopSignLocation The shop sign location
+     */
     public void addActiveShopDisplayTag(Player player, Location shopSignLocation) {
         if (playersActiveShopDisplayTag.containsKey(player.getUniqueId())) {
             Location oldShopSignLocation = playersActiveShopDisplayTag.get(player.getUniqueId());
@@ -832,18 +897,41 @@ public class ShopHandler {
         return unloadedShopsInChunk;
     }
 
+    /**
+     * Gets the total number of shops.
+     *
+     * @return total number of shops
+     */
     public int getNumberOfShops() {
         return allShops.size();
     }
 
+    /**
+     * Gets the number of shops owned by the specified player.
+     *
+     * @param player The player
+     * @return number of shops owned by the player
+     */
     public int getNumberOfShops(Player player) {
         return getShopLocations(player.getUniqueId()).size();
     }
 
+    /**
+     * Gets the number of shops owned by the player with the specified UUID.
+     *
+     * @param playerUUID The player's UUID
+     * @return number of shops owned by the player
+     */
     public int getNumberOfShops(UUID playerUUID) {
         return getShopLocations(playerUUID).size();
     }
 
+    /**
+     * Gets the number of shops of the specified type.
+     *
+     * @param shopType The shop type
+     * @return number of shops with the specified type
+     */
     public int getNumberOfShops(ShopType shopType) {
         int shopsWithType = 0;
         for (AbstractShop shop : allShops.values()) {
@@ -852,6 +940,12 @@ public class ShopHandler {
         return shopsWithType;
     }
 
+    /**
+     * Gets the number of shops using the specified display type.
+     *
+     * @param displayType The display type
+     * @return number of shops with the specified display type
+     */
     public int getNumberOfShopDisplayTypes(DisplayType displayType) {
         int shopsWithDisplayType = 0;
         for (AbstractShop shop : allShops.values()) {
@@ -860,6 +954,11 @@ public class ShopHandler {
         return shopsWithDisplayType;
     }
 
+    /**
+     * Gets counts of shops grouped by container type.
+     *
+     * @return map of container type names to counts
+     */
     public Map<String, Integer> getShopContainerCounts() {
         int chestShops = 0;
         int barrelShops = 0;
@@ -879,12 +978,20 @@ public class ShopHandler {
         return containerTypes;
     }
 
+    /**
+     * Removes all shop displays for the specified player.
+     *
+     * @param player The player
+     */
     public void removeAllDisplays(Player player) {
         for (AbstractShop shop : allShops.values()) {
             shop.getDisplay().remove(player);
         }
     }
 
+    /**
+     * Removes legacy display entities.
+     */
     public void removeLegacyDisplays(){
         for (World world : plugin.getServer().getWorlds()) {
             for (Entity entity : world.getEntities()) {
@@ -923,7 +1030,21 @@ public class ShopHandler {
      * -5: Critical error, total data loss for player, all files are missing
      */
     private boolean immediateShutdown = false;
+    /**
+     * Saves shops for the specified player.
+     *
+     * @param player The player's UUID
+     * @return result code indicating save status
+     */
     public int saveShops(final UUID player){ return saveShops(player, false); }
+
+    /**
+     * Saves shops for the specified player.
+     *
+     * @param player The player's UUID
+     * @param force Whether to force save even if no shops need updating
+     * @return result code indicating save status
+     */
     public int saveShops(final UUID player, boolean force){
         // If the plugin is in immediate shutdown mode, skip saving any new files to protect against data loss
         if (this.immediateShutdown) return -5;
@@ -1089,7 +1210,7 @@ public class ShopHandler {
                         plugin.getLogger().severe("Do not startup the plugin again until you have traced and fixed the issue! You may delete a new player file with each startup if the issue is not fixed!");
                         // Immediate shutdown of server. Something is very wrong.
                         plugin.getLogger().severe("Shutting down plugin immediately to prevent Shop save data loss...");
-                        plugin.getPluginLoader().disablePlugin(plugin);
+                        Bukkit.getPluginManager().disablePlugin(plugin);
                         this.immediateShutdown = true;
                         return -5;
                     }
@@ -1108,6 +1229,11 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Saves all shops to disk.
+     *
+     * @return The number of shops saved
+     */
     public int saveAllShops() {
         HashMap<UUID, Boolean> allPlayersWithShops = new HashMap<>();
         for (AbstractShop shop : allShops.values()) {
@@ -1128,6 +1254,9 @@ public class ShopHandler {
         return numberUpdated;
     }
 
+    /**
+     * Converts legacy shop save format to new format.
+     */
     public void convertLegacyShopSaves(){
         //save to new format
         saveAllShops();
@@ -1149,8 +1278,16 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Loads all shops from disk.
+     */
     public void loadShops() {
-        plugin.getFoliaLib().getScheduler().runAsync(task -> {
+        // Run later (1 tick delay) to avoid async world/chunk access race conditions
+        // with Folia. This ensures shops are loaded after initial plugin setup
+        // and chunk loading, preventing issues where worlds/chunks may not be
+        // fully available during early startup. The delay allows the server to
+        // stabilize before attempting to load shop data.
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
             int numShopsLoaded = 0;
 
             boolean convertLegacySaves = false;
@@ -1213,10 +1350,17 @@ public class ShopHandler {
                 convertLegacyShopSaves();
 
             Shop.getPlugin().getLogger().log(Level.INFO, "Loaded " + numShopsLoaded + " Shops!");
-        });
+        }, 1);
     }
 
 
+    /**
+     * Loads shops from a configuration file.
+     *
+     * @param config The configuration
+     * @param isLegacy Whether the config is in legacy format
+     * @return The number of shops loaded
+     */
     private int loadShopsFromConfig(YamlConfiguration config, boolean isLegacy) {
         if (config.getConfigurationSection("shops") == null)
             return 0;
@@ -1333,11 +1477,22 @@ public class ShopHandler {
         return numShopsLoaded;
     }
 
+    /**
+     * Gets the admin UUID.
+     *
+     * @return the admin UUID
+     */
     public UUID getAdminUUID(){
         return adminUUID;
     }
 
 
+    /**
+     * Converts a location to a string representation.
+     *
+     * @param loc The location
+     * @return string representation of the location
+     */
     private String locationToString(Location loc) {
         String worldName = loc.getWorld() == null ? "unknown_world" : loc.getWorld().getName();
         return worldName + "," + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ();
@@ -1348,12 +1503,24 @@ public class ShopHandler {
         return new Location(plugin.getServer().getWorld(parts[0]), Double.parseDouble(parts[1]), Double.parseDouble(parts[2]), Double.parseDouble(parts[3]));
     }
 
+    /**
+     * Converts a string representation to a UUID.
+     *
+     * @param ownerString The string containing the UUID
+     * @return the UUID
+     */
     private UUID uidFromString(String ownerString) {
         int index = ownerString.indexOf("(");
         String uidString = ownerString.substring(index + 1, ownerString.length() - 1);
         return UUID.fromString(uidString);
     }
 
+    /**
+     * Converts a string representation to a shop type.
+     *
+     * @param typeString The string representation
+     * @return the shop type
+     */
     private ShopType typeFromString(String typeString) {
         if (typeString.contains("sell"))
             return ShopType.SELL;
@@ -1367,10 +1534,22 @@ public class ShopHandler {
             return ShopType.GAMBLE;
     }
 
+    /**
+     * Checks if a block is a chest/container that can be used for shops.
+     *
+     * @param b The block
+     * @return true if the block is a valid shop container
+     */
     public boolean isChest(Block b){
         return plugin.getEnabledContainers().contains(b.getType());
     }
 
+    /**
+     * Checks if an item passes the item list filter.
+     *
+     * @param is The item stack
+     * @return true if the item is allowed
+     */
     public boolean passesItemListCheck(ItemStack is){
         if(plugin.getItemListType() == ItemListType.NONE)
             return true;
@@ -1391,6 +1570,11 @@ public class ShopHandler {
         return true;
     }
 
+    /**
+     * Adds all items from the inventory to the item list.
+     *
+     * @param inventory The inventory to add items from
+     */
     public void addInventoryToItemList(Inventory inventory){
         for(ItemStack is : inventory.getContents()) {
             if(is != null && is.getType() != Material.AIR) {
@@ -1410,6 +1594,11 @@ public class ShopHandler {
         saveItemList();
     }
 
+    /**
+     * Removes all items from the inventory from the item list.
+     *
+     * @param inventory The inventory to remove items from
+     */
     public void removeInventoryFromItemList(Inventory inventory){
         Iterator<ItemStack> itemIterator = itemListItems.iterator();
         while(itemIterator.hasNext()){
@@ -1427,6 +1616,9 @@ public class ShopHandler {
         saveItemList();
     }
 
+    /**
+     * Initializes the item list from configuration.
+     */
     public void initItemList(){
         if(plugin.getItemListType() == ItemListType.NONE)
             return;
@@ -1453,6 +1645,9 @@ public class ShopHandler {
         }
     }
 
+    /**
+     * Saves the item list to configuration.
+     */
     public void saveItemList(){
         if(plugin.getItemListType() == ItemListType.NONE)
             return;
@@ -1566,38 +1761,4 @@ public class ShopHandler {
         }
     }
 
-    /**
-     * Gets the cached player connection for packet sending
-     * @param player The player to get connection for
-     * @return The player's network connection object
-     */
-    public Object getCachedPlayerConnection(Player player) {
-        UUID playerId = player.getUniqueId();
-        // Check if we have a cached connection
-        Object connection = playerConnectionCache.get(playerId);
-        if (connection == null) {
-            // If not cached, get it and store it
-            connection = plugin.getNmsBullshitHandler().getPlayerConnection(player);
-            if (connection != null) {
-                playerConnectionCache.put(playerId, connection);
-            }
-        }
-        return connection;
-    }
-
-    /**
-     * Removes the cached player connection
-     * @param player The player whose connection to remove
-     */
-    public void removeCachedPlayerConnection(Player player) {
-        playerConnectionCache.remove(player.getUniqueId());
-    }
-
-    /**
-     * Removes the cached player connection by UUID
-     * @param playerId UUID of the player whose connection to remove
-     */
-    public void removeCachedPlayerConnection(UUID playerId) {
-        playerConnectionCache.remove(playerId);
-    }
 }

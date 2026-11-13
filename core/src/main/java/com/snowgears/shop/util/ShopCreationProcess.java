@@ -13,6 +13,7 @@ import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.WallSign;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -240,7 +241,7 @@ public class ShopCreationProcess {
         }
         // Build the lines
         String unformatted = ShopMessage.getUnformattedMessage(key, subkey);
-        String formatted = ShopMessage.format(unformatted, this.placeholderContext).toLegacyText();
+        String formatted = LegacyComponentSerializer.legacy('§').serialize(ShopMessage.format(unformatted, this.placeholderContext));
         List<String> lines = UtilMethods.splitStringIntoLines(formatted, ShopMessage.getTargetMaxLength());
         // Display the lines
         displayFloatingLines(lines);
@@ -259,7 +260,7 @@ public class ShopCreationProcess {
         // Build the lines
         for (String unformatted : ShopMessage.getUnformattedMessageList(key, subkey)) {
             if (unformatted != null && !unformatted.isEmpty()){
-                String formatted = ShopMessage.format(unformatted, this.placeholderContext).toLegacyText();
+                String formatted = LegacyComponentSerializer.legacy('§').serialize(ShopMessage.format(unformatted, this.placeholderContext));
                 lines.addAll(UtilMethods.splitStringIntoLines(formatted, ShopMessage.getTargetMaxLength()));
             }
         }

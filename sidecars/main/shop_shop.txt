@@ -1,0 +1,299 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Abstract base class for all shop types.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Creates a new shop instance based on the shop type.
+     *
+     * @param signLoc The location of the shop sign
+     * @param player The player UUID
+     * @param pri The price
+     * @param priCombo The combo price
+     * @param amt The amount
+     * @param admin Whether this is an admin shop
+     * @param shopType The shop type
+     * @param facing The facing direction
+     * @return a new shop instance, or null if type is invalid
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets the shop ID.
+     *
+     * @param newId The new UUID
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the shop ID.
+     *
+     * @return the shop UUID
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Checks if the chunk containing the shop is loaded.
+     *
+     * @return true if the chunk is loaded
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Loads this shop from its sign and chest locations.
+     * <p>
+     * Validates the sign and chest blocks, extracts facing direction,
+     * and initializes the shop's container type.
+     * </p>
+     *
+     * @return true if loaded successfully, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Checks if the shop needs to be saved.
+     *
+     * @return true if the shop needs saving
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets whether the shop needs to be saved.
+     *
+     * @param shouldSave true if the shop should be saved
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Calculates the current stock level for this shop.
+     * <p>
+     * For admin shops returns Integer.MAX_VALUE. Otherwise determines how
+     * many items are available divided by the amount per transaction.
+     * </p>
+     *
+     * @return the calculated stock level
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Updates the stock level for this shop.
+     * <p>
+     * Recalculates stock and updates the sign if it has changed.
+     * Also updates Bluemap markers if applicable.
+     * </p>
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the current stock level for this shop.
+     *
+     * @return the current stock level (Integer.MAX_VALUE for admin shops)
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets the stock level when loading from storage.
+     *
+     * @param stock the stock level to set
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Checks if this shop has been initialized with an item.
+     *
+     * @return true if the shop has an item set
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the sign location.
+     *
+     * @return the sign location
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the wall sign block data.
+     *
+     * @return the wall sign, or null if not loaded or not a wall sign
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the chest location.
+     *
+     * @return the chest location
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the inventory for this shop's chest.
+     *
+     * @return the inventory, or null if unavailable
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the cached container type.
+     *
+     * @return the container material, or null if unavailable
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the owner UUID.
+     *
+     * @return the owner UUID
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the owner name.
+     *
+     * @return "admin" for admin shops, cached player name, or "CLOSED" if unavailable
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the offline player owner.
+     *
+     * @return the offline player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets a clone of the item stack with transaction amount set.
+     *
+     * @return the item stack, or null if not set
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets a clone of the secondary item stack for barter shops.
+     *
+     * @return the secondary item stack, or null if not set
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the display associated with this shop.
+     *
+     * @return the display instance
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the price for this shop.
+     *
+     * @return the price
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the price per individual item.
+     *
+     * @return the price per item
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the number of items per price unit.
+     *
+     * @return items per price unit
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the formatted price string.
+     *
+     * @return the price string
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the formatted price per item string.
+     *
+     * @return the price per item string
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Checks if this is an admin shop.
+     *
+     * @return true if admin shop
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets whether this is an admin shop.
+     * <p>
+     * Only use this method if the shop has not been added to the main handler maps yet.
+     * </p>
+     *
+     * @param isAdmin true if admin shop
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the shop type.
+     *
+     * @return the shop type
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the amount of items per transaction.
+     *
+     * @return the amount per transaction
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the facing direction of the shop sign.
+     *
+     * @return the facing direction
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the GUI icon for this shop.
+     *
+     * @return the GUI icon
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets the item stack for this shop.
+     *
+     * @param is the item stack to set
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets the secondary item stack for this shop.
+     *
+     * @param is the secondary item stack to set
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Removes zero damage metadata from an item stack.
+     * <p>
+     * Removes legacy durability metadata where damage is 0.
+     * </p>
+     *
+     * @param item the item stack to process
+     * @return the processed item stack
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets the owner UUID.
+     *
+     * @param newOwner the new owner UUID
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets the price.
+     *
+     * @param price the price to set
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets the amount per transaction.
+     *
+     * @param amount the amount to set
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Refreshes the GUI icon for this shop.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the durability percentage of the shop item.
+     *
+     * @return the durability percentage
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the durability percentage of the secondary shop item.
+     *
+     * @return the durability percentage
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Checks if a transaction is currently being performed.
+     *
+     * @return true if performing a transaction
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Gets the current sign lines.
+     *
+     * @return the sign lines
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Updates the sign display.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Updates the sign display.
+     *
+     * @param forceUpdate if true forces update
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Deletes this shop.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Deletes this shop.
+     *
+     * @param forceSave if true forces save before deletion
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Teleports a player to this shop.
+     *
+     * @param player the player to teleport
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Prints sales information to a player.
+     *
+     * @param player the player to send information to
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Checks if this shop has a fake sign.
+     *
+     * @return true if fake sign
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sets whether this shop has a fake sign.
+     *
+     * @param fakeSign true if fake sign
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Executes a click action for this shop.
+     *
+     * @param event the player interact event
+     * @param clickType the click type
+     * @return true if action executed
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\shop\AbstractShop.java ===
+* Sends effects to the player.
+     *
+     * @param success true if transaction was successful
+     * @param player the player

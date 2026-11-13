@@ -1,0 +1,27 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+9cf32ac8-f42b-4bc3-be08-ec7da773c7a5
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+[_description]
+Package: com.snowgears.shop.test.hook. Test hook docstrings.
+
+[_summary]
+Test hook package for the Shop plugin. Provides test hooks for integration testing scenarios.
+
+[_conclusions]
+Test hooks enable integration test scenarios without modifying production code.
+
+[_does]
+Provides test hooks for integration testing scenarios involving external plugin integrations.
+

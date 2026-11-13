@@ -7,7 +7,7 @@ import com.snowgears.shop.util.ConfigUpdater;
 import com.snowgears.shop.util.PlayerSettings;
 import com.snowgears.shop.util.ShopMessage;
 import com.snowgears.shop.util.UtilMethods;
-import net.md_5.bungee.api.ChatColor;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -271,6 +271,8 @@ public class ShopGuiHandler {
 
         for(GuiTitle titleEnum : GuiTitle.values()) {
             String titleString = config.getString("titles."+titleEnum.toString().toLowerCase());
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             guiWindowTitles.put(titleEnum, ChatColor.translateAlternateColorCodes('&', titleString));
         }
 
@@ -293,6 +295,8 @@ public class ShopGuiHandler {
             String name = config.getString("icons."+parentKey+"."+childKey+".name");
 
             if(name != null && translateColors)
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 name = ChatColor.translateAlternateColorCodes('&', name);
 
             List<String> loreLines = config.getStringList("icons."+parentKey+"."+childKey+".lore");
@@ -300,6 +304,8 @@ public class ShopGuiHandler {
             if(loreLines != null) {
                 for (String line : loreLines) {
                     if(translateColors)
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                         lore.add(ChatColor.translateAlternateColorCodes('&', line));
                     else
                         lore.add(line);

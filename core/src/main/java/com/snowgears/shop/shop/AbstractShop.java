@@ -4,7 +4,7 @@ import com.snowgears.shop.Shop;
 import com.snowgears.shop.display.AbstractDisplay;
 import com.snowgears.shop.handler.ShopGuiHandler;
 import com.snowgears.shop.util.*;
-import net.md_5.bungee.api.ChatColor;
+import org.bukkit.ChatColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -25,11 +25,15 @@ import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.*;
 
-import static com.snowgears.shop.util.UtilMethods.isMCVersion17Plus;
 
+/**
+ * Abstract base class for all shop types.
+ */
 public abstract class AbstractShop {
 
     protected UUID id = UUID.randomUUID();
@@ -73,6 +77,19 @@ public abstract class AbstractShop {
             owner = Shop.getPlugin().getShopHandler().getAdminUUID();
     }
 
+    /**
+     * Creates a new shop instance based on the shop type.
+     *
+     * @param signLoc The location of the shop sign
+     * @param player The player UUID
+     * @param pri The price
+     * @param priCombo The combo price
+     * @param amt The amount
+     * @param admin Whether this is an admin shop
+     * @param shopType The shop type
+     * @param facing The facing direction
+     * @return a new shop instance, or null if type is invalid
+     */
     public static AbstractShop create(Location signLoc, UUID player, double pri, double priCombo, int amt, Boolean admin, ShopType shopType, BlockFace facing) {
 
         switch(shopType){
@@ -90,19 +107,43 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Sets the shop ID.
+     *
+     * @param newId The new UUID
+     */
     public void setId(UUID newId) {
         this.id = newId;
     }
 
+    /**
+     * Gets the shop ID.
+     *
+     * @return the shop UUID
+     */
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Checks if the chunk containing the shop is loaded.
+     *
+     * @return true if the chunk is loaded
+     */
     public boolean isChunkLoaded() {
         return UtilMethods.isChunkLoaded(this.getSignLocation());
     }
 
     //this calls BlockData which loads the chunk the shop is in by doing so
+    /**
+     * Loads this shop from its sign and chest locations.
+     * <p>
+     * Validates the sign and chest blocks, extracts facing direction,
+     * and initializes the shop's container type.
+     * </p>
+     *
+     * @return true if loaded successfully, false otherwise
+     */
     public boolean load() {
         try {
             Block signBlock = signLocation.getBlock();
@@ -144,16 +185,35 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Checks if the shop needs to be saved.
+     *
+     * @return true if the shop needs saving
+     */
     public boolean needsSave() {
         return needsSave;
     }
 
+    /**
+     * Sets whether the shop needs to be saved.
+     *
+     * @param shouldSave true if the shop should be saved
+     */
     public void setNeedsSave(boolean shouldSave) {
         needsSave = shouldSave;
     }
 
     //abstract methods that must be implemented in each shop subclass
 
+    /**
+     * Calculates the current stock level for this shop.
+     * <p>
+     * For admin shops returns Integer.MAX_VALUE. Otherwise determines how
+     * many items are available divided by the amount per transaction.
+     * </p>
+     *
+     * @return the calculated stock level
+     */
     protected int calculateStock() {
         if(this.isAdmin) {
             // There is always stock in the admin shop!
@@ -181,6 +241,13 @@ public abstract class AbstractShop {
         return stock;
     }
 
+    /**
+     * Updates the stock level for this shop.
+     * <p>
+     * Recalculates stock and updates the sign if it has changed.
+     * Also updates Bluemap markers if applicable.
+     * </p>
+     */
     public void updateStock() {
         int oldStock = stock;
 
@@ -206,6 +273,11 @@ public abstract class AbstractShop {
         this.updateSign();
     }
 
+    /**
+     * Gets the current stock level for this shop.
+     *
+     * @return the current stock level (Integer.MAX_VALUE for admin shops)
+     */
     public int getStock(){
         if(isAdmin){
             return Integer.MAX_VALUE;
@@ -213,20 +285,40 @@ public abstract class AbstractShop {
         return stock;
     }
 
+    /**
+     * Sets the stock level when loading from storage.
+     *
+     * @param stock the stock level to set
+     */
     public void setStockOnLoad(int stock){
         this.stock = stock;
     }
 
+    /**
+     * Checks if this shop has been initialized with an item.
+     *
+     * @return true if the shop has an item set
+     */
     public boolean isInitialized(){
         return (item != null);
     }
 
     //getter methods
 
+    /**
+     * Gets the sign location.
+     *
+     * @return the sign location
+     */
     public Location getSignLocation() {
         return signLocation;
     }
 
+    /**
+     * Gets the wall sign block data.
+     *
+     * @return the wall sign, or null if not loaded or not a wall sign
+     */
     public WallSign getSign(){
         if (!this.isChunkLoaded()) { return null; }
         BlockData signBlockData = this.getSignLocation().getBlock().getBlockData();
@@ -236,10 +328,20 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets the chest location.
+     *
+     * @return the chest location
+     */
     public Location getChestLocation() {
         return chestLocation;
     }
 
+    /**
+     * Gets the inventory for this shop's chest.
+     *
+     * @return the inventory, or null if unavailable
+     */
     public Inventory getInventory() {
         if(chestLocation == null || signLocation == null || !this.isChunkLoaded())
             return null;
@@ -250,6 +352,11 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets the cached container type.
+     *
+     * @return the container material, or null if unavailable
+     */
     public Material getContainerType() {
         if(cachedContainerType != null)
             return cachedContainerType;
@@ -263,26 +370,48 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Gets the owner UUID.
+     *
+     * @return the owner UUID
+     */
     public UUID getOwnerUUID() {
         return owner;
     }
 
+    /**
+     * Gets the owner name.
+     *
+     * @return "admin" for admin shops, cached player name, or "CLOSED" if unavailable
+     */
     public String getOwnerName() {
         if(this.isAdmin())
             return "admin";
-        
+
         if (this.getOwnerUUID() != null) {
             // Use cache first - this avoids expensive disk I/O
             return PlayerNameCache.getName(this.getOwnerUUID());
         }
-        
+
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         return ChatColor.RED + "CLOSED";
     }
 
+    /**
+     * Gets the offline player owner.
+     *
+     * @return the offline player
+     */
     public OfflinePlayer getOwner() {
         return Bukkit.getOfflinePlayer(this.owner);
     }
 
+    /**
+     * Gets a clone of the item stack with transaction amount set.
+     *
+     * @return the item stack, or null if not set
+     */
     public ItemStack getItemStack() {
         if (item != null) {
             ItemStack is = item.clone();
@@ -292,6 +421,11 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets a clone of the secondary item stack for barter shops.
+     *
+     * @return the secondary item stack, or null if not set
+     */
     public ItemStack getSecondaryItemStack() {
         if (secondaryItem != null) {
             ItemStack is = secondaryItem.clone();
@@ -301,14 +435,29 @@ public abstract class AbstractShop {
         return null;
     }
 
+    /**
+     * Gets the display associated with this shop.
+     *
+     * @return the display instance
+     */
     public AbstractDisplay getDisplay() {
         return display;
     }
 
+    /**
+     * Gets the price for this shop.
+     *
+     * @return the price
+     */
     public double getPrice() {
         return price;
     }
 
+    /**
+     * Gets the price per individual item.
+     *
+     * @return the price per item
+     */
     public double getPricePerItem() {
         // Calculate pricePerItem for partial sales, round up!
         double pricePer = this.getPrice() / this.getAmount();
@@ -316,6 +465,11 @@ public abstract class AbstractShop {
         return pricePer;
     }
 
+    /**
+     * Gets the number of items per price unit.
+     *
+     * @return items per price unit
+     */
     public double getItemsPerPriceUnit() {
         // Calculate items you can get for each price unit, round down!
         double pricePer = this.getAmount() / this.getPrice();
@@ -323,41 +477,83 @@ public abstract class AbstractShop {
         return pricePer;
     }
 
+    /**
+     * Gets the formatted price string.
+     *
+     * @return the price string
+     */
     public String getPriceString() {
         if(this.type == ShopType.BARTER && this.isInitialized()){
-            return (int)this.getPrice() + " " + Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()).toPlainText();
+            return (int)this.getPrice() + " " + PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(this.getSecondaryItemStack()));
         }
         return Shop.getPlugin().getPriceString(this.price, false);
     }
 
+    /**
+     * Gets the formatted price per item string.
+     *
+     * @return the price per item string
+     */
     public String getPricePerItemString() {
         double pricePer = this.getPricePerItem();
         return Shop.getPlugin().getPriceString(pricePer, true);
     }
 
+    /**
+     * Checks if this is an admin shop.
+     *
+     * @return true if admin shop
+     */
     public boolean isAdmin() {
         return isAdmin;
     }
 
-    //only use this method if the shop has not been added to the main handler maps yet
+    /**
+     * Sets whether this is an admin shop.
+     * <p>
+     * Only use this method if the shop has not been added to the main handler maps yet.
+     * </p>
+     *
+     * @param isAdmin true if admin shop
+     */
     public void setAdmin(boolean isAdmin){
         this.isAdmin = isAdmin;
         if(isAdmin)
             this.owner = Shop.getPlugin().getShopHandler().getAdminUUID();
     }
 
+    /**
+     * Gets the shop type.
+     *
+     * @return the shop type
+     */
     public ShopType getType() {
         return type;
     }
 
+    /**
+     * Gets the amount of items per transaction.
+     *
+     * @return the amount per transaction
+     */
     public int getAmount() {
         return amount;
     }
 
+    /**
+     * Gets the facing direction of the shop sign.
+     *
+     * @return the facing direction
+     */
     public BlockFace getFacing(){
         return facing;
     }
 
+    /**
+     * Gets the GUI icon for this shop.
+     *
+     * @return the GUI icon
+     */
     public ItemStack getGuiIcon(){
         // Load it when it is first called
         if (guiIcon == null) { this.refreshGuiIcon(); }
@@ -366,6 +562,11 @@ public abstract class AbstractShop {
 
     //setter methods
 
+    /**
+     * Sets the item stack for this shop.
+     *
+     * @param is the item stack to set
+     */
     public void setItemStack(ItemStack is) {
         // If the item stack passed is null, go ahead and just skip it.
         if (is == null) return;
@@ -376,12 +577,26 @@ public abstract class AbstractShop {
         this.updateSign(true);
     }
 
+    /**
+     * Sets the secondary item stack for this shop.
+     *
+     * @param is the secondary item stack to set
+     */
     public void setSecondaryItemStack(ItemStack is) {
         this.secondaryItem = this.removeZeroDamageMeta(is.clone());
         this.calculateStock();
         this.updateSign(true);
     }
 
+    /**
+     * Removes zero damage metadata from an item stack.
+     * <p>
+     * Removes legacy durability metadata where damage is 0.
+     * </p>
+     *
+     * @param item the item stack to process
+     * @return the processed item stack
+     */
     public ItemStack removeZeroDamageMeta(ItemStack item) {
         try {
             // In the past we used to explicitly set the durability of an item to be 0, this caused blocks/items to be saved
@@ -414,18 +629,36 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Sets the owner UUID.
+     *
+     * @param newOwner the new owner UUID
+     */
     public void setOwner(UUID newOwner){
         this.owner = newOwner;
     }
 
+    /**
+     * Sets the price.
+     *
+     * @param price the price to set
+     */
     public void setPrice(double price){
         this.price = price;
     }
 
+    /**
+     * Sets the amount per transaction.
+     *
+     * @param amount the amount to set
+     */
     public void setAmount(int amount){
         this.amount = amount;
     }
 
+    /**
+     * Refreshes the GUI icon for this shop.
+     */
     public void refreshGuiIcon() {
         if(this.type != ShopType.GAMBLE) {
             if (this.getItemStack() == null)
@@ -449,7 +682,7 @@ public abstract class AbstractShop {
             // Add all lore lines
             PlaceholderContext context = new PlaceholderContext();
             context.setShop(this);
-            lore.add(ShopMessage.format(loreLine, context).toLegacyText());
+            lore.add(LegacyComponentSerializer.legacy('§').serialize(ShopMessage.format(loreLine, context)));
         }
 
         ItemMeta iconMeta = guiIcon.getItemMeta();
@@ -462,22 +695,50 @@ public abstract class AbstractShop {
         guiIcon.setItemMeta(iconMeta);
     }
 
+    /**
+     * Gets the durability percentage of the shop item.
+     *
+     * @return the durability percentage
+     */
     public int getItemDurabilityPercent(){
         ItemStack item = this.getItemStack().clone();
         return UtilMethods.getDurabilityPercent(item);
     }
 
+    /**
+     * Gets the durability percentage of the secondary shop item.
+     *
+     * @return the durability percentage
+     */
     public int getSecondaryItemDurabilityPercent(){
         ItemStack item = this.getSecondaryItemStack().clone();
         return UtilMethods.getDurabilityPercent(item);
     }
 
+    /**
+     * Checks if a transaction is currently being performed.
+     *
+     * @return true if performing a transaction
+     */
     public boolean isPerformingTransaction(){
         return isPerformingTransaction;
     }
 
+    /**
+     * Gets the current sign lines.
+     *
+     * @return the sign lines
+     */
     public String[] getSignLines() { return signLines; }
+    /**
+     * Updates the sign display.
+     */
     public void updateSign() { this.updateSign(false); }
+    /**
+     * Updates the sign display.
+     *
+     * @param forceUpdate if true forces update
+     */
     public void updateSign(boolean forceUpdate) {
         // If we don't need to update the lines, then don't update them!
         if (!signLinesRequireRefresh && !forceUpdate) { return; }
@@ -509,9 +770,17 @@ public abstract class AbstractShop {
 
             if (!isInitialized()) {
                 hasSignUpdate = true; // force update the sign
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 signBlock.setLine(0, ChatColor.RED + ChatColor.stripColor(newLines[0]));
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 signBlock.setLine(1, ChatColor.RED + ChatColor.stripColor(newLines[1]));
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 signBlock.setLine(2, ChatColor.RED + ChatColor.stripColor(newLines[2]));
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
                 signBlock.setLine(3, ChatColor.RED + ChatColor.stripColor(newLines[3]));
             } else if (!linesMatch) {
                 hasSignUpdate = true; // force update the sign
@@ -521,12 +790,10 @@ public abstract class AbstractShop {
                 signBlock.setLine(3, newLines[3]);
             }
             // If the sign is glowing, update it if the setting has changed
-            if(isMCVersion17Plus()) {
-                boolean shouldGlow = Shop.getPlugin().getGlowingSignText();
-                if (shouldGlow != signBlock.isGlowingText()) { 
-                    hasSignUpdate = true;
-                    signBlock.setGlowingText(shouldGlow);
-                }
+            boolean shouldGlow = Shop.getPlugin().getGlowingSignText();
+            if (shouldGlow != signBlock.isGlowingText()) {
+                hasSignUpdate = true;
+                signBlock.setGlowingText(shouldGlow);
             }
             // Update the sign if it has changed
             if (hasSignUpdate) { signBlock.update(true); }
@@ -536,13 +803,21 @@ public abstract class AbstractShop {
         }, 2);
     }
 
+    /**
+     * Deletes this shop.
+     */
     public void delete() { this.delete(true); }
+    /**
+     * Deletes this shop.
+     *
+     * @param forceSave if true forces save before deletion
+     */
     public void delete(boolean forceSave) {
         try {
             // First, remove the shop from the shop handler in case of any errors with later methods.
             Shop.getPlugin().getShopHandler().removeShop(this, forceSave);
 
-            if(UtilMethods.isMCVersion17Plus() && Shop.getPlugin().getDisplayLightLevel() > 0 && this.getChestLocation() != null) {
+            if(Shop.getPlugin().getDisplayLightLevel() > 0 && this.getChestLocation() != null) {
                 Block chestBlock = this.getChestLocation().getBlock();
                 if (chestBlock != null && Shop.getPlugin().getShopHandler().isChest(chestBlock)) {
                     Block displayBlock = chestBlock.getRelative(BlockFace.UP);
@@ -574,6 +849,11 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Teleports a player to this shop.
+     *
+     * @param player the player to teleport
+     */
     public void teleportPlayer(Player player){
         if(player == null)
             return;
@@ -581,18 +861,23 @@ public abstract class AbstractShop {
         if(chestLocation == null) {
             this.load();
             Location loc = this.getSignLocation().getBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0, 0.5);
-            player.teleport(loc);
+            Shop.getPlugin().getFoliaLib().getScheduler().teleportAsync(player, loc);
         }
         else {
             Location loc = this.getSignLocation().getBlock().getRelative(facing).getLocation().add(0.5, 0, 0.5);
             loc.setYaw(UtilMethods.faceToYaw(facing.getOppositeFace()));
             loc.setPitch(25.0f);
 
-            player.teleport(loc);
+            Shop.getPlugin().getFoliaLib().getScheduler().teleportAsync(player, loc);
         }
         Shop.getPlugin().getShopListener().addTeleportCooldown(player);
     }
 
+    /**
+     * Prints sales information to a player.
+     *
+     * @param player the player to send information to
+     */
     public void printSalesInfo(Player player) {
         for (String message : ShopMessage.getUnformattedMessageList(this.getType().toString(), "description")) {
             if (message != null && !message.isEmpty()) {
@@ -604,14 +889,31 @@ public abstract class AbstractShop {
         }
     }
 
+    /**
+     * Checks if this shop has a fake sign.
+     *
+     * @return true if fake sign
+     */
     public boolean isFakeSign(){
         return fakeSign;
     }
 
+    /**
+     * Sets whether this shop has a fake sign.
+     *
+     * @param fakeSign true if fake sign
+     */
     public void setFakeSign(boolean fakeSign){
         this.fakeSign = fakeSign;
     }
 
+    /**
+     * Executes a click action for this shop.
+     *
+     * @param event the player interact event
+     * @param clickType the click type
+     * @return true if action executed
+     */
     public boolean executeClickAction(PlayerInteractEvent event, ShopClickType clickType){
         ShopAction action = Shop.getPlugin().getShopAction(clickType);
         if(action == null)
@@ -649,32 +951,50 @@ public abstract class AbstractShop {
         return true;
     }
 
+    /**
+     * Sends effects to the player.
+     *
+     * @param success true if transaction was successful
+     * @param player the player
+     */
     public void sendEffects(boolean success, Player player){
         try {
             if (success) {
                 if (Shop.getPlugin().playSounds()) player.playSound(this.getSignLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0F, 1.0F);
-                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.STEP_SOUND, Material.EMERALD_BLOCK);
+                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.DESTROY_BLOCK, Material.EMERALD_BLOCK.createBlockData());
             } else {
                 if (Shop.getPlugin().playSounds()) player.playSound(this.getSignLocation(), Sound.ITEM_SHIELD_BLOCK, 1.0F, 1.0F);
-                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.STEP_SOUND, Material.REDSTONE_BLOCK);
+                if (Shop.getPlugin().playEffects()) player.getWorld().playEffect(this.getChestLocation(), Effect.DESTROY_BLOCK, Material.REDSTONE_BLOCK.createBlockData());
             }
-        } catch (Error e){
-        } catch (Exception e) {}
+        } catch (Error e) {
+            Shop.getPlugin().getLogger().debug("Error playing shop effects: " + e.getMessage());
+        } catch (Exception e) {
+            Shop.getPlugin().getLogger().debug("Error playing shop effects: " + e.getMessage());
+        }
     }
 
     @Override
     public String toString() {
+        String worldName = "unknown";
+        try {
+            if (signLocation != null && signLocation.getWorld() != null) {
+                worldName = signLocation.getWorld().getName();
+            }
+        } catch (Exception e) {
+            // Avoid accessing world asynchronously on Folia
+            worldName = "unknown";
+        }
         return "AbstractShop{" +
-                "type=" + type.toString().toUpperCase() +
+                "type=" + (type != null ? type.toString().toUpperCase() : "null") +
                 (isAdmin ? ", isAdmin=" + isAdmin : "") +
                 ", owner=" + this.getOwnerName() +
-                ", loc=" + ((signLocation != null) ? signLocation.getWorld().getName() + ":" + signLocation.getBlockX() + "/" + signLocation.getBlockY() + "/" + signLocation.getBlockZ() : "null") +
+                ", loc=" + ((signLocation != null) ? worldName + ":" + signLocation.getBlockX() + "/" + signLocation.getBlockY() + "/" + signLocation.getBlockZ() : "null") +
                 ", price=" + price +
                 ", amount=" + amount +
                 ", stock=" + stock +
-                ", item=" + (item != null ? Shop.getPlugin().getItemNameUtil().getName(item).toPlainText() : "null") +
-                (secondaryItem != null ? ", secondaryItem=" + Shop.getPlugin().getItemNameUtil().getName(secondaryItem).toPlainText() : "") +
-                ", id=" + this.getId().toString().substring(0,5) +
+                ", item=" + (item != null ? PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(item)) : "null") +
+                (secondaryItem != null ? ", secondaryItem=" + PlainTextComponentSerializer.plainText().serialize(Shop.getPlugin().getItemNameUtil().getName(secondaryItem)) : "") +
+                ", id=" + (this.getId() != null ? this.getId().toString().substring(0, Math.min(5, this.getId().toString().length())) : "null") +
                 ", filename=" + this.getOwnerUUID() + ".yml" +
                 ", needsSave=" + this.needsSave +
                 ", isLoaded=" + this.isLoaded +

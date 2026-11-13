@@ -24,6 +24,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import com.tcoded.folialib.FoliaLib;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,6 +43,9 @@ public class Shop extends JavaPlugin {
     private static final String CONFIG_PATH_PLOT_SQUARED_ENABLED = "plotSquared.enabled";
     private static final String CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED = "bolt.trustIntegration.enabled";
     private static final String CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED = "blockProt.trustIntegration.enabled";
+    private static final String CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED = "cashierLock.trustIntegration.enabled";
+    private static final String CONFIG_PATH_GRIEF_PREVENTION_ENABLED = "griefprevention.enabled";
+    private static final String CONFIG_PATH_GEYSER_ENABLED = "geyser.enabled";
 
     private ShopListener shopListener;
     private DisplayListener displayListener;
@@ -60,6 +64,10 @@ public class Shop extends JavaPlugin {
     private PlotSquaredHookListener plotSquaredHookListener;
     private BoltTrustListener boltTrustListener;
     private BlockProtTrustListener blockProtTrustListener;
+    private CashierLockTrustListener cashierLockTrustListener;
+    private GriefPreventionHookListener griefPreventionHookListener;
+    private GeyserFloodgateHook geyserFloodgateHook;
+    private Boolean arclightExists = false;
 
     private boolean worldGuardIntegrationEnabled;
     private boolean lwcIntegrationEnabled;
@@ -68,13 +76,14 @@ public class Shop extends JavaPlugin {
     private boolean plotSquaredIntegrationEnabled;
     private boolean boltTrustIntegrationEnabled;
     private boolean blockProtTrustIntegrationEnabled;
+    private boolean cashierLockTrustIntegrationEnabled;
+    private boolean griefPreventionIntegrationEnabled;
+    private boolean geyserIntegrationEnabled;
 
     private ShopHandler shopHandler;
     private ShopGuiHandler guiHandler;
     private ItemNameUtil itemNameUtil;
     private ShopCreationUtil shopCreationUtil;
-
-    private NMSBullshitHandler nmsBullshitHandler;
 
     private boolean usePerms;
     private boolean checkUpdates;
@@ -103,6 +112,7 @@ public class Shop extends JavaPlugin {
     private boolean playEffects;
     private boolean allowCreateMethodSign;
     private boolean allowCreateMethodChest;
+    private int shopCreationTimeout;
     private ItemStack gambleDisplayItem;
     private ItemStack itemCurrency = null;
     private CurrencyType currencyType;
@@ -284,8 +294,6 @@ public class Shop extends JavaPlugin {
         this.getLogger().setLogLevel(config.getString("logLevel"));
         this.getLogger().enableColor(config.getBoolean("enableLogColor"));
 
-        nmsBullshitHandler = new NMSBullshitHandler(this);
-        
         shopCreationUtil = new ShopCreationUtil(this);
 
         shopListener = new ShopListener(this);
@@ -332,6 +340,9 @@ public class Shop extends JavaPlugin {
 
         allowCreateMethodSign = config.getBoolean("creationMethod.placeSign");
         allowCreateMethodChest = config.getBoolean("creationMethod.hitChest");
+        // Default keeps pre-existing configs (which lack this key) working instead of
+        // collapsing to 0 seconds, which would time creation out immediately.
+        shopCreationTimeout = config.getInt("shopCreationTimeout", 120);
 
         usePerms = config.getBoolean("usePermissions");
         if (usePerms) {
@@ -349,6 +360,9 @@ public class Shop extends JavaPlugin {
         plotSquaredIntegrationEnabled = config.getBoolean(CONFIG_PATH_PLOT_SQUARED_ENABLED, true);
         boltTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED, true);
         blockProtTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED, true);
+        cashierLockTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED, true);
+        griefPreventionIntegrationEnabled = config.getBoolean(CONFIG_PATH_GRIEF_PREVENTION_ENABLED, true);
+        geyserIntegrationEnabled = config.getBoolean(CONFIG_PATH_GEYSER_ENABLED, true);
 
         // WorldGuard integration is only active if the plugin is installed AND the integration toggle is enabled.
         boolean worldGuardDetected = getServer().getPluginManager().getPlugin("WorldGuard") != null;
@@ -496,9 +510,9 @@ public class Shop extends JavaPlugin {
         // Check if we should load VAULT economy
         if (currencyType == CurrencyType.VAULT) {
             if (setupEconomy()) {
-                this.getLogger().info("Shops will use the Vault economy (" + currencyName + ") as currency on the server.");
+                this.getLogger().info("Shops will use the VaultUnlocked economy (" + currencyName + ") as currency on the server.");
             } else {
-                this.getLogger().severe("Unable to connect to Vault Economy! Are both Vault AND an Economy plugin installed?");
+                this.getLogger().severe("Unable to connect to VaultUnlocked Economy! Are both VaultUnlocked AND an Economy plugin installed?");
                 this.getLogger().severe("Plugin Disabled: Invalid configuration value `economy.type` config.yml. If you do not wish to use Vault with Shop, make sure to set `economy.type` in the config file to `ITEM`.");
                 getServer().getPluginManager().disablePlugin(plugin);
                 return;
@@ -509,7 +523,7 @@ public class Shop extends JavaPlugin {
                 getServer().getPluginManager().disablePlugin(plugin);
                 return;
             }
-            this.getLogger().info("Shops will use " + itemNameUtil.getName(itemCurrency).toPlainText() + "(s) as the currency on the server.");
+            this.getLogger().info("Shops will use " + PlainTextComponentSerializer.plainText().serialize(itemNameUtil.getName(itemCurrency)) + "(s) as the currency on the server.");
         }
 
         // Load CommandHandler by initializing it once
@@ -633,6 +647,62 @@ public class Shop extends JavaPlugin {
                 }
             } else {
                 this.getLogger().notice("BlockProt detected, but Shop BlockProt trust integration is disabled via `" + CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED + ": false`");
+            }
+        }
+
+        // Arclight integration
+        boolean arclightDetected = getServer().getPluginManager().getPlugin("Arclight") != null;
+        boolean arclightIntegrationEnabled = config.getBoolean("arclight.enabled", true);
+        if (arclightDetected) {
+            if (arclightIntegrationEnabled) {
+                this.getLogger().notice("Arclight detected, Shop will respect Arclight claimed areas during shop creation!");
+                this.arclightExists = true;
+            } else {
+                this.arclightExists = false;
+                this.getLogger().notice("Arclight detected, but Shop Arclight integration is disabled via `arclight.enabled: false`");
+            }
+        } else {
+            this.arclightExists = false;
+        }
+
+        // CashierLock trust integration
+        if(getServer().getPluginManager().getPlugin("CashierLock") != null){
+            if (cashierLockTrustIntegrationEnabled) {
+                try {
+                    cashierLockTrustListener = new CashierLockTrustListener();
+                    getServer().getPluginManager().registerEvents(cashierLockTrustListener, this);
+                    this.getLogger().notice("CashierLock is installed, enabling trust integration for opening shop containers");
+                } catch (Exception e) {
+                    this.getLogger().warning("CashierLock detected but could not enable trust integration: " + e.getMessage());
+                }
+            } else {
+                this.getLogger().notice("CashierLock detected, but Shop CashierLock trust integration is disabled via `" + CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED + ": false`");
+            }
+        }
+
+        // Register GriefPrevention3D hook listener
+        if(getServer().getPluginManager().getPlugin("GriefPrevention3D") != null){
+            if (griefPreventionIntegrationEnabled) {
+                griefPreventionHookListener = new GriefPreventionHookListener(this);
+                getServer().getPluginManager().registerEvents(griefPreventionHookListener, this);
+                this.getLogger().notice("GriefPrevention3D is installed, enabling grief prevention integration");
+            } else {
+                this.getLogger().notice("GriefPrevention3D detected, but Shop GriefPrevention3D integration is disabled via `" + CONFIG_PATH_GRIEF_PREVENTION_ENABLED + ": false`");
+            }
+        }
+
+        // GeyserMC / Floodgate compatibility hook
+        if(getServer().getPluginManager().getPlugin("Geyser-Spigot") != null || getServer().getPluginManager().getPlugin("Floodgate") != null){
+            if (geyserIntegrationEnabled) {
+                try {
+                    geyserFloodgateHook = new GeyserFloodgateHook(this);
+                    getServer().getPluginManager().registerEvents(geyserFloodgateHook, this);
+                    this.getLogger().notice("GeyserMC/Floodgate detected, enabling Bedrock player compatibility");
+                } catch (Exception e) {
+                    this.getLogger().warning("GeyserMC/Floodgate detected but could not enable compatibility: " + e.getMessage());
+                }
+            } else {
+                this.getLogger().notice("GeyserMC/Floodgate detected, but Shop Geyser integration is disabled via `" + CONFIG_PATH_GEYSER_ENABLED + ": false`");
             }
         }
 
@@ -861,6 +931,15 @@ public class Shop extends JavaPlugin {
         if(blockProtTrustListener != null){
             HandlerList.unregisterAll(blockProtTrustListener);
         }
+        if(cashierLockTrustListener != null){
+            HandlerList.unregisterAll(cashierLockTrustListener);
+        }
+        if(griefPreventionHookListener != null){
+            HandlerList.unregisterAll(griefPreventionHookListener);
+        }
+        if(geyserFloodgateHook != null){
+            HandlerList.unregisterAll(geyserFloodgateHook);
+        }
 
         plugin.getShopHandler().removeAllDisplays(null);
 
@@ -869,10 +948,10 @@ public class Shop extends JavaPlugin {
     }
 
     private boolean setupEconomy() {
-        if (getServer().getPluginManager().getPlugin("Vault") == null) {
+        if (getServer().getPluginManager().getPlugin("VaultUnlocked") == null) {
             return false;
         }
-        this.getLogger().notice("Vault is installed, creating Vault integration for Economy support");
+        this.getLogger().notice("VaultUnlocked is installed, creating VaultUnlocked integration for Economy support");
         RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
         if (rsp == null) {
             return false;
@@ -925,6 +1004,10 @@ public class Shop extends JavaPlugin {
         return allowCreateMethodChest;
     }
 
+    public int getShopCreationTimeout(){
+        return shopCreationTimeout;
+    }
+
     public CurrencyType getCurrencyType() {
         return currencyType;
     }
@@ -943,6 +1026,10 @@ public class Shop extends JavaPlugin {
     public boolean isPlotSquaredIntegrationEnabled() { return plotSquaredIntegrationEnabled; }
     public boolean isBoltTrustIntegrationEnabled() { return boltTrustIntegrationEnabled; }
     public boolean isBlockProtTrustIntegrationEnabled() { return blockProtTrustIntegrationEnabled; }
+    public boolean isCashierLockTrustIntegrationEnabled() { return cashierLockTrustIntegrationEnabled; }
+    public boolean isGriefPreventionIntegrationEnabled() { return griefPreventionIntegrationEnabled; }
+    public boolean isGeyserIntegrationEnabled() { return geyserIntegrationEnabled; }
+    public boolean arclightExists() { return arclightExists != null && arclightExists; }
 
     public boolean hookTowny(){
         return hookTowny;
@@ -1198,10 +1285,6 @@ public class Shop extends JavaPlugin {
 
     public ShopAction getShopAction(ShopClickType shopClickType){
         return clickTypeActionMap.get(shopClickType);
-    }
-
-    public NMSBullshitHandler getNmsBullshitHandler() {
-        return nmsBullshitHandler;
     }
 
     public NamespacedKey getSignLocationNameSpacedKey(){

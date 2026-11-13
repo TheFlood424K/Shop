@@ -1,0 +1,456 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Handles database logging of shop actions and transactions.
+ * Supports MySQL, MariaDB, and file-based (H2) storage backends for tracking
+ * shop purchases, sales, and administrative actions.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Creates a new LogHandler and initializes database connection.
+     *
+     * @param plugin The plugin instance
+     * @param shopConfig The shop configuration
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Initializes the database connection based on configuration.
+     *
+     * @param shopConfig The shop configuration containing database settings
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Closes the database connection.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Logs a shop action (creation or destruction) to the database and console.
+     *
+     * @param player The player performing the action
+     * @param shop The shop being acted upon
+     * @param actionType The type of action performed
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Logs a shop transaction to the database and console, and updates transaction metrics.
+     *
+     * @param player The player performing the transaction
+     * @param shop The shop involved in the transaction
+     * @param transactionType The type of shop (BUY, SELL, BARTER)
+     * @param price The price of the transaction
+     * @param amount The amount of items transacted
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Holds the data needed to build a single offline transaction. Collected off the region
+     * thread so that Bukkit API (e.g. {@link Bukkit#getWorld(String)}) stays off it on Folia.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Calculates offline transactions for a player by querying the database.
+     *
+     * @param offlineTransactions The offline transactions object to populate with calculated data
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Tests the database connection.
+     *
+     * @throws SQLException If connection test fails
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Metrics tracker for recent shop transactions.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Inner class to store metrics for a time bucket.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Number of transactions in the current time bucket.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Total item volume in the current time bucket.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Adds a transaction to the metrics.
+         *
+         * @param itemCount The number of items transacted
+         * @param price The price of the transaction
+         * @param isBarterOrItemCurrency Whether the transaction uses barter or item currency
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Resets the transaction count to zero.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Resets the item volume to zero.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Gets the current transaction count.
+         *
+         * @return The number of transactions
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Gets the current item volume.
+         *
+         * @return The total item volume
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Gets the number of transactions during the last 30 minutes.
+     *
+     * @return The number of recent transactions
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Gets the number of items bought and sold during the last 30 minutes.
+     *
+     * @return The total item volume
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Initializes database tables from setup file.
+     *
+     * @throws SQLException If database initialization fails
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\LogHandler.java ===
+* Returns whether the log handler is enabled.
+     *
+     * @return true if logging is enabled, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopGuiHandler.java ===
+* Marks the owner's GUI head for rebuilding the next time it is shown.
+     * Heads are built lazily: each setItemMeta on a head without textures makes Paper send an uncached
+     * Mojang profile lookup, so building one per loaded shop floods the session server at startup.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Handles shop management, storage, display, and lookup operations.
+ * Manages all shops across the server, tracks player ownership, handles
+ * chunk-based organization, and coordinates shop display rendering.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Creates a new ShopHandler and initializes shops and displays.
+     *
+     * @param instance The plugin instance
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Creates a Paper-backed display instance at the specified location.
+     *
+     * <p>MockBukkit does not implement the region/entity schedulers the
+     * Paper-backed display relies on, so displays are disabled there and the
+     * plugin falls back to chat-based prompts.</p>
+     *
+     * @param loc The location to create the display at
+     * @return A new display instance
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets a shop by its sign location.
+     *
+     * @param loc The sign location of the shop
+     * @return The shop at the location, or null if none exists
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets a shop by its chest block.
+     *
+     * @param shopChest The chest block of the shop
+     * @return The shop associated with the chest, or null if none exists
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets a shop touching the specified block.
+     *
+     * @param block The block to check for adjacent shops
+     * @return The shop touching the block, or null if none exists
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Adds a shop to the handler's tracking structures.
+     *
+     * @param shop The shop to add
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Removes a shop from the handler's tracking structures.
+     * This method should only be used by AbstractShop object to delete.
+     *
+     * @param shop The shop to remove
+     * @param forceSave Whether to force immediate save
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Processes all unloaded shops in the specified chunk.
+     *
+     * @param chunk The chunk containing unloaded shops
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Adds a shop to the unloaded shops list for its chunk.
+     *
+     * @param shop The shop to add
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets all shops on the server.
+     *
+     * @return List of all shops
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets all shops owned by the specified player.
+     *
+     * @param player The player's UUID
+     * @return List of shops owned by the player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets the number of shops that need to be saved for the player.
+     *
+     * @param player The player's UUID
+     * @return Number of shops needing save
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets all shops selling or buying the specified item.
+     *
+     * @param itemStack The item to search for
+     * @return List of shops dealing with the item
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets all offline players that own shops.
+     *
+     * @return List of shop owners
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets all UUIDs of players that own shops.
+     *
+     * @return List of shop owner UUIDs
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets shop locations for a player.
+     *
+     * @param player The player's UUID
+     * @return List of shop locations
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets shop locations for a chunk.
+     *
+     * @param chunkKey The chunk key
+     * @return List of shop locations
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets shop locations near a specific location within a default radius of 1 chunk
+     * (which covers a 3x3 chunk area)
+     * 
+     * @param location The center location to search around
+     * @return HashSet of shop locations in the surrounding chunks
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets shop locations near a specific location within a specified chunk radius
+     * 
+     * @param location The center location to search around
+     * @param chunkRadius The radius (in chunks) to search around the center location
+     *                    A radius of 1 means a 3x3 chunk area, 2 means 5x5, etc.
+     * @return HashSet of shop locations in the surrounding chunks
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets actual shop objects near a specific location within the default radius
+     * 
+     * @param location The center location to search around
+     * @return List of shops in the surrounding chunks
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets actual shop objects near a specific location within a specified chunk radius
+     * 
+     * @param location The center location to search around
+     * @param chunkRadius The radius (in chunks) to search around the center location
+     * @return List of shops in the surrounding chunks
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets shop locations near a specific location within a specified chunk radius,
+     * filtered by maximum distance in blocks.
+     * 
+     * @param location The center location to search around
+     * @param chunkRadius The radius (in chunks) to search around the center location
+     * @param maxDistanceSquared The maximum squared distance (in blocks) to include shops
+     *                          Using squared distance avoids expensive square root calculations
+     * @return HashSet of shop locations within the distance limit
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets actual shop objects near a specific location within a specified radius in blocks
+     * 
+     * @param location The center location to search around
+     * @param chunkRadius The radius (in chunks) to search around the center location
+     * @param maxDistance The maximum distance (in blocks) to include shops
+     * @return List of shops within the distance limit
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Processes shop displays near the specified player.
+     *
+     * @param player The player to update displays for
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Process all shop displays in a single coordinated batch to minimize visual artifacts
+     * @param player The player to update displays for
+     * @param playerLocation The player's current location
+     * @param shopLocations Set of shop locations to process
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Clears all shop displays near the specified player.
+     *
+     * @param player The player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Force shop display processing for a player, ignoring movement threshold checks.
+     * This should be called after teleportation or world changes.
+     * 
+     * @param player The player to process shop displays for
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Checks if a player has an active display at the specified shop location.
+     *
+     * @param player The player to check
+     * @param shopSignLocation The shop sign location
+     * @return true if the player has an active display
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Adds an active shop display for a player.
+     *
+     * @param player The player
+     * @param shopSignLocation The shop sign location
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Removes an active shop display for a player.
+     *
+     * @param player The player
+     * @param shopSignLocation The shop sign location
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Adds an active shop display tag for a player.
+     *
+     * @param player The player
+     * @param shopSignLocation The shop sign location
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets the total number of shops.
+     *
+     * @return total number of shops
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets the number of shops owned by the specified player.
+     *
+     * @param player The player
+     * @return number of shops owned by the player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets the number of shops owned by the player with the specified UUID.
+     *
+     * @param playerUUID The player's UUID
+     * @return number of shops owned by the player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets the number of shops of the specified type.
+     *
+     * @param shopType The shop type
+     * @return number of shops with the specified type
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets the number of shops using the specified display type.
+     *
+     * @param displayType The display type
+     * @return number of shops with the specified display type
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets counts of shops grouped by container type.
+     *
+     * @return map of container type names to counts
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Removes all shop displays for the specified player.
+     *
+     * @param player The player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Removes legacy display entities.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Saves the shops for a player.
+     * 
+     * @param player The UUID of the player to save the shops for.
+     * @return The number of shops saved.
+     * 1+: Total number of shops saved for player
+     * 0:  No shops need updating (file was not touched)
+     * -1: No shops for player exist (file was deleted)
+     * -2: Failed to save new shop file, left original file intact
+     * -3: Backup file exists, but needs to be manually restored
+     * -5: Critical error, total data loss for player, all files are missing
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Saves shops for the specified player.
+     *
+     * @param player The player's UUID
+     * @return result code indicating save status
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Saves shops for the specified player.
+     *
+     * @param player The player's UUID
+     * @param force Whether to force save even if no shops need updating
+     * @return result code indicating save status
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Saves all shops to disk.
+     *
+     * @return The number of shops saved
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Converts legacy shop save format to new format.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Loads all shops from disk.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Loads shops from a configuration file.
+     *
+     * @param config The configuration
+     * @param isLegacy Whether the config is in legacy format
+     * @return The number of shops loaded
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Gets the admin UUID.
+     *
+     * @return the admin UUID
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Converts a location to a string representation.
+     *
+     * @param loc The location
+     * @return string representation of the location
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Converts a string representation to a UUID.
+     *
+     * @param ownerString The string containing the UUID
+     * @return the UUID
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Converts a string representation to a shop type.
+     *
+     * @param typeString The string representation
+     * @return the shop type
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Checks if a block is a chest/container that can be used for shops.
+     *
+     * @param b The block
+     * @return true if the block is a valid shop container
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Checks if an item passes the item list filter.
+     *
+     * @param is The item stack
+     * @return true if the item is allowed
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Adds all items from the inventory to the item list.
+     *
+     * @param inventory The inventory to add items from
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Removes all items from the inventory from the item list.
+     *
+     * @param inventory The inventory to remove items from
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Initializes the item list from configuration.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Saves the item list to configuration.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Checks if a player is within the specified distance of a chunk
+     * 
+     * @param player The player to check
+     * @param chunk The chunk to check against
+     * @param maxDistance The maximum distance in blocks
+     * @return True if the player is near the chunk
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\handler\ShopHandler.java ===
+* Rebuilds all shop displays in a chunk for nearby players
+     * Called after a chunk has been loaded to ensure displays are shown
+     * 
+     * @param chunk The chunk that was loaded

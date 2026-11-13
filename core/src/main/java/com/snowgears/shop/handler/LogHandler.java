@@ -13,6 +13,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,6 +24,11 @@ import java.util.Date;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
+/**
+ * Handles database logging of shop actions and transactions.
+ * Supports MySQL, MariaDB, and file-based (H2) storage backends for tracking
+ * shop purchases, sales, and administrative actions.
+ */
 public class LogHandler {
 
     private Shop plugin;
@@ -31,6 +37,12 @@ public class LogHandler {
 
     private boolean enabled;
 
+    /**
+     * Creates a new LogHandler and initializes database connection.
+     *
+     * @param plugin The plugin instance
+     * @param shopConfig The shop configuration
+     */
     public LogHandler(Shop plugin, YamlConfiguration shopConfig){
         this.plugin = plugin;
         // Setup database connection and check if we should enable database logging
@@ -75,6 +87,11 @@ public class LogHandler {
         plugin.getLogger().helpful("Offline Purchase Notifications are Enabled!");
     }
 
+    /**
+     * Initializes the database connection based on configuration.
+     *
+     * @param shopConfig The shop configuration containing database settings
+     */
     public void startup(YamlConfiguration shopConfig){
         String type = shopConfig.getString("logging.type");
         String serverName = shopConfig.getString("logging.serverName");
@@ -146,50 +163,82 @@ public class LogHandler {
         this.enabled = true;
     }
 
+    /**
+     * Closes the database connection.
+     */
     public void shutdown() {
         if (dataSource != null) {
             dataSource.close();
         }
     }
 
+    /**
+     * Logs a shop action (creation or destruction) to the database and console.
+     *
+     * @param player The player performing the action
+     * @param shop The shop being acted upon
+     * @param actionType The type of action performed
+     */
     public void logAction(Player player, AbstractShop shop, ShopActionType actionType) {
         if (actionType == ShopActionType.INIT) {
+            String chestInfo = (shop.getChestLocation() != null)
+                    ? ("x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ())
+                    : "null";
             plugin.getLogger().notice(
                     player.getName() + " created a " + shop.getType().name().toUpperCase() + " shop at ("
-                            + "x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ()
-                            + ") item: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText())
-                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getSecondaryItemStack()).toPlainText()) : "")
+                            + chestInfo
+                            // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+                            + ") item: " + (shop.getItemStack() != null ? ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getItemStack()))) : "null")
+                            // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getSecondaryItemStack()))) : "")
             );
         }
         if (actionType == ShopActionType.DESTROY) {
+            String chestInfo = (shop.getChestLocation() != null)
+                    ? ("x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ())
+                    : ((shop.getSignLocation() != null) ? ("x: " + shop.getSignLocation().getBlockX() + " y: " + shop.getSignLocation().getBlockY() + " z: " + shop.getSignLocation().getBlockZ()) : "null");
             plugin.getLogger().notice(
                     player.getName() + " destroyed a " + shop.getType().name().toUpperCase() + " shop at ("
-                            + "x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ()
-                            + ") item: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText())
-                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(new ItemNameUtil().getName(shop.getSecondaryItemStack()).toPlainText()) : "")
+                            + chestInfo
+                            // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+                            + ") item: " + (shop.getItemStack() != null ? ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getItemStack()))) : "null")
+                            // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+                            + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getSecondaryItemStack()))) : "")
             );
         }
 
         if (!this.enabled) return;
+        String worldName = (shop.getSignLocation() != null && shop.getSignLocation().getWorld() != null)
+                ? shop.getSignLocation().getWorld().getName() : "null";
+        int shopX = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockX() : 0;
+        int shopY = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockY() : 0;
+        int shopZ = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockZ() : 0;
+        String shopOwnerUuid = (shop.getOwnerUUID() != null && shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID())) ? "admin" : (shop.getOwnerUUID() != null ? shop.getOwnerUUID().toString() : "null");
+        String shopUuid = (shop.getId() != null && shop.getId().toString() != null) ? shop.getId().toString() : "";
+        String playerUuid = player.getUniqueId().toString();
+        String actionTypeStr = actionType.toString();
+        final String finalActionTypeStr = actionTypeStr;
+        final String finalPlayerUuid = playerUuid;
+        final String finalShopOwnerUuid = shopOwnerUuid;
+        final String finalShopUuid = shopUuid;
+        final String finalWorldName = worldName;
+        final int finalShopX = shopX;
+        final int finalShopY = shopY;
+        final int finalShopZ = shopZ;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Connect to datasource & create statement in "try" to handle automatically closing the connection!
             try (Connection conn = dataSource.getConnection();
                 PreparedStatement stmt = conn.prepareStatement("INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);");
             ){
                 stmt.setTimestamp(1, new Timestamp(new Date().getTime()));
-                stmt.setString(2, player.getUniqueId().toString());
-                if (shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()))
-                    stmt.setString(3, "admin");
-                else
-                    stmt.setString(3, shop.getOwnerUUID().toString());
-                String shop_uuid = "";
-                if (shop.getId() != null && shop.getId().toString() != null) shop_uuid = shop.getId().toString();
-                stmt.setString(4, shop_uuid);
-                stmt.setString(5, actionType.toString());
-                stmt.setString(6, shop.getSignLocation().getWorld().getName());
-                stmt.setInt(7, shop.getSignLocation().getBlockX());
-                stmt.setInt(8, shop.getSignLocation().getBlockY());
-                stmt.setInt(9, shop.getSignLocation().getBlockZ());
+                stmt.setString(2, finalPlayerUuid);
+                stmt.setString(3, finalShopOwnerUuid);
+                stmt.setString(4, finalShopUuid);
+                stmt.setString(5, finalActionTypeStr);
+                stmt.setString(6, finalWorldName);
+                stmt.setInt(7, finalShopX);
+                stmt.setInt(8, finalShopY);
+                stmt.setInt(9, finalShopZ);
                 stmt.execute();
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING, "SQL error occurred while trying to log player action.");
@@ -198,19 +247,75 @@ public class LogHandler {
         });
     }
 
+    /**
+     * Logs a shop transaction to the database and console, and updates transaction metrics.
+     *
+     * @param player The player performing the transaction
+     * @param shop The shop involved in the transaction
+     * @param transactionType The type of shop (BUY, SELL, BARTER)
+     * @param price The price of the transaction
+     * @param amount The amount of items transacted
+     */
     public void logTransaction(Player player, AbstractShop shop, ShopType transactionType, double price, int amount){
+        String chestInfoTx = (shop.getChestLocation() != null)
+                ? ("x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ())
+                : "null";
+        // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+        String itemNameTx = (shop.getItemStack() != null) ? ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getItemStack()))) : "null";
         plugin.getLogger().helpful(
             "Shop " + shop.getType().name().toUpperCase() + " from/to " + player.getName() + ": "
-                + ChatColor.stripColor(new ItemNameUtil().getName(shop.getItemStack()).toPlainText()) + "(x" + amount + ")" + " for " + plugin.getPriceString(price, true)
-                + " | Shop owned by " + shop.getOwnerName() + " at (x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ() + ")"
+                + itemNameTx + "(x" + amount + ")" + " for " + plugin.getPriceString(price, true)
+                + " | Shop owned by " + shop.getOwnerName() + " at (" + chestInfoTx + ")"
         );
 
         try {
             boolean isBarterOrItemCurrency = transactionType == ShopType.BARTER || plugin.getCurrencyType() == CurrencyType.ITEM;
             txMetrics.addTransaction(amount, price, isBarterOrItemCurrency);
-        } catch (Exception e) { /* Ignore errors, added for safety. */ }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error adding transaction to metrics", e);
+        }
 
         if(!enabled) return;
+        String worldNameTx = (shop.getSignLocation() != null && shop.getSignLocation().getWorld() != null)
+                ? shop.getSignLocation().getWorld().getName() : "null";
+        int shopXTx = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockX() : 0;
+        int shopYTx = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockY() : 0;
+        int shopZTx = (shop.getSignLocation() != null) ? shop.getSignLocation().getBlockZ() : 0;
+        String shopOwnerUuidTx = (shop.getOwnerUUID() != null && shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID())) ? "admin" : (shop.getOwnerUUID() != null ? shop.getOwnerUUID().toString() : "null");
+        String shopUuidTx = (shop.getId() != null && shop.getId().toString() != null) ? shop.getId().toString() : "";
+        String playerUuidTx = player.getUniqueId().toString();
+        String itemBase64 = null;
+        String barterItemBase64 = null;
+        try {
+            if (shop.getItemStack() != null && itemBase64 == null) {
+                try {
+                    itemBase64 = UtilMethods.itemStackToBase64(shop.getItemStack());
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
+                }
+            }
+            if (shop.getSecondaryItemStack() != null && barterItemBase64 == null) {
+                try {
+                    barterItemBase64 = UtilMethods.itemStackToBase64(shop.getSecondaryItemStack());
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "Error converting itemstack to base64 while trying to log transaction/shop action!", e);
+        }
+          final String finalItemBase64 = itemBase64;
+          final String finalBarterItemBase64 = barterItemBase64;
+          final ShopType finalTransactionType = transactionType;
+          final double finalPrice = price;
+          final int finalAmount = amount;
+          final String finalPlayerUuidTx = playerUuidTx;
+          final String finalShopOwnerUuidTx = shopOwnerUuidTx;
+          final String finalShopUuidTx = shopUuidTx;
+          final String finalWorldNameTx = worldNameTx;
+          final int finalShopXTx = shopXTx;
+          final int finalShopYTx = shopYTx;
+          final int finalShopZTx = shopZTx;
         plugin.getFoliaLib().getScheduler().runAsync(task -> {
             // Log the Transaction that occured
             int transactionID = 0;
@@ -219,12 +324,17 @@ public class LogHandler {
                 Connection conn = dataSource.getConnection();
                 PreparedStatement logTxStmt = conn.prepareStatement("INSERT INTO shop_transaction (t_type, price, amount, item, barter_item) VALUES(?, ?, ?, ?, ?);", Statement.RETURN_GENERATED_KEYS);
             ) {
-                logTxStmt.setString(1, transactionType.toString().toUpperCase());
-                logTxStmt.setDouble(2, price);
-                logTxStmt.setInt(3, amount);
-                logTxStmt.setString(4, UtilMethods.itemStackToBase64(shop.getItemStack()));
-                if (shop.getSecondaryItemStack() != null)
-                    logTxStmt.setString(5, UtilMethods.itemStackToBase64(shop.getSecondaryItemStack()));
+                logTxStmt.setString(1, finalTransactionType.toString().toUpperCase());
+                logTxStmt.setDouble(2, finalPrice);
+                logTxStmt.setInt(3, finalAmount);
+                logTxStmt.setString(4, finalItemBase64);
+                if (finalBarterItemBase64 != null)
+                    logTxStmt.setString(5, finalBarterItemBase64);
+                else
+                    logTxStmt.setNull(5, Types.VARCHAR);
+                logTxStmt.setString(4, finalItemBase64);
+                if (finalBarterItemBase64 != null)
+                    logTxStmt.setString(5, finalBarterItemBase64);
                 else
                     logTxStmt.setNull(5, Types.VARCHAR);
 
@@ -234,9 +344,6 @@ public class LogHandler {
                 transactionID = txRS.getInt(1);
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
-                e.printStackTrace();
-            } catch (IOException e) {
-                plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action. Issue with converting itemstack to base64!");
                 e.printStackTrace();
             }
 
@@ -248,20 +355,15 @@ public class LogHandler {
                 PreparedStatement actionStmt = conn.prepareStatement("INSERT INTO shop_action(ts, player_uuid, owner_uuid, shop_uuid, player_action, transaction_id, shop_world, shop_x, shop_y, shop_z) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
             ) {
                 actionStmt.setTimestamp(1, new Timestamp(new Date().getTime()));
-                actionStmt.setString(2, player.getUniqueId().toString());
-                if(shop.getOwnerUUID().equals(plugin.getShopHandler().getAdminUUID()))
-                    actionStmt.setString(3, "admin");
-                else
-                    actionStmt.setString(3, shop.getOwnerUUID().toString());
-                String shop_uuid = "";
-                if (shop.getId() != null && shop.getId().toString() != null) shop_uuid = shop.getId().toString();
-                actionStmt.setString(4, shop_uuid);
+                actionStmt.setString(2, finalPlayerUuidTx);
+                actionStmt.setString(3, finalShopOwnerUuidTx);
+                actionStmt.setString(4, finalShopUuidTx);
                 actionStmt.setString(5, ShopActionType.TRANSACT.toString());
                 actionStmt.setInt(6, transactionID);
-                actionStmt.setString(7, shop.getSignLocation().getWorld().getName());
-                actionStmt.setInt(8, shop.getSignLocation().getBlockX());
-                actionStmt.setInt(9, shop.getSignLocation().getBlockY());
-                actionStmt.setInt(10, shop.getSignLocation().getBlockZ());
+                actionStmt.setString(7, finalWorldNameTx);
+                actionStmt.setInt(8, finalShopXTx);
+                actionStmt.setInt(9, finalShopYTx);
+                actionStmt.setInt(10, finalShopZTx);
                 actionStmt.execute();
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
@@ -270,6 +372,20 @@ public class LogHandler {
         });
     }
 
+    /**
+     * Holds the data needed to build a single offline transaction. Collected off the region
+     * thread so that Bukkit API (e.g. {@link Bukkit#getWorld(String)}) stays off it on Folia.
+     */
+    private record PendingTx(String shopWorld, int shopX, int shopY, int shopZ,
+                             String tType, double price, String purchaserUUID,
+                             int amount, ItemStack itemstack, ItemStack barterItemstack) {
+    }
+
+    /**
+     * Calculates offline transactions for a player by querying the database.
+     *
+     * @param offlineTransactions The offline transactions object to populate with calculated data
+     */
     public void calculateOfflineTransactions(OfflineTransactions offlineTransactions){
         if(!enabled) {
             offlineTransactions.setIsCalculating(false);
@@ -289,6 +405,7 @@ public class LogHandler {
                 double totalSpent = 0.0;
                 Map<ItemStack, Integer> itemsBought = new HashMap<>();
                 Map<ItemStack, Integer> itemsSold = new HashMap<>();
+                List<PendingTx> pendingTx = new ArrayList<>();
 
                 // Prepare and execute the statement
 
@@ -313,8 +430,6 @@ public class LogHandler {
                         int shopX = resultSet.getInt("shop_x");
                         int shopY = resultSet.getInt("shop_y");
                         int shopZ = resultSet.getInt("shop_z");
-
-                        Location loc = new Location(Bukkit.getWorld(shopWorld), shopX, shopY, shopZ);
 
                         ItemStack itemstack = UtilMethods.itemStackFromBase64(item);
                         ItemStack barterItemstack = null;
@@ -346,22 +461,41 @@ public class LogHandler {
                             }
                         }
 
-                        OfflinePlayer purchaser = null;
-                        if (purchaserUUID != null && !purchaserUUID.isEmpty()) {
-                            purchaser = Bukkit.getServer().getOfflinePlayer(UUID.fromString(purchaserUUID));
-                        }
-
-                        offlineTransactions.addTx(loc, ShopType.valueOf(tType), price, purchaser, amount, itemstack, barterItemstack);
+                        // Defer Location creation and transaction recording: Bukkit.getWorld() is not
+                        // region-safe on Folia, so collect the data off-thread and build Locations
+                        // on the main thread below.
+                        pendingTx.add(new PendingTx(shopWorld, shopX, shopY, shopZ, tType, price, purchaserUUID, amount, itemstack, barterItemstack));
                     }
                 }
 
-                // Update offlineTransactions object with the calculated data
-                offlineTransactions.setNumTransactions(size);
-                offlineTransactions.setTotalProfit(totalProfit);
-                offlineTransactions.setTotalSpent(totalSpent);
-                offlineTransactions.setItemsBought(itemsBought);
-                offlineTransactions.setItemsSold(itemsSold);
-                offlineTransactions.setIsCalculating(false);
+                // Create Locations and record transactions on the main thread since Bukkit API is
+                // not region-safe on Folia. OfflinePlayer lookups are also moved onto the main thread.
+                final int numTransactions = size;
+                final double finalTotalProfit = totalProfit;
+                final double finalTotalSpent = totalSpent;
+                final Map<ItemStack, Integer> finalItemsBought = itemsBought;
+                final Map<ItemStack, Integer> finalItemsSold = itemsSold;
+
+                plugin.getFoliaLib().getScheduler().runLater(() -> {
+                    for (PendingTx tx : pendingTx) {
+                        Location loc = new Location(Bukkit.getWorld(tx.shopWorld()), tx.shopX(), tx.shopY(), tx.shopZ());
+
+                        OfflinePlayer purchaser = null;
+                        if (tx.purchaserUUID() != null && !tx.purchaserUUID().isEmpty()) {
+                            purchaser = Bukkit.getServer().getOfflinePlayer(UUID.fromString(tx.purchaserUUID()));
+                        }
+
+                        offlineTransactions.addTx(loc, ShopType.valueOf(tx.tType()), tx.price(), purchaser, tx.amount(), tx.itemstack(), tx.barterItemstack());
+                    }
+
+                    // Update offlineTransactions object with the calculated data
+                    offlineTransactions.setNumTransactions(numTransactions);
+                    offlineTransactions.setTotalProfit(finalTotalProfit);
+                    offlineTransactions.setTotalSpent(finalTotalSpent);
+                    offlineTransactions.setItemsBought(finalItemsBought);
+                    offlineTransactions.setItemsSold(finalItemsSold);
+                    offlineTransactions.setIsCalculating(false);
+                }, 0);
             } catch (SQLException e){
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to get offline transactions.");
                 e.printStackTrace();
@@ -378,6 +512,11 @@ public class LogHandler {
         });
     }
 
+    /**
+     * Tests the database connection.
+     *
+     * @throws SQLException If connection test fails
+     */
     private void testDataSource() throws SQLException {
         // Connect to datasource & create statement in "try" to handle automatically closing the connection!
         try (Connection conn = dataSource.getConnection()) {
@@ -394,13 +533,31 @@ public class LogHandler {
         }
     }
 
+    /**
+     * Metrics tracker for recent shop transactions.
+     */
     private final TransactionMetrics txMetrics = new TransactionMetrics();
 
-    // Inner class to store metrics for a time bucket
+    /**
+     * Inner class to store metrics for a time bucket.
+     */
     private static class TransactionMetrics {
+        /**
+         * Number of transactions in the current time bucket.
+         */
         private int transactionCount = 0;
+        /**
+         * Total item volume in the current time bucket.
+         */
         private int itemVolume = 0;
-        
+
+        /**
+         * Adds a transaction to the metrics.
+         *
+         * @param itemCount The number of items transacted
+         * @param price The price of the transaction
+         * @param isBarterOrItemCurrency Whether the transaction uses barter or item currency
+         */
         public void addTransaction(int itemCount, double price, boolean isBarterOrItemCurrency) {
             transactionCount++;
             itemVolume += itemCount;
@@ -409,32 +566,56 @@ public class LogHandler {
                 itemVolume += (int)price;
             }
         }
-        
+
+        /**
+         * Resets the transaction count to zero.
+         */
         public void resetTransactionCount() {
             transactionCount = 0;
         }
 
+        /**
+         * Resets the item volume to zero.
+         */
         public void resetItemVolume() {
             itemVolume = 0;
         }
-        
+
+        /**
+         * Gets the current transaction count.
+         *
+         * @return The number of transactions
+         */
         public int getTransactionCount() {
             return transactionCount;
         }
-        
+
+        /**
+         * Gets the current item volume.
+         *
+         * @return The total item volume
+         */
         public int getItemVolume() {
             return itemVolume;
         }
     }
 
-    // Get the number of transactions during the last 30 minutes
+    /**
+     * Gets the number of transactions during the last 30 minutes.
+     *
+     * @return The number of recent transactions
+     */
     public int getRecentTransactionCount() {
         int count = txMetrics.getTransactionCount();
         txMetrics.resetTransactionCount();
         return count;
     }
 
-    // Get the number of items bought and sold during the last 30 minutes
+    /**
+     * Gets the number of items bought and sold during the last 30 minutes.
+     *
+     * @return The total item volume
+     */
     public int getRecentItemVolume() {
         try {
             int volume = txMetrics.getItemVolume();
@@ -446,6 +627,11 @@ public class LogHandler {
         }
     }
 
+    /**
+     * Initializes database tables from setup file.
+     *
+     * @throws SQLException If database initialization fails
+     */
     private void initDb() throws SQLException {
         // first lets read our setup file.
         // This file contains statements to create our inital tables.
@@ -478,6 +664,11 @@ public class LogHandler {
         plugin.getLogger().debug("Successfully initialized database.");
     }
 
+    /**
+     * Returns whether the log handler is enabled.
+     *
+     * @return true if logging is enabled, false otherwise
+     */
     public boolean isEnabled() {
         return enabled;
     }
