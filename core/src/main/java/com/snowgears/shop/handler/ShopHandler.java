@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.nio.file.Files;
@@ -51,8 +52,8 @@ public class ShopHandler {
     public Shop plugin;
 
     private ConcurrentHashMap<Location, AbstractShop> allShops = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<UUID, List<Location>> playerShops = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<String, List<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
+    private ConcurrentHashMap<UUID, CopyOnWriteArrayList<Location>> playerShops = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, CopyOnWriteArrayList<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
     private ConcurrentHashMap<UUID, HashSet<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
     private Set<UUID> playersProcessingShopDisplays = ConcurrentHashMap.newKeySet();
     private ConcurrentHashMap<UUID, Location> playersActiveShopDisplayTag = new ConcurrentHashMap<>();
@@ -216,14 +217,14 @@ public class ShopHandler {
         }
         allShops.put(shop.getSignLocation(), shop);
 
-        List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
+        CopyOnWriteArrayList<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
         if(!playerShopLocations.contains(shop.getSignLocation())) {
             playerShopLocations.add(shop.getSignLocation());
             playerShops.put(shop.getOwnerUUID(), playerShopLocations);
         }
 
         String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-        List<Location> chunkShopLocations = getShopLocations(chunkKey);
+        CopyOnWriteArrayList<Location> chunkShopLocations = getShopLocations(chunkKey);
         if(!chunkShopLocations.contains(shop.getSignLocation())) {
             chunkShopLocations.add(shop.getSignLocation());
             chunkShops.put(chunkKey, chunkShopLocations);
@@ -246,7 +247,7 @@ public class ShopHandler {
             changed = true;
         }
         if(playerShops.containsKey(shop.getOwnerUUID())){
-            List<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
+            CopyOnWriteArrayList<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
             if(playerShopLocations.contains(shop.getSignLocation())) {
                 playerShopLocations.remove(shop.getSignLocation());
                 if (playerShopLocations.isEmpty()) {
@@ -259,7 +260,7 @@ public class ShopHandler {
         }
         String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
         if(chunkShops.containsKey(chunkKey)){
-            List<Location> chunkShopLocations = getShopLocations(chunkKey);
+            CopyOnWriteArrayList<Location> chunkShopLocations = getShopLocations(chunkKey);
             if(chunkShopLocations.contains(shop.getSignLocation())) {
                 chunkShopLocations.remove(shop.getSignLocation());
                 if (chunkShopLocations.isEmpty()) {
@@ -421,13 +422,13 @@ public class ShopHandler {
      * @param player The player's UUID
      * @return List of shop locations
      */
-    private List<Location> getShopLocations(UUID player){
-        List<Location> shopLocations;
+    private CopyOnWriteArrayList<Location> getShopLocations(UUID player){
+        CopyOnWriteArrayList<Location> shopLocations;
         if(playerShops.containsKey(player)) {
             shopLocations = playerShops.get(player);
         }
         else
-            shopLocations = new ArrayList<>();
+            shopLocations = new CopyOnWriteArrayList<>();
         return shopLocations;
     }
 
@@ -437,13 +438,13 @@ public class ShopHandler {
      * @param chunkKey The chunk key
      * @return List of shop locations
      */
-    private List<Location> getShopLocations(String chunkKey){
-        List<Location> shopLocations;
+    private CopyOnWriteArrayList<Location> getShopLocations(String chunkKey){
+        CopyOnWriteArrayList<Location> shopLocations;
         if(chunkShops.containsKey(chunkKey)) {
             shopLocations = chunkShops.get(chunkKey);
         }
         else {
-            shopLocations = new ArrayList<>();
+            shopLocations = new CopyOnWriteArrayList<>();
         }
         return shopLocations;
     }

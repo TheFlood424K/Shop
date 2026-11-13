@@ -33,13 +33,14 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class MiscListener implements Listener {
 
     public Shop plugin;
-    private HashMap<UUID, ShopCreationProcess> playerChatCreationSteps = new HashMap<>();
-    private HashMap<UUID, Long> lastChatCreation = new HashMap<>();
+    private ConcurrentHashMap<UUID, ShopCreationProcess> playerChatCreationSteps = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<UUID, Long> lastChatCreation = new ConcurrentHashMap<>();
 
     public MiscListener(Shop instance) {
         plugin = instance;

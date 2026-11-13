@@ -27,7 +27,11 @@ public class CommandHandler extends BukkitCommand {
         super(name, description, usageMessage, aliases);
         this.setPermission(permission);
         plugin = instance;
-        register();
+        try {
+            register();
+        } catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
     private void sendCommandMessage(String subType, Player player) {
