@@ -148,7 +148,7 @@ public class ShopCreationChestTest extends BaseMockBukkitTest {
         server.getScheduler().performTicks(5);
         server.getScheduler().waitAsyncTasksFinished();
         assertNull(getPlugin().getShopHandler().getShopByChest(chestBlock), "Shop should not be created when creation is cancelled");
-        assertNull(getPlugin().getShopListener().getShopCreationProcess(player), "Shop creation process should be removed after cancel");
+        assertNull(getPlugin().getMiscListener().getShopCreationProcess(player), "Shop creation process should be removed after cancel");
         assertEquals("§cCancelled shop creation.", player.nextMessage(), "Player should be sent cancel message");
     }
 
