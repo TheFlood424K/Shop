@@ -691,14 +691,14 @@ public class ShopMessage {
             String text_off = getUnformattedMessage("command", "notify_off");
 
             if (context.getPlayer() == null) {
-                return new TextComponent("");
+                return Component.empty();
             }
 
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_USER);
             // Returns text_on if notifications are set to ON, otherwise text_off
             String text = (guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) ? text_on : text_off;
             if (text == null) {
-                return new TextComponent("");
+                return Component.empty();
             }
             return format(text, context);
         });
@@ -708,13 +708,13 @@ public class ShopMessage {
             String text_off = getUnformattedMessage("command", "notify_off");
 
             if (context.getPlayer() == null) {
-                return new TextComponent("");
+                return Component.empty();
             }
 
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_OWNER);
             String text = (guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) ? text_on : text_off;
             if (text == null) {
-                return new TextComponent("");
+                return Component.empty();
             }
             return format(text, context);
         });
@@ -724,13 +724,13 @@ public class ShopMessage {
             String text_off = getUnformattedMessage("command", "notify_off");
 
             if (context.getPlayer() == null) {
-                return new TextComponent("");
+                return Component.empty();
             }
 
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_STOCK);
             String text = (guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) ? text_on : text_off;
             if (text == null) {
-                return new TextComponent("");
+                return Component.empty();
             }
             return format(text, context);
         });
