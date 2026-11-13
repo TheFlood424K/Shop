@@ -187,7 +187,9 @@ public class LogHandler {
             plugin.getLogger().notice(
                     player.getName() + " created a " + shop.getType().name().toUpperCase() + " shop at ("
                             + chestInfo
+                            // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
                             + ") item: " + (shop.getItemStack() != null ? ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getItemStack()))) : "null")
+                            // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
                             + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getSecondaryItemStack()))) : "")
             );
         }
@@ -198,7 +200,9 @@ public class LogHandler {
             plugin.getLogger().notice(
                     player.getName() + " destroyed a " + shop.getType().name().toUpperCase() + " shop at ("
                             + chestInfo
+                            // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
                             + ") item: " + (shop.getItemStack() != null ? ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getItemStack()))) : "null")
+                            // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
                             + (shop.getSecondaryItemStack() != null ? " barterItem: " + ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getSecondaryItemStack()))) : "")
             );
         }
@@ -256,6 +260,7 @@ public class LogHandler {
         String chestInfoTx = (shop.getChestLocation() != null)
                 ? ("x: " + shop.getChestLocation().getBlockX() + " y: " + shop.getChestLocation().getBlockY() + " z: " + shop.getChestLocation().getBlockZ())
                 : "null";
+        // TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
         String itemNameTx = (shop.getItemStack() != null) ? ChatColor.stripColor(PlainTextComponentSerializer.plainText().serialize(new ItemNameUtil().getName(shop.getItemStack()))) : "null";
         plugin.getLogger().helpful(
             "Shop " + shop.getType().name().toUpperCase() + " from/to " + player.getName() + ": "

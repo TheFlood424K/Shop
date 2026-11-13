@@ -70,14 +70,13 @@ Architecture: Maven multi-module (parent pom + core + dist). Core contains all p
 - No `net.md_5.bungee.*`, `player.spigot()`, `TextComponent`/`BaseComponent`, or `org.spigotmc.*` imports remain
 
 **Known issues**
-- ~443 `org.bukkit` imports across ~72 files (most are Bukkit API, not Spigot — acceptable)
-- `ChatColor` still used in multiple files (ShopMessage, ShopGuiHandler, AbstractShop, UtilMethods, ShopLogger, ComparatorItemstackName, BluemapHookListener) — Phase 3 TODO doc strings added at all usage sites
-- `CommandHandler` registration now uses Paper `Bukkit.getCommandMap()` instead of reflection
+- `ChatColor` still used in multiple files with Phase 3 TODO doc strings (ShopMessage, ShopGuiHandler, AbstractShop, UtilMethods, ShopLogger, ComparatorItemstackName, BluemapHookListener) — pending Adventure component replacement
+- `CommandHandler` registration uses Paper `Bukkit.getCommandMap()` instead of reflection
 - `TransactionHandler.shopMessageCooldown` changed to `ConcurrentHashMap` for Folia region-thread safety
 
 **Next**
 - Verify CI build passes
-- Commit and push changes to branch `theflood424k-plugin-compatibility-audit`
+- Resolve open issues (#432-#439, #187) in a single PR
 - Create migration plan for remaining Phase 3 work (ChatColor → Adventure component replacement)
 
 ## 8. Team and Handoff

@@ -185,6 +185,10 @@ destroyShopRequiresSneak: false
 playSounds: true
 playEffects: true
 
+# How many seconds a player has to complete shop creation before the process times out.
+# Default: 120 seconds (2 minutes). Applies to both sign-based and chat-based creation.
+shopCreationTimeout: 120
+
 # If this is set to true, LEFT side of combo shop signs will BUY items and RIGHT side will SELL items #
 # If this is set to false, LEFT side of combo shop signs will SELL items and RIGHT side will BUY items #
 inverseComboShops: false
