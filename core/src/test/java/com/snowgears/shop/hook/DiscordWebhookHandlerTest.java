@@ -31,6 +31,15 @@ class DiscordWebhookHandlerTest extends BaseMockBukkitTest {
         };
     }
 
+    private DiscordWebhookHandler createSyncHandler(Shop plugin, WebhookSender sender, DiscordDmSender dmSender) {
+        return new DiscordWebhookHandler(plugin, sender, dmSender) {
+            @Override
+            void runAsync(Runnable r) {
+                r.run();
+            }
+        };
+    }
+
     @Test
     void configDefaults_discordDisabled() {
         // discord.enabled defaults to false
@@ -182,6 +191,80 @@ class DiscordWebhookHandlerTest extends BaseMockBukkitTest {
         handler.onPlayerExchangeShop(event);
 
         verify(sender, times(1)).send(eq("https://discord.com/api/webhooks/test"), anyString());
+    }
+
+    @Test
+    void notifyShopOwnerDm_true_ownerLinked_dmSent() {
+        getPlugin().getConfig().set("discord.enabled", true);
+        setRawConfig("discord.webhookUrl", "https://discord.com/api/webhooks/test");
+        getPlugin().getConfig().set("discord.notifyShopOwnerDm", true);
+
+        WebhookSender sender = mock(WebhookSender.class);
+        DiscordDmSender dmSender = mock(DiscordDmSender.class);
+        DiscordWebhookHandler handler = createSyncHandler(getPlugin(), sender, dmSender);
+        PlayerMock buyer = getServer().addPlayer("Buyer");
+        PlayerMock owner = getServer().addPlayer("ShopOwner");
+        AbstractShop shop = mock(AbstractShop.class);
+        when(shop.isAdmin()).thenReturn(false);
+        when(shop.getType()).thenReturn(ShopType.SELL);
+        when(shop.getOwnerName()).thenReturn("ShopOwner");
+        ItemStack itemStack = mock(ItemStack.class);
+        when(itemStack.getType()).thenReturn(Material.STONE);
+        when(shop.getItemStack()).thenReturn(itemStack);
+
+        PlayerExchangeShopEvent event = new PlayerExchangeShopEvent(buyer, shop);
+
+        handler.onPlayerExchangeShop(event);
+
+        verify(dmSender, times(1)).sendDirectMessageIfLinked(eq(owner), anyString());
+    }
+
+    @Test
+    void notifyShopOwnerDm_false_noDm() {
+        getPlugin().getConfig().set("discord.enabled", true);
+        setRawConfig("discord.webhookUrl", "https://discord.com/api/webhooks/test");
+        // notifyShopOwnerDm defaults to false
+
+        WebhookSender sender = mock(WebhookSender.class);
+        DiscordDmSender dmSender = mock(DiscordDmSender.class);
+        DiscordWebhookHandler handler = createSyncHandler(getPlugin(), sender, dmSender);
+        PlayerMock buyer = getServer().addPlayer("Buyer");
+        PlayerMock owner = getServer().addPlayer("ShopOwner");
+        AbstractShop shop = mock(AbstractShop.class);
+        when(shop.isAdmin()).thenReturn(false);
+        when(shop.getType()).thenReturn(ShopType.SELL);
+        when(shop.getOwnerName()).thenReturn("ShopOwner");
+        ItemStack itemStack = mock(ItemStack.class);
+        when(itemStack.getType()).thenReturn(Material.STONE);
+        when(shop.getItemStack()).thenReturn(itemStack);
+
+        PlayerExchangeShopEvent event = new PlayerExchangeShopEvent(buyer, shop);
+
+        handler.onPlayerExchangeShop(event);
+
+        verify(dmSender, never()).sendDirectMessageIfLinked(any(), anyString());
+    }
+
+    @Test
+    void adminShop_notifyShopOwnerDm_true_noDm() {
+        getPlugin().getConfig().set("discord.enabled", true);
+        setRawConfig("discord.webhookUrl", "https://discord.com/api/webhooks/test");
+        getPlugin().getConfig().set("discord.notifyShopOwnerDm", true);
+
+        WebhookSender sender = mock(WebhookSender.class);
+        DiscordDmSender dmSender = mock(DiscordDmSender.class);
+        DiscordWebhookHandler handler = createSyncHandler(getPlugin(), sender, dmSender);
+        PlayerMock buyer = getServer().addPlayer("Buyer");
+        AbstractShop shop = mock(AbstractShop.class);
+        when(shop.isAdmin()).thenReturn(true);
+        when(shop.getType()).thenReturn(ShopType.SELL);
+        when(shop.getOwnerName()).thenReturn("Admin");
+
+        PlayerExchangeShopEvent event = new PlayerExchangeShopEvent(buyer, shop);
+
+        handler.onPlayerExchangeShop(event);
+
+        verify(dmSender, never()).sendDirectMessageIfLinked(any(), anyString());
     }
 
     @Test
