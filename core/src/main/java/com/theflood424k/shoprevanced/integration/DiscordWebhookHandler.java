@@ -10,13 +10,16 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
 /**
- * Sends Discord webhook notifications for shop transactions.
- * Listens for PlayerExchangeShopEvent and posts a rich embed to a configured Discord webhook URL.
+ * Sends Discord notifications for shop transactions.
+ * Listens for PlayerExchangeShopEvent and posts a rich embed to a configured
+ * Discord webhook URL, and optionally DMs the shop owner when their account is
+ * linked through DiscordSRV.
  */
 public class DiscordWebhookHandler implements Listener {
 
     private final Shop plugin;
     private final WebhookSender sender;
+    private final DiscordDmSender discordDmSender;
 
     private boolean enabled;
     private String webhookUrl;
@@ -25,16 +28,22 @@ public class DiscordWebhookHandler implements Listener {
     private boolean notifyOnBarter;
     private boolean notifyOnGamble;
     private boolean notifyOnAdminShop;
+    private boolean notifyShopOwnerDm;
     private String username;
     private String avatarUrl;
 
     public DiscordWebhookHandler(Shop instance) {
-        this(instance, new HttpWebhookSender());
+        this(instance, new HttpWebhookSender(), null);
     }
 
     DiscordWebhookHandler(Shop instance, WebhookSender sender) {
+        this(instance, sender, null);
+    }
+
+    public DiscordWebhookHandler(Shop instance, WebhookSender sender, DiscordDmSender discordDmSender) {
         plugin = instance;
         this.sender = sender;
+        this.discordDmSender = discordDmSender;
         loadConfig();
     }
 
@@ -46,6 +55,7 @@ public class DiscordWebhookHandler implements Listener {
         notifyOnBarter = plugin.getConfig().getBoolean("discord.notifyOnBarter", true);
         notifyOnGamble = plugin.getConfig().getBoolean("discord.notifyOnGamble", true);
         notifyOnAdminShop = plugin.getConfig().getBoolean("discord.notifyOnAdminShop", false);
+        notifyShopOwnerDm = plugin.getConfig().getBoolean("discord.notifyShopOwnerDm", false);
         username = plugin.getConfig().getString("discord.username", "Shop");
         avatarUrl = plugin.getConfig().getString("discord.avatarUrl", "");
     }
@@ -78,6 +88,11 @@ public class DiscordWebhookHandler implements Listener {
 
         // Send asynchronously to avoid blocking the main thread
         runAsync(() -> sendWebhook(player, shop, type));
+
+        // Optionally DM the shop owner if their account is linked via DiscordSRV
+        if (notifyShopOwnerDm && discordDmSender != null && !shop.isAdmin()) {
+            runAsync(() -> sendDmToOwner(player, shop, type));
+        }
     }
 
     /**
@@ -96,6 +111,33 @@ public class DiscordWebhookHandler implements Listener {
 
         String json = buildJsonPayload(player, shop, type, itemName, amount, price, ownerName);
         sender.send(webhookUrl, json);
+    }
+
+    private void sendDmToOwner(Player buyer, AbstractShop shop, ShopType type) {
+        String ownerName = shop.getOwnerName();
+        Player owner = Bukkit.getPlayer(ownerName);
+        if (owner == null) {
+            return;
+        }
+
+        String itemName = shop.getItemStack().getType().name();
+        int amount = shop.getAmount();
+        double price = shop.getPrice();
+        String message = buildDmMessage(buyer, shop, type, itemName, amount, price);
+
+        discordDmSender.sendDirectMessageIfLinked(owner, message);
+    }
+
+    private String buildDmMessage(Player buyer, AbstractShop shop, ShopType type, String itemName, int amount, double price) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Shop Transaction Notification\n");
+        sb.append("Type: ").append(type.name()).append("\n");
+        sb.append("Player: ").append(escapeJson(buyer.getName())).append("\n");
+        sb.append("Shop: ").append(escapeJson(shop.getOwnerName())).append("\n");
+        sb.append("Item: ").append(escapeJson(itemName)).append("\n");
+        sb.append("Amount: ").append(amount).append("\n");
+        sb.append("Price: ").append(price).append("\n");
+        return sb.toString();
     }
 
     private String buildJsonPayload(Player player, AbstractShop shop, ShopType type, String itemName, int amount, double price, String ownerName) {

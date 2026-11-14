@@ -369,6 +369,8 @@ discord:
    notifyOnGamble: true
    # Notify on transactions from admin shops
    notifyOnAdminShop: false
+   # DM the shop owner on Discord when their account is linked via DiscordSRV
+   notifyShopOwnerDm: false
    # Custom username for webhook messages
    username: "Shop"
    # Custom avatar URL for webhook messages
