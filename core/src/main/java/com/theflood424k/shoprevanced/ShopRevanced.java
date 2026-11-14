@@ -51,6 +51,7 @@ public class ShopRevanced extends JavaPlugin {
     private MiscListener miscListener;
     private CreativeSelectionListener creativeSelectionListener;
     private ShopGUIListener guiListener;
+    private DiscordWebhookHandler discordWebhookHandler;
 
     // Split listeners extracted from MiscListener and ShopRevancedListener
     private BucketEmptyListener bucketEmptyListener;
@@ -440,6 +441,15 @@ public class ShopRevanced extends JavaPlugin {
 
         // Initialize all optional plugin integrations via IntegrationManager
         integrationManager.initialize();
+
+        // Discord integration (does not require another plugin to be installed)
+        discordWebhookHandler = new DiscordWebhookHandler(this);
+        if (plugin.getConfig().getBoolean("discord.enabled", false)) {
+            getServer().getPluginManager().registerEvents(discordWebhookHandler, this);
+            this.getLogger().notice("Discord integration enabled, sending transaction notifications to configured webhook");
+        } else {
+            this.getLogger().notice("Discord integration is disabled in config.yml");
+        }
 
         int bstatsPluginId = 25211;
         metrics = new Metrics(plugin, bstatsPluginId);
