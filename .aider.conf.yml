@@ -1,0 +1,26 @@
+# Aider configuration for Shop v2.0
+# Shop — chest-based Minecraft shop plugin (Java 25, PaperMC 26.2)
+
+# Load project instruction files as context
+read:
+  - .cursor/rules/shop-project.mdc
+  - .cursor/rules/shop-codequality.mdc
+  - .cursor/rules/shop-clean-code.mdc
+  - .cursor/rules/shop-java.mdc
+  - .github/copilot-instructions.md
+
+# Model and environment settings
+model: auto
+encode: utf-8
+
+# Always diff before committing
+diff: true
+
+# Shop-specific constraints as system reminder
+system_prompt: >
+  You are working on Shop v2.0, a chest-based shop plugin for Minecraft Java Edition 26.2.
+  Supported baseline: Java 25, PaperMC 26.2+, DivineMC 26.2-26.3, Folia.
+  Hard constraints: No org.spigotmc.* imports, no Bungee chat components, no player.spigot().sendMessage(),
+  no NMS modules. Use Adventure Component for all user-facing text. Use Folia-safe scheduling.
+  Build/test: .\mvnw.cmd clean compile | .\mvnw.cmd test | .\mvnw.cmd clean package.
+  Never commit credentials, tokens, production databases, or private server logs.
