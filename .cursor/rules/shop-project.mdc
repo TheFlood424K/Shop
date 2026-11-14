@@ -1,0 +1,65 @@
+---
+description: Shop v2.0 project identity, stack, build, and hard constraints
+alwaysApply: true
+---
+
+# Shop v2.0 — Project Identity
+
+## Project
+
+**Shop** — chest-based shop plugin for Minecraft Java Edition 26.2.  
+Release line: **v2.0** (modernization complete).  
+Repository: `TheFlood424K/Shop`
+
+## Supported Baseline
+
+| Area | Version |
+|------|---------|
+| Java | 25 |
+| Server API | PaperMC 26.2+ (`api-version: 26.2`) |
+| Supported servers | PaperMC 26.2+, DivineMC 26.2–26.3, Folia |
+| Build | Maven multi-module (`parent`, `core`, `dist`) |
+| Text | Kyori Adventure Components (Adventure BOM 5.2.0) |
+| Scheduling | FoliaLib 0.5.2 + region-safe Bukkit scheduling |
+| Economy | VaultUnlocked 2.15.0 |
+| Protection | GriefPrevention3D |
+| Bedrock | Geyser API 2.11.2-SNAPSHOT, Floodgate API 2.2.5-SNAPSHOT |
+| Storage | H2 2.5.252, MariaDB client 4.0.0, HikariCP 7.1.0 |
+| Tests | JUnit 6.1.3, Mockito 5.24.0, MockBukkit 4.117.0 |
+
+## Build & Test Commands (from repo root)
+
+```powershell
+# Compile
+.\mvnw.cmd clean compile
+
+# Run full test suite (165 tests)
+.\mvnw.cmd test
+
+# Build distribution JAR
+.\mvnw.cmd clean package
+
+# Skip tests for iteration
+.\mvnw.cmd clean package -DskipTests
+
+# Coverage report
+.\mvnw.cmd -Pcoverage-report verify
+```
+
+## Hard Constraints (never violate)
+
+- **No `org.spigotmc.*` imports** — removed in v2.0
+- **No BungeeCord chat components** (`net.md_5.bungee.api.chat.*`) — replaced with Adventure `Component`
+- **No `player.spigot().sendMessage()`** — use `player.sendMessage(Component)`
+- **No NMS modules** or version-specific server internals
+- **No legacy Spigot APIs** where Paper-supported equivalents exist
+- **No hard dependencies** for integrations that can remain soft
+- Never commit credentials, tokens, production databases, or private server logs
+
+## Text Model
+
+All user-facing text uses Adventure `Component` objects. `ShopMessage` supports MiniMessage-style tags with `LegacyComponentSerializer` for legacy `&` code compatibility. Placeholder values must be treated as plain text, never MiniMessage input.
+
+## Concurrency Model
+
+Folia compatibility requires region-owned scheduling. Mutable shared state uses concurrent collections. World/block/sign access must occur in scheduler contexts that own the affected region. Never assume all worlds share one main thread.
