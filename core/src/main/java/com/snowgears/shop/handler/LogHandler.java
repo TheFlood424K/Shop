@@ -21,6 +21,7 @@ import java.io.InputStreamReader;
 import java.sql.*;
 import java.util.*;
 import java.util.Date;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
@@ -369,6 +370,156 @@ public class LogHandler {
                 plugin.getLogger().log(Level.WARNING,"SQL error occurred while trying to log transaction/shop action.");
                 e.printStackTrace();
             }
+        });
+    }
+
+    /**
+     * Looks up past shop transactions for a given shop owner, optionally filtered by time range,
+     * customer name, action type, and result limit. Results are returned newest-first via the
+     * supplied callback (invoked on the async database thread).
+     *
+     * @param ownerUUID The shop owner to look up transactions for (null = all owners)
+     * @param startTime Earliest timestamp (epoch ms) to include; 0 = no lower bound
+     * @param endTime   Latest timestamp (epoch ms) to include; 0 = no upper bound
+     * @param filter    Additional filter criteria (customer name, action type, limit)
+     * @param callback  Invoked with the list of matching transaction records
+     */
+    public void getShopTransactions(UUID ownerUUID, long startTime, long endTime,
+                                    TransactionLookupFilter filter,
+                                    Consumer<List<PlayerTransactionRecord>> callback) {
+        if (!enabled) {
+            callback.accept(Collections.emptyList());
+            return;
+        }
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            StringBuilder sql = new StringBuilder(
+                    "SELECT sa.transaction_id AS action_id, sa.ts, sa.player_uuid, sa.owner_uuid, " +
+                            "sa.player_action, sa.transaction_id, " +
+                            "st.t_type, st.price, st.amount, st.item, st.barter_item " +
+                            "FROM shop_action sa " +
+                            "INNER JOIN shop_transaction st ON sa.transaction_id = st.id ");
+            List<Object> params = new ArrayList<>();
+
+            boolean hasWhere = false;
+
+            String ownerStr = null;
+            if (ownerUUID != null) {
+                ownerStr = ownerUUID.equals(plugin.getShopHandler().getAdminUUID()) ? "admin" : ownerUUID.toString();
+                sql.append(hasWhere ? "AND " : "WHERE ");
+                sql.append("sa.owner_uuid = ? ");
+                params.add(ownerStr);
+                hasWhere = true;
+            }
+            if (startTime > 0) {
+                sql.append(hasWhere ? "AND " : "WHERE ");
+                sql.append("sa.ts >= ? ");
+                params.add(new Timestamp(startTime));
+                hasWhere = true;
+            }
+            if (endTime > 0) {
+                sql.append(hasWhere ? "AND " : "WHERE ");
+                sql.append("sa.ts <= ? ");
+                params.add(new Timestamp(endTime));
+                hasWhere = true;
+            }
+
+            if (filter != null) {
+                if (filter.getCustomerName() != null && !filter.getCustomerName().isEmpty()) {
+                    sql.append(hasWhere ? "AND " : "WHERE ");
+                    sql.append("sa.player_uuid = ? ");
+                    params.add(filter.getCustomerName());
+                    hasWhere = true;
+                }
+                if (filter.getActionType() != null) {
+                    sql.append(hasWhere ? "AND " : "WHERE ");
+                    sql.append("sa.player_action = ? ");
+                    params.add(filter.getActionType().toString());
+                    hasWhere = true;
+                }
+            }
+
+            sql.append("ORDER BY sa.ts DESC ");
+
+            if (filter != null && filter.getLimit() > 0) {
+                sql.append("LIMIT ").append(filter.getLimit()).append(" ");
+            }
+
+            List<PlayerTransactionRecord> records = new ArrayList<>();
+            try {
+                try (Connection conn = dataSource.getConnection();
+                     PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+                    for (int i = 0; i < params.size(); i++) {
+                        Object param = params.get(i);
+                        if (param instanceof Integer) {
+                            stmt.setInt(i + 1, (Integer) param);
+                        } else {
+                            stmt.setObject(i + 1, param);
+                        }
+                    }
+                    ResultSet resultSet = stmt.executeQuery();
+                    int count = 0;
+                    while (resultSet.next()) {
+                        count++;
+                        String customerName = resultSet.getString("player_uuid");
+                        String actionStr = resultSet.getString("player_action");
+                        ShopActionType actionType = ShopActionType.TRANSACT;
+                        try {
+                            actionType = ShopActionType.valueOf(actionStr);
+                        } catch (IllegalArgumentException ignored) {
+                        }
+                        double price = resultSet.getDouble("price");
+                        int amount = resultSet.getInt("amount");
+                        String itemBase64 = resultSet.getString("item");
+                        String barterItemBase64 = resultSet.getString("barter_item");
+                        long timestamp = resultSet.getTimestamp("ts").getTime();
+
+                        // Resolve customer name from UUID if possible
+                        String resolvedCustomer = customerName;
+                        try {
+                            org.bukkit.OfflinePlayer offlinePlayer = plugin.getServer().getOfflinePlayer(
+                                    java.util.UUID.fromString(customerName));
+                            String name = offlinePlayer.getName();
+                            if (name != null && !name.isEmpty()) {
+                                resolvedCustomer = name;
+                            }
+                        } catch (IllegalArgumentException ignored) {
+                            // Not a valid UUID, keep as-is
+                        }
+
+                        String ownerName = ownerStr;
+                        try {
+                            org.bukkit.OfflinePlayer offlinePlayer = plugin.getServer().getOfflinePlayer(
+                                    java.util.UUID.fromString(ownerStr));
+                            String name = offlinePlayer.getName();
+                            if (name != null && !name.isEmpty()) {
+                                resolvedCustomer = resolvedCustomer; // keep
+                                ownerName = name;
+                            }
+                            if ("admin".equals(ownerStr)) {
+                                ownerName = "admin";
+                            }
+                        } catch (IllegalArgumentException ignored) {
+                        }
+
+                        records.add(new PlayerTransactionRecord(
+                                resultSet.getInt("action_id"),
+                                timestamp,
+                                resolvedCustomer,
+                                ownerName,
+                                actionType,
+                                price,
+                                amount,
+                                itemBase64,
+                                barterItemBase64
+                        ));
+                    }
+                }
+            } catch (Throwable e) {
+                plugin.getLogger().log(Level.WARNING, "Error looking up shop transactions.", e);
+            }
+
+            callback.accept(records);
         });
     }
 
