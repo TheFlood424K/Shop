@@ -67,6 +67,7 @@ public class Shop extends JavaPlugin {
     private CashierLockTrustListener cashierLockTrustListener;
     private GriefPreventionHookListener griefPreventionHookListener;
     private GeyserFloodgateHook geyserFloodgateHook;
+    private DiscordWebhookHandler discordWebhookHandler;
     private Boolean arclightExists = false;
 
     private boolean worldGuardIntegrationEnabled;
@@ -704,6 +705,20 @@ public class Shop extends JavaPlugin {
             } else {
                 this.getLogger().notice("GeyserMC/Floodgate detected, but Shop Geyser integration is disabled via `" + CONFIG_PATH_GEYSER_ENABLED + ": false`");
             }
+        }
+
+        // Discord integration (does not require another plugin to be installed)
+        boolean dmEnabled = this.getConfig().getBoolean("discord.notifyShopOwnerDm", false);
+        DiscordDmSender discordDmSender = dmEnabled ? new DiscordSRVDmSender() : null;
+        discordWebhookHandler = new DiscordWebhookHandler(this, new HttpWebhookSender(), discordDmSender);
+        if (plugin.getConfig().getBoolean("discord.enabled", false)) {
+            getServer().getPluginManager().registerEvents(discordWebhookHandler, this);
+            this.getLogger().notice("Discord integration enabled, sending transaction notifications to configured webhook");
+            if (dmEnabled) {
+                this.getLogger().notice("Discord owner DM notifications enabled via DiscordSRV");
+            }
+        } else {
+            this.getLogger().notice("Discord integration is disabled in config.yml");
         }
 
         int bstatsPluginId = 25211;

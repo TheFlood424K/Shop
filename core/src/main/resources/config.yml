@@ -351,6 +351,30 @@ griefprevention:
    enabled: true
 geyser:
    enabled: true
+
+# Discord Integration Settings
+# Sends shop transaction notifications to a Discord channel via webhook
+discord:
+   # Master toggle for Discord integration
+   enabled: false
+   # Discord webhook URL (https://discord.com/api/webhooks/...)
+   webhookUrl: ""
+   # Notify on shop sales (shop sells to player)
+   notifyOnSale: true
+   # Notify on shop purchases (shop buys from player)
+   notifyOnBuy: true
+   # Notify on barter transactions
+   notifyOnBarter: true
+   # Notify on gamble transactions
+   notifyOnGamble: true
+   # Notify on transactions from admin shops
+   notifyOnAdminShop: false
+   # DM the shop owner on Discord when their account is linked via DiscordSRV
+   notifyShopOwnerDm: false
+   # Custom username for webhook messages
+   username: "Shop"
+   # Custom avatar URL for webhook messages
+   avatarUrl: ""
 land:
    enabled: true
 arclight:
