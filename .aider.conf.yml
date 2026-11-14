@@ -43,4 +43,6 @@ system_prompt: >
   java-mcp-development:java-mcp-expert, java-upgrade, java-debugging, java-docs,
   microsoft-docs, microsoft-code-reference, skeptic-review, strategy-stakes-review,
   evidence-calibration-review, adjudicator-synthesis, voice-identity-review, automate-this,
-  apify:apify, awesome-copilot:*.
+    apify:apify, awesome-copilot:*. Use up to three subagents at a time to speed up
+    independent work; dispatch subagents concurrently for parallelizable tasks rather
+    than sequentially.

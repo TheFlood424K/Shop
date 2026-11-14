@@ -205,3 +205,7 @@ Use `configure_workflow`, `set_step_status`, `get_workflow_state`, `refresh_from
 - `awesome-copilot:suggest-awesome-github-copilot-skills` — Suggest skills
 - `awesome-copilot:suggest-awesome-github-copilot-instructions` — Suggest instructions
 - `awesome-copilot:suggest-awesome-github-copilot-agents` — Suggest agents
+
+## Subagent Parallelism
+
+Use up to three subagents at a time to speed up independent work. For parallelizable tasks (e.g., reading multiple files, running independent searches, making edits to separate files), dispatch subagents concurrently rather than sequentially. Only use subagents when the work genuinely benefits from separate context; simple lookups and direct file edits should be handled inline. Monitor subagent results and integrate them before proceeding to dependent steps.
