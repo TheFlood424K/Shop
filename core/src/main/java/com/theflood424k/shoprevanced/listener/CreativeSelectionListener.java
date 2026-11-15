@@ -37,7 +37,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 import java.util.logging.Level;
 
@@ -47,7 +47,7 @@ import static com.theflood424k.shoprevanced.util.ShopRevancedCreationProcess.Cha
 public class CreativeSelectionListener implements Listener {
 
     private ShopRevanced plugin;
-    private HashMap<UUID, PlayerData> playerDataMap = new HashMap<>();
+    private ConcurrentHashMap<UUID, PlayerData> playerDataMap = new ConcurrentHashMap<>();
 
     public CreativeSelectionListener(ShopRevanced instance) {
         plugin = instance;
@@ -194,10 +194,10 @@ public class CreativeSelectionListener implements Listener {
             }
             
             // Check if we have a chat ShopRevanced creation in process, and cancel it
-            ShopRevancedCreationProcess process = plugin.getMiscListener().getShopRevancedCreationProcess(player);
+            ShopRevancedCreationProcess process = plugin.getShopCreationProcessManager().getShopRevancedCreationProcess(player);
             // If we are in the ITEM/BARTER_ITEM selection stage, then cancel the ShopRevanced chat creation process!
             if (process != null && (process.getStep() == ITEM || process.getStep() == BARTER_ITEM)) {
-                plugin.getMiscListener().cancelShopRevancedCreationProcess(player);
+                plugin.getShopCreationProcessManager().cancelShopRevancedCreationProcess(player);
             }
         }
     }
@@ -276,10 +276,10 @@ public class CreativeSelectionListener implements Listener {
                     removePlayerFromCreativeSelection(player);
                 }
                 //there is a chest creation process
-                else if(plugin.getMiscListener().getShopRevancedCreationProcess(player) != null) {
+                else if(plugin.getShopCreationProcessManager().getShopRevancedCreationProcess(player) != null) {
 
                     //they just hit a chest with an open hand (so they are making a BUY ShopRevanced) and now need to choose an item from creative selection
-                    ShopRevancedCreationProcess currentProcess = plugin.getMiscListener().getShopRevancedCreationProcess(player);
+                    ShopRevancedCreationProcess currentProcess = plugin.getShopCreationProcessManager().getShopRevancedCreationProcess(player);
                     if(currentProcess.getStep() == ITEM){
                         currentProcess.setItemStack(selectedItem);
                         currentProcess.setShopType(ShopType.BUY);
@@ -371,7 +371,7 @@ public class CreativeSelectionListener implements Listener {
         playerData.setLastMessageTime(System.currentTimeMillis());
 
         // display the floating text for the ShopRevanced type, get the process
-        ShopRevancedCreationProcess process = plugin.getMiscListener().getShopRevancedCreationProcess(player);
+        ShopRevancedCreationProcess process = plugin.getShopCreationProcessManager().getShopRevancedCreationProcess(player);
         if(process != null){
             if(playerData.isGuiSearch()){
                 process.displayFloatingTextList("guiSearchSelection", "enter");

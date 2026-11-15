@@ -5,6 +5,10 @@ import com.theflood424k.shoprevanced.display.AbstractDisplay;
 import com.theflood424k.shoprevanced.display.Display;
 import com.theflood424k.shoprevanced.display.DisplayDisabled;
 import com.theflood424k.shoprevanced.display.DisplayType;
+import com.theflood424k.shoprevanced.handler.ShopDisplayManager;
+import com.theflood424k.shoprevanced.handler.ShopItemListManager;
+import com.theflood424k.shoprevanced.handler.ShopSaveLoad;
+import com.theflood424k.shoprevanced.handler.ShopStorage;
 import com.theflood424k.shoprevanced.shop.AbstractShop;
 import com.theflood424k.shoprevanced.shop.ComboShop;
 import com.theflood424k.shoprevanced.shop.ShopType;
@@ -51,27 +55,22 @@ public class ShopRevancedHandler {
 
     public ShopRevanced plugin;
 
-    private ConcurrentHashMap<Location, AbstractShop> allShops = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<UUID, CopyOnWriteArrayList<Location>> playerShops = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<String, CopyOnWriteArrayList<Location>> chunkShops = new ConcurrentHashMap<>(); //String key = world_x_z
-    private ConcurrentHashMap<UUID, HashSet<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
-    private Set<UUID> playersProcessingShopDisplays = ConcurrentHashMap.newKeySet();
-    private ConcurrentHashMap<UUID, Location> playersActiveShopDisplayTag = new ConcurrentHashMap<>();
+    private final ShopStorage storage;
+    private final ShopSaveLoad saveLoad;
+    private final ShopDisplayManager displayManager;
+    private final ShopItemListManager itemListManager;
 
-    //all loading of shops happens async at onEnable()
-    //shops that still need to calculate their facing direction based on sign are considered "unloaded"
-    //we will be loading these shops at time of chunkload and resaving them so they are saved with the 'facing' variable
-    private ConcurrentHashMap<String, List<Location>> unloadedShopsByChunk = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, HashSet<Location>> playersWithActiveShopDisplays = new ConcurrentHashMap<>();
+    private final Set<UUID> playersProcessingShopDisplays = ConcurrentHashMap.newKeySet();
+    private final ConcurrentHashMap<UUID, Location> playersActiveShopDisplayTag = new ConcurrentHashMap<>();
+
     private UUID adminUUID;
-    private BlockFace[] directions = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
-
-    private ArrayList<ItemStack> itemListItems = new ArrayList<>();
 
     // Map to track player last processed locations for movement-based display updates
-    private ConcurrentHashMap<UUID, Location> lastProcessedLocations = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Location> lastProcessedLocations = new ConcurrentHashMap<>();
 
     // Teleport cooldown map to prevent multiple display updates during teleportation
-    private ConcurrentHashMap<UUID, Long> teleportCooldowns = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Long> teleportCooldowns = new ConcurrentHashMap<>();
     // Cooldown time in milliseconds (500ms = half a second)
     private static final long TELEPORT_COOLDOWN_MS = 500;
 
@@ -82,11 +81,15 @@ public class ShopRevancedHandler {
      */
     public ShopRevancedHandler(ShopRevanced instance) {
         plugin = instance;
-        adminUUID = UUID.randomUUID();
-        initItemList();
+        storage = new ShopStorage(plugin);
+        saveLoad = new ShopSaveLoad(plugin, storage);
+        displayManager = new ShopDisplayManager(plugin, storage);
+        itemListManager = new ShopItemListManager(plugin);
+        adminUUID = storage.getAdminUUID();
+        itemListManager.initItemList();
 
         plugin.getFoliaLib().getScheduler().runLater(() -> {
-            loadShops();
+            saveLoad.loadShops();
         }, 100);
     }
 
@@ -114,7 +117,7 @@ public class ShopRevancedHandler {
      * @return The ShopRevanced at the location, or null if none exists
      */
     public AbstractShop getShop(Location loc) {
-        return allShops.get(loc);
+        return storage.getShop(loc);
     }
 
     /**
@@ -124,60 +127,7 @@ public class ShopRevancedHandler {
      * @return The ShopRevanced associated with the chest, or null if none exists
      */
     public AbstractShop getShopByChest(Block shopChest) {
-
-        try {
-            if(isChest(shopChest)) {
-
-                AbstractShop shop = null;
-                InventoryHolder ih = null;
-
-                //if the ShopRevanced is a single chest or double chest, add the chest blocks to check
-                if (shopChest.getState() instanceof Chest) {
-                    Chest chest = (Chest) shopChest.getState();
-                    ih = chest.getInventory().getHolder();
-
-                    if (ih instanceof DoubleChest) {
-
-                        DoubleChest dc = (DoubleChest) ih;
-                        Chest leftChest = (Chest) dc.getLeftSide();
-                        Chest rightChest = (Chest) dc.getRightSide();
-
-                        for (BlockFace direction : directions) {
-                            shop = this.getShop(leftChest.getBlock().getRelative(direction).getLocation());
-                            if (shop != null) {
-                                //make sure the ShopRevanced sign you found is actually attached to the correct ShopRevanced
-                                if (leftChest.getLocation().equals(shop.getChestLocation()) || rightChest.getLocation().equals(shop.getChestLocation()))
-                                    return shop;
-                            }
-                            shop = this.getShop(rightChest.getBlock().getRelative(direction).getLocation());
-                            if (shop != null) {
-                                //make sure the ShopRevanced sign you found is actually attached to the correct ShopRevanced
-                                if (shop.getChestLocation().equals(leftChest.getLocation()) || shop.getChestLocation().equals(rightChest.getLocation()))
-                                    return shop;
-                            }
-                        }
-                        return null;
-                    }
-                }
-
-                for (BlockFace direction : directions) {
-                    shop = this.getShop(shopChest.getRelative(direction).getLocation());
-                    if (shop != null) {
-                        //make sure the ShopRevanced sign you found is actually attached to the correct ShopRevanced
-                        if (shopChest.getLocation().equals(shop.getChestLocation()))
-                            return shop;
-                    }
-                }
-                return null;
-            }
-        } catch (NoClassDefFoundError e) {
-            plugin.getLogger().warning("NoClassDefFoundError caught in getShopByChest: " + e.getMessage());
-            // Class not found - cannot look up ShopRevanced, returning null
-        } catch (Exception e) {
-            plugin.getLogger().warning("Exception caught in getShopByChest: " + e.getMessage());
-        }
-
-        return null;
+        return storage.getShopByChest(shopChest);
     }
 
     /**
@@ -187,20 +137,7 @@ public class ShopRevancedHandler {
      * @return The ShopRevanced touching the block, or null if none exists
      */
     public AbstractShop getShopTouchingBlock(Block block){
-        BlockFace[] faces = {BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
-        for(BlockFace face : faces){
-            if(this.isChest(block.getRelative(face))){
-                Block shopChest = block.getRelative(face);
-                for(BlockFace newFace : faces){
-                    if(shopChest.getRelative(newFace).getBlockData() instanceof WallSign){
-                        AbstractShop shop = getShop(shopChest.getRelative(newFace).getLocation());
-                        if(shop != null)
-                            return shop;
-                    }
-                }
-            }
-        }
-        return null;
+        return storage.getShopTouchingBlock(block);
     }
 
     /**
@@ -209,28 +146,7 @@ public class ShopRevancedHandler {
      * @param ShopRevanced The ShopRevanced to add
      */
     public void addShop(AbstractShop shop) {
-
-        //this is to remove a bug that caused one ShopRevanced to be saved to multiple files at one point
-        AbstractShop s = getShop(shop.getSignLocation());
-        if(s != null) {
-            return;
-        }
-        allShops.put(shop.getSignLocation(), shop);
-
-        CopyOnWriteArrayList<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
-        if(!playerShopLocations.contains(shop.getSignLocation())) {
-            playerShopLocations.add(shop.getSignLocation());
-            playerShops.put(shop.getOwnerUUID(), playerShopLocations);
-        }
-
-        String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-        CopyOnWriteArrayList<Location> chunkShopLocations = getShopLocations(chunkKey);
-        if(!chunkShopLocations.contains(shop.getSignLocation())) {
-            chunkShopLocations.add(shop.getSignLocation());
-            chunkShops.put(chunkKey, chunkShopLocations);
-        }
-
-        plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
+        storage.addShop(shop);
     }
 
     /**
@@ -241,47 +157,9 @@ public class ShopRevancedHandler {
      * @param forceSave Whether to force immediate save
      */
     public void removeShop(AbstractShop shop, boolean forceSave) {
-        boolean changed = false;
-        if (allShops.containsKey(shop.getSignLocation())) {
-            allShops.remove(shop.getSignLocation());
-            changed = true;
-        }
-        if(playerShops.containsKey(shop.getOwnerUUID())){
-            CopyOnWriteArrayList<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
-            if(playerShopLocations.contains(shop.getSignLocation())) {
-                playerShopLocations.remove(shop.getSignLocation());
-                if (playerShopLocations.isEmpty()) {
-                    playerShops.remove(shop.getOwnerUUID());
-                } else {
-                    playerShops.put(shop.getOwnerUUID(), playerShopLocations);
-                }
-                changed = true;
-            }
-        }
-        String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-        if(chunkShops.containsKey(chunkKey)){
-            CopyOnWriteArrayList<Location> chunkShopLocations = getShopLocations(chunkKey);
-            if(chunkShopLocations.contains(shop.getSignLocation())) {
-                chunkShopLocations.remove(shop.getSignLocation());
-                if (chunkShopLocations.isEmpty()) {
-                    chunkShops.remove(chunkKey);
-                } else {
-                    chunkShops.put(chunkKey, chunkShopLocations);
-                }
-                changed = true;
-            }
-        }
-
-
-        if (changed) {
-            plugin.getLogger().debug("Removed ShopRevanced internally from ShopRevancedHandler: " + shop);
-            // Immediate force save if there were any changes since we deleted a ShopRevanced 
-            // Note that we don't pass forceSave down, it is only a flag on if we should trigger the save attempt immediately
-            // we only hold off on doing this if we are bulk deleting shops for users to prevent repeated saves.
-            // The forceSave flag should rarely be `false`, and you should be careful when setting it to false.
-            if (forceSave) {
-                this.saveShops(shop.getOwnerUUID(), true);
-            }
+        storage.removeShop(shop, forceSave);
+        if (forceSave) {
+            this.saveShops(shop.getOwnerUUID(), true);
         }
     }
 
@@ -291,26 +169,7 @@ public class ShopRevancedHandler {
      * @param chunk The chunk containing unloaded shops
      */
     public void processUnloadedShopsInChunk(Chunk chunk){
-        String key = UtilMethods.getChunkKey(chunk);
-        if(unloadedShopsByChunk.containsKey(key)){
-            List<UUID> playerUUIDs = new ArrayList<>();
-            List<Location> shopLocations = getUnloadedShopsByChunk(key);
-            for(Location shopLocation : shopLocations) {
-                AbstractShop shop = getShop(shopLocation);
-                if(shop != null){
-                    // Run at the ShopRevanced's location to ensure it works in the correct region in Folia
-                    plugin.getFoliaLib().getScheduler().runAtLocation(shopLocation, task -> {
-                        boolean loadSuccess = shop.load();
-                        if(loadSuccess) {
-                            if (!playerUUIDs.contains(shop.getOwnerUUID())) {
-                                playerUUIDs.add(shop.getOwnerUUID());
-                            }
-                        }
-                    });
-                }
-            }
-            unloadedShopsByChunk.remove(key);
-        }
+        storage.processUnloadedShopsInChunk(chunk);
     }
 
     /**
@@ -319,12 +178,7 @@ public class ShopRevancedHandler {
      * @param ShopRevanced The ShopRevanced to add
      */
     public void addUnloadedShopToChunkList(AbstractShop shop){
-        String chunkKey = UtilMethods.getChunkKey(shop.getSignLocation());
-        List<Location> shopLocations = getUnloadedShopsByChunk(chunkKey);
-        if(!shopLocations.contains(shop.getSignLocation())) {
-            shopLocations.add(shop.getSignLocation());
-            unloadedShopsByChunk.put(chunkKey, shopLocations);
-        }
+        storage.addUnloadedShopToChunkList(shop);
     }
 
     /**
@@ -333,9 +187,7 @@ public class ShopRevancedHandler {
      * @return List of all shops
      */
     public List<AbstractShop> getAllShops(){
-        return allShops.values().stream().collect(
-                Collectors.toCollection(ArrayList::new)
-        );
+        return storage.getAllShops();
     }
 
     /**
@@ -345,13 +197,7 @@ public class ShopRevancedHandler {
      * @return List of shops owned by the player
      */
     public List<AbstractShop> getShops(UUID player){
-        List<AbstractShop> shops = new ArrayList<>();
-        for(Location shopSign : getShopLocations(player)){
-            AbstractShop shop = getShop(shopSign);
-            if(shop != null)
-                shops.add(shop);
-        }
-        return shops;
+        return storage.getShops(player);
     }
 
     /**
@@ -361,15 +207,7 @@ public class ShopRevancedHandler {
      * @return Number of shops needing save
      */
     public int numShopsNeedSave(UUID player){
-        List<AbstractShop> shops = getShops(player);
-
-        // Default does not need to be saved;
-        int needToBeSaved = 0;
-        for (AbstractShop shop : shops) {
-            if (shop.needsSave()) { needToBeSaved++; }
-        }
-
-        return needToBeSaved;
+        return storage.numShopsNeedSave(player);
     }
 
     /**
@@ -379,14 +217,7 @@ public class ShopRevancedHandler {
      * @return List of shops dealing with the item
      */
     public List<AbstractShop> getShopsByItem(ItemStack itemStack){
-        List<AbstractShop> shops = new ArrayList<>();
-        for(AbstractShop shop : allShops.values()){
-            if(shop.getItemStack() != null && shop.getItemStack().getType() == itemStack.getType())
-                shops.add(shop);
-            else if(shop.getSecondaryItemStack() != null && shop.getSecondaryItemStack().getType() == itemStack.getType())
-                shops.add(shop);
-        }
-        return shops;
+        return storage.getShopsByItem(itemStack);
     }
 
     // Note: this is resource intensive on large servers, maybe refactor at some point
@@ -396,11 +227,7 @@ public class ShopRevancedHandler {
      * @return List of ShopRevanced owners
      */
     public List<OfflinePlayer> getShopOwners(){
-        ArrayList<OfflinePlayer> owners = new ArrayList<>();
-        for(UUID player : playerShops.keySet()) {
-            owners.add(Bukkit.getOfflinePlayer(player));
-        }
-        return owners;
+        return storage.getShopOwners();
     }
 
     /**
@@ -409,11 +236,7 @@ public class ShopRevancedHandler {
      * @return List of ShopRevanced owner UUIDs
      */
     public List<UUID> getShopOwnerUUIDs(){
-        ArrayList<UUID> owners = new ArrayList<>();
-        for(UUID player : playerShops.keySet()) {
-            owners.add(player);
-        }
-        return owners;
+        return storage.getShopOwnerUUIDs();
     }
 
     /**
@@ -423,13 +246,7 @@ public class ShopRevancedHandler {
      * @return List of ShopRevanced locations
      */
     private CopyOnWriteArrayList<Location> getShopLocations(UUID player){
-        CopyOnWriteArrayList<Location> shopLocations;
-        if(playerShops.containsKey(player)) {
-            shopLocations = playerShops.get(player);
-        }
-        else
-            shopLocations = new CopyOnWriteArrayList<>();
-        return shopLocations;
+        return storage.getShopLocations(player);
     }
 
     /**
@@ -438,15 +255,8 @@ public class ShopRevancedHandler {
      * @param chunkKey The chunk key
      * @return List of ShopRevanced locations
      */
-    private CopyOnWriteArrayList<Location> getShopLocations(String chunkKey){
-        CopyOnWriteArrayList<Location> shopLocations;
-        if(chunkShops.containsKey(chunkKey)) {
-            shopLocations = chunkShops.get(chunkKey);
-        }
-        else {
-            shopLocations = new CopyOnWriteArrayList<>();
-        }
-        return shopLocations;
+    CopyOnWriteArrayList<Location> getShopLocations(String chunkKey){
+        return storage.getShopLocations(chunkKey);
     }
 
     /**
@@ -888,13 +698,7 @@ public class ShopRevancedHandler {
     }
 
     private List<Location> getUnloadedShopsByChunk(String chunkKey){
-        List<Location> unloadedShopsInChunk;
-        if(unloadedShopsByChunk.containsKey(chunkKey)) {
-            unloadedShopsInChunk = unloadedShopsByChunk.get(chunkKey);
-        }
-        else
-            unloadedShopsInChunk = new ArrayList<>();
-        return unloadedShopsInChunk;
+        return storage.getUnloadedShopsByChunk(chunkKey);
     }
 
     /**
@@ -903,7 +707,7 @@ public class ShopRevancedHandler {
      * @return total number of shops
      */
     public int getNumberOfShops() {
-        return allShops.size();
+        return storage.getNumberOfShops();
     }
 
     /**
@@ -933,11 +737,7 @@ public class ShopRevancedHandler {
      * @return number of shops with the specified type
      */
     public int getNumberOfShops(ShopType shopType) {
-        int shopsWithType = 0;
-        for (AbstractShop shop : allShops.values()) {
-            if (shop.getType() == shopType) { shopsWithType++; }
-        }
-        return shopsWithType;
+        return storage.getNumberOfShops(shopType);
     }
 
     /**
@@ -948,7 +748,7 @@ public class ShopRevancedHandler {
      */
     public int getNumberOfShopDisplayTypes(DisplayType displayType) {
         int shopsWithDisplayType = 0;
-        for (AbstractShop shop : allShops.values()) {
+        for (AbstractShop shop : storage.getAllShops()) {
             if (shop.getDisplay().getType() == displayType) { shopsWithDisplayType++; }
         }
         return shopsWithDisplayType;
@@ -960,22 +760,7 @@ public class ShopRevancedHandler {
      * @return map of container type names to counts
      */
     public Map<String, Integer> getShopContainerCounts() {
-        int chestShops = 0;
-        int barrelShops = 0;
-        int shulkerBoxShops = 0;
-        for (AbstractShop shop : allShops.values()) {
-            Material containerType = shop.getContainerType();
-            if (containerType == null) continue;
-            if (containerType == Material.CHEST || containerType == Material.TRAPPED_CHEST
-                    || containerType.name().endsWith("COPPER_CHEST")) { chestShops++; }
-            if (containerType == Material.BARREL) { barrelShops++; }
-            if (containerType.name().endsWith("SHULKER_BOX")) { shulkerBoxShops++; }
-        }
-        Map<String, Integer> containerTypes = new HashMap<>();
-        containerTypes.put("Chest Shops", chestShops);
-        containerTypes.put("Barrel Shops", barrelShops);
-        containerTypes.put("Shulker Box Shops", shulkerBoxShops);
-        return containerTypes;
+        return storage.getShopContainerCounts();
     }
 
     /**
@@ -984,7 +769,7 @@ public class ShopRevancedHandler {
      * @param player The player
      */
     public void removeAllDisplays(Player player) {
-        for (AbstractShop shop : allShops.values()) {
+        for (AbstractShop shop : storage.getAllShops()) {
             shop.getDisplay().remove(player);
         }
     }
@@ -1007,8 +792,8 @@ public class ShopRevancedHandler {
                 }
             }
         }
-        for(UUID shopOwnerUUID : plugin.getShopRevancedHandler().getShopOwnerUUIDs()){
-            for(AbstractShop shop : plugin.getShopRevancedHandler().getShops(shopOwnerUUID)){
+        for(UUID shopOwnerUUID : getShopOwnerUUIDs()){
+            for(AbstractShop shop : getShops(shopOwnerUUID)){
                 if(UtilMethods.isChunkLoaded(shop.getChestLocation())) {
                     plugin.getLogger().debug("[ShopHander.removeLegacyDisplays] updateSign");
                     shop.updateSign();
@@ -1235,23 +1020,7 @@ public class ShopRevancedHandler {
      * @return The number of shops saved
      */
     public int saveAllShops() {
-        HashMap<UUID, Boolean> allPlayersWithShops = new HashMap<>();
-        for (AbstractShop shop : allShops.values()) {
-            allPlayersWithShops.put(shop.getOwnerUUID(), true);
-        }
-
-        int numberUpdated = 0;
-        int playersWithUpdate = 0;
-        for (UUID player : allPlayersWithShops.keySet()) {
-            int shopsUpdated = saveShops(player);
-
-            if (shopsUpdated > 0) {
-                numberUpdated += shopsUpdated;
-                playersWithUpdate++;
-            }
-        }
-        if (playersWithUpdate > 0) plugin.getLogger().info("Saved " + playersWithUpdate + " Player ShopRevanced file updates to disk");
-        return numberUpdated;
+        return saveLoad.saveAllShops();
     }
 
     /**
@@ -1551,23 +1320,7 @@ public class ShopRevancedHandler {
      * @return true if the item is allowed
      */
     public boolean passesItemListCheck(ItemStack is){
-        if(plugin.getItemListType() == ItemListType.NONE)
-            return true;
-
-        for(ItemStack itemInList : itemListItems){
-            if(itemInList.isSimilar(is)){
-                if(plugin.getItemListType() == ItemListType.ALLOW_LIST)
-                    return true;
-                else if(plugin.getItemListType() == ItemListType.DENY_LIST)
-                    return false;
-            }
-        }
-
-        //item not similar to anything in our item list
-        if(plugin.getItemListType() == ItemListType.ALLOW_LIST)
-            return false;
-
-        return true;
+        return itemListManager.passesItemListCheck(is);
     }
 
     /**
@@ -1576,22 +1329,7 @@ public class ShopRevancedHandler {
      * @param inventory The inventory to add items from
      */
     public void addInventoryToItemList(Inventory inventory){
-        for(ItemStack is : inventory.getContents()) {
-            if(is != null && is.getType() != Material.AIR) {
-                ItemStack itemClone = is.clone();
-                itemClone.setAmount(1);
-                boolean doNotAdd = false;
-                for (ItemStack itemInList : itemListItems) {
-                    if (itemInList.isSimilar(itemClone)) {
-                        doNotAdd = true;
-                    }
-                }
-                if(!doNotAdd){
-                    itemListItems.add(itemClone);
-                }
-            }
-        }
-        saveItemList();
+        itemListManager.addInventoryToItemList(inventory);
     }
 
     /**
@@ -1600,82 +1338,21 @@ public class ShopRevancedHandler {
      * @param inventory The inventory to remove items from
      */
     public void removeInventoryFromItemList(Inventory inventory){
-        Iterator<ItemStack> itemIterator = itemListItems.iterator();
-        while(itemIterator.hasNext()){
-            ItemStack listItem = itemIterator.next();
-            for(ItemStack toRemove : inventory.getContents()) {
-                if(toRemove != null && toRemove.getType() != Material.AIR) {
-                    ItemStack itemClone = toRemove.clone();
-                    itemClone.setAmount(1);
-                    if (listItem.isSimilar(itemClone)) {
-                        itemIterator.remove();
-                    }
-                }
-            }
-        }
-        saveItemList();
+        itemListManager.removeInventoryFromItemList(inventory);
     }
 
     /**
      * Initializes the item list from configuration.
      */
     public void initItemList(){
-        if(plugin.getItemListType() == ItemListType.NONE)
-            return;
-
-        try {
-            File itemListFile = new File(plugin.getDataFolder() + "/itemList.yml");
-
-            if (!itemListFile.exists()) { // file doesn't exist{
-                itemListFile.createNewFile();
-                return;
-            }
-
-            YamlConfiguration config = YamlConfiguration.loadConfiguration(itemListFile);
-            for(String key : config.getKeys(false)){
-                ItemStack is = config.getItemStack(key);
-                if(is != null) {
-                    is.setAmount(1);
-                    itemListItems.add(is);
-                }
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        itemListManager.initItemList();
     }
 
     /**
      * Saves the item list to configuration.
      */
     public void saveItemList(){
-        if(plugin.getItemListType() == ItemListType.NONE)
-            return;
-
-        try {
-            File itemListFile = new File(plugin.getDataFolder() + "/itemList.yml");
-
-            if (!itemListFile.exists()) { // file doesn't exist{
-                itemListFile.createNewFile();
-            }
-            else{
-                itemListFile.delete();
-                itemListFile.createNewFile();
-            }
-
-            YamlConfiguration config = YamlConfiguration.loadConfiguration(itemListFile);
-            for(int i=0; i< itemListItems.size(); i++){
-                ItemStack is = itemListItems.get(i);
-                if(is != null) {
-                    config.set(""+i, is);
-                }
-            }
-
-            config.save(itemListFile);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        itemListManager.saveItemList();
     }
 
     /**

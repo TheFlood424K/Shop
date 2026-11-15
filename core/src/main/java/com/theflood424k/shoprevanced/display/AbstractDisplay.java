@@ -30,7 +30,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +58,7 @@ public abstract class AbstractDisplay {
     private final Set<UUID> visiblePlayers = ConcurrentHashMap.newKeySet();
     private final ConcurrentMap<UUID, Set<Entity>> tagEntities = new ConcurrentHashMap<>();
     private final ConcurrentMap<UUID, TagRequest> pendingTagRequests = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> playerTagEpochs = new HashMap<>();
+    private final ConcurrentHashMap<UUID, Long> playerTagEpochs = new ConcurrentHashMap<>();
 
     private volatile SharedGeneration sharedGeneration;
     private long sharedGenerationCounter;

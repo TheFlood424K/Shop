@@ -27,10 +27,14 @@ public final class ShopSpyTestUtil {
     public static AbstractShop spyAndReplace(ShopRevanced plugin, AbstractShop realShop) {
         try {
             var handler = plugin.getShopRevancedHandler();
-            Field f = handler.getClass().getDeclaredField("allShops");
-            f.setAccessible(true);
+            // Reflectively access storage field, then allShops map within storage
+            var storageField = handler.getClass().getDeclaredField("storage");
+            storageField.setAccessible(true);
+            var storage = storageField.get(handler);
+            var allShopsField = storage.getClass().getDeclaredField("allShops");
+            allShopsField.setAccessible(true);
             @SuppressWarnings("unchecked")
-            ConcurrentHashMap<Location, AbstractShop> map = (ConcurrentHashMap<Location, AbstractShop>) f.get(handler);
+            ConcurrentHashMap<Location, AbstractShop> map = (ConcurrentHashMap<Location, AbstractShop>) allShopsField.get(storage);
 
             AbstractShop spy = spy(realShop);
             // Keep behavior deterministic if called accidentally.

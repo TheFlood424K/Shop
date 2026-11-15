@@ -224,10 +224,10 @@ public class ShopRevancedCreationUtil {
     }
 
     public void cleanupShopRevancedCreationProcess(Player player){
-        ShopRevancedCreationProcess process = plugin.getMiscListener().getShopRevancedCreationProcess(player);
+        ShopRevancedCreationProcess process = plugin.getShopCreationProcessManager().getShopRevancedCreationProcess(player);
         if (process != null) {
             process.cleanup();
-            plugin.getMiscListener().removeShopRevancedCreationProcess(player);
+            plugin.getShopCreationProcessManager().removeShopRevancedCreationProcess(player);
         }
     }
 
@@ -334,7 +334,7 @@ public class ShopRevancedCreationUtil {
 
             shop.setItemStack(item);
 
-            ShopRevancedCreationProcess process = plugin.getMiscListener().getShopRevancedCreationProcess(player);
+            ShopRevancedCreationProcess process = plugin.getShopCreationProcessManager().getShopRevancedCreationProcess(player);
             if (shop.getType() == ShopType.BARTER && barterItem == null) {
                 ShopRevancedMessage.sendMessage(shop.getType().toString(), "initializeInfo", player, shop);
                 process.setStep(ShopRevancedCreationProcess.ChatCreationStep.SIGN_BARTER_ITEM);

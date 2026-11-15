@@ -6,7 +6,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
 import java.io.File;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -18,7 +18,7 @@ public class PlayerSettings {
     }
 
     private UUID player;
-    private HashMap<Option, ShopRevancedGuiHandler.GuiIcon> optionsMap;
+    private ConcurrentHashMap<Option, ShopRevancedGuiHandler.GuiIcon> optionsMap;
 
     public PlayerSettings (Player player){
         this.player = player.getUniqueId();
@@ -31,7 +31,7 @@ public class PlayerSettings {
     }
 
     public void initOptionsMap(){
-        this.optionsMap = new HashMap<>();
+        this.optionsMap = new ConcurrentHashMap<>();
         this.optionsMap.put(Option.NOTIFICATION_SALE_OWNER, ShopRevancedGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON);
         this.optionsMap.put(Option.NOTIFICATION_SALE_USER, ShopRevancedGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON);
         this.optionsMap.put(Option.NOTIFICATION_STOCK, ShopRevancedGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON);
@@ -41,7 +41,7 @@ public class PlayerSettings {
         this.optionsMap.put(Option.GUI_FILTER_SHOP_STOCK, ShopRevancedGuiHandler.GuiIcon.MENUBAR_FILTER_STOCK_ALL);
     }
 
-    private PlayerSettings (UUID player, HashMap<Option, ShopRevancedGuiHandler.GuiIcon> optionsMap){
+    private PlayerSettings (UUID player, ConcurrentHashMap<Option, ShopRevancedGuiHandler.GuiIcon> optionsMap){
         this.player = player;
         this.optionsMap = optionsMap;
     }
@@ -130,7 +130,7 @@ public class PlayerSettings {
             YamlConfiguration config = YamlConfiguration.loadConfiguration(playerSettingsFile);
 
             UUID uuid = UUID.fromString(config.getString("player.UUID"));
-            HashMap<Option, ShopRevancedGuiHandler.GuiIcon> optionsMap = new HashMap<>();
+            ConcurrentHashMap<Option, ShopRevancedGuiHandler.GuiIcon> optionsMap = new ConcurrentHashMap<>();
 
             for(Option option : Option.values()){
                 String guiIconString = config.getString("player."+option.toString());

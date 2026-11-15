@@ -6,13 +6,18 @@ import com.theflood424k.shoprevanced.display.DisplayType;
 import com.theflood424k.shoprevanced.gui.ShopGUIListener;
 import com.theflood424k.shoprevanced.handler.*;
 import com.theflood424k.shoprevanced.integration.*;
+import com.theflood424k.shoprevanced.listener.BucketEmptyListener;
 import com.theflood424k.shoprevanced.listener.CreativeSelectionListener;
 import com.theflood424k.shoprevanced.listener.DisplayListener;
 import com.theflood424k.shoprevanced.listener.MiscListener;
+import com.theflood424k.shoprevanced.listener.ShopCreationListener;
+import com.theflood424k.shoprevanced.listener.ShopCreationProcessManager;
+import com.theflood424k.shoprevanced.listener.ShopProtectionListener;
 import com.theflood424k.shoprevanced.listener.ShopRevancedListener;
 import com.theflood424k.shoprevanced.shop.ShopType;
 import com.theflood424k.shoprevanced.util.*;
-import com.theflood424k.shoprevanced.integration.WorldGuardHook.WorldGuardConfig;
+import com.theflood424k.shoprevanced.integration.IntegrationManager;
+import com.theflood424k.shoprevanced.integration.WorldGuardHook;
 import com.theflood424k.shoprevanced.util.Metrics;
 import com.theflood424k.shoprevanced.util.Metrics.*;
 import de.bluecolored.bluemap.api.BlueMapAPI;
@@ -39,15 +44,6 @@ public class ShopRevanced extends JavaPlugin {
     private ConfigManager configManager;
 
     private static final String CONFIG_PATH_WORLD_GUARD_ENABLED = "worldGuard.enabled";
-    private static final String CONFIG_PATH_LWC_ENABLED = "lwc.enabled";
-    private static final String CONFIG_PATH_BENTO_BOX_ENABLED = "bentoBox.enabled";
-    private static final String CONFIG_PATH_ADVANCED_REGION_MARKET_ENABLED = "advancedRegionMarket.enabled";
-    private static final String CONFIG_PATH_PLOT_SQUARED_ENABLED = "plotSquared.enabled";
-    private static final String CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED = "bolt.trustIntegration.enabled";
-    private static final String CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED = "blockProt.trustIntegration.enabled";
-    private static final String CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED = "cashierLock.trustIntegration.enabled";
-    private static final String CONFIG_PATH_GRIEF_PREVENTION_ENABLED = "griefprevention.enabled";
-    private static final String CONFIG_PATH_GEYSER_ENABLED = "geyser.enabled";
 
     private ShopRevancedListener ShopRevancedListener;
     private DisplayListener displayListener;
@@ -55,21 +51,12 @@ public class ShopRevanced extends JavaPlugin {
     private MiscListener miscListener;
     private CreativeSelectionListener creativeSelectionListener;
     private ShopGUIListener guiListener;
-    private Boolean worldGuardExists = false;
-    private WorldGuardHook.WorldGuardConfig worldGuardConfig;
-    private LWCHookListener lwcHookListener;
-    private DynmapHookListener dynmapHookListener;
-    private BluemapHookListener bluemapHookListener;
-    private boolean bluemapEnabled;
-    private boolean dynmapEnabled;
-    private BentoBoxHookListener bentoBoxHookListener;
-    private ARMHookListener armHookListener;
-    private PlotSquaredHookListener plotSquaredHookListener;
-    private BoltTrustListener boltTrustListener;
-    private BlockProtTrustListener blockProtTrustListener;
-    private CashierLockTrustListener cashierLockTrustListener;
-    private GriefPreventionHookListener griefPreventionHookListener;
-    private GeyserFloodgateHook geyserFloodgateHook;
+
+    // Split listeners extracted from MiscListener and ShopRevancedListener
+    private BucketEmptyListener bucketEmptyListener;
+    private ShopCreationProcessManager shopCreationProcessManager;
+    private ShopCreationListener shopCreationListener;
+    private ShopProtectionListener shopProtectionListener;
 
     private ShopRevancedHandler ShopRevancedHandler;
     private ShopRevancedGuiHandler guiHandler;
@@ -77,6 +64,7 @@ public class ShopRevanced extends JavaPlugin {
     private ShopRevancedCreationUtil ShopRevancedCreationUtil;
     private LogHandler logHandler;
     private Metrics metrics;
+    private IntegrationManager integrationManager;
 
     // Config fields delegated to ConfigManager
     private boolean usePerms;
@@ -128,6 +116,9 @@ public class ShopRevanced extends JavaPlugin {
     private Double priceSuffixMinimumValue;
 
     // Integration-enabled flags
+    private boolean dynmapEnabled;
+    private boolean bluemapEnabled;
+    private BluemapHookListener bluemapHookListener;
     private boolean lwcIntegrationEnabled;
     private boolean bentoBoxIntegrationEnabled;
     private boolean advancedRegionMarketIntegrationEnabled;
@@ -165,6 +156,8 @@ public class ShopRevanced extends JavaPlugin {
     // Return the custom ShopRevancedLogger so that we can log at higher levels.
     @Override
     public ShopRevancedLogger getLogger() { return logger; }
+
+    public ConfigManager getConfigManager() { return configManager; }
 
     @Override
     public void onLoad(){
@@ -268,6 +261,12 @@ public class ShopRevanced extends JavaPlugin {
         displayListener = new DisplayListener(this);
         guiListener = new ShopGUIListener(this);
 
+        // New split listeners
+        shopCreationProcessManager = new ShopCreationProcessManager(this);
+        bucketEmptyListener = new BucketEmptyListener(this);
+        shopCreationListener = new ShopCreationListener(this, shopCreationProcessManager);
+        shopProtectionListener = new ShopProtectionListener(this, shopCreationProcessManager);
+
         // Load ShopRevancedMessage by initializing it once
         new ShopRevancedMessage(this);
         itemNameUtil = new ItemNameUtil();
@@ -294,9 +293,25 @@ public class ShopRevanced extends JavaPlugin {
         bluemapEnabled = config.getBoolean("bluemap.enabled", false);
         dynmapEnabled = config.getBoolean("dynmap.enabled", false);
         commandAlias = configManager.getCommandAlias();
-        // Assign all remaining config values from ConfigManager to class fields
-        worldGuardExists = configManager.worldGuardExists();
-        worldGuardConfig = configManager.getWorldGuardConfig();
+
+        // Initialize IntegrationManager with config-detected flags
+        integrationManager = new IntegrationManager(this);
+        integrationManager.setWorldGuardExists(configManager.worldGuardExists());
+        integrationManager.setWorldGuardConfig(configManager.getWorldGuardConfig());
+        integrationManager.setLwcIntegrationEnabled(configManager.isLwcIntegrationEnabled());
+        integrationManager.setBentoBoxIntegrationEnabled(configManager.isBentoBoxIntegrationEnabled());
+        integrationManager.setAdvancedRegionMarketIntegrationEnabled(configManager.isAdvancedRegionMarketIntegrationEnabled());
+        integrationManager.setPlotSquaredIntegrationEnabled(configManager.isPlotSquaredIntegrationEnabled());
+        integrationManager.setBoltTrustIntegrationEnabled(configManager.isBoltTrustIntegrationEnabled());
+        integrationManager.setBlockProtTrustIntegrationEnabled(configManager.isBlockProtTrustIntegrationEnabled());
+        integrationManager.setCashierLockTrustIntegrationEnabled(configManager.isCashierLockTrustIntegrationEnabled());
+        integrationManager.setGriefPreventionIntegrationEnabled(configManager.isGriefPreventionIntegrationEnabled());
+        integrationManager.setGeyserIntegrationEnabled(configManager.isGeyserIntegrationEnabled());
+        integrationManager.setHookTowny(hookTowny);
+        integrationManager.setBluemapEnabled(bluemapEnabled);
+        integrationManager.setDynmapEnabled(dynmapEnabled);
+
+        // Sync integration-enabled flags to local fields for test compatibility
         lwcIntegrationEnabled = configManager.isLwcIntegrationEnabled();
         bentoBoxIntegrationEnabled = configManager.isBentoBoxIntegrationEnabled();
         advancedRegionMarketIntegrationEnabled = configManager.isAdvancedRegionMarketIntegrationEnabled();
@@ -415,174 +430,16 @@ public class ShopRevanced extends JavaPlugin {
         getServer().getPluginManager().registerEvents(displayListener, this);
         getServer().getPluginManager().registerEvents(ShopRevancedListener, this);
         getServer().getPluginManager().registerEvents(miscListener, this);
+        getServer().getPluginManager().registerEvents(shopCreationListener, this);
         getServer().getPluginManager().registerEvents(creativeSelectionListener, this);
         getServer().getPluginManager().registerEvents(guiListener, this);
 
-        //only define different listener hooks if the plugins are present on the server
-        if (getServer().getPluginManager().getPlugin("WorldGuard") != null) {
-            if (worldGuardExists) {
-                this.getLogger().notice("WorldGuard is installed, WorldGuard integration is enabled");
-                if(worldGuardConfig.requireAllowShopFlag){
-                    this.getLogger().helpful("WorldGuard `allow-ShopRevanced` flag restriction enabled, Shops can only be created in regions with the `allow-ShopRevanced` flag set!");
-                } else {
-                    this.getLogger().helpful("WorldGuard `allow-ShopRevanced` flag restriction is disabled, if you want to only allow shops in regions with the `allow-ShopRevanced` flag, please set `worldGuard.requireAllowShopFlag` to `true` in `config.yml`");
-                }
-                this.getLogger().helpful("WorldGuard flags that will be checked for ShopRevanced creation: " + worldGuardConfig.createShopFlags.toString());
-                this.getLogger().helpful("WorldGuard flags that will be checked for ShopRevanced use: " + worldGuardConfig.useShopFlags.toString());
-            } else {
-                this.getLogger().notice("WorldGuard detected, but ShopRevanced WorldGuard integration is disabled via `" + CONFIG_PATH_WORLD_GUARD_ENABLED + ": false`");
-            }
-        }
+        // Register new split listeners
+        getServer().getPluginManager().registerEvents(bucketEmptyListener, this);
+        getServer().getPluginManager().registerEvents(shopProtectionListener, this);
 
-        if(getServer().getPluginManager().getPlugin("Towny") != null && this.hookTowny){
-            this.getLogger().notice("Towny is installed, ShopRevanced will respect Towny!");
-        }
-
-        if(getServer().getPluginManager().getPlugin("LWC") != null){
-            if (lwcIntegrationEnabled) {
-                lwcHookListener = new LWCHookListener(this);
-                getServer().getPluginManager().registerEvents(lwcHookListener, this);
-                this.getLogger().notice("LWC is installed, enabling LWC integration");
-            } else {
-                this.getLogger().notice("LWC detected, but ShopRevanced LWC integration is disabled via `" + CONFIG_PATH_LWC_ENABLED + ": false`");
-            }
-        }
-
-        if(getServer().getPluginManager().getPlugin("dynmap") != null && dynmapEnabled){
-            dynmapHookListener = new DynmapHookListener(this);
-            getServer().getPluginManager().registerEvents(dynmapHookListener, this);
-            this.getLogger().notice("Dynmap is installed, creating Dynmap listener");
-        }
-
-        if(getServer().getPluginManager().getPlugin("BlueMap") != null && bluemapEnabled){
-            plugin.getLogger().notice("BlueMap is installed, starting BlueMap integration");
-            // Wait for 2 minutes for BlueMap to become available/boot up, then initialize listener.
-            foliaLib.getScheduler().runTimer(task -> {
-                BlueMapAPI.getInstance().ifPresent(api -> {
-                    plugin.getLogger().debug("BlueMap is ready, creating BlueMap listener");
-                    bluemapHookListener = new BluemapHookListener(plugin);
-                    getServer().getPluginManager().registerEvents(bluemapHookListener, plugin);
-                    // Make sure we load the markers in case there are shops that BlueMap doesn't know about
-                    bluemapHookListener.reloadMarkers(ShopRevancedHandler);
-                    // Mark the task as complete and cancel the timer
-                    foliaLib.getScheduler().cancelTask(task);
-                });
-            }, 20, 20); // Check every second (20 ticks) until BlueMap is booted
-        }
-
-        if(getServer().getPluginManager().getPlugin("BentoBox") != null){
-            if (bentoBoxIntegrationEnabled) {
-                bentoBoxHookListener = new BentoBoxHookListener(this);
-                getServer().getPluginManager().registerEvents(bentoBoxHookListener, this);
-                this.getLogger().notice("BentoBox is installed, enabling BentoBox integration");
-            } else {
-                this.getLogger().notice("BentoBox detected, but ShopRevanced BentoBox integration is disabled via `" + CONFIG_PATH_BENTO_BOX_ENABLED + ": false`");
-            }
-        }
-
-        if(getServer().getPluginManager().getPlugin("AdvancedRegionMarket") != null){
-            if (advancedRegionMarketIntegrationEnabled) {
-                armHookListener = new ARMHookListener(this);
-                getServer().getPluginManager().registerEvents(armHookListener, this);
-                this.getLogger().notice("AdvancedRegionMarket is installed, enabling AdvancedRegionMarket integration");
-            } else {
-                this.getLogger().notice("AdvancedRegionMarket detected, but ShopRevanced AdvancedRegionMarket integration is disabled via `" + CONFIG_PATH_ADVANCED_REGION_MARKET_ENABLED + ": false`");
-            }
-        }
-
-        if(getServer().getPluginManager().getPlugin("PlotSquared") != null){
-            if (plotSquaredIntegrationEnabled) {
-                plotSquaredHookListener = new PlotSquaredHookListener(this);
-                getServer().getPluginManager().registerEvents(plotSquaredHookListener, this);
-                this.getLogger().notice("PlotSquared is installed, enabling PlotSquared integration");
-            } else {
-                this.getLogger().notice("PlotSquared detected, but ShopRevanced PlotSquared integration is disabled via `" + CONFIG_PATH_PLOT_SQUARED_ENABLED + ": false`");
-            }
-        }
-
-        // Register trust integration listeners for protection plugins
-        if(getServer().getPluginManager().getPlugin("Bolt") != null){
-            if (boltTrustIntegrationEnabled) {
-                try {
-                    boltTrustListener = new BoltTrustListener();
-                    getServer().getPluginManager().registerEvents(boltTrustListener, this);
-                    this.getLogger().notice("Bolt is installed, enabling trust integration for opening ShopRevanced containers");
-                } catch (Exception e) {
-                    this.getLogger().warning("Bolt detected but could not enable trust integration: " + e.getMessage());
-                }
-            } else {
-                this.getLogger().notice("Bolt detected, but ShopRevanced Bolt trust integration is disabled via `" + CONFIG_PATH_BOLT_TRUST_INTEGRATION_ENABLED + ": false`");
-            }
-        }
-        if(getServer().getPluginManager().getPlugin("BlockProt") != null){
-            if (blockProtTrustIntegrationEnabled) {
-                try {
-                    blockProtTrustListener = new BlockProtTrustListener();
-                    getServer().getPluginManager().registerEvents(blockProtTrustListener, this);
-                    this.getLogger().notice("BlockProt is installed, enabling trust integration for opening ShopRevanced containers");
-                } catch (Exception e) {
-                    this.getLogger().warning("BlockProt detected but could not enable trust integration: " + e.getMessage());
-                }
-            } else {
-                this.getLogger().notice("BlockProt detected, but ShopRevanced BlockProt trust integration is disabled via `" + CONFIG_PATH_BLOCK_PROT_TRUST_INTEGRATION_ENABLED + ": false`");
-            }
-        }
-
-        // Arclight integration
-        boolean arclightDetected = getServer().getPluginManager().getPlugin("Arclight") != null;
-        boolean arclightIntegrationEnabled = config.getBoolean("arclight.enabled", true);
-        if (arclightDetected) {
-            if (arclightIntegrationEnabled) {
-                this.getLogger().notice("Arclight detected, ShopRevanced will respect Arclight claimed areas during ShopRevanced creation!");
-                this.arclightExists = true;
-            } else {
-                this.arclightExists = false;
-                this.getLogger().notice("Arclight detected, but ShopRevanced Arclight integration is disabled via `arclight.enabled: false`");
-            }
-        } else {
-            this.arclightExists = false;
-        }
-
-        // CashierLock trust integration
-        if(getServer().getPluginManager().getPlugin("CashierLock") != null){
-            if (cashierLockTrustIntegrationEnabled) {
-                try {
-                    cashierLockTrustListener = new CashierLockTrustListener();
-                    getServer().getPluginManager().registerEvents(cashierLockTrustListener, this);
-                    this.getLogger().notice("CashierLock is installed, enabling trust integration for opening ShopRevanced containers");
-                } catch (Exception e) {
-                    this.getLogger().warning("CashierLock detected but could not enable trust integration: " + e.getMessage());
-                }
-            } else {
-                this.getLogger().notice("CashierLock detected, but ShopRevanced CashierLock trust integration is disabled via `" + CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED + ": false`");
-            }
-        }
-
-        // Register GriefPrevention3D hook listener
-        if(getServer().getPluginManager().getPlugin("GriefPrevention3D") != null){
-            if (griefPreventionIntegrationEnabled) {
-                griefPreventionHookListener = new GriefPreventionHookListener(this);
-                getServer().getPluginManager().registerEvents(griefPreventionHookListener, this);
-                this.getLogger().notice("GriefPrevention3D is installed, enabling grief prevention integration");
-            } else {
-                this.getLogger().notice("GriefPrevention3D detected, but ShopRevanced GriefPrevention3D integration is disabled via `" + CONFIG_PATH_GRIEF_PREVENTION_ENABLED + ": false`");
-            }
-        }
-
-        // GeyserMC / Floodgate compatibility hook
-        if(getServer().getPluginManager().getPlugin("Geyser-Spigot") != null || getServer().getPluginManager().getPlugin("Floodgate") != null){
-            if (geyserIntegrationEnabled) {
-                try {
-                    geyserFloodgateHook = new GeyserFloodgateHook(this);
-                    getServer().getPluginManager().registerEvents(geyserFloodgateHook, this);
-                    this.getLogger().notice("GeyserMC/Floodgate detected, enabling Bedrock player compatibility");
-                } catch (Exception e) {
-                    this.getLogger().warning("GeyserMC/Floodgate detected but could not enable compatibility: " + e.getMessage());
-                }
-            } else {
-                this.getLogger().notice("GeyserMC/Floodgate detected, but ShopRevanced Geyser integration is disabled via `" + CONFIG_PATH_GEYSER_ENABLED + ": false`");
-            }
-        }
+        // Initialize all optional plugin integrations via IntegrationManager
+        integrationManager.initialize();
 
         int bstatsPluginId = 25211;
         metrics = new Metrics(plugin, bstatsPluginId);
@@ -638,7 +495,7 @@ public class ShopRevanced extends JavaPlugin {
             return valueMap;
         }));
         
-        metrics.addCustomChart(new SimplePie("worldguard_enabled", () -> { return String.valueOf(worldGuardExists); }));
+        metrics.addCustomChart(new SimplePie("worldguard_enabled", () -> { return String.valueOf(worldGuardExists()); }));
         metrics.addCustomChart(new SimplePie("towny_enabled", () -> { return String.valueOf(hookTowny); }));
         metrics.addCustomChart(new SimplePie("dynmap_enabled", () -> String.valueOf(dynmapEnabled)));
         metrics.addCustomChart(new SimplePie("bluemap_enabled", () -> String.valueOf(bluemapEnabled)));
@@ -772,6 +629,9 @@ public class ShopRevanced extends JavaPlugin {
         if (logHandler != null) logHandler.shutdown();
         if (metrics != null) metrics.shutdown();
 
+        // Shutdown all integrations
+        if (integrationManager != null) integrationManager.shutdown();
+
         this.getLogger().info("Disabled ShopRevanced " + this.getDescription().getVersion());
     }
 
@@ -783,41 +643,14 @@ public class ShopRevanced extends JavaPlugin {
         HandlerList.unregisterAll(miscListener);
         HandlerList.unregisterAll(creativeSelectionListener);
         HandlerList.unregisterAll(guiListener);
-        if(lwcHookListener != null){
-            HandlerList.unregisterAll(lwcHookListener);
-        }
-        if(dynmapHookListener != null){
-            dynmapHookListener.deleteMarkers();
-            HandlerList.unregisterAll(dynmapHookListener);
-        }
-        if(bluemapHookListener != null){
-            //bluemapHookListener.deleteMarkers();
-            HandlerList.unregisterAll(bluemapHookListener);
-        }
-        if(bentoBoxHookListener != null){
-            HandlerList.unregisterAll(bentoBoxHookListener);
-        }
-        if(armHookListener != null){
-            HandlerList.unregisterAll(armHookListener);
-        }
-        if(plotSquaredHookListener != null){
-            HandlerList.unregisterAll(plotSquaredHookListener);
-        }
-        if(boltTrustListener != null){
-            HandlerList.unregisterAll(boltTrustListener);
-        }
-        if(blockProtTrustListener != null){
-            HandlerList.unregisterAll(blockProtTrustListener);
-        }
-        if(cashierLockTrustListener != null){
-            HandlerList.unregisterAll(cashierLockTrustListener);
-        }
-        if(griefPreventionHookListener != null){
-            HandlerList.unregisterAll(griefPreventionHookListener);
-        }
-        if(geyserFloodgateHook != null){
-            HandlerList.unregisterAll(geyserFloodgateHook);
-        }
+
+        // Unregister new split listeners
+        HandlerList.unregisterAll(bucketEmptyListener);
+        HandlerList.unregisterAll(shopCreationListener);
+        HandlerList.unregisterAll(shopProtectionListener);
+
+        // Shutdown integrations (onDisable will handle integration listener unregistration)
+        if (integrationManager != null) integrationManager.shutdown();
 
         plugin.getShopRevancedHandler().removeAllDisplays(null);
 
@@ -854,8 +687,24 @@ public class ShopRevanced extends JavaPlugin {
         return creativeSelectionListener;
     }
 
+    public BucketEmptyListener getBucketEmptyListener() {
+        return bucketEmptyListener;
+    }
+
+    public ShopCreationProcessManager getShopCreationProcessManager() {
+        return shopCreationProcessManager;
+    }
+
+    public ShopCreationListener getShopCreationListener() {
+        return shopCreationListener;
+    }
+
+    public ShopProtectionListener getShopProtectionListener() {
+        return shopProtectionListener;
+    }
+
     public BluemapHookListener getBluemapHookListener() {
-        return bluemapHookListener;
+        return integrationManager != null ? integrationManager.getBluemapHookListener() : null;
     }
 
     public TransactionHandler getTransactionHelper() {
@@ -891,11 +740,13 @@ public class ShopRevanced extends JavaPlugin {
     }
 
     // Simplified WorldGuard configuration getter
-    public WorldGuardConfig getWorldGuardConfig() {
-        return worldGuardConfig;
+    public WorldGuardHook.WorldGuardConfig getWorldGuardConfig() {
+        return integrationManager != null ? integrationManager.getWorldGuardConfig() : null;
     }
 
-    public boolean worldGuardExists() { return worldGuardExists; }
+    public boolean worldGuardExists() {
+        return integrationManager != null && integrationManager.worldGuardExists();
+    }
 
     public boolean isWorldGuardIntegrationEnabled() { return worldGuardExists(); }
     public boolean isLwcIntegrationEnabled() { return lwcIntegrationEnabled; }
@@ -910,7 +761,7 @@ public class ShopRevanced extends JavaPlugin {
     public boolean arclightExists() { return arclightExists; }
 
     public boolean hookTowny(){
-        return hookTowny;
+        return integrationManager != null && integrationManager.hookTowny();
     }
 
     public DisplayType getDisplayType(){

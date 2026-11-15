@@ -44,13 +44,11 @@ public class ShopRevancedGuiHandler {
     }
 
     public ShopRevanced plugin;
-    private HashMap<UUID, ShopGuiWindow> playerGuiWindows = new HashMap<>();
-    private HashMap<UUID, PlayerSettings> playerSettings = new HashMap<>();
-
-    private HashMap<GuiIcon, ItemStack> guiIcons = new HashMap<>();
-    private HashMap<GuiTitle, String> guiWindowTitles = new HashMap<>();
-
-    private HashMap<UUID, ItemStack> playerHeads = new HashMap<>();
+    private ConcurrentHashMap<UUID, ShopGuiWindow> playerGuiWindows = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<UUID, PlayerSettings> playerSettings = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<GuiIcon, ItemStack> guiIcons = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<GuiTitle, String> guiWindowTitles = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<UUID, ItemStack> playerHeads = new ConcurrentHashMap<>();
     // Owners whose head needs (re)building, with their latest ShopRevanced. Filled from async ShopRevanced loading.
     private Map<UUID, AbstractShop> staleHeads = new ConcurrentHashMap<>();
 
