@@ -7,7 +7,7 @@
     <packaging>jar</packaging>
 
     <parent>
-        <groupId>com.snowgears.shop</groupId>
+        <groupId>com.theflood424k.shoprevanced</groupId>
         <artifactId>shop-parent</artifactId>
         <version>${revision}</version>
     </parent>
@@ -431,11 +431,11 @@
                                 </relocation>
                                 <relocation>
                                     <pattern>org.mariadb.jdbc</pattern>
-                                    <shadedPattern>com.snowgears.shop.artifact.mariadbjdbc</shadedPattern>
+                                    <shadedPattern>com.theflood424k.shoprevanced.artifact.mariadbjdbc</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>com.tcoded.folialib</pattern>
-                                    <shadedPattern>com.snowgears.shop.artifact.folialib</shadedPattern>
+                                    <shadedPattern>com.theflood424k.shoprevanced.artifact.folialib</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
