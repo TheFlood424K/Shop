@@ -21,9 +21,6 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockito.Mockito;
 import org.mockito.MockedStatic;
 
-import java.lang.reflect.Field;
-import java.util.concurrent.ConcurrentHashMap;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.spy;
@@ -58,21 +55,15 @@ public class ShopRevancedListenerClickMatrixTest extends BaseMockBukkitTest {
     }
 
     private AbstractShop spyAndReplace(AbstractShop real) {
-        try {
-            // Replace the registered ShopRevanced in ShopRevancedHandler with a spy so we can verify executeClickAction invocations
-            var handler = getPlugin().getShopRevancedHandler();
-            Field f = handler.getClass().getDeclaredField("allShops");
-            f.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            ConcurrentHashMap<Location, AbstractShop> map = (ConcurrentHashMap<Location, AbstractShop>) f.get(handler);
-            AbstractShop spy = spy(real);
-            // By default, have the spy return true for any executeClickAction so that ShopRevancedListener cancels events
-            when(spy.executeClickAction(any(PlayerInteractEvent.class), any(ShopClickType.class))).thenReturn(true);
-            map.put(real.getSignLocation(), spy);
-            return spy;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to replace ShopRevanced with spy", e);
-        }
+        // Replace the registered ShopRevanced in ShopRevancedHandler with a spy so we can verify executeClickAction invocations
+        var handler = getPlugin().getShopRevancedHandler();
+        AbstractShop spy = spy(real);
+        // By default, have the spy return true for any executeClickAction so that ShopRevancedListener cancels events
+        when(spy.executeClickAction(any(PlayerInteractEvent.class), any(ShopClickType.class))).thenReturn(true);
+        // addShop() won't overwrite an existing shop at the same location, so remove the real shop first
+        handler.removeShop(real, false);
+        handler.addShop(spy);
+        return spy;
     }
 
     // ---------- Sign click matrix ----------
