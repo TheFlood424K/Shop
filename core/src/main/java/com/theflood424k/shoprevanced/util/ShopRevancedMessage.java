@@ -35,7 +35,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
  */
 public class ShopRevancedMessage {
 
-    private final static ShopRevanced plugin = ShopRevanced.getPlugin();
+    private static ShopRevanced plugin;
 
     private static boolean disableItemHover = false;
 
@@ -72,6 +72,7 @@ public class ShopRevancedMessage {
     private static YamlConfiguration displayConfig;
     private static int targetMaxLength;
     public ShopRevancedMessage(ShopRevanced plugin) {
+        ShopRevancedMessage.plugin = plugin;
 
         File chatConfigFile = new File(plugin.getDataFolder(), "chatConfig.yml");
         chatConfig = YamlConfiguration.loadConfiguration(chatConfigFile);
@@ -1641,6 +1642,8 @@ public class ShopRevancedMessage {
         return targetMaxLength;
     }
 }
+
+
 
 
 
