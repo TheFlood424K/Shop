@@ -1,0 +1,162 @@
+package com.theflood424k.shoprevanced.integration;
+
+import com.theflood424k.shoprevanced.ShopRevanced;
+import com.theflood424k.shoprevanced.event.PlayerDestroyShopEvent;
+import com.theflood424k.shoprevanced.handler.ShopRevancedHandler;
+import com.theflood424k.shoprevanced.shop.AbstractShop;
+import com.theflood424k.shoprevanced.util.ShopRevancedMessage;
+import com.theflood424k.shoprevanced.util.UtilMethods;
+import de.bluecolored.bluemap.api.BlueMapAPI;
+import de.bluecolored.bluemap.api.BlueMapMap;
+import de.bluecolored.bluemap.api.BlueMapWorld;
+import de.bluecolored.bluemap.api.markers.MarkerSet;
+import de.bluecolored.bluemap.api.markers.POIMarker;
+import org.bukkit.ChatColor;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+import java.io.File;
+import java.util.List;
+import java.util.Optional;
+
+public class BluemapHookListener implements Listener {
+
+    private ShopRevanced plugin;
+
+    private boolean enabled;
+    private String markerIcon;
+    private String markerLabel;
+    private int markerMinDistance;
+    private int markerMaxDistance;
+
+
+    //docs say to use BlueMapAPI.getInstance() at time of to always have the current valid API instance
+
+    public BluemapHookListener(ShopRevanced plugin){
+        this.plugin = plugin;
+        readConfig();
+    }
+
+    // Used on server startup to make sure all our shops are in sync with BlueMap
+    // Useful if BlueMap is added as a plugin AFTER there are existing shops
+    public void reloadMarkers(ShopRevancedHandler ShopRevancedHandler) {
+        final List<AbstractShop> allShops = ShopRevancedHandler.getAllShops();
+        for(AbstractShop shop : allShops){
+            // Update every shops marker
+            this.updateMarker(shop);
+        }
+    }
+
+    public void updateMarker(AbstractShop shop){
+        if(!enabled)
+            return;
+
+        BlueMapAPI.getInstance().ifPresent(api -> {
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
+            String shopDetails = ChatColor.stripColor(ShopRevancedMessage.formatMessage(markerLabel, shop, null, false));
+            // Remove any newline characters, or the literal string \n from the ShopRevanced details
+            shopDetails = shopDetails.replaceAll("\\n", "").replaceAll("\\\\n", "");
+
+            // Remove any color codes from the ShopRevanced details
+            MarkerSet markerSet = getMarkerSet(api, shop);
+            if(markerSet != null){
+                String markerID = UtilMethods.getCleanLocation(shop.getSignLocation(), true);
+
+                //adjust the markers so the icons line up nice with the actual chests on bluemap
+                int x = shop.getSignLocation().getBlockX();
+                int z = shop.getSignLocation().getBlockZ();
+                switch (shop.getFacing()){
+                    case NORTH:
+                        x++;
+                        z++;
+                        break;
+                    case EAST:
+                        z++;
+                        break;
+                    case WEST:
+                        x++;
+                        break;
+                    default:
+                        break;
+                }
+
+                POIMarker marker = POIMarker.builder()
+                        .label(shopDetails)
+                        .icon(markerIcon, 0, 0)
+                        .position((double) x, (double) (shop.getSignLocation().getBlockY() + 1), (double) z)
+                        .minDistance(markerMinDistance)
+                        .maxDistance(markerMaxDistance)
+                        .build();
+
+                markerSet.getMarkers().put(markerID, marker);
+            }
+        });
+    }
+
+    public void removeMarker(AbstractShop shop){
+        if(!enabled)
+            return;
+
+        BlueMapAPI.getInstance().ifPresent(api -> {
+            MarkerSet markerSet = getMarkerSet(api, shop);
+            if(markerSet != null){
+                String markerID = UtilMethods.getCleanLocation(shop.getSignLocation(), true);
+                markerSet.getMarkers().remove(markerID);
+            }
+        });
+    }
+
+    @EventHandler
+    public void onShopDestroy(PlayerDestroyShopEvent event){
+        if(!event.isCancelled()){
+            removeMarker(event.getShop());
+        }
+    }
+
+    private MarkerSet getMarkerSet(BlueMapAPI api, AbstractShop shop) {
+        String markerSetID = "ShopRevanced-markers-"+shop.getSignLocation().getWorld().getUID();
+
+        Optional<BlueMapWorld> world = api.getWorld(shop.getSignLocation().getWorld());
+        if(world.isPresent()) {
+            for (BlueMapMap map : world.get().getMaps()) {
+                if (map.getMarkerSets().containsKey(markerSetID)) {
+                    MarkerSet markerSet = map.getMarkerSets().get(markerSetID);
+                    return markerSet;
+                }
+            }
+
+            //if there was no markerset returned, create one
+            MarkerSet markerSet = MarkerSet.builder()
+                    .label("Shops")
+                    .build();
+
+            //apply it to all maps
+            for (BlueMapMap map : world.get().getMaps()) {
+                map.getMarkerSets().put(markerSetID, markerSet);
+            }
+            return markerSet;
+        }
+        return null;
+    }
+
+    private void readConfig() {
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+
+        enabled = config.getBoolean("bluemap-marker.enabled");
+        markerIcon = config.getString("bluemap-marker.icon");
+        markerLabel = config.getString("bluemap-marker.label");
+        markerMinDistance = config.getInt("bluemap-marker.minDistance");
+        markerMaxDistance = config.getInt("bluemap-marker.maxDistance");
+    }
+}
+
+
+
+
+
+
+
+

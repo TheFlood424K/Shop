@@ -4,7 +4,7 @@
 
     <parent>
         <artifactId>shop-parent</artifactId>
-        <groupId>com.snowgears.shop</groupId>
+        <groupId>com.theflood424k.shoprevanced</groupId>
         <version>${revision}</version>
     </parent>
 
@@ -12,7 +12,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.snowgears.shop</groupId>
+                    <groupId>com.theflood424k.shoprevanced</groupId>
             <artifactId>shop-core</artifactId>
             <version>${revision}</version>
         </dependency>
@@ -36,7 +36,7 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <artifactSet>
                                 <includes>
-                                    <include>com.snowgears.shop:shop-core</include>
+                                    <include>com.theflood424k.shoprevanced:shop-core</include>
                                 </includes>
                             </artifactSet>
                         </configuration>
