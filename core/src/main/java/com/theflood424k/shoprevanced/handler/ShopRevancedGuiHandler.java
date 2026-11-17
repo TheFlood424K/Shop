@@ -1,0 +1,357 @@
+package com.theflood424k.shoprevanced.handler;
+
+import com.theflood424k.shoprevanced.ShopRevanced;
+import com.theflood424k.shoprevanced.gui.*;
+import com.theflood424k.shoprevanced.shop.AbstractShop;
+import com.theflood424k.shoprevanced.util.ConfigUpdater;
+import com.theflood424k.shoprevanced.util.PlayerSettings;
+import com.theflood424k.shoprevanced.util.ShopRevancedMessage;
+import com.theflood424k.shoprevanced.util.UtilMethods;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+public class ShopRevancedGuiHandler {
+
+    public enum GuiIcon {
+        MENUBAR_BACK, HOME_SEARCH, MENUBAR_LAST_PAGE, MENUBAR_NEXT_PAGE,
+        MENUBAR_SORT_PRICE_LOW, MENUBAR_SORT_PRICE_HIGH, MENUBAR_SORT_NAME_LOW, MENUBAR_SORT_NAME_HIGH,
+        MENUBAR_FILTER_TYPE_ALL, MENUBAR_FILTER_TYPE_SELL, MENUBAR_FILTER_TYPE_BUY, MENUBAR_FILTER_TYPE_BARTER, MENUBAR_FILTER_TYPE_GAMBLE,
+        MENUBAR_FILTER_STOCK_ALL, MENUBAR_FILTER_STOCK_IN, MENUBAR_FILTER_STOCK_OUT,
+        HOME_LIST_ALL_SHOPS, HOME_LIST_PLAYERS, HOME_SETTINGS, HOME_COMMANDS,
+        LIST_SHOP, LIST_PLAYER, LIST_PLAYER_ADMIN,
+        SETTINGS_NOTIFY_OWNER_ON, SETTINGS_NOTIFY_OWNER_OFF, SETTINGS_NOTIFY_USER_ON, SETTINGS_NOTIFY_USER_OFF, SETTINGS_NOTIFY_STOCK_ON, SETTINGS_NOTIFY_STOCK_OFF,
+        COMMANDS_CURRENCY, COMMANDS_SET_CURRENCY, COMMANDS_SET_GAMBLE, COMMANDS_REFRESH_DISPLAYS, COMMANDS_RELOAD, COMMANDS_ITEMLIST_ALLOW_ADD, COMMANDS_ITEMLIST_ALLOW_REMOVE, COMMANDS_ITEMLIST_DENY_ADD, COMMANDS_ITEMLIST_DENY_REMOVE,
+        ALL_SHOP_ICON, ALL_PLAYER_ICON, ALL_ADMIN_ICON
+    }
+
+    public enum GuiTitle {
+        HOME, LIST_PLAYERS, LIST_SHOPS, SETTINGS, COMMANDS, LIST_SEARCH_RESULTS
+
+    }
+
+    public ShopRevanced plugin;
+    private ConcurrentHashMap<UUID, ShopGuiWindow> playerGuiWindows = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<UUID, PlayerSettings> playerSettings = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<GuiIcon, ItemStack> guiIcons = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<GuiTitle, String> guiWindowTitles = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<UUID, ItemStack> playerHeads = new ConcurrentHashMap<>();
+    // Owners whose head needs (re)building, with their latest ShopRevanced. Filled from async ShopRevanced loading.
+    private Map<UUID, AbstractShop> staleHeads = new ConcurrentHashMap<>();
+
+    public ShopRevancedGuiHandler(ShopRevanced instance){
+        plugin = instance;
+    }
+
+    public ShopGuiWindow getWindow(Player player){
+        if(playerGuiWindows.get(player.getUniqueId()) != null){
+            return playerGuiWindows.get(player.getUniqueId());
+        }
+        HomeWindow window = new HomeWindow(player.getUniqueId());
+        playerGuiWindows.put(player.getUniqueId(), window);
+        return window;
+    }
+
+    public void setWindow(Player player, ShopGuiWindow window){
+        playerGuiWindows.put(player.getUniqueId(), window);
+
+        window.open();
+    }
+
+    public void closeWindow(Player player){
+        if(playerGuiWindows.get(player.getUniqueId()) != null){
+            playerGuiWindows.remove(player.getUniqueId());
+        }
+        player.closeInventory();
+    }
+
+    /**
+     * Marks the owner's GUI head for rebuilding the next time it is shown.
+     * Heads are built lazily: each setItemMeta on a head without textures makes Paper send an uncached
+     * Mojang profile lookup, so building one per loaded ShopRevanced floods the session server at startup.
+     */
+    public void reloadPlayerHeadIcon(AbstractShop shop){
+        if(shop == null || shop.getOwnerUUID() == null)
+            return;
+        staleHeads.put(shop.getOwnerUUID(), shop);
+    }
+
+    private void buildStaleHead(UUID playerUUID){
+        AbstractShop shop = staleHeads.remove(playerUUID);
+        if(shop != null)
+            buildPlayerHeadIcon(shop);
+    }
+
+    private void buildPlayerHeadIcon(AbstractShop shop){
+        UUID playerUUID = shop.getOwnerUUID();
+        OfflinePlayer offlinePlayer = shop.getOwner();
+        ItemStack playerHead = playerHeads.get(playerUUID);
+        ItemMeta itemMeta;
+        ItemStack placeHolderIcon;
+        if(playerHead == null) {
+            //playerUUID is the fake admin UUID
+            if(playerUUID.equals(plugin.getShopRevancedHandler().getAdminUUID())) {
+                playerHead = ShopRevanced.getPlugin().getGuiHandler().getIcon(GuiIcon.ALL_ADMIN_ICON, playerUUID, null).clone();
+                itemMeta = playerHead.getItemMeta();
+            }
+            else{
+                playerHead = new ItemStack(Material.PLAYER_HEAD);
+                itemMeta = playerHead.getItemMeta();
+
+                if (offlinePlayer != null && offlinePlayer.getName() != null)
+                    ((SkullMeta)itemMeta).setOwningPlayer(offlinePlayer);
+            }
+
+        }
+        else{
+            itemMeta =  playerHead.getItemMeta();
+        }
+
+        if(playerUUID.equals(plugin.getShopRevancedHandler().getAdminUUID())) {
+            //get the placeholder icon with all of the unformatted fields
+            placeHolderIcon = plugin.getGuiHandler().getIcon(GuiIcon.ALL_ADMIN_ICON, playerUUID, null);
+        }
+        else {
+            //get the placeholder icon with all of the unformatted fields
+            placeHolderIcon = plugin.getGuiHandler().getIcon(GuiIcon.ALL_PLAYER_ICON, playerUUID, null);
+        }
+
+        String name = ShopRevancedMessage.formatMessage(placeHolderIcon.getItemMeta().getDisplayName(), shop);
+        if (name == null || name.isEmpty()) {
+            String shortId = playerUUID.toString();
+            shortId = shortId.substring(0,3) + "..." + shortId.substring(shortId.length()-3);
+            name = "Unknown Player (" + shortId + ")";
+        }
+        List<String> lore = new ArrayList<>();
+        for(String loreLine : placeHolderIcon.getItemMeta().getLore()){
+            lore.add(ShopRevancedMessage.formatMessage(loreLine, shop));
+        }
+
+        itemMeta.setDisplayName(name);
+        itemMeta.setLore(lore);
+
+        PersistentDataContainer container = itemMeta.getPersistentDataContainer();
+        container.set(plugin.getPlayerUUIDNameSpacedKey(), PersistentDataType.STRING, playerUUID.toString());
+
+        playerHead.setItemMeta(itemMeta);
+
+        playerHeads.put(playerUUID, playerHead);
+    }
+
+    public ItemStack getPlayerHeadIcon(UUID playerUUID){
+        buildStaleHead(playerUUID);
+        if(playerHeads.containsKey(playerUUID))
+            return playerHeads.get(playerUUID);
+        return new ItemStack(Material.AIR);
+    }
+
+    public ArrayList<ItemStack> getShopOwnerHeads(){
+        for(UUID playerUUID : new ArrayList<>(staleHeads.keySet()))
+            buildStaleHead(playerUUID);
+        return playerHeads.values().stream().collect(
+                Collectors.toCollection(ArrayList::new)
+        );
+    }
+
+    public GuiIcon getIconFromOption(Player player, PlayerSettings.Option option){
+        return getIconFromOption(player.getUniqueId(), option);
+    }
+
+    public GuiIcon getIconFromOption(UUID playerUUID, PlayerSettings.Option option){
+        if(playerSettings.get(playerUUID) != null){
+            PlayerSettings settings = playerSettings.get(playerUUID);
+            return settings.getGuiIcon(option);
+        }
+
+        PlayerSettings settings = PlayerSettings.loadFromFile(playerUUID);
+        if(settings == null)
+            settings = new PlayerSettings(playerUUID);
+
+        playerSettings.put(playerUUID, settings);
+        return settings.getGuiIcon(option);
+    }
+
+    public void setIconForOption(Player player, PlayerSettings.Option option, GuiIcon guiIcon){
+        PlayerSettings settings;
+
+        if(playerSettings.get(player.getUniqueId()) != null){
+            settings = playerSettings.get(player.getUniqueId());
+        }
+        else {
+            settings = PlayerSettings.loadFromFile(player);
+            if (settings == null)
+                settings = new PlayerSettings(player);
+        }
+
+        settings.setOption(option, guiIcon);
+        playerSettings.put(player.getUniqueId(), settings);
+    }
+
+    public void toggleNotificationSetting(Player player, PlayerSettings.Option option){
+        PlayerSettings settings;
+
+        if(playerSettings.get(player.getUniqueId()) != null){
+            settings = playerSettings.get(player.getUniqueId());
+        }
+        else {
+            settings = PlayerSettings.loadFromFile(player);
+            if (settings == null)
+                settings = new PlayerSettings(player);
+        }
+
+        settings.toggleNotification(option);
+        playerSettings.put(player.getUniqueId(), settings);
+    }
+
+    public ItemStack getIcon(GuiIcon iconEnum, UUID playerUUID, AbstractShop shop){
+        if(iconEnum == GuiIcon.LIST_SHOP){
+            return shop.getGuiIcon();
+        }
+        else if(iconEnum == GuiIcon.LIST_PLAYER || iconEnum == GuiIcon.LIST_PLAYER_ADMIN){
+            return getPlayerHeadIcon(playerUUID);
+        }
+
+        if(guiIcons.containsKey(iconEnum))
+            return guiIcons.get(iconEnum);
+        return null;
+    }
+
+    public String getTitle(GuiTitle title){
+        return guiWindowTitles.get(title);
+    }
+
+    public String getTitle(ShopGuiWindow window){
+        if(window instanceof HomeWindow){
+            return guiWindowTitles.get(GuiTitle.HOME);
+        }
+        else if(window instanceof ListPlayersWindow){
+            return guiWindowTitles.get(GuiTitle.LIST_PLAYERS);
+        }
+        else if(window instanceof PlayerSettingsWindow){
+            return guiWindowTitles.get(GuiTitle.SETTINGS);
+        }
+        else if(window instanceof CommandsWindow){
+            return guiWindowTitles.get(GuiTitle.COMMANDS);
+        }
+        return "Window";
+    }
+
+    public void loadIconsAndTitles(){
+        File configFile = new File(plugin.getDataFolder(), "guiConfig.yml");
+        if (!configFile.exists()) {
+            configFile.getParentFile().mkdirs();
+            UtilMethods.copy(plugin.getResource("guiConfig.yml"), configFile);
+        }
+
+        try {
+            ConfigUpdater.update(plugin, "guiConfig.yml", configFile, new ArrayList<>());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+
+        //load all titles first
+        Set<String> titles = config.getConfigurationSection("titles").getKeys(false);
+
+        for(GuiTitle titleEnum : GuiTitle.values()) {
+            String titleString = config.getString("titles."+titleEnum.toString().toLowerCase());
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
+            guiWindowTitles.put(titleEnum, ChatColor.translateAlternateColorCodes('&', titleString));
+        }
+
+        Set<String> icons = config.getConfigurationSection("icons").getKeys(false);
+
+        //load all icons next
+        for(GuiIcon iconEnum : GuiIcon.values()) {
+            // If creative selection is disabled then disable the search icon
+            if (!plugin.allowCreativeSelection() && iconEnum == GuiIcon.HOME_SEARCH) { continue; }
+
+            boolean translateColors = true;
+            if(iconEnum == GuiIcon.ALL_SHOP_ICON || iconEnum == GuiIcon.ALL_PLAYER_ICON)
+                translateColors = false;
+
+            String iconString = iconEnum.toString().toLowerCase();
+            String parentKey = iconString.substring(0, iconString.indexOf('_'));
+            String childKey = iconString.substring(iconString.indexOf('_')+1);
+
+            String type = config.getString("icons."+parentKey+"."+childKey+".type");
+            String name = config.getString("icons."+parentKey+"."+childKey+".name");
+
+            if(name != null && translateColors)
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
+                name = ChatColor.translateAlternateColorCodes('&', name);
+
+            List<String> loreLines = config.getStringList("icons."+parentKey+"."+childKey+".lore");
+            List<String> lore = new ArrayList<>();
+            if(loreLines != null) {
+                for (String line : loreLines) {
+                    if(translateColors)
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
+                        lore.add(ChatColor.translateAlternateColorCodes('&', line));
+                    else
+                        lore.add(line);
+                }
+            }
+
+            ItemStack icon = null;
+            if(type != null) {
+                icon = new ItemStack(Material.valueOf(type.toUpperCase()));
+            }
+            else if(childKey.equals("set_gamble")){
+                icon = plugin.getGambleDisplayItem().clone();
+            }
+            else if(parentKey.equals("list")){
+                if(childKey.equals("player")) {
+                    icon = new ItemStack(Material.PLAYER_HEAD, 1, (short) 3);
+                }
+            }
+            else if(childKey.equals("shop_icon")){
+                icon = new ItemStack(Material.DIRT); // just a placeholder. will replace with the item ShopRevanced is selling later
+            }
+            else if(childKey.equals("player_icon")){
+                icon = new ItemStack(Material.PLAYER_HEAD); // just a placeholder. will replace with the player head of ShopRevanced later
+            }
+
+            if(icon != null) {
+                // Check if are set to "AIR" and if we should be disabled.
+                if (icon.getItemMeta() != null) {
+                    ItemMeta iconMeta = icon.getItemMeta();
+
+                    // iconMeta will be null if the icon is "Air", only update iconMeta if it actually exists
+                    if (iconMeta != null) {
+                        if (name != null)
+                            iconMeta.setDisplayName(name);
+                        if (lore != null && !lore.isEmpty())
+                            iconMeta.setLore(lore);
+                        icon.setItemMeta(iconMeta);
+                        guiIcons.put(iconEnum, icon);
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
