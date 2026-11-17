@@ -1,0 +1,54 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Make sure that if player somehow quit without getting their old data back, return it to them when they login next
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Prevents players in creative selection mode from dragging items across inventory slots
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Handle general inventory clicks to provide an additional layer of protection
+     * beyond the specific creative mode handler
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Prevent players from executing commands while in creative selection mode
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Prevent players from swapping items between hands while in creative selection mode
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Prevent players from changing gamemode while in creative selection mode
+     * and enforce creative mode if they're in the selection process
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Prevent players from switching items in their hotbar during creative selection
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Prevent players from interacting with entities during creative selection
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Prevent players from interacting with entities at specific positions
+     * during creative selection (more specific entity interaction)
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Prevent players from picking up items during creative selection
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* If a player dies during creative selection, ensure their state is properly restored
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* When a player respawns after dying in creative selection mode, ensure their state is restored
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Prevent players from toggling flight while in creative selection mode
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Public method to check if a player is currently in creative selection mode
+     * This can be used by other listeners to prevent unnecessary operations
+     * 
+     * @param player The player to check
+     * @return true if the player is in creative selection mode, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\listener\CreativeSelectionListener.java ===
+* Public method to check if a player UUID is currently in creative selection mode
+     * 
+     * @param playerUuid The UUID of the player to check
+     * @return true if the player is in creative selection mode, false otherwise

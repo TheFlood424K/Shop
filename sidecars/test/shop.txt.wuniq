@@ -1,0 +1,32 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+9af27f04-6db4-495e-a4e6-dd9c8a28e9f8
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:27b69890c9b4e4a0f4bad3b5e3c6eb41cbc25f08a5db0a50bc3aba49b4ad53dc
+
+[_description]
+Package: com.snowgears.shop.test. Test docstrings.
+
+[_summary]
+Root test package for the Shop plugin. Contains basic plugin loading and compatibility tests for Spigot-to-Paper migration.
+
+[_conclusions]
+Compatibility tests ensure migration from Spigot/Bukkit to PaperMC is working correctly.
+
+[_does]
+Verifies plugin loads in MockBukkit environment, tests Spigot-to-Paper migration compatibility (VaultUnlocked, GriefPrevention3D, Geyser/Floodgate).
+
+[_careful]
+
+[_careful/Compatibility]
+VaultUnlocked positive path verified by direct field injection since MockBukkit ServerMock.pluginManager is final and cannot be stubbed.
+

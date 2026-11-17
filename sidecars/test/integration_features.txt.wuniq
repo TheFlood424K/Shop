@@ -1,0 +1,27 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+41e787a9-8d9a-4243-86cd-1d98c39dae24
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:e4e3b670cba3e7bcd7c13f0b79f062376e048d58875dc0ec68abd93f2d3da752
+
+[_description]
+Package: com.snowgears.shop.test.integration_features. Integration feature test docstrings.
+
+[_summary]
+Integration feature tests for the Shop plugin. Tests owner head lazy building to prevent Mojang session server flooding at startup.
+
+[_does]
+Tests that owner heads are lazily built to avoid flooding Mojang session servers at startup on Paper.
+
+[_conclusions]
+Lazy head building prevents session server flooding during shop startup on Paper.
+

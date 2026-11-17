@@ -1,0 +1,38 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\testsupport\BaseMockBukkitTest.java ===
+* Base class for MockBukkit based tests.
+ * <p>
+ * Brings up a single {@link ServerMock} once per test-class and tears it down afterwards.
+ * Sub-classes can call {@link #getServer()} or {@link #getPlugin()}.
+ * Example usage:
+public class PluginLoadTest extends BaseMockBukkitTest {
+    @Test
+    void pluginShouldEnable() {
+        assertNotNull(getPlugin(), "Plugin should be loaded by MockBukkit");
+        assertTrue(getPlugin().isEnabled(), "Plugin should be enabled inside MockBukkit environment");
+    }
+}
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\testsupport\BaseMockBukkitTest.java ===
+* Creates a WorldMock and returns a spy that auto-loads chunks on common accessors
+     * (getBlockAt, getChunkAt). Tests should prefer this over server.addSimpleWorld(...)
+     * when verifying chunk-load behavior.
+     * This can be removed once we have pulled our changes into MockBukkit.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\testsupport\PlayerMessageTestUtil.java ===
+* Helper for asserting and debugging PlayerMock message queues deterministically.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\testsupport\ShopCreationFlowTestUtil.java ===
+* Test helper for driving the real chest-based shop creation flow (PlayerInteractEvent + chat steps).
+ * <p>
+ * This intentionally mirrors {@code ShopCreationChestTest} but is configurable (e.g., creator can be non-op).
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\testsupport\ShopSpyTestUtil.java ===
+* Test helper for replacing a registered shop instance with a Mockito spy.
+ * <p>
+ * This is used to verify whether {@link AbstractShop#executeClickAction(PlayerInteractEvent, ShopClickType)}
+ * was called by {@link com.snowgears.shop.listener.ShopListener}.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\testsupport\TestReflection.java ===
+* Test-only reflection utilities.
+ * <p>
+ * Prefer using this helper instead of spreading reflective hacks across tests.

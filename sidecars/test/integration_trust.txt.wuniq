@@ -1,0 +1,27 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+2fde7674-a685-48b2-88a1-dd3e579e5ef4
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+[_description]
+Package: com.snowgears.shop.test.integration_trust. Integration trust test docstrings.
+
+[_summary]
+Integration trust tests for the Shop plugin. Tests trust-based integrations with external protection plugins.
+
+[_conclusions]
+Trust integration tests verify external plugin compatibility with shop container access.
+
+[_does]
+Tests trust-based integrations with external protection plugins like BlockProt, Bolt, and CashierLock.
+

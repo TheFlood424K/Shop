@@ -1,0 +1,62 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\AbstractDisplay.java ===
+* Paper entity-backed shop display.
+ *
+ * <p>The main display is shared by all viewers of a shop. Every main entity is
+ * created hidden by default and is revealed with Paper's per-player visibility
+ * API. Tags are intentionally player-specific entities.</p>
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\AbstractDisplay.java ===
+* Reveals this shop's shared display to one player, or to every eligible
+     * player in the shop world when {@code player} is {@code null}.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\AbstractDisplay.java ===
+* Removes one player's tag entities and visibility exception. Shared main
+     * entities remain available to other viewers. Passing {@code null} destroys
+     * the shared main entities and all tags for every viewer.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\AbstractDisplay.java ===
+* Explicit logout/player-cleanup entry point. This is equivalent to
+     * {@link #remove(Player)} and never destroys shared entities needed by
+     * other players.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\AbstractDisplay.java ===
+* Removes main display visibility for a player, or all shared entities when
+     * {@code player} is {@code null}. When {@code onlyDisplayTags} is true, only
+     * that player's tags (or all tags for {@code null}) are removed.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\AbstractDisplay.java ===
+Returns whether this display has been requested for the player.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\AbstractDisplay.java ===
+Returns whether the player currently owns visible tag entities or a pending tag request.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\AbstractDisplay.java ===
+* Creates one player-specific floating text entity. This overload is used
+     * by the independent shop creation display and does not participate in the
+     * shop tag request lifecycle.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\AbstractDisplay.java ===
+* Compatibility method retained for callers compiled against the old
+     * display API. It now uses public Paper item metadata only.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\Display.java ===
+Paper entity-backed display implementation.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\DisplayDisabled.java ===
+No-op display implementation used when Paper displays are disabled.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\PaperDisplayMarker.java ===
+* Marks entities created by the Paper display implementation.
+ *
+ * <p>The marker intentionally uses a different key and data type from the
+ * legacy {@code display: 1} cleanup marker. Cleanup code can use
+ * {@link #isActiveDisplay(Entity)} to avoid deleting active Paper displays.</p>
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\PaperDisplayMarker.java ===
+Marks an entity as an active Paper shop display entity.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\PaperDisplayMarker.java ===
+Returns whether an entity is an active Paper shop display entity.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\display\PaperDisplayMarker.java ===
+Alias describing the representation used by the display package.

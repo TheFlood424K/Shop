@@ -1,0 +1,148 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\ArclightHook.java ===
+* Checks if a player can create a shop at the given location within Arclight claimed areas.
+     * Returns true if shop creation is allowed, false if denied by Arclight protections.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\ArclightHook.java ===
+* Checks if the player has arclight permission to create a shop at the given location.
+     * This method attempts to use the Arclight plugin API to verify the player's claim status.
+     *
+     * Arclight plugin typically provides:
+     * - Arclight.getLandAt(Location) to get the land at a location
+     * - Arcland.getOwner() or Arclight.getPermissions() to check player access
+     * - Common permission patterns like "arclight.create", "arclight.*"
+     *
+     * @return true if the player has permission to create a shop at this location, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\ArclightHook.java ===
+* Loads a class by name, catching ClassNotFoundException.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\BoltTrustListener.java ===
+* Listener that integrates with Bolt to allow trusted players to open a shop's container.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\CashierLockTrustListener.java ===
+* Listener that integrates with CashierLock to allow trusted players to open/create shop containers.
+ * <p>
+ * This provides a best-effort integration with the CashierLock plugin. If CashierLock is not installed,
+ * the listener does nothing. If CashierLock is installed but the integration is disabled, the listener
+ * also does nothing. If CashierLock is installed and integration is enabled, the listener checks if
+ * chests are protected and enforces access controls similar to the BlockProt and Bolt integrations.
+ * <p>
+ * Note: The CashierLock API methods are accessed via reflection since the exact API may vary between
+ * plugin versions. If the API methods are not found, the listener fails open (allows the operation)
+ * to avoid blocking shop creation/usage unnecessarily.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\CashierLockTrustListener.java ===
+* Attempts to load the CashierLock API.
+     * Returns the API object if found, or null if CashierLock is not installed.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\CashierLockTrustListener.java ===
+* Checks if a chest block is protected by CashierLock and if the player has access.
+     * Returns true if the chest is not protected, or if the player has access.
+     * Returns false only if the chest is protected and the player does NOT have access.
+     * <p>
+     * Logic order:
+     * 1. If not protected → allow
+     * 2. If player is owner → allow (owner always has access)
+     * 3. If player is OP → allow (operators always have access)
+     * 4. If canAccessMethod available → use it as additional check
+     * 5. If getOwnerMethod available and owner is someone else → deny
+     * 6. Fail closed: protection exists but access can't be determined → deny
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\GeyserFloodgateHook.java ===
+* Checks whether a player is a Bedrock player connecting via GeyserMC.
+     * Returns false if Geyser API is not available or the player is not a Bedrock player.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\GeyserFloodgateHook.java ===
+* Checks whether a player is a Floodgate-verified Bedrock player.
+     * Floodgate allows Bedrock players to join Java servers without a Java edition account.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\LandHook.java ===
+* Hook for the Land plugin - prevents players from creating shops
+ * in other players' claimed land areas.
+ *
+ * Land is a popular claiming plugin for Spigot/Paper servers.
+ * This hook checks if a player has permission to create a shop at a given location
+ * within a Land claimed area.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\LandHook.java ===
+* Checks if a player can create a shop at the given location within Land claimed areas.
+     * Returns true if shop creation is allowed, false if denied by Land protections.
+     * <p>
+     * Land plugin hook: only the land owner can create shops in their own land.
+     * Players in other players' claimed land cannot create shops.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\LandHook.java ===
+* Checks if the player has land permission to create a shop at the given location.
+     * <p>
+     * Only the land owner can create shops in their own land.
+     * Players in other players' claimed land or without land claims are denied.
+     * This is a secure default: only explicitly verified land ownership allows shop creation.
+     *
+     * Land plugin typically provides:
+     * - Land.getLandAt(Location) to get the land at a location
+     * - Land.getOwner() to check player ownership
+     *
+     * @return true if the player is the owner of the land at this location, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\LandHook.java ===
+* Loads a class by name, catching ClassNotFoundException.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\LandsHook.java ===
+* Hook for the Lands plugin - prevents players from creating shops
+ * in other players' claimed land areas.
+ *
+ * Lands is a popular claiming plugin for Spigot/Paper servers.
+ * This hook checks if a player has permission to create a shop at a given location
+ * within a Lands claimed area.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\LandsHook.java ===
+* Checks if a player can create a shop at the given location within Lands claimed areas.
+     * Returns true if shop creation is allowed, false if denied by Lands protections.
+     * <p>
+     * Lands plugin hook: only the land owner can create shops in their own land.
+     * Players in other players' claimed land cannot create shops.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\LandsHook.java ===
+* Checks if the player has land permission to create a shop at the given location.
+     * <p>
+     * Only the land owner can create shops in their own land.
+     * Players in other players' claimed land or without land claims are denied.
+     * This is a secure default: only explicitly verified land ownership allows shop creation.
+     *
+     * Lands plugin typically provides:
+     * - Lands.getLandAt(Location) to get the land at a location
+     * - Lands.getOwner() to check player ownership
+     *
+     * @return true if the player is the owner of the land at this location, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\LandsHook.java ===
+* Loads a class by name, catching ClassNotFoundException.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\ResidenceHook.java ===
+* Hook for the Residence plugin - prevents players from creating shops
+ * in other players' claimed residence areas.
+ *
+ * Residence is a popular claiming plugin for Spigot/Paper servers.
+ * This hook checks if a player has permission to create a shop at a given location
+ * within a Residence claimed area.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\ResidenceHook.java ===
+* Checks if a player can create a shop at the given location within Residence claimed areas.
+     * Returns true if shop creation is allowed, false if denied by Residence protections.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\ResidenceHook.java ===
+* Checks if the player has residence permission to create a shop at the given location.
+     * This method attempts to use the Residence plugin API to verify the player's claim status.
+     *
+     * Residence plugin typically provides:
+     * - Residence.getResidenceAt(Location) to get the residence at a location
+     * - Residence.getOwner() or Residence.getPermissions() to check player access
+     * - Common permission patterns like "residence.create", "residence.*"
+     *
+     * @return true if the player has permission to create a shop at this location, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\ResidenceHook.java ===
+* Loads a class by name, catching ClassNotFoundException.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\hook\WorldGuardHook.java ===
+* WorldGuard configuration container

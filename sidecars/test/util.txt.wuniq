@@ -1,0 +1,32 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+f627afc0-c848-40f0-b000-7f22aed1405e
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:cf93d940c696e3df2f493f460430e6a47625413e04e3f974705b37ed75a9fd44
+
+[_description]
+Package: com.snowgears.shop.test.util. Test utility docstrings.
+
+[_summary]
+Utility tests for the Shop plugin. Tests MariaDB JDBC client version fix, MiniMessage formatting regression, and gradient word preservation.
+
+[_conclusions]
+Utility tests cover dependency fixes, message formatting, and regression prevention.
+
+[_careful]
+
+[_careful/Compatibility]
+MariaDB Java client 2.7.14 resolves cleartext password disclosure vulnerability to MITM on initial handshake.
+
+[_does]
+Tests MariaDB JDBC client version fix (Issue #204), MiniMessage formatting regression (Issue #152/shopbugs#496), and gradient word preservation in formatting.
+

@@ -1,0 +1,27 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+af99fbe2-e989-45a8-a2a6-a63d8f9694a2
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:6d9c24e98a3c34b16088a04fbd9f40082b7a13742f236a90034aa2e15590b475
+
+[_description]
+Package: com.snowgears.shop.test.listener. Test listener docstrings.
+
+[_summary]
+Listener tests for the Shop plugin. Unit-tests build-limit calculation logic using Mockito for Bukkit/Spigot type mocking.
+
+[_conclusions]
+Listener tests validate numeric build-limit results without requiring full server mocking.
+
+[_does]
+Unit-tests build-limit calculation logic in ShopListener using Mockito-inline for mocking final PermissionAttachmentInfo class.
+

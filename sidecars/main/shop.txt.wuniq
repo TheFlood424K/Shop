@@ -1,0 +1,32 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+ea5333c2-b8b5-420f-a007-57350895a49c
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:0862f9869e27e847d4c6b858121403af101add87dfab422401710e0e3b0f5068
+
+[_description]
+Package: com.snowgears.shop (root). Shop.java main plugin class: getMaxDisplayDistance, getShopSearchRadius, getDisplayBatchSize, getDisplayBatchDelay.
+
+[_summary]
+Main plugin entry point for Shop. Handles plugin lifecycle (onEnable/onDisable), economy setup via VaultUnlocked, GriefPrevention3D hook registration, GeyserMC/Floodgate compatibility wiring, configuration loading, and command registration.
+
+[_does]
+Initializes the Shop plugin, loads configuration, sets up economy via VaultUnlocked, registers GriefPrevention3D hook, wires GeyserMC/Floodgate compatibility, registers commands and listeners.
+
+[_careful]
+
+[_careful/Compatibility]
+Depends on VaultUnlocked (same net.milkbowl.vault.* packages as VaultAPI — no import changes needed). Geyser API via GeyserApi.api(), Floodgate via FloodgateApi.getInstance(). GriefPrevention3D uses same me.ryanhamshire.GriefPrevention package as standard GP.
+
+[_conclusions]
+Shop.java is the central coordination point for all compatibility integrations (VaultUnlocked, GriefPrevention3D, Geyser/Floodgate).
+

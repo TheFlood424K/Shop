@@ -1,0 +1,32 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+68483f6d-a07b-467c-8c9c-8707c89b907d
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:4fa267c354d57fa0a0d6df711a47c8343fc60b6d57850311f7c5e5604c30e1c9
+
+[_description]
+Package: com.snowgears.shop.display. AbstractDisplay, Display, DisplayDisabled, PaperDisplayMarker - Paper entity-backed shop displays.
+
+[_conclusions]
+Display system is Paper-specific and uses per-player visibility for smooth multiplayer experience without affecting other viewers.
+
+[_summary]
+Paper entity-backed shop display system. Creates shared and player-specific display entities using Paper's per-player visibility API.
+
+[_does]
+Manages display visibility per-player, creates floating text entities, handles tag lifecycle, provides no-op fallback when displays are disabled, marks display entities for cleanup safety.
+
+[_careful]
+
+[_careful/Compatibility]
+PaperDisplayMarker uses different key/data type from legacy `display: 1` cleanup marker to avoid deleting active Paper displays. Requires Paper API for per-player visibility.
+

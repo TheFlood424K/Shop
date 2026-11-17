@@ -1,0 +1,782 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ConfigUpdater.java ===
+* A class to update/add new sections/keys to your config while keeping your current values and keeping your comments
+ * Algorithm:
+ * Read the new file and scan for comments and ignored sections, if ignored section is found it is treated as a comment.
+ * Read and write each line of the new config, if the old config has value for the given key it writes that value in the new config.
+ * If a key has an attached comment above it, it is written first.
+ * @author tchristofferson
+ * https://github.com/tchristofferson/Config-Updater/blob/master/src/main/java/com/tchristofferson/configupdater/ConfigUpdater.java
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ConfigUpdater.java ===
+* Update a yaml file from a resource inside your plugin jar
+     * @param plugin You plugin
+     * @param resourceName The yaml file name to update from, typically config.yml
+     * @param toUpdate The yaml file to update
+     * @param ignoredSections List of sections to ignore and copy from the current config
+     * @throws IOException If an IOException occurs
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\DisplayUtil.java ===
+* Converts a BlockFace direction to a yaw (float) value
+     * Return:
+     * - float: the yaw value of the BlockFace direction provided
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ItemHoverEventHelper.java ===
+* Creates Paper/Adventure SHOW_ITEM hover events from a Bukkit ItemStack.
+ *
+ * Behavior:
+ * - Uses Adventure's HoverEvent.showItem(ItemStack), which leverages Paper's
+ *   item serialization to emit {id,count,components} for modern clients.
+ *
+ * Requirements:
+ * - Paper API providing item serialization.
+ *
+ * Example:
+ *   HoverEvent hover = ItemHoverEventHelper.createFrom(itemStack);
+ *   component.hoverEvent(hover);
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ItemHoverEventHelper.java ===
+* Build a SHOW_ITEM hover event for the provided Bukkit ItemStack.
+     *
+     * @param bukkitItem Bukkit ItemStack
+     * @return HoverEvent with SHOW_ITEM action suitable for modern clients
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ItemStackUtils.java ===
+* Item serialization helpers backed by Paper's public API.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ItemStackUtils.java ===
+* Serializes an item stack to Minecraft's component-based JSON format.
+     *
+     * @param itemStack item stack to serialize
+     * @return serialized item data
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ItemStackUtils.java ===
+* Deserializes an item stack from Minecraft's component-based JSON format.
+     *
+     * @param data serialized item data
+     * @return deserialized item stack
+     * @throws IllegalArgumentException when the data is invalid
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Creates a new Metrics instance.
+   *
+   * @param plugin Your plugin instance.
+   * @param serviceId The id of the service. It can be found at <a
+   *     href="https://bstats.org/what-is-my-plugin-id">What is my plugin id?</a>
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+Shuts down the underlying scheduler service.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Adds a custom chart.
+   *
+   * @param chart The chart to add.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+The version of the Metrics class.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Creates a new MetricsBase class instance.
+     *
+     * @param platform The platform of the service.
+     * @param serviceId The id of the service.
+     * @param serverUuid The server uuid.
+     * @param enabled Whether or not data sending is enabled.
+     * @param appendPlatformDataConsumer A consumer that receives a {@code JsonObjectBuilder} and
+     *     appends all platform-specific data.
+     * @param appendServiceDataConsumer A consumer that receives a {@code JsonObjectBuilder} and
+     *     appends all service-specific data.
+     * @param submitTaskConsumer A consumer that takes a runnable with the submit task. This can be
+     *     used to delegate the data collection to a another thread to prevent errors caused by
+     *     concurrency. Can be {@code null}.
+     * @param checkServiceEnabledSupplier A supplier to check if the service is still enabled.
+     * @param errorLogger A consumer that accepts log message and an error.
+     * @param infoLogger A consumer that accepts info log messages.
+     * @param logErrors Whether or not errors should be logged.
+     * @param logSentData Whether or not the sent data should be logged.
+     * @param logResponseStatusText Whether or not the response status text should be logged.
+     * @param skipRelocateCheck Whether or not the relocate check should be skipped.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+Checks that the class was properly relocated.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Gzips the given string.
+     *
+     * @param str The string to gzip.
+     * @return The gzipped string.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Class constructor.
+     *
+     * @param chartId The id of the chart.
+     * @param callable The callable which is used to request the chart data.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Class constructor.
+     *
+     * @param chartId The id of the chart.
+     * @param callable The callable which is used to request the chart data.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Class constructor.
+     *
+     * @param chartId The id of the chart.
+     * @param callable The callable which is used to request the chart data.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Class constructor.
+     *
+     * @param chartId The id of the chart.
+     * @param callable The callable which is used to request the chart data.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Class constructor.
+     *
+     * @param chartId The id of the chart.
+     * @param callable The callable which is used to request the chart data.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Class constructor.
+     *
+     * @param chartId The id of the chart.
+     * @param callable The callable which is used to request the chart data.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Class constructor.
+     *
+     * @param chartId The id of the chart.
+     * @param callable The callable which is used to request the chart data.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* An extremely simple JSON builder.
+   *
+   * <p>While this class is neither feature-rich nor the most performant one, it's sufficient enough
+   * for its use-case.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Appends a null field to the JSON.
+     *
+     * @param key The key of the field.
+     * @return A reference to this object.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Appends a string field to the JSON.
+     *
+     * @param key The key of the field.
+     * @param value The value of the field.
+     * @return A reference to this object.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Appends an integer field to the JSON.
+     *
+     * @param key The key of the field.
+     * @param value The value of the field.
+     * @return A reference to this object.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Appends an object to the JSON.
+     *
+     * @param key The key of the field.
+     * @param object The object.
+     * @return A reference to this object.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Appends a string array to the JSON.
+     *
+     * @param key The key of the field.
+     * @param values The string array.
+     * @return A reference to this object.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Appends an integer array to the JSON.
+     *
+     * @param key The key of the field.
+     * @param values The integer array.
+     * @return A reference to this object.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Appends an object array to the JSON.
+     *
+     * @param key The key of the field.
+     * @param values The integer array.
+     * @return A reference to this object.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Appends a field to the object.
+     *
+     * @param key The key of the field.
+     * @param escapedValue The escaped value of the field.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Builds the JSON string and invalidates this builder.
+     *
+     * @return The built JSON string.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* Escapes the given string like stated in https://www.ietf.org/rfc/rfc4627.txt.
+     *
+     * <p>This method escapes only the necessary characters '"', '\'. and '\u0000' - '\u001F'.
+     * Compact escapes are not used (e.g., '\n' is escaped as "\u000a" and not as "\n").
+     *
+     * @param value The value to escape.
+     * @return The escaped value.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\Metrics.java ===
+* A super simple representation of a JSON object.
+     *
+     * <p>This class only exists to make methods of the {@link JsonObjectBuilder} type-safe and not
+     * allow a raw string inputs for methods like {@link JsonObjectBuilder#appendField(String,
+     * JsonObject)}.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PlayerNameCache.java ===
+* Lightweight cache for player names to avoid expensive OfflinePlayer.getName() calls.
+ * Thread-safe with lazy loading during initial cache build phase.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PlayerNameCache.java ===
+* Initialize cache on startup - checks if cache file exists
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PlayerNameCache.java ===
+* Gets a player name from cache, with lazy loading during initial build
+     * @param uuid Player UUID
+     * @return Player name or formatted UUID fallback
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PlayerNameCache.java ===
+* Caches a player name and switches off initial build mode
+     * @param uuid Player UUID  
+     * @param name Player name
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PlayerNameCache.java ===
+* Removes a player from cache
+     * @param uuid Player UUID
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PlayerNameCache.java ===
+* Saves cache to file
+     * @param dataFolder Plugin data folder
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PlayerNameCache.java ===
+* Loads cache from file
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PlayerNameCache.java ===
+* Gets current cache size for monitoring
+     * @return Number of cached entries
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Handles price negotiations for shop transactions.
+ * <p>
+ * This class calculates the final price and quantity for shop transactions based on
+ * available funds, inventory, and desired purchase amount.
+ * <p>
+ * The negotiator supports two payment modes:
+ * <ul>
+ *   <li>Integer payments (default): Prices are always rounded up to the next full unit.</li>
+ *   <li>Fractional payments: Prices can have decimal precision (up to 2 decimal places).</li>
+ * </ul>
+ * <p>
+ * The only difference between the two modes is how prices are rounded. Item quantities
+ * are calculated the same way in both modes to ensure consistent behavior.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Creates a new PriceNegotiator.
+     *
+     * @param debugLogging              Whether to enable debug logging
+     * @param originalPrice             The original price for the items
+     * @param originalAmountBeingSold   The original quantity of items
+     * @param supportsFractionalPayments Whether to enable fractional payments (prices with decimal places)
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Rounds a value to the specified scale using the specified rounding mode.
+     *
+     * @param value The value to round
+     * @param scale The scale (number of decimal places) to round to
+     * @param roundingMode The rounding mode to use
+     * @return The rounded value
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Calculates the exact price based on the items and price per item.
+     * Uses different rounding strategies depending on the payment mode.
+     *
+     * @param items The number of items to purchase
+     * @param pricePerItem The price per individual item
+     * @return The calculated price, either rounded to cents (fractional) or rounded up (integer).
+     *         Returns NO_SPECIFIC_AMOUNT if the calculation would result in a price too small (zero).
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Negotiates a purchase based on the available funds, inventory, and desired amount.
+     * This method determines the final price and quantity for the transaction.
+     * 
+     * @param allowPartialSales Whether to allow selling partial amounts
+     * @param buyerAvailableFunds The amount of money the buyer has available
+     * @param sellerInventoryQuantity The number of items the seller has in inventory
+     * @param desiredAmount The specific amount the buyer wants to purchase (-1 for maximum possible)
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Resets the negotiation state to prepare for a new calculation.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Determines the maximum purchase amount based on original amount and desired amount.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Calculates the price per individual item.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Calculates how many items equal one price unit.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Logs price ratio information if debug logging is enabled.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Handles the special case of extremely low price per item.
+     * 
+     * @return true if the purchase was handled or canceled, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Handles exact amount purchase with fractional payments.
+     * 
+     * @return true if the purchase was handled, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Calculates the maximum purchasable quantity based on available funds and inventory.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Calculates the number of items being bought.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Logs purchase details if debug logging is enabled.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Checks if the purchase is invalid due to insufficient funds or inventory.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Resets price and amount values to original values.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Handles the case where partial sales are not allowed.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Ensures we don't exceed the maximum purchase limit.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Sets the final negotiated values for the transaction.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Gets the final negotiated price.
+     * 
+     * @return The final price for the transaction
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Gets the final negotiated amount.
+     * 
+     * @return The final amount for the transaction
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Gets the explicitly negotiated price.
+     * 
+     * @return The explicitly negotiated price or NO_SPECIFIC_AMOUNT if negotiation wasn't completed
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Gets the explicitly negotiated amount.
+     * 
+     * @return The explicitly negotiated amount or NO_SPECIFIC_AMOUNT if negotiation wasn't completed
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\PriceNegotiator.java ===
+* Checks if this negotiator supports fractional payments.
+     *
+     * @return true if fractional payments (with decimal precision) are enabled, false otherwise
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopLogger.java ===
+* =============================================================================
+ *                                ShopLogger Class
+ * =============================================================================
+ *
+ * The `ShopLogger` class extends the standard {@link Logger} provided by Bukkit,
+ * offering a customized logging system tailored specifically for Shop
+ * This enhanced logger introduces additional log levels to provide
+ * server operators and developers with granular control over the verbosity and
+ * detail of log outputs, facilitating effective monitoring and debugging.
+ *
+ * ## Logging Levels
+ *
+ * The logger defines the following custom log levels, in addition to the standard
+ * Java logging levels (`SEVERE`, `WARNING`, `INFO`), ordered from highest to
+ * lowest severity:
+ *
+ * 1. **SEVERE**
+ *    - **Purpose**: Captures critical errors that prevent the plugin from
+ *      functioning correctly.
+ *    - **Use Cases**:
+ *      - Plugin failed to initialize due to missing dependencies.
+ *      - Critical data corruption or inability to access essential resources.
+ *
+ * 2. **WARNING**
+ *    - **Purpose**: Highlights potential issues that may not immediately affect
+ *      functionality but could lead to problems if unaddressed.
+ *    - **Use Cases**:
+ *      - Attempt to create a shop with invalid parameters.
+ *      - Deprecated API usage or conflicts with other plugins.
+ *
+ * 3. **INFO**
+ *    - **Purpose**: Provides general informational messages about the plugin’s
+ *      operations, typically logged during startup and shutdown.
+ *    - **Use Cases**:
+ *      - *"ChestShop plugin enabled successfully."*
+ *      - *"Loaded 25 shops from the database."*
+ *
+ * 4. **NOTICE**
+ *    - **Purpose**: Records significant but non-critical events that operators
+ *      might want to monitor.
+ *    - **Use Cases**:
+ *      - A shop has been successfully created or deleted.
+ *      - Major configuration changes applied.
+ *
+ * 5. **HELPFUL**
+ *    - **Purpose**: Logs important in-game events related to shop operations,
+ *      aiding in tracking player interactions and transactions.
+ *    - **Use Cases**:
+ *      - *"Transaction: Player A sold 5 diamonds to Player B for 100 coins."*
+ *      - *"Player 'Steve' created a new shop at location (100, 64, 200)."*
+ *
+ * 6. **DEBUG**
+ *    - **Purpose**: Provides detailed information useful for debugging specific
+ *      components or functionalities within the plugin.
+ *    - **Use Cases**:
+ *      - *"Processing transaction: Player A buys 10 apples from Player B."*
+ *      - *"Loading shop data for player 'Alex'."*
+ *
+ * 7. **TRACE**
+ *    - **Purpose**: Offers an intermediary level of verbosity between `DEBUG` and
+ *      `SPAM`, capturing step-by-step execution details without flooding the logs.
+ *    - **Use Cases**:
+ *      - *"Entering method `createShop` with parameters: player=Steve, location=(100,64,200)."*
+ *      - *"Validating shop parameters for player Alex."*
+ *
+ * 8. **SPAM**
+ *    - **Purpose**: The most verbose log level, intended for deep diagnostics
+ *      and capturing every minor operation or event.
+ *    - **Use Cases**:
+ *      - *"Player 'Steve' accessed shop inventory at (100, 64, 200)."*
+ *      - *"Detailed player command processing logs."*
+ *
+ * ## Configuration
+ *
+ * Server operators can configure the desired log level via the `config.yml` file:
+ *
+ * ```yaml
+ * logging:
+ *   level: INFO  # Options: SEVERE, WARNING, INFO, NOTICE, HELPFUL, DEBUG, TRACE, SPAM
+ * ```
+ *
+ * Setting a higher log level (e.g., `INFO`) ensures that only the most critical
+ * items are logged, while lower levels (e.g., `SPAM`) provide exhaustive
+ * details for in-depth troubleshooting.
+ *
+ * ## Best Practices
+ *
+ * - **Consistent Usage**: Maintain consistency in log level assignments across
+ *   the plugin to facilitate easier log management and interpretation.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Handles message formatting, placeholder replacement, and sending of chat messages for shops.
+ * Manages configuration loading for chat, sign, and display messages, as well as placeholder registration.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Registers a placeholder with its corresponding value retrieval function.
+     *
+     * @param placeholder The placeholder string without brackets, e.g., "owner"
+     * @param valueFunction A function that takes a PlaceholderContext instance and returns the replacement string
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Attempts to replace a single placeholder within a message.
+     *
+     * @param placeholder The placeholder string without brackets, e.g., "owner"
+     * @param context     The PlaceholderContext instance containing Shop and Player
+     * @return The replacement component or an empty component if replacement fails
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets the Adventure TextColor from a string, supporting both legacy color codes and hex colors.
+     *
+     * @param color The color string to parse (e.g., "&a", "&a", or "#FF0000")
+     * @return The corresponding TextColor, or null if no color is found
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Formats a message by replacing all placeholders with their respective values.
+     *
+     * @param message The message containing placeholders
+     * @param context The PlaceholderContext instance containing Shop and Player
+     * @return The formatted message with all placeholders replaced
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Converts a Bukkit ChatColor to an Adventure TextColor.
+     *
+     * @param chatColor The ChatColor to convert
+     * @return The equivalent Adventure TextColor, or null if chatColor is null
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Formats a message using MiniMessage syntax, supporting advanced formatting
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code &} codes.
+     *
+     * @param message The message in MiniMessage format (e.g., "<red>Hello</red>" or "<#FF0000>Hello</#FF0000>")
+     * @param context The PlaceholderContext instance containing Shop and Player
+     * @return The formatted message as a Component
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Swaps in placeholder values, sends fancy message with Click/Hover events to Player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Swaps in placeholder values, sends fancy message with Click/Hover events to Player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Swaps in placeholder values, sends fancy message with Click/Hover events to Player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Loads message, swaps in placeholder values, sends fancy message with Click/Hover events to Player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Loads message, swaps in placeholder values, sends fancy message with Click/Hover events to Player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Swaps in placeholder values, sends fancy message with Click/Hover events to Player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Swaps in placeholder values, sends fancy message with Click/Hover events to Player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Swaps in placeholder values, sends fancy message with Click/Hover events to Player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Swaps in placeholder values, sends fancy message with Click/Hover events to Player
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Formats a message using MiniMessage syntax, supporting advanced formatting
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code &} codes.
+     *
+     * @param message The message in MiniMessage format
+     * @param player The player to send the message to
+     * @param context The PlaceholderContext instance
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Formats a message using MiniMessage syntax (without placeholders).
+     *
+     * @param message The message in MiniMessage format
+     * @param player The player to send the message to
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Loads all available placeholders into the map.
+     * This method should be called during the plugin's initialization phase.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Creates a hover event displaying item information.
+     *
+     * @param item The item stack to display on hover
+     * @return The hover event, or null if item is null or hover is disabled
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Converts legacy text to a Component, with fallback for older Bukkit versions.
+     * Uses Adventure's LegacyComponentSerializer instead of Bungee's TextComponent.fromLegacyText.
+     *
+     * @param text The legacy formatted text to convert
+     * @return The converted Component
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Converts a legacy formatted string to an Adventure Component.
+     * This is kept as a pass-through since componentFromLegacy now returns Component directly.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Embeds item hover information into a message.
+     *
+     * @param message The message text
+     * @param item The item stack to embed
+     * @return The message with item hover event attached
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Embeds item hover information into a Component.
+     *
+     * @param message The Component message
+     * @param item The item stack to embed
+     * @return The message with item hover event attached
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Creates a hover event displaying offline transaction information.
+     *
+     * @param context The placeholder context containing offline transactions
+     * @return The hover event, or null if creation fails
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Creates a hover event displaying shop location information.
+     *
+     * @param context The placeholder context containing shop information
+     * @return The hover event, or null if creation fails
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Helper method to handle the [shop types] placeholder.
+     *
+     * @param context The PlaceholderContext instance.
+     * @return A comma-separated list of shop types the player can create.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Helper method to handle the [item] placeholder with truncation for signs.
+     *
+     * @param context The PlaceholderContext instance.
+     * @return The item name, potentially truncated to fit sign constraints.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Helper method to handle the [barter item] placeholder with truncation for signs.
+     *
+     * @param context The PlaceholderContext instance.
+     * @return The barter item name, potentially truncated to fit sign constraints.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets the creation word for the given shop type.
+     *
+     * @param type The shop type identifier
+     * @return The creation word for the shop type
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets the word used to represent a free price.
+     *
+     * @return The free price word
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets the word used to represent admin stock.
+     *
+     * @return The admin stock word
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets the server display name.
+     *
+     * @return The server display name
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets an unformatted message from the message map.
+     *
+     * @param key The message key
+     * @param subKey The message sub key, or null if no sub key
+     * @return The unformatted message
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Formats a message for a shop.
+     *
+     * @param unformattedMessage The unformatted message to format
+     * @param shop The shop context
+     * @return The formatted message
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Formats a message for a shop with player context.
+     *
+     * @param unformattedMessage The unformatted message to format
+     * @param shop The shop context
+     * @param player The player context
+     * @param forSign Whether the message is for a sign
+     * @return The formatted message
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Perform partial formatting to insert transaction purchase amounts since they might differ from shop amounts (partial sales)
+     *
+     * @param transactionType The type of transaction
+     * @param subKey The message sub key
+     * @param price The price of the transaction
+     * @param amount The amount of items
+     * @return The formatted message
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets the sign lines for a shop.
+     * <p>
+     * # [amount] : The amount of items the shop is selling/buying/bartering <br>
+     * # [price] : The price of the items the shop is selling (adjusted to match virtual or physical currency) <br>
+     * # [owner] : The name of the shop owner <br>
+     * # [server name] : The name of the server
+     * </p>
+     *
+     * @param shop The shop
+     * @param shopType The shop type
+     * @return The sign lines
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets the sign lines for a shop by key.
+     *
+     * @param key The sign text key
+     * @param shop The shop
+     * @return The sign lines
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets the display tags for a shop.
+     *
+     * @param shop The shop
+     * @param shopType The shop type
+     * @return The display tags
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets a list of unformatted messages.
+     *
+     * @param key The message key
+     * @param subKey The message sub key
+     * @return The list of unformatted messages
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Loads all messages from the chat configuration file.
+     * Populates the messageMap with transaction, interaction, and issue messages
+     * for all shop types, as well as command and hover messages.
+     * This method should be called during the plugin's initialization phase.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Loads sign text from the sign configuration file.
+     * Populates the shopSignTextMap with sign lines for each shop type,
+     * including normal, admin, and no-display variants, as well as timeout and deleted messages.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Loads display tag text from the display configuration file.
+     * Populates the displayTextMap with formatted lines for each shop type.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Loads creation words from the sign configuration file.
+     * Maps each shop type (SHOP, SELL, BUY, BARTER, GAMBLE, ADMIN, COMBO)
+     * to its corresponding creation word used for sign display.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Escapes angle brackets that are not valid MiniMessage tags.
+     * Valid tags are like <red>, </red>, <bold>, <#FF0000>, etc.
+     * Invalid tags like <(54, 65, 9)> are escaped to be literal text.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\ShopMessage.java ===
+* Gets the target max length for display tags.
+     *
+     * @return The target max length
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\UpdateChecker.java ===
+* Extracts the value of the "tag_name" field from a GitHub release JSON response
+     * using simple string scanning (no JSON library dependency).
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\UtilMethods.java ===
+* Returns the width of a character in the Minecraft font.
+     * Based on the width data from Minecraft's font.
+     * From: https://bukkit.org/threads/formatting-plugin-output-text-into-columns.8481/#post-133295
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\UtilMethods.java ===
+* Checks if a chunk is loaded
+     * 
+     * @param location The location to check
+     * @return True if the chunk is loaded, false otherwise
+     * 
+     * Note: This method should be used instead of `location.getChunk().isChunkLoaded()` 
+     * because calling `location.getChunk()` will force a chunk load, which defeats 
+     * the purpose of checking if the chunk is already loaded.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\UtilMethods.java ===
+* Chunk keys are used to identify chunks in the shop handler inside of Maps/sets
+     * these helpers are used to create and get chunk keys from locations and chunks
+     * and help with consistency across the codebase.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\UtilMethods.java ===
+* Formats a firework effect into a readable string
+     * @param effect The firework effect to format
+     * @param isFireworkStar Whether this is for a firework star (true) or a firework (false)
+     * @return Formatted text component with firework effect information
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\UtilMethods.java ===
+* Formats a firework shape into a readable string
+     * @param type The firework effect type
+     * @return Formatted shape name
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\util\UtilMethods.java ===
+* Formats a color into a readable string
+     * @param color The color to format
+     * @return Formatted color name

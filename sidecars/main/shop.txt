@@ -1,0 +1,23 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\Shop.java ===
+* Gets the maximum distance at which shop displays will be shown to players.
+     * Higher values will show shops from further away but may cause client lag.
+     * 
+     * @return The maximum display distance in blocks
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\Shop.java ===
+* Gets the radius (in chunks) around a player to search for shops.
+     * Each increment searches exponentially more chunks (1=3x3 area, 2=5x5 area, 3=7x7 area).
+     * 
+     * @return The shop search radius in chunks
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\Shop.java ===
+* Gets the number of shop displays to process in a single batch when sending to a player.
+     * This controls how many displays are sent at once to create a smoother appearance.
+     * 
+     * @return The batch size for shop display processing
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\main\java\com\snowgears\shop\Shop.java ===
+* Gets the delay between batches of shop displays in server ticks (20 ticks = 1 second).
+     * Higher values create a smoother appearance but take longer to show all displays.
+     * 
+     * @return The delay in ticks between display batches

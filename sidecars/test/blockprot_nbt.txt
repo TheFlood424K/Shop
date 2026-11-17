@@ -1,0 +1,10 @@
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\de\sean\blockprot\nbt\FriendModifyAction.java ===
+* Minimal test-scope stub required for loading BlockProt handler classes in tests.
+ * <p>
+ * The real BlockProt runtime provides this type; tests only need it to exist for Mockito/ByteBuddy.
+
+=== malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\de\sean\blockprot\nbt\LockReturnValue.java ===
+* Minimal test-scope stub to satisfy BlockProt API classes that reference this annotation.
+ * <p>
+ * The real BlockProt runtime provides this type; our tests only need it to exist so Mockito/ByteBuddy
+ * can inspect the BlockProt handler class hierarchy without {@link ClassNotFoundException}.

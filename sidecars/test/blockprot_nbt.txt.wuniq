@@ -1,0 +1,32 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+7f4ac5d9-c84e-4bd4-9546-a0a01e026e8f
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:10c453d2f4b2fa99d8e647be91f2f55e084d00a6ea6f961d6cb2a95c85664207
+
+[_description]
+Package: de.sean.blockprot.nbt. BlockProt NBT test docstrings.
+
+[_summary]
+Test-scope stubs for BlockProt NBT classes. Minimal stubs required for loading BlockProt handler classes in tests without the actual BlockProt plugin.
+
+[_does]
+Provides FriendModifyAction and LockReturnValue stubs so Mockito/ByteBuddy can inspect BlockProt handler class hierarchy without ClassNotFoundException.
+
+[_careful]
+
+[_careful/Compatibility]
+Real BlockProt runtime provides these types; tests only need them to exist for class loading and Mockito inspection.
+
+[_conclusions]
+Stubs enable BlockProt integration testing without requiring the actual BlockProt plugin at runtime.
+

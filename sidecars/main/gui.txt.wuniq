@@ -1,0 +1,24 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+1776002d-a999-4f4f-8e22-0809bb99601c
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+[_description]
+Package: com.snowgears.shop.gui. GUI components for shop interaction and configuration.
+
+[_does]
+Renders shop-related GUI screens, handles GUI interactions, and provides visual interfaces for shop setup and management.
+
+[_conclusions]
+GUI package supports shop configuration and interaction through visual interfaces.
+

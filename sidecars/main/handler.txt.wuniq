@@ -1,0 +1,18 @@
+[_format]
+1.2
+
+[_version]
+1.24.0
+
+[_uuid]
+7e39cc34-0e0d-440c-9c35-be055b7feac8
+
+[_type]
+file-sidecar
+
+[_content_hash]
+sha256:lf1:53aa0ca6ddcd935cbbe70b32326faa09f57f86bfc4dcf586e10816f7a5efb6d3
+
+[_description]
+Package: com.snowgears.shop.handler. CommandHandler: Paper-native command registration via Bukkit.getCommandMap(). TransactionHandler: ConcurrentHashMap for shop cooldowns (thread-safe). Plus other handlers with docstrings in extracted file.
+
