@@ -28,7 +28,7 @@
         <!-- Plugin Integrations -->
         <adventure.bom.version>5.2.0</adventure.bom.version>
         <plotsquared.version>7.6.0</plotsquared.version>
-        <vaultunlocked.version>2.15.0</vaultunlocked.version>
+        <vaultunlocked.version>2.20.3</vaultunlocked.version>
         <griefprevention3d.version>19.0.7</griefprevention3d.version>
         <geyser.api.version>2.11.2-SNAPSHOT</geyser.api.version>
         <floodgate.api.version>2.2.5-SNAPSHOT</floodgate.api.version>
