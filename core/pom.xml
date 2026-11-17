@@ -29,16 +29,16 @@
         <adventure.bom.version>5.2.0</adventure.bom.version>
         <plotsquared.version>7.6.0</plotsquared.version>
         <vaultunlocked.version>2.20.3</vaultunlocked.version>
-        <griefprevention3d.version>19.0.7</griefprevention3d.version>
+        <griefprevention3d.version>19.1.0</griefprevention3d.version>
         <geyser.api.version>2.11.2-SNAPSHOT</geyser.api.version>
         <floodgate.api.version>2.2.5-SNAPSHOT</floodgate.api.version>
         <worldguard.version>7.0.21</worldguard.version>
-        <towny.version>0.103.1.1</towny.version>
+        <towny.version>0.103.2.16</towny.version>
         <lwc.version>2.5.0</lwc.version>
         <bolt.version>1.2.86</bolt.version>
-        <blockprot.version>1.2.6</blockprot.version>
+        <blockprot.version>1.2.7</blockprot.version>
         <dynmap.version>3.6</dynmap.version>
-        <bluemap.version>2.7.3</bluemap.version>
+        <bluemap.version>2.8.2</bluemap.version>
         <bentobox.version>2.7.0</bentobox.version>
         <arm.version>3.5.4</arm.version>
 
@@ -300,7 +300,7 @@
         <dependency>
             <groupId>maven.modrinth</groupId>
             <artifactId>pqVXF7b5</artifactId>
-            <version>f9qqpIb7</version>
+            <version>19.1.0</version>
             <scope>provided</scope>
         </dependency>
 
