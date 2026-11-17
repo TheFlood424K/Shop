@@ -1,0 +1,464 @@
+package com.theflood424k.shoprevanced.listener;
+
+import com.theflood424k.shoprevanced.ShopRevanced;
+import com.theflood424k.shoprevanced.display.DisplayTagOption;
+import com.theflood424k.shoprevanced.event.PlayerOpenShopEvent;
+import com.theflood424k.shoprevanced.event.PlayerOpenShopEvent.OpenMode;
+import com.theflood424k.shoprevanced.event.PlayerOpenShopEvent.OpenTarget;
+import com.theflood424k.shoprevanced.integration.WorldGuardHook;
+import com.theflood424k.shoprevanced.shop.AbstractShop;
+import com.theflood424k.shoprevanced.shop.ShopType;
+import com.theflood424k.shoprevanced.util.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.Tag;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.WallSign;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.player.*;
+import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.permissions.PermissionAttachmentInfo;
+import org.bukkit.scheduler.BukkitRunnable;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+
+
+public class ShopRevancedListener implements Listener {
+
+    private ShopRevanced plugin;
+    private ConcurrentHashMap<UUID, OfflineTransactions> transactionsWhileOffline = new ConcurrentHashMap<>();
+    private HashMap<UUID, Long> playerLastShopTeleport = new HashMap<>();
+
+    public ShopRevancedListener(ShopRevanced instance) {
+        plugin = instance;
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event){
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
+            // Cache player name for performance optimization
+            PlayerNameCache.cacheName(event.getPlayer().getUniqueId(), event.getPlayer().getName());
+        }, 5);
+    }
+
+    public int getBuildLimit(Player player){
+        // If permissions are disabled, there is "no limit"
+        if (!plugin.usePerms()) {
+            return 10000;
+        }
+
+        int baseBuildLimit = -1;
+        int extraBuildLimit = 0;
+        Set<PermissionAttachmentInfo> permissions = player.getEffectivePermissions();
+
+        // calculate base buildlimit permission first (highest number)
+        for(PermissionAttachmentInfo permInfo : permissions){
+            String perm = permInfo.getPermission();
+            // Skip if not a ShopRevanced permission
+            if (!perm.startsWith("ShopRevanced.")) { continue; }
+
+            // If it's a base build limit permission, parse the number
+            if (perm.startsWith("ShopRevanced.buildlimit.")){
+                try {
+                    int tempNum = Integer.parseInt(perm.substring(perm.lastIndexOf(".") + 1));
+                    if(tempNum > baseBuildLimit) {
+                        baseBuildLimit = tempNum;
+                    }
+                } catch (NumberFormatException e) {}
+            }
+
+            // If it's an extra build limit permission, parse the number
+            else if (perm.startsWith("ShopRevanced.buildlimitextra.")){
+                try {
+                    int extraNum = Integer.parseInt(perm.substring(perm.lastIndexOf(".") + 1));
+                    extraBuildLimit += extraNum;
+                } catch (NumberFormatException e) {}
+            }
+        }
+
+        // If no build limit was found, return 10000 (no limit)
+        if (baseBuildLimit == -1) {
+            return 10000;
+        }
+
+        // Add build limits together
+        int playerBuildLimit = baseBuildLimit + extraBuildLimit;
+        
+        return playerBuildLimit;
+    }
+
+    @EventHandler (ignoreCancelled = true, priority = EventPriority.LOW)
+    public void onShopSignClick(PlayerInteractEvent event) {
+        try {
+            if (event.getHand() == EquipmentSlot.OFF_HAND) {
+                return; // off hand version, ignore.
+            }
+        } catch (NoSuchMethodError error) {}
+        Player player = event.getPlayer();
+
+        //player clicked the sign of a ShopRevanced
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            if (event.getClickedBlock().getBlockData() instanceof WallSign) {
+                AbstractShop shop = plugin.getShopRevancedHandler().getShop(event.getClickedBlock().getLocation());
+                if (shop == null || !shop.isInitialized())
+                    return;
+
+                boolean actionPerformed;
+                if(player.isSneaking()) {
+                    if(event.getAction() == Action.RIGHT_CLICK_BLOCK)
+                        actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_RIGHT_CLICK_SIGN);
+                    else
+                        actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_LEFT_CLICK_SIGN);
+                }
+                else{
+                    if(event.getAction() == Action.RIGHT_CLICK_BLOCK)
+                        actionPerformed = shop.executeClickAction(event, ShopClickType.RIGHT_CLICK_SIGN);
+                    else
+                        actionPerformed = shop.executeClickAction(event, ShopClickType.LEFT_CLICK_SIGN);
+                }
+                if (actionPerformed)
+                    event.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onShopChestClick(PlayerInteractEvent event) {
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            if (plugin.getShopRevancedHandler().isChest(event.getClickedBlock())) {
+                try {
+                    if (event.getHand() == EquipmentSlot.OFF_HAND) {
+                        return; // off hand version, ignore.
+                    }
+                } catch (NoSuchMethodError error) {}
+
+                Player player = event.getPlayer();
+                AbstractShop shop = plugin.getShopRevancedHandler().getShopByChest(event.getClickedBlock());
+                if (shop == null)
+                    return;
+
+                boolean canUseShopInRegion = true;
+                try {
+                    canUseShopInRegion = WorldGuardHook.canUseShop(player, shop.getSignLocation());
+                } catch(NoClassDefFoundError e) {}
+
+                //check that player can use the ShopRevanced if it is in a WorldGuard region
+                if(!canUseShopInRegion){
+                    ShopRevancedMessage.sendMessage("interactionIssue", "regionRestriction", player, null);
+                    event.setCancelled(true);
+                    return;
+                }
+
+                if((!plugin.getShopRevancedHandler().isChest(shop.getChestLocation().getBlock())) || !(shop.getSignLocation().getBlock().getBlockData() instanceof WallSign)){
+                    plugin.getLogger().warning("Deleting ShopRevanced because chest does not exist, or sign is not exist! " + shop);
+                    shop.delete();
+                    return;
+                }
+                
+                //player is sneaking and clicks a chest of a ShopRevanced
+                if(player.isSneaking()){
+                    //don't execute the action and cancel event if player is holding a sign (may be trying to place directly onto chest)
+                    if(!Tag.SIGNS.isTagged(player.getInventory().getItemInMainHand().getType())) {
+
+                        boolean actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_RIGHT_CLICK_CHEST);
+
+                        if(plugin.getDisplayTagOption() == DisplayTagOption.RIGHT_CLICK_CHEST){
+                            shop.getDisplay().showDisplayTags(player);
+                        }
+
+                        if (actionPerformed) {
+                            event.setCancelled(true);
+                            // Stop processing since we cancelled the event, if no action was performed, continue with logic below
+                            return;
+                        }
+                    }
+                }
+                //non-owner is trying to open ShopRevanced
+                if (!shop.getOwnerUUID().equals(player.getUniqueId())) {
+                    // Fire a pre-open event to allow integrations (e.g., protection plugins) to let trusted players open the container
+                    PlayerOpenShopEvent preOpenEvent = new PlayerOpenShopEvent(player, shop, OpenTarget.CHEST, OpenMode.SHOP_ACTION);
+                    Bukkit.getPluginManager().callEvent(preOpenEvent);
+
+                    if (preOpenEvent.isCancelled()) {
+                        // Hard-deny access if any listener cancels access
+                        event.setCancelled(true);
+                        return;
+                    }
+
+                    if (preOpenEvent.getMode() == OpenMode.OPEN_CONTAINER) {
+                        // Allow container to open normally for trusted players.
+                        ShopRevancedMessage.sendMessage("interaction", "openTrusted", player, shop);
+                        return;
+                    }
+
+                    if ((plugin.usePerms() && player.hasPermission("ShopRevanced.operator")) || (!plugin.usePerms() && player.isOp())) {
+                        if (shop.isAdmin()) {
+                            if (shop.getType() == ShopType.GAMBLE) {
+                                //allow gamble shops to be opened by operators
+                                return;
+                            }
+                            event.setCancelled(true);
+
+                            shop.executeClickAction(event, ShopClickType.RIGHT_CLICK_CHEST);
+                            //we are cancelling this event regardless so no need to check if the action was performed
+
+                        } else {
+                            ShopRevancedMessage.sendMessage(shop.getType().toString(), "opOpen", player, shop);
+                        }
+                    } else {
+                        // Cancel event to prevent other players from opening the chest
+                        event.setCancelled(true);
+
+                        boolean actionPerformed = shop.executeClickAction(event, ShopClickType.RIGHT_CLICK_CHEST);
+                        if (!actionPerformed) {
+                            // only send a message if the action was not performed, always deny opening the chest
+                            ShopRevancedMessage.sendMessage("permission", "openOther", player, shop);
+                        }
+
+                        if(plugin.getDisplayTagOption() == DisplayTagOption.RIGHT_CLICK_CHEST){
+                            shop.getDisplay().showDisplayTags(player);
+                        }
+                    }
+                }
+            }
+        }
+        else if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            if (plugin.getShopRevancedHandler().isChest(event.getClickedBlock())) {
+                try {
+                    if (event.getHand() == EquipmentSlot.OFF_HAND) {
+                        return; // off hand version, ignore.
+                    }
+                } catch (NoSuchMethodError error) {
+                }
+
+                Player player = event.getPlayer();
+                AbstractShop shop = plugin.getShopRevancedHandler().getShopByChest(event.getClickedBlock());
+                if (shop == null)
+                    return;
+
+                boolean actionPerformed;
+                if (player.isSneaking()) {
+                    actionPerformed = shop.executeClickAction(event, ShopClickType.SHIFT_LEFT_CLICK_CHEST);
+                } else {
+                    actionPerformed = shop.executeClickAction(event, ShopClickType.LEFT_CLICK_CHEST);
+                }
+                if (actionPerformed)
+                    event.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onExplosion(EntityExplodeEvent event) {
+        //save all potential ShopRevanced blocks (for sake of time during explosion)
+        Iterator<Block> blockIterator = event.blockList().iterator();
+        AbstractShop shop = null;
+        while (blockIterator.hasNext()) {
+
+            Block block = blockIterator.next();
+            if (Tag.WALL_SIGNS.isTagged(block.getType())) {
+                shop = plugin.getShopRevancedHandler().getShop(block.getLocation());
+            } else if (plugin.getShopRevancedHandler().isChest(block)) {
+                shop = plugin.getShopRevancedHandler().getShopByChest(block);
+            }
+
+            if (shop != null) {
+                blockIterator.remove();
+            }
+        }
+    }
+
+    @EventHandler
+    public void onShopExpansion(BlockPlaceEvent event) {
+        Block b = event.getBlockPlaced();
+        Player player = event.getPlayer();
+
+        if(b.getType() == Material.HOPPER){
+            AbstractShop shop = plugin.getShopRevancedHandler().getShopByChest(b.getRelative(BlockFace.UP));
+            if(shop != null){
+                if(!player.isOp() && !shop.getOwnerUUID().equals(player.getUniqueId())){
+                    event.setCancelled(true);
+                }
+            }
+        }
+    }
+
+        //REMOVING AND REPLACING WITH CHECK FOR PLACING HOPPERS (was slowing down servers with many hoppers)
+//    @EventHandler (priority = EventPriority.HIGHEST)
+//    public void onInventoryMoveItem(InventoryMoveItemEvent event) {
+//        /* DO NOT USE InventoryMoveItemEvent IT CAUSES SO MUCH LAG */
+//    }
+    @EventHandler
+    public void onLogin(PlayerJoinEvent event){
+        //delete all shops from players that have not played in X amount of hours (if configured)
+        if(plugin.getHoursOfflineToRemoveShops() != 0){
+            for(OfflinePlayer offlinePlayer : plugin.getShopRevancedHandler().getShopOwners()){
+                if(offlinePlayer.getName() != null) {
+                    long msSinceLastPlayed = System.currentTimeMillis() - offlinePlayer.getLastPlayed();
+                    long hoursSinceLastPlayed = TimeUnit.MILLISECONDS.toHours(msSinceLastPlayed);
+
+                    if (hoursSinceLastPlayed >= plugin.getHoursOfflineToRemoveShops()) {
+                        for (AbstractShop shop : plugin.getShopRevancedHandler().getShops(offlinePlayer.getUniqueId())) {
+                            plugin.getLogger().notice("Deleting ShopRevanced because player " + offlinePlayer.getName() + " has not logged in within the required " + (int) hoursSinceLastPlayed + " hours! " + shop);
+                            shop.delete();
+                        }
+                    }
+                }
+            }
+        }
+        final Player player = event.getPlayer();
+
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
+            if(plugin.getCurrencyType() == CurrencyType.EXPERIENCE) {
+                PlayerExperience exp = PlayerExperience.loadFromFile(player);
+                if(exp != null){
+                    exp.apply();
+                }
+            }
+            plugin.getShopRevancedHandler().clearShopDisplaysNearPlayer(player);
+            // Force process ShopRevanced displays on login - ignore movement threshold
+            plugin.getShopRevancedHandler().forceProcessShopDisplaysNearPlayer(player);
+        }, 20);
+
+
+        //setup a repeating task that checks if async sql calculations are still running, if they are done, send messages and cancel task
+        OfflineTransactions offlineTransactions = transactionsWhileOffline.get(player.getUniqueId());
+        if(offlineTransactions != null) {
+            BukkitRunnable runnable = new BukkitRunnable() {
+                public void run() {
+                    if (transactionsWhileOffline.containsKey(player.getUniqueId())) {
+                        if (offlineTransactions != null && !offlineTransactions.isCalculating()) {
+                            //only display the message if some transactions happened while they were offline
+                            if(offlineTransactions.getNumTransactions() > 0) {
+                                List<String> messageList = ShopRevancedMessage.getUnformattedMessageList("offline", "summary");
+                                for (String message : messageList) {
+                                    ShopRevancedMessage.sendMessage(message, player, offlineTransactions);
+                                }
+                            }
+                            transactionsWhileOffline.remove(player.getUniqueId());
+                        }
+                    }
+                }
+            };
+            WrappedTask task = plugin.getFoliaLib().getScheduler().runTimer(runnable, 1, 20);
+            // Let it attempt to run for 60 seconds before cancelling (the log query gets slower as the db grows)
+            plugin.getFoliaLib().getScheduler().runLater(() -> {
+                plugin.getFoliaLib().getScheduler().cancelTask(task);
+            }, 1200);
+        }
+    }
+
+    @EventHandler
+    public void onLogin(AsyncPlayerPreLoginEvent event){
+        OfflinePlayer player = Bukkit.getOfflinePlayer(event.getUniqueId());
+        long lastPlayed = player.getLastPlayed();
+
+        //create an object that will calculate offline transactions (if sql is being used)
+        if(plugin.getLogHandler().isEnabled() && plugin.offlinePurchaseNotificationsEnabled()) {
+            OfflineTransactions offlineTransactions = new OfflineTransactions(player.getUniqueId(), lastPlayed);
+            transactionsWhileOffline.put(event.getUniqueId(), offlineTransactions);
+        }
+    }
+
+    @EventHandler
+    public void onLogout(PlayerQuitEvent event){
+        Player player = event.getPlayer();
+        
+        // Clear ShopRevanced displays and connection cache for this player
+        plugin.getShopRevancedHandler().clearShopDisplaysNearPlayer(player);
+        
+        if(plugin.getCurrencyType() == CurrencyType.EXPERIENCE) {
+            //this automatically saves to file
+            new PlayerExperience(player);
+        }
+    }
+
+    @EventHandler (ignoreCancelled = true)
+    public void onTeleport(PlayerTeleportEvent event){
+        final Player player = event.getPlayer();
+        
+        // Skip ShopRevanced display processing if player is in creative selection mode
+        CreativeSelectionListener creativeModeListener = plugin.getCreativeSelectionListener();
+        if (creativeModeListener != null && creativeModeListener.isPlayerInCreativeSelection(player)) {
+            plugin.getLogger().debug("Skipping ShopRevanced display refresh for " + player.getName() + " (in creative selection)");
+            return;
+        }
+        
+        // Immediate attempt right after teleport
+        plugin.getShopRevancedHandler().forceProcessShopDisplaysNearPlayer(player);
+        
+        // Staggered display updates after teleport
+        // First delayed attempt - wait for chunks to load
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
+            if (player.isOnline()) {
+                // Check again inside the delayed task in case player entered selection during the delay
+                if (creativeModeListener != null && creativeModeListener.isPlayerInCreativeSelection(player)) {
+                    plugin.getLogger().debug("Skipping delayed ShopRevanced display refresh for " + player.getName() + " (in creative selection)");
+                    return;
+                }
+                plugin.getLogger().debug("First display refresh for " + player.getName() + " after teleport");
+                plugin.getShopRevancedHandler().forceProcessShopDisplaysNearPlayer(player);
+            }
+        }, 5); // 5 ticks (250ms) delay
+        
+        // Second attempt - for completeness
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
+            if (player.isOnline()) {
+                // Check again inside the delayed task in case player entered selection during the delay
+                if (creativeModeListener != null && creativeModeListener.isPlayerInCreativeSelection(player)) {
+                    plugin.getLogger().debug("Skipping delayed ShopRevanced display refresh for " + player.getName() + " (in creative selection)");
+                    return;
+                }
+                plugin.getLogger().debug("Second display refresh for " + player.getName() + " after teleport");
+                plugin.getShopRevancedHandler().forceProcessShopDisplaysNearPlayer(player);
+            }
+        }, 15); // 750ms delay
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event){
+        plugin.getShopRevancedHandler().processUnloadedShopsInChunk(event.getChunk());
+        
+        // Also rebuild ShopRevanced displays for any players near this chunk
+        // This ensures displays reappear after chunk unload/load cycles
+        plugin.getShopRevancedHandler().rebuildDisplaysInChunk(event.getChunk());
+    }
+
+    public int getTeleportCooldownRemaining(Player player){
+        if(plugin.getTeleportCooldown() <= 0)
+            return 0;
+        Long lastTeleport = playerLastShopTeleport.get(player.getUniqueId());
+        if(lastTeleport != null) {
+            long secondsSinceLastTeleport = (System.currentTimeMillis() - lastTeleport) / 1000;
+            int secondsLeft = (int)plugin.getTeleportCooldown() - (int)secondsSinceLastTeleport;
+            if(secondsLeft <= 0)
+                return 0;
+            else
+                return secondsLeft;
+        }
+        return 0;
+    }
+
+    public void addTeleportCooldown(Player player){
+        playerLastShopTeleport.put(player.getUniqueId(), System.currentTimeMillis());
+    }
+}
+
+
+
+
+
+
+

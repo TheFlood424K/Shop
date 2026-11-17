@@ -1,0 +1,48 @@
+# Aider configuration for Shop v2.0
+# Shop — chest-based Minecraft shop plugin (Java 25, PaperMC 26.2)
+
+# Load project instruction files as context
+read:
+  - AGENTS.md
+  - .codex/instructions.md
+  - .github/copilot-instructions.md
+  - .cursor/rules/shop-project.mdc
+  - .cursor/rules/shop-codequality.mdc
+  - .cursor/rules/shop-clean-code.mdc
+  - .cursor/rules/shop-java.mdc
+  - .windsurf/rules/00-project.md
+  - .windsurf/rules/01-code.md
+  - .windsurf/rules/02-java.md
+  - .roo/rules/00-project.md
+  - .roo/rules/01-code-quality.md
+  - .roo/rules/02-clean-code.md
+  - .roo/rules/03-java.md
+
+# Model and environment settings
+model: auto
+encode: utf-8
+
+# Always diff before committing
+diff: true
+
+# Shop-specific constraints as system reminder
+system_prompt: >
+  You are working on Shop v2.0, a chest-based shop plugin for Minecraft Java Edition 26.2.
+  Supported baseline: Java 25, PaperMC 26.2+, DivineMC 26.2-26.3, Folia.
+  Hard constraints: No org.spigotmc.* imports, no Bungee chat components, no player.spigot().sendMessage(),
+  no NMS modules. Use Adventure Component for all user-facing text. Use Folia-safe scheduling.
+  Build/test: .\mvnw.cmd clean compile | .\mvnw.cmd test | .\mvnw.cmd clean package.
+  Never commit credentials, tokens, production databases, or private server logs.
+
+  Available tools and skills: Use wuniq/kakekikoku (MCP com-wuniq-wuniq, tool run) by running
+  `open list` then `open "<path>"` at the start of each session, sync after changes, and record
+  decisions in .wuniq files. Use the Modernization Workflow canvas (modernization-workflow) to
+  track Assess/Plan/Execute progress. Available MCP servers: com-wuniq-wuniq, github,
+  github-mcp-server, apify-mcp-server, cc-dec-YHcEPIxsdfEC, com-memxus-memxus, computer-use,
+  GitKraken, microsoft-learn, playwright. Available skills include ai-team-orchestration:*,
+  java-mcp-development:java-mcp-expert, java-upgrade, java-debugging, java-docs,
+  microsoft-docs, microsoft-code-reference, skeptic-review, strategy-stakes-review,
+  evidence-calibration-review, adjudicator-synthesis, voice-identity-review, automate-this,
+    apify:apify, awesome-copilot:*. Use up to three subagents at a time to speed up
+    independent work; dispatch subagents concurrently for parallelizable tasks rather
+    than sequentially.

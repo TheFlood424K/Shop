@@ -7,7 +7,7 @@
     <packaging>jar</packaging>
 
     <parent>
-        <groupId>com.snowgears.shop</groupId>
+        <groupId>com.theflood424k.shoprevanced</groupId>
         <artifactId>shop-parent</artifactId>
         <version>${revision}</version>
     </parent>
@@ -16,7 +16,7 @@
 
     <properties>
         <!-- Minecraft 26.2 Server APIs (paper.version inherited from root) -->
-        <gson.version>2.14.0</gson.version>
+        <gson.version>2.15.0</gson.version>
         <annotations.version>26.1.0</annotations.version>
 
         <!-- Shaded Runtime Libraries -->
@@ -28,7 +28,7 @@
         <!-- Plugin Integrations -->
         <adventure.bom.version>5.2.0</adventure.bom.version>
         <plotsquared.version>7.6.0</plotsquared.version>
-        <vaultunlocked.version>2.15.0</vaultunlocked.version>
+        <vaultunlocked.version>2.20.3</vaultunlocked.version>
         <griefprevention3d.version>19.0.7</griefprevention3d.version>
         <geyser.api.version>2.11.2-SNAPSHOT</geyser.api.version>
         <floodgate.api.version>2.2.5-SNAPSHOT</floodgate.api.version>
@@ -431,11 +431,11 @@
                                 </relocation>
                                 <relocation>
                                     <pattern>org.mariadb.jdbc</pattern>
-                                    <shadedPattern>com.snowgears.shop.artifact.mariadbjdbc</shadedPattern>
+                                    <shadedPattern>com.theflood424k.shoprevanced.artifact.mariadbjdbc</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>com.tcoded.folialib</pattern>
-                                    <shadedPattern>com.snowgears.shop.artifact.folialib</shadedPattern>
+                                    <shadedPattern>com.theflood424k.shoprevanced.artifact.folialib</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
