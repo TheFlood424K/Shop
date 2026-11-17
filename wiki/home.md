@@ -1,8 +1,8 @@
-![520ef725efdc8caad836d0370a17d58ce8ee99b2](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)
+![Shop v2.0](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)
 
-<p align="center">Allows players to quickly create shops to buy, sell, barter, or gamble items seamlessly!</p>
+<p align="center"><strong>Shop v2.0</strong> — chest-based shops for Minecraft Java Edition 26.2</p>
 
-<p align="center">By focusing on ease of use, players of any skill level can create in-game shops in a way that feels like a native feature.</p>
+<p align="center">Create buy, sell, barter, combo, and gamble shops through a familiar sign or guided chat flow. PaperMC 26.2+, DivineMC, Folia, and GeyserMC/Floodgate are supported.</p>
 
 <table>
   <tr>
@@ -31,35 +31,44 @@
   <br/>
 </div>
 
+## v2.0 Compatibility
+
+| Platform | Support |
+| --- | --- |
+| PaperMC | 26.2 or newer |
+| DivineMC | 26.2–26.3 |
+| Folia | Supported with region-aware scheduling |
+| GeyserMC/Floodgate | Bedrock-connected player support |
+| Java | 25 |
+
+v2.0 replaces legacy chat components with Adventure Components, uses VaultUnlocked for virtual currency, integrates with GriefPrevention3D, and removes obsolete Spigot API dependencies.
+
 ## Features
-Change * currency to a custom item, virtual currency (Vault), or experience points seamlessly.
-* [Create shops in multiple ways. Either fill out a sign or hit a chest with an item and fill out info in chat (both configurable)](https://github.com/snowgears/shop/wiki/Creating-Shops)
-* Fully customizable.
-* No commands required.
-* No permissions required. (But are supported)
-* Easily handles items with custom display names, descriptions, and enchantments. (and custom player heads)
-* All shop displays use client side packets so there is no lag on the server or chances of duping the items
-* Full logging support for MySQL and MariaDB
-* Create admin shops that don't need to be stocked
-* All sign text is translatable and customizable. (along with text colors)
-* All chat messages are translatable and customizable. (along with text colors)
-* Control what types of shops individual players are able to create and use.
-* Control the amount of shops individual players are able to create and use
-* Blacklist certain worlds from having shops created in them.
-* Ability to set an optional price players must pay to create and/or destroy shops
-* Integrates with WorldGuard, Towny, AdvancedRegionMarket, and more!
-* Integrates with DynMap to [show shops on the map](https://proxy.spigotmc.org/03ee898c967e8983196a73b85a3a267226dc3e04?url=https%3A%2F%2Fi.imgur.com%2FbkzTlOz.png)
-* Integrates with BlueMap to [show shops on the map](https://user-images.githubusercontent.com/4141199/194400062-2dbdbad4-a2c5-4097-b1fd-9ab0b3d1a801.png)
-* Works with chests, barrels, and even shulker boxes!
-* Plug and Play.
+
+- Choose a physical item, VaultUnlocked-backed virtual currency, or experience points.
+- Create shops from a sign or with the guided chest-punch/chat flow; both methods are configurable.
+- Create admin shops that do not need to be stocked.
+- Fully customize signs, descriptions, holograms, messages, colors, and shop behavior.
+- Create buy, sell, barter, combo, and gamble shops without needing a command for every action.
+- Optional permission controls for shop types, creation, use, limits, displays, teleportation, and operator actions.
+- Restrict shop creation by world, build limit, creation/destruction cost, and plugin-specific permissions.
+- Handle renamed items, custom descriptions, enchantments, durability, repair cost, and custom player heads.
+- Select from floating item, glass case, large item, item frame, or no-display styles.
+- Browse and optionally teleport to shops through the Shop GUI.
+- Log transactions to embedded H2, MySQL, or MariaDB and notify players about offline purchases.
+- Integrate with WorldGuard, Towny, GriefPrevention3D, LWC, PlotSquared, BentoBox, AdvancedRegionMarket, Bolt, BlockProt, and CashierLock.
+- Show shops on [DynMap](https://dynmap.io/) and [BlueMap](https://bluemap.bluecolored.de/).
+- Support GeyserMC/Floodgate players.
+- Work with chests, barrels, and other configured container types.
 
 ## Documentation
 
-- **Player instructions**: [Player-Instructions](https://github.com/snowgears/shop/wiki/Player-Instructions)
-- **Trust Players (v1.11)**: [Trust-Players](https://github.com/snowgears/shop/wiki/Trust-Players)
-- **Configuration (config.yml)**: [Configuration-(config.yml)](https://github.com/snowgears/shop/wiki/Configuration-(config.yml))
-- **Permissions**: [Permissions](https://github.com/snowgears/shop/wiki/Permissions)
-- **Language configs (messages/signs)**: [Language-Configs](https://github.com/snowgears/shop/wiki/Language-Configs)
+- [Player instructions](player-instructions.md)
+- [Trust Players (v2.0)](trust-players.md)
+- [Configuration (`config.yml`)](config.md)
+- [Permissions](permissions.md)
+- [Language configuration](languageConfigs.md)
+- [WorldGuard integration](worldguard.md)
 
 ## Display Types
 <table>

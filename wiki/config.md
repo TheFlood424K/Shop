@@ -203,12 +203,12 @@ Defines which currency system the plugin will use:
   - Ideal for servers that want to create an item-based economy
   - Can use any item, including custom/modded items with NBT data
 
-- `VAULT`: Integrates with your economy plugin through the Vault API
-  - Requires the Vault plugin and a compatible economy plugin (like Essentials, CMI, etc.)
+- `VAULT`: Integrates with your economy plugin through VaultUnlocked
+  - Requires VaultUnlocked and a compatible economy plugin (like Essentials, CMI, etc.)
   - Uses virtual currency from your economy plugin
   - Automatically withdraws/deposits from player balances
   - Best for servers with an established economy plugin
-  - If Vault setup fails, the plugin will disable itself with an error message
+  - If VaultUnlocked setup fails, the plugin will disable itself with an error message
 
 - `EXPERIENCE`: Uses player experience points as currency
   - Players spend and earn actual XP when buying/selling
@@ -235,7 +235,7 @@ Controls how prices are displayed on signs and in messages:
 
 For large numbers, the plugin can apply suffixes based on your `priceSuffixes` configuration (like 5k for 5,000).
 
-The currency system is integral to all shop transactions, determining how players interact with the economy of your server. Most servers will want to align this with their overall economy approach - either item-based (common for survival/RPG servers) or Vault-based (common for established economy servers).
+The currency system is integral to all shop transactions, determining how players interact with the economy of your server. Most servers will want to align this with their overall economy approach - either item-based (common for survival/RPG servers) or VaultUnlocked-based (common for established economy servers).
 
 ## allowFractionalCurrency
 This setting determines whether your currency supports fractional (decimal) units instead of only whole numbers.
@@ -249,10 +249,10 @@ When set to `true`:
 - Currency values can use decimals (down to 0.01 precision)
 - Shop prices can be set with cent-level precision (e.g., 1.50, 0.75, 3.99)
 - Players can make partial purchases even when they have less than a full unit of currency
-- Perfect for servers using Vault economy plugins that support fractional currency
+- Perfect for servers using VaultUnlocked economy plugins that support fractional currency
 - Prices are automatically rounded to the nearest cent (0.01) for display and calculations
 - Allows for more nuanced economy with fine-grained price differentiation
-- **Note: This feature requires Vault and an economy plugin that supports decimal currencies!**
+- **Note: This feature requires VaultUnlocked and an economy plugin that supports decimal currencies!**
 
 When set to `false` (default):
 - Currency values are always whole numbers (integers only)
@@ -262,9 +262,9 @@ When set to `false` (default):
 - Simplifies the economy by enforcing whole-number transactions
 - Better for traditional Minecraft servers using physical items as currency
 
-This setting is particularly important for servers using Vault with economy plugins that support decimal currency (like EssentialsX Economy, CMI, etc.). It enables more realistic pricing models similar to real-world economies.
+This setting is particularly important for servers using VaultUnlocked with economy plugins that support decimal currency (like EssentialsX Economy, CMI, etc.). It enables more realistic pricing models similar to real-world economies.
 
-For most servers using Vault economies, enabling this option provides a better player experience with more flexible purchasing options.
+For most servers using VaultUnlocked economies, enabling this option provides a better player experience with more flexible purchasing options.
 
 ## allowPartialSales
 This allows shops to sell partial stacks for a calculated partial rate if the shop is low on stock, or if the player only has partial funds. By default only the defined amount/price is allowed for a transaction, to allow partial sales you must changes this to `true`
@@ -359,7 +359,7 @@ This setting allows server administrators to impose an economy-based restriction
 
 When set to a value greater than `0`:
 - Players must pay the specified amount of currency when creating a shop
-- The fee is charged in whatever currency type you've configured (items, Vault money, or experience)
+- The fee is charged in whatever currency type you've configured (items, VaultUnlocked-backed currency, or experience)
 - The payment is taken when the shop is initialized (when the item to be sold/bought is selected)
 - For barter shops, the fee is only charged once the second item is selected
 - If a player doesn't have enough funds, the shop creation process is canceled with an error message
@@ -372,7 +372,7 @@ When set to `0` (default):
 This setting can be used in conjunction with `returnCreationCost` to create a refundable deposit system, where players get their creation fee back when they properly close their shop.
 
 Special considerations:
-- For Vault-based economies, the fee is withdrawn directly from the player's balance
+- For VaultUnlocked-backed economies, the fee is withdrawn directly from the player's balance
 - For item-based economies, the required number of the currency item is removed from the player's inventory
 - For experience-based economies, the player's XP is reduced accordingly
 - The fee applies to each individual shop a player creates
@@ -390,7 +390,7 @@ This setting enables server administrators to impose a fee when players destroy 
 
 When set to a value greater than `0`:
 - Players must pay the specified amount of currency to destroy a shop they own
-- The fee is charged in whatever currency type you've configured (items, Vault money, or experience)
+- The fee is charged in whatever currency type you've configured (items, VaultUnlocked-backed currency, or experience)
 - If a player tries to destroy their shop without sufficient funds, the action is canceled with an error message
 - The transaction only applies when destroying your own shops, not when removing other players' shops (with permissions)
 - The cost is charged before the shop is actually destroyed
@@ -423,7 +423,7 @@ This setting allows administrators to place an economic cost on the shop telepor
 
 When set to a value greater than `0`:
 - Players must pay the specified amount each time they use the teleport feature in the GUI
-- The fee is charged in whatever currency type you've configured (items, Vault money, or experience)
+- The fee is charged in whatever currency type you've configured (items, VaultUnlocked-backed currency, or experience)
 - If a player doesn't have enough funds, the teleport is canceled and an error message is displayed
 - The cost is checked and charged before the teleport occurs
 - The teleportation positions the player in front of the shop's sign, facing the shop
@@ -491,7 +491,7 @@ This setting determines whether players should receive a refund of their shop cr
 
 When set to `true`:
 - Players receive back the exact amount they paid as `creationCost` when they destroy their shop
-- For Vault-based currencies, the refund is directly added to the player's economy balance
+- For VaultUnlocked-backed currencies, the refund is directly added to the player's economy balance
 - For item-based currencies, the items are dropped at the shop's chest location
 - The refund only applies to regular player-owned shops, not admin shops
 - The refund is processed automatically during the shop destruction process
