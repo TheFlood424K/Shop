@@ -6,10 +6,8 @@ import com.snowgears.shop.handler.ShopGuiHandler;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ComboShop;
 import com.snowgears.shop.shop.ShopType;
-import net.md_5.bungee.api.chat.*;
-
 import org.bukkit.Bukkit;
-import net.md_5.bungee.api.ChatColor;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -22,26 +20,41 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.google.gson.JsonParseException;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+
+/**
+ * Handles message formatting, placeholder replacement, and sending of chat messages for shops.
+ * Manages configuration loading for chat, sign, and display messages, as well as placeholder registration.
+ */
 public class ShopMessage {
 
     private final static Shop plugin = Shop.getPlugin();
 
     private static boolean disableItemHover = false;
 
-    private static final Map<String, Function<PlaceholderContext, TextComponent>> placeholders = new HashMap<>();
+    private static final MiniMessage miniMessage = MiniMessage.miniMessage();
+
+    private static final Map<String, Function<PlaceholderContext, Component>> placeholders = new HashMap<>();
     // Regex pattern to identify placeholders within square brackets, e.g., [owner]
-    private static final String COLOR_CODE_REGEX = "([&§][0-9A-FK-ORXa-fk-orx])";
+    private static final String COLOR_CODE_REGEX = "([&][0-9A-FK-ORXa-fk-orx])";
     private static final String HEX_CODE_REGEX = "(#[0-9a-fA-F]{6})";
     // Modified placeholder regex to only match real placeholders
-    private static final String PLACEHOLDER_REGEX = "(\\[([^&§#\\[\\]]+)\\])";
-    private static final String TEXT_SEGMENT_REGEX = "([^&§\\[#]+)";
+    private static final String PLACEHOLDER_REGEX = "(\\[([^&#\\[\\]]+)\\])";
+    private static final String TEXT_SEGMENT_REGEX = "([^&\\[#]+)";
     // Add dedicated patterns for brackets to ensure they're matched individually
     private static final String OPEN_BRACKET_REGEX = "(\\[)";
     private static final String CLOSE_BRACKET_REGEX = "(\\])";
-    private static final String MESSAGE_PARTS_REGEX = 
-        COLOR_CODE_REGEX + "|" + 
-        HEX_CODE_REGEX + "|" + 
-        PLACEHOLDER_REGEX + "|" + 
+    private static final String MESSAGE_PARTS_REGEX =
+        COLOR_CODE_REGEX + "|" +
+        HEX_CODE_REGEX + "|" +
+        PLACEHOLDER_REGEX + "|" +
         OPEN_BRACKET_REGEX + "|" +  // Match opening bracket
         CLOSE_BRACKET_REGEX + "|" +  // Match closing bracket
         TEXT_SEGMENT_REGEX + "|" +  // Match text segments
@@ -87,7 +100,7 @@ public class ShopMessage {
      * @param placeholder The placeholder string without brackets, e.g., "owner"
      * @param valueFunction A function that takes a PlaceholderContext instance and returns the replacement string
      */
-    public static void registerPlaceholder(String placeholder, Function<PlaceholderContext, TextComponent> valueFunction) {
+    public static void registerPlaceholder(String placeholder, Function<PlaceholderContext, Component> valueFunction) {
         placeholders.put(placeholder.toLowerCase(), valueFunction);
     }
 
@@ -96,38 +109,81 @@ public class ShopMessage {
      *
      * @param placeholder The placeholder string without brackets, e.g., "owner"
      * @param context     The PlaceholderContext instance containing Shop and Player
-     * @return The replacement string or an empty string if replacement fails
+     * @return The replacement component or an empty component if replacement fails
      */
-    public static TextComponent replacePlaceholder(String placeholder, PlaceholderContext context) {
+    public static Component replacePlaceholder(String placeholder, PlaceholderContext context) {
         plugin.getLogger().spam("[ShopMessage.replacePlaceholder] Attempting to replace placeholder: " + placeholder + " " + context);
-        Function<PlaceholderContext, TextComponent> valueFunction = placeholders.get(placeholder.toLowerCase());
+        Function<PlaceholderContext, Component> valueFunction = placeholders.get(placeholder.toLowerCase());
         if (valueFunction != null) {
             try {
                 plugin.getLogger().spam("[ShopMessage.replacePlaceholder]     Running placeholder function... " + placeholder);
-                TextComponent message = valueFunction.apply(context);
+                Component message = valueFunction.apply(context);
                 if (message != null) {
                     plugin.getLogger().trace("[ShopMessage.replacePlaceholder]  *** placeholder " + placeholder + "  value: " + message);
                     return message;
                 }
             } catch (Error | Exception e) {
-                // Log the exception
-                Bukkit.getLogger().warning("Error replacing placeholder " + placeholder + ": " + e.getMessage());
+                // Log at severe level so failures are visible, and include placeholder context
+                Bukkit.getLogger().severe("Error replacing placeholder '" + placeholder + "': " + e.getMessage());
             }
         }
         // If placeholder not found, remove the placeholder and just return an empty string
         plugin.getLogger().spam("[ShopMessage.replacePlaceholder] *** returning empty string, unable to get function to replace placeholder: " + placeholder);
-        return new TextComponent("");
+        return Component.empty();
     }
 
-    // Gets the ChatColor from a string, supports Hex Colors.
-    // Returns null if no color is found.
-    public static ChatColor getColor(String color) {
-        ChatColor newColor = null;
-        if (color.matches(HEX_CODE_REGEX)) { newColor = ChatColor.of(color); }
-        else if (color.matches(COLOR_CODE_REGEX)) {
-            newColor = ChatColor.getByChar(color.charAt(1));
+    private static String replacePlaceholdersForMiniMessage(String message, PlaceholderContext context) {
+        if (message == null || context == null) {
+            return message;
         }
-        return newColor;
+        Pattern placeholderPattern = Pattern.compile("\\[([^\\[\\]]+)\\]");
+        Matcher matcher = placeholderPattern.matcher(message);
+        StringBuffer result = new StringBuffer();
+        while (matcher.find()) {
+            String placeholderKey = matcher.group(1);
+            String placeholderWithBrackets = matcher.group();
+            Function<PlaceholderContext, Component> valueFunction = placeholders.get(placeholderKey.toLowerCase());
+            if (valueFunction != null) {
+                try {
+                    Component replacement = valueFunction.apply(context);
+                    if (replacement != null) {
+                        String replacementText = PlainTextComponentSerializer.plainText().serialize(replacement);
+                        // For location placeholder in messages, ensure it's properly formatted
+                        if (placeholderKey.equalsIgnoreCase("location")) {
+                            matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
+                        } else {
+                            matcher.appendReplacement(result, Matcher.quoteReplacement(replacementText));
+                        }
+                        continue;
+                    }
+                } catch (Exception e) {
+                    Bukkit.getLogger().severe("Error replacing placeholder '" + placeholderKey + "': " + e.getMessage());
+                }
+            }
+            matcher.appendReplacement(result, Matcher.quoteReplacement(placeholderWithBrackets));
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
+    /**
+     * Gets the Adventure TextColor from a string, supporting both legacy color codes and hex colors.
+     *
+     * @param color The color string to parse (e.g., "&a", "&a", or "#FF0000")
+     * @return The corresponding TextColor, or null if no color is found
+     */
+    public static TextColor getColor(String color) {
+        if (color.matches(HEX_CODE_REGEX)) {
+            return TextColor.color(Integer.parseInt(color.substring(1), 16));
+        } else if (color.matches(COLOR_CODE_REGEX)) {
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
+            ChatColor bukkitColor = ChatColor.getByChar(color.charAt(1));
+            if (bukkitColor != null) {
+                return toAdventureColor(bukkitColor);
+            }
+        }
+        return null;
     }
 
     /**
@@ -137,19 +193,31 @@ public class ShopMessage {
      * @param context The PlaceholderContext instance containing Shop and Player
      * @return The formatted message with all placeholders replaced
      */
-    public static TextComponent format(String message, PlaceholderContext context) {
-        TextComponent formattedMessage = null;
-        if (message == null) { return new TextComponent(""); }
+    public static Component format(String message, PlaceholderContext context) {
+        Component formattedMessage = null;
+        if (message == null) { return Component.empty(); }
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         plugin.getLogger().spam("[ShopMessage] pre-format: " + ChatColor.translateAlternateColorCodes('&', message), true);
 
-        // Define the regex pattern
-        Matcher matcher = Pattern.compile(MESSAGE_PARTS_REGEX).matcher(message);
-        List<String> parts = new ArrayList<>();
-        while (matcher.find()) {
-            parts.add(matcher.group());
+        // Check if the message contains MiniMessage syntax (contains actual MiniMessage tags, not just < > around placeholders)
+        boolean hasMiniMessageSyntax = false;
+        if (message != null && message.contains("<")) {
+            // Check for actual MiniMessage tags like <red>, <bold>, <#hex>, </tag>, etc.
+            // Exclude angle brackets around placeholders like <[location]>
+            java.util.regex.Pattern miniTagPattern = java.util.regex.Pattern.compile("<(/?[a-zA-Z][a-zA-Z0-9_-]*(?::[^>]*)?|#[0-9a-fA-F]{6}|[a-zA-Z][a-zA-Z0-9_-]*)>");
+            java.util.regex.Matcher miniTagMatcher = miniTagPattern.matcher(message);
+            while (miniTagMatcher.find()) {
+                String tag = miniTagMatcher.group(1);
+                if (tag != null && tag.startsWith("[") && tag.endsWith("]")) {
+                    continue;
+                }
+                hasMiniMessageSyntax = true;
+                break;
+            }
         }
 
-        ChatColor latestColor = null;
+        TextColor latestColor = null;
         boolean addedText = false;
 
         boolean isBold = false;
@@ -157,38 +225,73 @@ public class ShopMessage {
         boolean isStrikethrough = false;
         boolean isUnderlined = false;
         boolean isObfuscated = false;
-        
-        for (String part : parts) {
-            plugin.getLogger().spam("\n\n");
-            plugin.getLogger().trace("[ShopMessage.format] part: " + part);
-            TextComponent partComponent = new TextComponent(part);
+
+        if (hasMiniMessageSyntax) {
+            // Escape invalid MiniMessage tags before parsing
+            String escapedMessage = escapeInvalidMiniMessageTags(message);
+            // Replace placeholders before MiniMessage parsing
+            String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
+            try {
+                // Use MiniMessage for formatting
+                Component miniMessageComponent = miniMessage.deserialize(processedMessage);
+                formattedMessage = miniMessageComponent;
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
+                // Fallback to legacy parsing
+                message = processedMessage;
+                hasMiniMessageSyntax = false;
+            }
+        }
+        if (!hasMiniMessageSyntax || formattedMessage == null) {
+            // Define the regex pattern
+            Matcher matcher = Pattern.compile(MESSAGE_PARTS_REGEX).matcher(message);
+            List<String> parts = new ArrayList<>();
+            while (matcher.find()) {
+                parts.add(matcher.group());
+            }
+
+            latestColor = null;
+            addedText = false;
+
+            isBold = false;
+            isItalic = false;
+            isStrikethrough = false;
+            isUnderlined = false;
+            isObfuscated = false;
+
+            for (String part : parts) {
+                plugin.getLogger().spam("\n\n");
+                plugin.getLogger().trace("[ShopMessage.format] part: " + part);
+                Component partComponent = Component.text(part);
+
+            // Check if we are a formatting code (bold, italic, etc.) — handle before color parsing
+            if (part.length() == 2 && part.charAt(0) == '&') {
+                char fmtCode = part.charAt(1);
+                if (fmtCode == 'l' || fmtCode == 'L') { isBold = true; continue; }
+                if (fmtCode == 'm' || fmtCode == 'M') { isStrikethrough = true; continue; }
+                if (fmtCode == 'n' || fmtCode == 'N') { isUnderlined = true; continue; }
+                if (fmtCode == 'o' || fmtCode == 'O') { isItalic = true; continue; }
+                if (fmtCode == 'k' || fmtCode == 'K') { isObfuscated = true; continue; }
+                if (fmtCode == 'r' || fmtCode == 'R') {
+                    latestColor = TextColor.color(0xFFFFFF);
+                    isBold = false; isItalic = false; isStrikethrough = false;
+                    isUnderlined = false; isObfuscated = false;
+                    if (formattedMessage == null) { formattedMessage = Component.empty(); }
+                    else { formattedMessage = formattedMessage.append(Component.empty()); }
+                    addedText = true;
+                    continue;
+                }
+            }
 
             // Check if we are a color code
             if (part.matches(COLOR_CODE_REGEX) || part.matches(HEX_CODE_REGEX)) {
                 try {
-                    ChatColor newColor = getColor(part);
+                    TextColor newColor = getColor(part);
                     if (newColor != null) {
-                        if (newColor == ChatColor.BOLD) isBold = true;
-                        else if (newColor == ChatColor.ITALIC) isItalic = true;
-                        else if (newColor == ChatColor.STRIKETHROUGH) isStrikethrough = true;
-                        else if (newColor == ChatColor.UNDERLINE) isUnderlined = true;
-                        else if (newColor == ChatColor.MAGIC) isObfuscated = true;
-                        else if (newColor == ChatColor.RESET) {
-                            plugin.getLogger().hyper("[ShopMessage.format]     matched RESET color code: " + part);
-                            latestColor = ChatColor.WHITE;
-                            isBold = false;
-                            isItalic = false;
-                            isStrikethrough = false;
-                            isUnderlined = false;
-                            isObfuscated = false;
-                            formattedMessage.addExtra("§r");
-                        } else {
-                            latestColor = newColor;
-                        }
+                        latestColor = newColor;
                     }
                     plugin.getLogger().hyper("[ShopMessage.format]     matched COLOR_CODE_REGEX: " + part);
-                    plugin.getLogger().hyper("[ShopMessage.format]     newColor: " + newColor.toString());
-                    plugin.getLogger().hyper("[ShopMessage.format] *** skipping to next part: " + newColor.getName().toUpperCase());
+                    plugin.getLogger().hyper("[ShopMessage.format]     newColor: " + newColor);
                     plugin.getLogger().hyper("[ShopMessage.format]     isBold: " + isBold + " isItalic: " + isItalic + " isStrikethrough: " + isStrikethrough + " isUnderlined: " + isUnderlined + " isObfuscated: " + isObfuscated);
                     continue; // Don't add this text to the message, just go to the next part
                 } catch (Exception e) {
@@ -196,7 +299,7 @@ public class ShopMessage {
                 }
             }
 
-            // If we match to a placeholder, then we want to use it's TextComponent instead of the "normal" one
+            // If we match to a placeholder, then we want to use it's Component instead of the "normal" one
             if (part.matches(PLACEHOLDER_REGEX)) {
                 plugin.getLogger().hyper("[ShopMessage.format]     matched PLACEHOLDER_REGEX: " + part);
                 plugin.getLogger().hyper("[ShopMessage.format]     is part placeholder? " + (placeholders.get(part) != null));
@@ -204,53 +307,125 @@ public class ShopMessage {
                     plugin.getLogger().hyper("[ShopMessage.format]     replacing placeholder... " + part);
                     partComponent = replacePlaceholder(part, context);
                     // Check if we set a color inside our part (for example [stock color])
-                    if (partComponent.getColor() != latestColor && partComponent.getColor() != null && partComponent.getColor() != ChatColor.WHITE) { 
-                        plugin.getLogger().hyper("[ShopMessage.format]     getting latestColor from partComponent: " + partComponent.getColor().getName().toUpperCase());
-                        latestColor = partComponent.getColor(); 
+                    net.kyori.adventure.text.format.TextColor partColor = partComponent.color();
+                    if (partColor != null && latestColor != null) {
+                        if (!partColor.equals(latestColor) && partColor != TextColor.color(0xFFFFFF)) {
+                            plugin.getLogger().hyper("[ShopMessage.format]     getting latestColor from partComponent: " + partColor);
+                            latestColor = partColor;
+                        }
                     }
                 }
             }
 
             // Set the color
             if (latestColor != null) {
-                plugin.getLogger().hyper("[ShopMessage.format]     setting part color to: " + latestColor.getName().toUpperCase());
-                partComponent.setColor(latestColor);
+                plugin.getLogger().hyper("[ShopMessage.format]     setting part color to: " + latestColor);
+                partComponent = partComponent.color(latestColor);
             }
-            partComponent.setBold(isBold);
-            partComponent.setItalic(isItalic);
-            partComponent.setStrikethrough(isStrikethrough);
-            partComponent.setUnderlined(isUnderlined);
-            partComponent.setObfuscated(isObfuscated);
+            if (isBold) partComponent = partComponent.decoration(TextDecoration.BOLD, true);
+            if (isItalic) partComponent = partComponent.decoration(TextDecoration.ITALIC, true);
+            if (isStrikethrough) partComponent = partComponent.decoration(TextDecoration.STRIKETHROUGH, true);
+            if (isUnderlined) partComponent = partComponent.decoration(TextDecoration.UNDERLINED, true);
+            if (isObfuscated) partComponent = partComponent.decoration(TextDecoration.OBFUSCATED, true);
             if (formattedMessage == null) {
                 formattedMessage = partComponent;
             } else {
                 // Add the part of the string to the
-                formattedMessage.addExtra(partComponent);
+                formattedMessage = formattedMessage.append(partComponent);
             }
-            addedText = true;
-            plugin.getLogger().hyper("[ShopMessage.format] *** add part TextComponent to main message: " + partComponent);
-        }
+                addedText = true;
+                plugin.getLogger().hyper("[ShopMessage.format] *** add part Component to main message: " + partComponent);
+            } // <-- Closes the for (String part : parts) loop
+        } // <-- Closes if (!hasMiniMessageSyntax || formattedMessage == null)
 
         // Handle if we are just a color code with an empty string
-        if (formattedMessage == null) formattedMessage = new TextComponent("");
-        if (!addedText && latestColor != null) formattedMessage.setColor(latestColor);
-
-        plugin.getLogger().spam("[ShopMessage] postFormat: " + formattedMessage.toLegacyText(), true);
+        if (formattedMessage == null) formattedMessage = Component.empty();
+        if (!addedText && latestColor != null) formattedMessage = formattedMessage.color(latestColor);
+        plugin.getLogger().spam("[ShopMessage] postFormat: " + (formattedMessage != null ? LegacyComponentSerializer.legacy('&').serialize(formattedMessage) : ""), true);
         return formattedMessage;
+    }
+
+    /**
+     * Converts a Bukkit ChatColor to an Adventure TextColor.
+     *
+     * @param chatColor The ChatColor to convert
+     * @return The equivalent Adventure TextColor, or null if chatColor is null
+     */
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
+    private static net.kyori.adventure.text.format.TextColor toAdventureColor(ChatColor chatColor) {
+        if (chatColor == null) { return null; }
+        // ChatColor.getColor() is not available in Paper 26.2; map manually to hex
+        return switch (chatColor) {
+            case WHITE -> TextColor.color(0xFFFFFF);
+            case AQUA -> TextColor.color(0x55FFFF);
+            case YELLOW -> TextColor.color(0xFFFF55);
+            case GREEN -> TextColor.color(0x55AA55);
+            case DARK_GREEN -> TextColor.color(0x005500);
+            case DARK_AQUA -> TextColor.color(0x55AAAA);
+            case DARK_RED -> TextColor.color(0xAA0000);
+            case DARK_PURPLE -> TextColor.color(0xAA00AA);
+            case GOLD -> TextColor.color(0xFFAA00);
+            case BLUE -> TextColor.color(0x5555FF);
+            case DARK_BLUE -> TextColor.color(0x0000AA);
+            case LIGHT_PURPLE -> TextColor.color(0xFFAAFF);
+            case GRAY -> TextColor.color(0xAAAAAA);
+            case DARK_GRAY -> TextColor.color(0x555555);
+            case BLACK -> TextColor.color(0x000000);
+            case RED -> TextColor.color(0xFF5555);
+            default -> TextColor.color(0xFFFFFF);
+        };
+    }
+
+    /**
+     * Formats a message using MiniMessage syntax, supporting advanced formatting
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code &} codes.
+     *
+     * @param message The message in MiniMessage format (e.g., "<red>Hello</red>" or "<#FF0000>Hello</#FF0000>")
+     * @param context The PlaceholderContext instance containing Shop and Player
+     * @return The formatted message as a Component
+     */
+    public static Component formatMiniMessage(String message, PlaceholderContext context) {
+        Component formattedMessage = null;
+        if (message == null) { return Component.empty(); }
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
+        plugin.getLogger().spam("[ShopMessage] pre-format-minimessage: " + ChatColor.translateAlternateColorCodes('&', message), true);
+
+        try {
+            // Escape invalid MiniMessage tags before parsing
+            String escapedMessage = escapeInvalidMiniMessageTags(message);
+            // Replace placeholders before MiniMessage parsing
+            String processedMessage = replacePlaceholdersForMiniMessage(escapedMessage, context);
+            Component miniMessageComponent = miniMessage.deserialize(processedMessage);
+            formattedMessage = miniMessageComponent;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to parse MiniMessage, falling back to legacy parsing: " + e.getMessage());
+            formattedMessage = format(message, context);
+        }
+
+        plugin.getLogger().spam("[ShopMessage] post-format-minimessage: " + (formattedMessage != null ? LegacyComponentSerializer.legacy('&').serialize(formattedMessage) : ""), true);
+        return formattedMessage != null ? formattedMessage : Component.empty();
     }
 
     /**
      * Swaps in placeholder values, sends fancy message with Click/Hover events to Player
      */
     public static void sendMessage(String message, Player player, PlaceholderContext context) {
-        TextComponent fancyMessage = format(message, context);
-        plugin.getLogger().debug("Sent msg to player " + player.getName() + ": " + fancyMessage.toLegacyText(), true);
+        Component fancyMessage = format(message, context);
+        plugin.getLogger().debug("Sent msg to player " + player.getName() + ": " + LegacyComponentSerializer.legacy('&').serialize(fancyMessage), true);
         try {
-            player.spigot().sendMessage(fancyMessage);
+            player.sendMessage(fancyMessage);
             return;
         } catch (JsonParseException e) {
             plugin.getLogger().warning("Possible NBT error while sending message to player, Item Hover events will now be disabled! Details: " + e.getMessage());
             plugin.getLogger().debug("Error details: ", e);
+            // Notify the user that hover events were disabled
+            try {
+                player.sendMessage(Component.text("&cHover events disabled due to message error"));
+            } catch (Exception ex) {
+                plugin.getLogger().debug("Failed to send hover disable notification to player", ex);
+            }
             // disableItemHover = true;
         } catch (Exception | Error e) {
             plugin.getLogger().warning("Error sending message to player: " + e.getMessage());
@@ -259,7 +434,7 @@ public class ShopMessage {
 
         // If we get here, we have an error, we should at least try to send it as legacy text
         try {
-            player.sendMessage(fancyMessage.toLegacyText());
+            player.sendMessage(LegacyComponentSerializer.legacy('§').serialize(fancyMessage));
             plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
         } catch (Error | Exception e) {
             plugin.getLogger().debug("Error sending message to player", e);
@@ -347,44 +522,82 @@ public class ShopMessage {
     }
 
     /**
+     * Formats a message using MiniMessage syntax, supporting advanced formatting
+     * like colors, styles, click events, and hover events beyond legacy {@code &} / {@code &} codes.
+     *
+     * @param message The message in MiniMessage format
+     * @param player The player to send the message to
+     * @param context The PlaceholderContext instance
+     */
+    public static void sendMiniMessage(String message, Player player, PlaceholderContext context) {
+        Component fancyMessage = formatMiniMessage(message, context);
+        plugin.getLogger().debug("Sent minimessage to player " + player.getName() + ": " + LegacyComponentSerializer.legacy('&').serialize(fancyMessage), true);
+        try {
+            player.sendMessage(fancyMessage);
+            return;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error sending minimessage to player: " + e.getMessage());
+            // Fall back to legacy text
+            try {
+                player.sendMessage(LegacyComponentSerializer.legacy('§').serialize(fancyMessage));
+                plugin.getLogger().warning("Sent legacy text message to player as backup, removed hover/click events");
+            } catch (Error | Exception e2) {
+                plugin.getLogger().debug("Error sending legacy message to player", e2);
+            }
+        }
+    }
+
+    /**
+     * Formats a message using MiniMessage syntax (without placeholders).
+     *
+     * @param message The message in MiniMessage format
+     * @param player The player to send the message to
+     */
+    public static void sendMiniMessage(String message, Player player) {
+        PlaceholderContext context = new PlaceholderContext();
+        context.setPlayer(player);
+        sendMiniMessage(message, player, context);
+    }
+
+    /**
      * Loads all available placeholders into the map.
      * This method should be called during the plugin's initialization phase.
      */
     public static void loadPlaceholders() {
-        registerPlaceholder("[plugin]", context -> new TextComponent(plugin.getCommandAlias()));
-        registerPlaceholder("[server name]", context -> new TextComponent(ShopMessage.getServerDisplayName()));
-        registerPlaceholder("[player]", context -> { Player player = context.getPlayer(); return new TextComponent((player != null) ? player.getName() : ""); });
+        registerPlaceholder("[plugin]", context -> Component.text(plugin.getCommandAlias()));
+        registerPlaceholder("[server name]", context -> Component.text(ShopMessage.getServerDisplayName()));
+        registerPlaceholder("[player]", context -> { Player player = context.getPlayer(); return Component.text((player != null) ? player.getName() : ""); });
         registerPlaceholder("[user]", context -> {
-            if (context.getPlayer() != null) return new TextComponent(context.getPlayer().getName());
-            if (context.getOfflinePlayer() != null) return new TextComponent(context.getOfflinePlayer().getName());
-            return new TextComponent("Unknown Player");
+            if (context.getPlayer() != null) return Component.text(context.getPlayer().getName());
+            if (context.getOfflinePlayer() != null) return Component.text(context.getOfflinePlayer().getName());
+            return Component.text("Unknown Player");
         });
         registerPlaceholder("[shop type]", context -> {
-            if (context.getProcess() != null && context.getProcess().getShopType() != null) return new TextComponent(context.getProcess().getShopType().toString());
-            if (context.getShop() != null) return new TextComponent(ShopMessage.getCreationWord(context.getShop().getType().toString().toUpperCase()));
+            if (context.getProcess() != null && context.getProcess().getShopType() != null) return Component.text(context.getProcess().getShopType().toString());
+            if (context.getShop() != null) return Component.text(ShopMessage.getCreationWord(context.getShop().getType().toString().toUpperCase()));
             return null;
         });
         registerPlaceholder("[shop types]", ShopMessage::getShopTypesPlaceholder);
-        registerPlaceholder("[total shops]", context -> new TextComponent(String.valueOf(plugin.getShopHandler().getNumberOfShops())));
+        registerPlaceholder("[total shops]", context -> Component.text(String.valueOf(plugin.getShopHandler().getNumberOfShops())));
 
         // Player Info Placeholders
         registerPlaceholder("[owner]", context -> {
-            if (context.getProcess() != null) return new TextComponent(String.valueOf(Bukkit.getOfflinePlayer(context.getProcess().getPlayerUUID())));
-            else if (context.getShop() != null) return new TextComponent(context.getShop().isAdmin() ? ShopMessage.getServerDisplayName() : context.getShop().getOwnerName());
+            if (context.getProcess() != null) return Component.text(String.valueOf(Bukkit.getOfflinePlayer(context.getProcess().getPlayerUUID())));
+            else if (context.getShop() != null) return Component.text(context.getShop().isAdmin() ? ShopMessage.getServerDisplayName() : context.getShop().getOwnerName());
             return null;
         });
         registerPlaceholder("[user amount]", context -> {
-            if (context.getPlayer() != null) return new TextComponent(String.valueOf(plugin.getShopHandler().getNumberOfShops(context.getPlayer())));
-            else if (context.getShop().getOwner() != null) return new TextComponent(String.valueOf(plugin.getShopHandler().getNumberOfShops(context.getShop().getOwner().getUniqueId())));
-            return new TextComponent("0"); // If they don't have any shops, it should be 0
+            if (context.getPlayer() != null) return Component.text(String.valueOf(plugin.getShopHandler().getNumberOfShops(context.getPlayer())));
+            else if (context.getShop().getOwner() != null) return Component.text(String.valueOf(plugin.getShopHandler().getNumberOfShops(context.getShop().getOwner().getUniqueId())));
+            return Component.text("0"); // If they don't have any shops, it should be 0
         });
-        registerPlaceholder("[build limit]", context -> new TextComponent(String.valueOf(plugin.getShopListener().getBuildLimit(context.getPlayer()))));
-        registerPlaceholder("[tp time remaining]", context -> new TextComponent(String.valueOf(plugin.getShopListener().getTeleportCooldownRemaining(context.getPlayer()))));
+        registerPlaceholder("[build limit]", context -> Component.text(String.valueOf(plugin.getShopListener().getBuildLimit(context.getPlayer()))));
+        registerPlaceholder("[tp time remaining]", context -> Component.text(String.valueOf(plugin.getShopListener().getTeleportCooldownRemaining(context.getPlayer()))));
 
         // Location Placeholders
         registerPlaceholder("[world]", context -> {
-            if (context.getProcess() != null && context.getProcess().getClickedChest() != null) return new TextComponent(context.getProcess().getClickedChest().getWorld().getName());
-            else if (context.getShop() != null) return new TextComponent(context.getShop().getSignLocation().getWorld().getName());
+            if (context.getProcess() != null && context.getProcess().getClickedChest() != null) return Component.text(context.getProcess().getClickedChest().getWorld().getName());
+            else if (context.getShop() != null) return Component.text(context.getShop().getSignLocation().getWorld().getName());
             return null;
         });
         registerPlaceholder("[location]", context -> {
@@ -393,22 +606,26 @@ public class ShopMessage {
             else if (context.getProcess() != null && context.getProcess().getClickedChest() != null) loc = context.getProcess().getClickedChest().getLocation();
             else if (context.getShop() != null) loc = context.getShop().getSignLocation();
             if (loc == null) return null;
-            TextComponent text = new TextComponent(UtilMethods.getCleanLocation(loc, false));
+            Component text = Component.text(UtilMethods.getCleanLocation(loc, false));
             if (context.getProcess() == null && context.getShop() == null) return text;
-            text.setHoverEvent(getShopInfoHoverEvent(context));
+            try {
+                text = text.hoverEvent(getShopInfoHoverEvent(context));
+            } catch (Exception e) {
+                // ignore
+            }
             return text;
         });
 
         // Currency Placeholders
-        registerPlaceholder("[currency name]", context -> new TextComponent(plugin.getCurrencyName()));
+        registerPlaceholder("[currency name]", context -> Component.text(plugin.getCurrencyName()));
         registerPlaceholder("[currency item]", context -> embedItem(plugin.getItemNameUtil().getName(plugin.getItemCurrency()), plugin.getItemCurrency()));
 
         // Shop Item placeholders
         registerPlaceholder("[item]", ShopMessage::getItemPlaceholder);
         registerPlaceholder("[item amount]", context -> {
-            if (context.getItem() != null) return new TextComponent(String.valueOf(context.getItem().getAmount()));
-            else if (context.getProcess() != null) return new TextComponent(String.valueOf(context.getProcess().getItemAmount()));
-            else if (context.getShop() != null && context.getShop().getItemStack() != null) return new TextComponent(String.valueOf(context.getShop().getItemStack().getAmount()));
+            if (context.getItem() != null) return Component.text(String.valueOf(context.getItem().getAmount()));
+            else if (context.getProcess() != null) return Component.text(String.valueOf(context.getProcess().getItemAmount()));
+            else if (context.getShop() != null && context.getShop().getItemStack() != null) return Component.text(String.valueOf(context.getShop().getItemStack().getAmount()));
             return null;
         });
         registerPlaceholder("[item enchants]", context -> { 
@@ -422,22 +639,22 @@ public class ShopMessage {
             if (context.getItem() != null) { return embedItem(UtilMethods.getLoreString(context.getItem()), context.getItem()); }
             return null; 
         });
-        registerPlaceholder("[item durability]", context -> { if (context.getShop() != null) { return new TextComponent(String.valueOf(context.getShop().getItemDurabilityPercent())); } return null; });
-        registerPlaceholder("[item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return new TextComponent("???"); } else { return new TextComponent(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getItemStack().getType()).toLegacyText()); } });
-        registerPlaceholder("[gamble item amount]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return new TextComponent(String.valueOf(context.getShop().getAmount())); } return null; });
+        registerPlaceholder("[item durability]", context -> { if (context.getShop() != null) { return Component.text(String.valueOf(context.getShop().getItemDurabilityPercent())); } return null; });
+        registerPlaceholder("[item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text("???"); } else { return Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getItemStack().getType()); } });
+        registerPlaceholder("[gamble item amount]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return Component.text(String.valueOf(context.getShop().getAmount())); } return null; });
         registerPlaceholder("[gamble item]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.GAMBLE) { return embedItem(plugin.getItemNameUtil().getName(plugin.getGambleDisplayItem()), plugin.getGambleDisplayItem()); } return null; });
 
         // Shop Barter Item Placeholders
         registerPlaceholder("[barter item amount]", context -> {
-            if (context.getBarterItem() != null) return new TextComponent(String.valueOf(context.getBarterItem().getAmount()));
-            if (context.getShop() != null && context.getShop().getSecondaryItemStack() != null) return new TextComponent(String.valueOf(context.getShop().getSecondaryItemStack().getAmount()));
-            if (context.getProcess() != null) return new TextComponent(String.valueOf(context.getProcess().getBarterItemAmount()));
-            if (context.getItem() != null) return new TextComponent(String.valueOf(context.getItem().getAmount()));
+            if (context.getBarterItem() != null) return Component.text(String.valueOf(context.getBarterItem().getAmount()));
+            if (context.getShop() != null && context.getShop().getSecondaryItemStack() != null) return Component.text(String.valueOf(context.getShop().getSecondaryItemStack().getAmount()));
+            if (context.getProcess() != null) return Component.text(String.valueOf(context.getProcess().getBarterItemAmount()));
+            if (context.getItem() != null) return Component.text(String.valueOf(context.getItem().getAmount()));
             return null;
         });
         registerPlaceholder("[barter item]", ShopMessage::getBarterItemPlaceholder);
-        registerPlaceholder("[barter item durability]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return new TextComponent(String.valueOf(context.getShop().getSecondaryItemDurabilityPercent())); } return null; });
-        registerPlaceholder("[barter item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return new TextComponent(Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getSecondaryItemStack().getType())); } return null; });
+        registerPlaceholder("[barter item durability]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Component.text(String.valueOf(context.getShop().getSecondaryItemDurabilityPercent())); } return null; });
+        registerPlaceholder("[barter item type]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.BARTER && context.getShop().getSecondaryItemStack() != null) { return Shop.getPlugin().getItemNameUtil().getNameTranslatable(context.getShop().getSecondaryItemStack().getType()); } return null; });
         registerPlaceholder("[barter item enchants]", context -> { 
             if (context.getBarterItem() != null) { return embedItem(UtilMethods.getEnchantmentsComponent(context.getBarterItem()), context.getBarterItem()); }
             if (context.getShop() != null && context.getShop().getSecondaryItemStack() != null) { return embedItem(UtilMethods.getEnchantmentsComponent(context.getShop().getSecondaryItemStack()), context.getShop().getSecondaryItemStack()); } 
@@ -454,18 +671,18 @@ public class ShopMessage {
         });
 
         // Shop Pricing Placeholders
-        registerPlaceholder("[amount]", context -> { if (context.getShop() != null) { return new TextComponent(String.valueOf(context.getShop().getAmount())); } return null; });
-        registerPlaceholder("[price sell]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return new TextComponent(((ComboShop) context.getShop()).getPriceSellString()); } return null; });
-        registerPlaceholder("[price sell per item]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return new TextComponent(((ComboShop) context.getShop()).getPriceSellPerItemString()); } return null; });
-        registerPlaceholder("[price combo]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return new TextComponent(((ComboShop) context.getShop()).getPriceComboString()); } return null; });
-        registerPlaceholder("[price per item]", context -> { if (context.getShop() != null) { return new TextComponent(context.getShop().getPricePerItemString()); } return null; });
-        registerPlaceholder("[price]", context -> { if (context.getShop() != null) { return new TextComponent(context.getShop().getPriceString()); } return null; });
+        registerPlaceholder("[amount]", context -> { if (context.getShop() != null) { return Component.text(String.valueOf(context.getShop().getAmount())); } return null; });
+        registerPlaceholder("[price sell]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return Component.text(((ComboShop) context.getShop()).getPriceSellString()); } return null; });
+        registerPlaceholder("[price sell per item]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return Component.text(((ComboShop) context.getShop()).getPriceSellPerItemString()); } return null; });
+        registerPlaceholder("[price combo]", context -> { if (context.getShop() != null && context.getShop().getType() == ShopType.COMBO) { return Component.text(((ComboShop) context.getShop()).getPriceComboString()); } return null; });
+        registerPlaceholder("[price per item]", context -> { if (context.getShop() != null) { return Component.text(context.getShop().getPricePerItemString()); } return null; });
+        registerPlaceholder("[price]", context -> { if (context.getShop() != null) { return Component.text(context.getShop().getPriceString()); } return null; });
         registerPlaceholder("[stock]", context -> {
             if (context.getShop() == null) { return null; }
             else if (context.getShop().isAdmin()) {
-                return new TextComponent(String.valueOf(ShopMessage.getAdminStockWord()));
+                return Component.text(String.valueOf(ShopMessage.getAdminStockWord()));
             } else {
-                return new TextComponent(String.valueOf(context.getShop().getStock()));
+                return Component.text(String.valueOf(context.getShop().getStock()));
             }
         });
         registerPlaceholder("[stock color]", context -> {
@@ -478,82 +695,139 @@ public class ShopMessage {
 
         // Notify Placeholders
         registerPlaceholder("[notify user]", context -> {
-            // @TODO: is this correct?
             String text_on = getUnformattedMessage("command", "notify_on");
             String text_off = getUnformattedMessage("command", "notify_off");
 
+            if (context.getPlayer() == null) {
+                return Component.empty();
+            }
+
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_USER);
-            return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) ? text_on : text_off);
+            // Returns text_on if notifications are set to ON, otherwise text_off
+            String text = (guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_USER_ON) ? text_on : text_off;
+            if (text == null) {
+                return Component.empty();
+            }
+            return format(text, context);
         });
 
         registerPlaceholder("[notify owner]", context -> {
             String text_on = getUnformattedMessage("command", "notify_on");
             String text_off = getUnformattedMessage("command", "notify_off");
 
+            if (context.getPlayer() == null) {
+                return Component.empty();
+            }
+
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_SALE_OWNER);
-            return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) ? text_on : text_off);
+            String text = (guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_OWNER_ON) ? text_on : text_off;
+            if (text == null) {
+                return Component.empty();
+            }
+            return format(text, context);
         });
 
         registerPlaceholder("[notify stock]", context -> {
             String text_on = getUnformattedMessage("command", "notify_on");
             String text_off = getUnformattedMessage("command", "notify_off");
 
+            if (context.getPlayer() == null) {
+                return Component.empty();
+            }
+
             ShopGuiHandler.GuiIcon guiIcon = plugin.getGuiHandler().getIconFromOption(context.getPlayer(), PlayerSettings.Option.NOTIFICATION_STOCK);
-            return new TextComponent((guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) ? text_on : text_off);
+            String text = (guiIcon == ShopGuiHandler.GuiIcon.SETTINGS_NOTIFY_STOCK_ON) ? text_on : text_off;
+            if (text == null) {
+                return Component.empty();
+            }
+            return format(text, context);
         });
 
         // Offline Transaction Updates
         registerPlaceholder("[offline transactions]", context -> {
-            TextComponent numOfTransactions = new TextComponent(String.valueOf(context.getOfflineTransactions().getNumTransactions()));
-            numOfTransactions.setHoverEvent(getTransactionsHoverEvent(context));
+            Component numOfTransactions = Component.text(String.valueOf(context.getOfflineTransactions().getNumTransactions()));
+            numOfTransactions = numOfTransactions.hoverEvent(getTransactionsHoverEvent(context));
             return numOfTransactions;
         });
         registerPlaceholder("[offline profit]", context -> {
             String boughtString = Shop.getPlugin().getPriceString(context.getOfflineTransactions().getTotalProfit(), false);
             if (boughtString.equals(freePriceWord)) { boughtString = "0"; }
-            return new TextComponent(boughtString);
+            return Component.text(boughtString);
         });
         registerPlaceholder("[offline spent]", context -> {
             String spentString = Shop.getPlugin().getPriceString(context.getOfflineTransactions().getTotalSpent(), false);
             if (spentString.equals(freePriceWord)) { spentString = "0"; }
-            return new TextComponent(spentString);
+            return Component.text(spentString);
         });
         registerPlaceholder("[offline items sold]", context -> ShopMessage.getOfflineItemsPlaceholder(context, context.getOfflineTransactions().getItemsSold()));
         registerPlaceholder("[offline items bought]", context -> ShopMessage.getOfflineItemsPlaceholder(context, context.getOfflineTransactions().getItemsBought()));
         registerPlaceholder("[shops out of stock]", ShopMessage::getShopsOutOfStockPlaceholder);
     }
 
+    /**
+     * Creates a hover event displaying item information.
+     *
+     * @param item The item stack to display on hover
+     * @return The hover event, or null if item is null or hover is disabled
+     */
     private static HoverEvent getItemHoverEvent(ItemStack item) {
         if (item == null || disableItemHover) { return null; }
         return ItemHoverEventHelper.createFrom(item);
     }
 
-    public static BaseComponent componentFromLegacy(String text) {
+    /**
+     * Converts legacy text to a Component, with fallback for older Bukkit versions.
+     * Uses Adventure's LegacyComponentSerializer instead of Bungee's TextComponent.fromLegacyText.
+     *
+     * @param text The legacy formatted text to convert
+     * @return The converted Component
+     */
+    public static Component componentFromLegacy(String text) {
         try {
-            return TextComponent.fromLegacy(text);
-        } catch (NoSuchMethodError e) {
-            // Likely running on <1.20 which doesn't have `.fromLegacy()` function
-            BaseComponent[] components = TextComponent.fromLegacyText(text);
-            TextComponent newComponent = new TextComponent();
-            for (BaseComponent component : components) {
-                newComponent.addExtra(component);
-            }
-            return newComponent;
+            // Use Adventure's LegacyComponentSerializer for compatibility
+            return LegacyComponentSerializer.legacy('&').deserialize(text);
+        } catch (Exception e) {
+            // Fallback: return empty component on parse failure
+            plugin.getLogger().warning("Failed to parse legacy text: " + text + " - " + e.getMessage());
+            return Component.empty();
         }
     }
 
-    private static TextComponent embedItem(String message, ItemStack item) {
-        return embedItem(new TextComponent(message), item);
+    /**
+     * Converts a legacy formatted string to an Adventure Component.
+     * This is kept as a pass-through since componentFromLegacy now returns Component directly.
+     */
+    private static Component textComponentFromComponent(Component component) {
+        return component;
     }
-    private static TextComponent embedItem(TextComponent message, ItemStack item) {
+
+    /**
+     * Embeds item hover information into a message.
+     *
+     * @param message The message text
+     * @param item The item stack to embed
+     * @return The message with item hover event attached
+     */
+    private static Component embedItem(String message, ItemStack item) {
+        return embedItem(Component.text(message), item);
+    }
+
+    /**
+     * Embeds item hover information into a Component.
+     *
+     * @param message The Component message
+     * @param item The item stack to embed
+     * @return The message with item hover event attached
+     */
+    private static Component embedItem(Component message, ItemStack item) {
         // If we have any NBT errors, don't try to embed the item hover text
         if (disableItemHover) { return message; }
         try {
             if (item == null) { return null; }
-            BaseComponent msg = componentFromLegacy(UtilMethods.removeColorsIfOnlyWhite(message.toLegacyText()));
+            Component msg = componentFromLegacy(UtilMethods.removeColorsIfOnlyWhite(LegacyComponentSerializer.legacy('§').serialize(message)));
             HoverEvent event = getItemHoverEvent(item);
-            if (event != null) { msg.setHoverEvent(event); }
-            return (TextComponent) msg;
+            if (event != null) { msg = msg.hoverEvent(event); }
+            return msg;
         } catch (Error | Exception e) {
             plugin.getLogger().severe("Unable to embed item hover text, disabling item hover text for all players! Your version of : " + e.getMessage());
             plugin.getLogger().debug("Error details: ", e);
@@ -562,27 +836,49 @@ public class ShopMessage {
         }
     }
 
+    /**
+     * Creates a hover event displaying offline transaction information.
+     *
+     * @param context The placeholder context containing offline transactions
+     * @return The hover event, or null if creation fails
+     */
     private static HoverEvent getTransactionsHoverEvent(PlaceholderContext context) {
         try {
-            BaseComponent hoverText = componentFromLegacy(context.getOfflineTransactions().getTransactionsLore());
-            return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{hoverText});
-        } catch (Exception e) {}
+            if (context == null || context.getOfflineTransactions() == null) {
+                return null;
+            }
+            Component hoverText = componentFromLegacy(context.getOfflineTransactions().getTransactionsLore());
+            return HoverEvent.showText(hoverText);
+        } catch (Exception e) {
+            plugin.getLogger().debug("Failed to create transactions hover event", e);
+        }
         return null;
     }
 
+    /**
+     * Creates a hover event displaying shop location information.
+     *
+     * @param context The placeholder context containing shop information
+     * @return The hover event, or null if creation fails
+     */
     private static HoverEvent getShopInfoHoverEvent(PlaceholderContext context) {
         try {
-            TextComponent hoverText = new TextComponent();
+            if (context == null) {
+                return null;
+            }
+            Component hoverText = Component.empty();
             List<String> hoverLines = getUnformattedMessageList("hover", "location");
             int i = 0;
             for (String line : hoverLines) {
                 i++;
                 // Add new lines between text
-                hoverText.addExtra(format(line + (i == hoverLines.size() ? "" : "\n"), context));
+                hoverText = hoverText.append(format(line + (i == hoverLines.size() ? "" : "\n"), context));
             }
-            BaseComponent flatText = componentFromLegacy(hoverText.toLegacyText());
-            return new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{flatText});
-        } catch (Exception e) {}
+            Component flatText = componentFromLegacy(LegacyComponentSerializer.legacy('§').serialize(hoverText));
+            return HoverEvent.showText(flatText);
+        } catch (Exception e) {
+            plugin.getLogger().debug("Failed to create shop info hover event", e);
+        }
         return null;
     }
 
@@ -592,7 +888,7 @@ public class ShopMessage {
      * @param context The PlaceholderContext instance.
      * @return A comma-separated list of shop types the player can create.
      */
-    private static TextComponent getShopTypesPlaceholder(PlaceholderContext context) {
+    private static Component getShopTypesPlaceholder(PlaceholderContext context) {
         List<ShopType> typeList = new ArrayList<>(Arrays.asList(ShopType.values()));
         Player player = context.getPlayer();
 
@@ -620,7 +916,7 @@ public class ShopMessage {
                 types.append(", ");
             }
         }
-        return new TextComponent(types.toString());
+        return Component.text(types.toString());
     }
 
     /**
@@ -629,7 +925,7 @@ public class ShopMessage {
      * @param context The PlaceholderContext instance.
      * @return The item name, potentially truncated to fit sign constraints.
      */
-    private static TextComponent getItemPlaceholder(PlaceholderContext context) {
+    private static Component getItemPlaceholder(PlaceholderContext context) {
         ItemStack item = null;
         if (context.getItem() != null) {
             item = context.getItem();
@@ -642,9 +938,9 @@ public class ShopMessage {
         }
         if (item == null) { return null; }
 
-        TextComponent itemName = plugin.getItemNameUtil().getName(item);
+        Component itemName = plugin.getItemNameUtil().getName(item);
         if (context.isForSign()) {
-            return new TextComponent(UtilMethods.trimForSign(itemName.toPlainText()));
+            return Component.text(UtilMethods.trimForSign(PlainTextComponentSerializer.plainText().serialize(itemName)));
         }
         return embedItem(itemName, item);
     }
@@ -655,7 +951,7 @@ public class ShopMessage {
      * @param context The PlaceholderContext instance.
      * @return The barter item name, potentially truncated to fit sign constraints.
      */
-    private static TextComponent getBarterItemPlaceholder(PlaceholderContext context) {
+    private static Component getBarterItemPlaceholder(PlaceholderContext context) {
         ItemStack item = null;
         if (context.getBarterItem() != null) {
             item = context.getBarterItem();
@@ -674,15 +970,15 @@ public class ShopMessage {
         }
         if (item == null) { return null; }
 
-        TextComponent itemName = plugin.getItemNameUtil().getName(item);
+        Component itemName = plugin.getItemNameUtil().getName(item);
         if (context.isForSign()) {
-            return new TextComponent(UtilMethods.trimForSign(itemName.toLegacyText()));
+            return Component.text(UtilMethods.trimForSign(PlainTextComponentSerializer.plainText().serialize(itemName)));
         }
         return embedItem(itemName, item);
     }
 
-    private static TextComponent getOfflineItemsPlaceholder(PlaceholderContext context, Map<ItemStack, Integer> items) {
-        TextComponent itemRowsText = new TextComponent("");
+    private static Component getOfflineItemsPlaceholder(PlaceholderContext context, Map<ItemStack, Integer> items) {
+        Component itemRowsText = Component.empty();
         String itemRow = getUnformattedMessage("offline", "itemRow");
 
         int i = 0;
@@ -697,8 +993,8 @@ public class ShopMessage {
             itemContext.setPlayer(context.getPlayer());
             itemContext.setItem(item);
 
-            TextComponent currentRow = format(itemRow + addNewLine, itemContext);
-            itemRowsText.addExtra(currentRow);
+            Component currentRow = format(itemRow + addNewLine, itemContext);
+            itemRowsText = itemRowsText.append(currentRow);
         }
         // If there were no lines added, just return null so that we don't log a blank line!
         if (i == 0) return null;
@@ -706,8 +1002,8 @@ public class ShopMessage {
         return itemRowsText;
     }
 
-    private static TextComponent getShopsOutOfStockPlaceholder(PlaceholderContext context) {
-        TextComponent shopsOutOfStock = new TextComponent("");
+    private static Component getShopsOutOfStockPlaceholder(PlaceholderContext context) {
+        Component shopsOutOfStock = Component.empty();
         List<AbstractShop> playerShops = Shop.getPlugin().getShopHandler().getShops(context.getPlayer().getUniqueId());
         if (playerShops != null && !playerShops.isEmpty()) {
             // Collect all the out of stock shops
@@ -732,20 +1028,20 @@ public class ShopMessage {
 
                 // For each item, generate a line based on the template line
                 String addNewLine = (i < (outOfStock.size()) && i <= 3) ? "\n" : "";
-                TextComponent currentRow = format(getUnformattedMessage("offline", "outOfStockShop") + addNewLine, shopContext);
+                Component currentRow = format(getUnformattedMessage("offline", "outOfStockShop") + addNewLine, shopContext);
                 // Limit out of stock shops to 3
                 if (i > 3) {
-                    remainingShopsMsgs.add(currentRow.toLegacyText());
+                    remainingShopsMsgs.add(LegacyComponentSerializer.legacy('§').serialize(currentRow));
                 } else {
-                    shopsOutOfStock.addExtra(currentRow);
+                    shopsOutOfStock = shopsOutOfStock.append(currentRow);
                 }
             }
 
             if (!remainingShopsMsgs.isEmpty()) {
                 String remainingMsg = getUnformattedMessage("offline", "moreOutOfStock");
-                TextComponent remaining = format(remainingMsg.replace("[out of stock remaining]", "" + remainingShopsMsgs.size()), context);
-                remaining.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(String.join("\n", remainingShopsMsgs)).create()));
-                shopsOutOfStock.addExtra(remaining);
+                Component remaining = format(remainingMsg.replace("[out of stock remaining]", "" + remainingShopsMsgs.size()), context);
+                remaining = remaining.hoverEvent(HoverEvent.showText(Component.text(String.join("\n", remainingShopsMsgs))));
+                shopsOutOfStock = shopsOutOfStock.append(remaining);
             }
 
             return shopsOutOfStock;
@@ -754,22 +1050,50 @@ public class ShopMessage {
         return null;
     }
 
+    /**
+     * Gets the creation word for the given shop type.
+     *
+     * @param type The shop type identifier
+     * @return The creation word for the shop type
+     */
     public static String getCreationWord(String type) {
         return creationWords.get(type);
     }
 
+    /**
+     * Gets the word used to represent a free price.
+     *
+     * @return The free price word
+     */
     public static String getFreePriceWord() {
         return freePriceWord;
     }
 
+    /**
+     * Gets the word used to represent admin stock.
+     *
+     * @return The admin stock word
+     */
     public static String getAdminStockWord() {
         return adminStockWord;
     }
 
+    /**
+     * Gets the server display name.
+     *
+     * @return The server display name
+     */
     public static String getServerDisplayName() {
         return serverDisplayName;
     }
 
+    /**
+     * Gets an unformatted message from the message map.
+     *
+     * @param key The message key
+     * @param subKey The message sub key, or null if no sub key
+     * @return The unformatted message
+     */
     public static String getUnformattedMessage(String key, String subKey) {
         String message;
         if (subKey != null)
@@ -779,25 +1103,49 @@ public class ShopMessage {
         return message;
     }
 
+    /**
+     * Formats a message for a shop.
+     *
+     * @param unformattedMessage The unformatted message to format
+     * @param shop The shop context
+     * @return The formatted message
+     */
     public static String formatMessage(String unformattedMessage, AbstractShop shop) {
         PlaceholderContext context = new PlaceholderContext();
         context.setShop(shop);
-        TextComponent formattedMessage = format(unformattedMessage, context);
+        Component formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
+        return LegacyComponentSerializer.legacy('§').serialize(formattedMessage);
     }
 
+    /**
+     * Formats a message for a shop with player context.
+     *
+     * @param unformattedMessage The unformatted message to format
+     * @param shop The shop context
+     * @param player The player context
+     * @param forSign Whether the message is for a sign
+     * @return The formatted message
+     */
     public static String formatMessage(String unformattedMessage, AbstractShop shop, Player player, boolean forSign) {
         PlaceholderContext context = new PlaceholderContext();
         context.setPlayer(player);
         context.setShop(shop);
         context.setForSign(forSign);
-        TextComponent formattedMessage = format(unformattedMessage, context);
+        Component formattedMessage = format(unformattedMessage, context);
         // Return the legacy version since we are requesting the legacy formatter!
-        return ChatColor.translateAlternateColorCodes('§', formattedMessage.toLegacyText());
+        return LegacyComponentSerializer.legacy('§').serialize(formattedMessage);
     }
 
-    // Perform partial formatting to insert transaction purchase amounts since they might differ from shop amounts (partial sales)
+    /**
+     * Perform partial formatting to insert transaction purchase amounts since they might differ from shop amounts (partial sales)
+     *
+     * @param transactionType The type of transaction
+     * @param subKey The message sub key
+     * @param price The price of the transaction
+     * @param amount The amount of items
+     * @return The formatted message
+     */
     public static String getMessageFromOrders(ShopType transactionType, String subKey, double price, int amount){
         String message = ShopMessage.getUnformattedMessage(transactionType.toString(), subKey);
         String priceStr = Shop.getPlugin().getPriceString(price, false);
@@ -809,10 +1157,19 @@ public class ShopMessage {
         return message;
     }
 
-    //      # [amount] : The amount of items the shop is selling/buying/bartering #
-    //      # [price] : The price of the items the shop is selling (adjusted to match virtual or physical currency) #
-    //      # [owner] : The name of the shop owner #
-    //      # [server name] : The name of the server #
+    /**
+     * Gets the sign lines for a shop.
+     * <p>
+     * # [amount] : The amount of items the shop is selling/buying/bartering <br>
+     * # [price] : The price of the items the shop is selling (adjusted to match virtual or physical currency) <br>
+     * # [owner] : The name of the shop owner <br>
+     * # [server name] : The name of the server
+     * </p>
+     *
+     * @param shop The shop
+     * @param shopType The shop type
+     * @return The sign lines
+     */
     public static String[] getSignLines(AbstractShop shop, ShopType shopType){
 
         DisplayType displayType = null;
@@ -835,22 +1192,40 @@ public class ShopMessage {
 
         for(int i=0; i<lines.length; i++) {
             lines[i] = formatMessage(lines[i], shop, null, true);
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             lines[i] = ChatColor.translateAlternateColorCodes('&', lines[i]);
             lines[i] = UtilMethods.trimForSign(lines[i]);
         }
         return lines;
     }
 
+    /**
+     * Gets the sign lines for a shop by key.
+     *
+     * @param key The sign text key
+     * @param shop The shop
+     * @return The sign lines
+     */
     public static String[] getSignLines(String key, AbstractShop shop){
         String[] lines = shopSignTextMap.get(key);
         for(int i=0; i<lines.length; i++) {
             lines[i] = formatMessage(lines[i], shop, null, true);
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             lines[i] = ChatColor.translateAlternateColorCodes('&', lines[i]);
             lines[i] = UtilMethods.trimForSign(lines[i]);
         }
         return lines;
     }
 
+    /**
+     * Gets the display tags for a shop.
+     *
+     * @param shop The shop
+     * @param shopType The shop type
+     * @return The display tags
+     */
     public static ArrayList<String> getDisplayTags(AbstractShop shop, ShopType shopType){
         ArrayList<String> formattedLines = new ArrayList<>();
         List<String> lines = displayTextMap.get(shopType.toString().toUpperCase()+"_normal");
@@ -861,6 +1236,8 @@ public class ShopMessage {
 
             Boolean splitLine = formattedLine.contains("[split]");
             formattedLine = formattedLine.replace("[split]", "");
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
             if(formattedLine != null && !formattedLine.isEmpty() && !ChatColor.stripColor(formattedLine).trim().isEmpty()) {
                 if (splitLine) {
                     List<String> splitLines = UtilMethods.splitStringIntoLines(formattedLine, targetMaxLength);
@@ -873,6 +1250,13 @@ public class ShopMessage {
         return formattedLines;
     }
 
+    /**
+     * Gets a list of unformatted messages.
+     *
+     * @param key The message key
+     * @param subKey The message sub key
+     * @return The list of unformatted messages
+     */
     public static List<String> getUnformattedMessageList(String key, String subKey){
         List<String> messages = new ArrayList<>();
 
@@ -891,6 +1275,12 @@ public class ShopMessage {
         return shopSignTextMap.get(type.toString()+"_"+subtype).clone();
     }
 
+    /**
+     * Loads all messages from the chat configuration file.
+     * Populates the messageMap with transaction, interaction, and issue messages
+     * for all shop types, as well as command and hover messages.
+     * This method should be called during the plugin's initialization phase.
+     */
     private static void loadMessagesFromConfig() {
 
         for (ShopType type : ShopType.values()) {
@@ -1050,48 +1440,75 @@ public class ShopMessage {
                 count++;
                 message = config.getString(key + "." + count);
             }
-        } catch (NullPointerException e) {}
+        } catch (Exception e) {
+            plugin.getLogger().debug("Failed to load config lines for key: " + key, e);
+        }
         return lines.toArray(new String[0]);
     }
 
+    /**
+     * Loads sign text from the sign configuration file.
+     * Populates the shopSignTextMap with sign lines for each shop type,
+     * including normal, admin, and no-display variants, as well as timeout and deleted messages.
+     */
     private void loadSignTextFromConfig() {
         messageMap.put("signtext_instockcolor", signConfig.getString("stock_color.in_stock"));
         messageMap.put("signtext_outofstockcolor", signConfig.getString("stock_color.out_of_stock"));
-        Set<String> allTypes = signConfig.getConfigurationSection("sign_text").getKeys(false);
-        for (String typeString : allTypes) {
-            ShopType type = null;
-            try { type = ShopType.valueOf(typeString);}
-            catch (IllegalArgumentException e){}
+        if (signConfig.getConfigurationSection("sign_text") != null) {
+            Set<String> allTypes = signConfig.getConfigurationSection("sign_text").getKeys(false);
+            for (String typeString : allTypes) {
+                ShopType type = null;
+                try { type = ShopType.valueOf(typeString);}
+                catch (IllegalArgumentException e){
+                    plugin.getLogger().debug("Unknown sign text type: " + typeString, e);
+                }
 
-            if (type != null) {
-                this.shopSignTextMap.put(type.toString() + "_normal", getSignConfigLines("sign_text." + typeString + ".normal"));
-                this.shopSignTextMap.put(type.toString() + "_admin", getSignConfigLines("sign_text." + typeString + ".admin"));
-                this.shopSignTextMap.put(type.toString() + "_normal_no_display", getSignConfigLines("sign_text." + typeString + ".normal_no_display"));
-                this.shopSignTextMap.put(type.toString() + "_admin_no_display", getSignConfigLines("sign_text." + typeString + ".admin_no_display"));
+                if (type != null) {
+                    this.shopSignTextMap.put(type.toString() + "_normal", getSignConfigLines("sign_text." + typeString + ".normal"));
+                    this.shopSignTextMap.put(type.toString() + "_admin", getSignConfigLines("sign_text." + typeString + ".admin"));
+                    this.shopSignTextMap.put(type.toString() + "_normal_no_display", getSignConfigLines("sign_text." + typeString + ".normal_no_display"));
+                    this.shopSignTextMap.put(type.toString() + "_admin_no_display", getSignConfigLines("sign_text." + typeString + ".admin_no_display"));
+                }
             }
         }
         this.shopSignTextMap.put("timeout", getSignConfigLines("sign_text.timeout"));
         this.shopSignTextMap.put("deleted", getSignConfigLines("sign_text.deleted"));
     }
 
+    /**
+     * Loads display tag text from the display configuration file.
+     * Populates the displayTextMap with formatted lines for each shop type.
+     */
     private void loadDisplayTextFromConfig() {
         displayTextMap = new HashMap<>();
+        if (displayConfig.getConfigurationSection("display_tag_text") == null) {
+            return;
+        }
         Set<String> allTypes = displayConfig.getConfigurationSection("display_tag_text").getKeys(false);
         for (String typeString : allTypes) {
 
             ShopType type = null;
             try { type = ShopType.valueOf(typeString);}
-            catch (IllegalArgumentException e){}
+            catch (IllegalArgumentException e){
+                plugin.getLogger().debug("Unknown display tag type: " + typeString, e);
+            }
 
             if (type != null) {
                 try {
                     List<String> normalLines = displayConfig.getStringList("display_tag_text." + typeString.toUpperCase() + ".normal");
                     this.displayTextMap.put(type.toString().toUpperCase() + "_normal", normalLines);
-                } catch (NullPointerException e) {}
+                } catch (Exception e) {
+                    plugin.getLogger().debug("Failed to load display tag text for: " + typeString, e);
+                }
             }
         }
     }
 
+    /**
+     * Loads creation words from the sign configuration file.
+     * Maps each shop type (SHOP, SELL, BUY, BARTER, GAMBLE, ADMIN, COMBO)
+     * to its corresponding creation word used for sign display.
+     */
     private void loadCreationWords(){
         String shopString = signConfig.getString("sign_creation.SHOP");
         if(shopString != null)
@@ -1121,7 +1538,7 @@ public class ShopMessage {
         if(gambleString != null)
             creationWords.put("GAMBLE", gambleString.toLowerCase());
         else
-            creationWords.put("BARTER", "barter");
+            creationWords.put("GAMBLE", "gamble");
 
         String adminString = signConfig.getString("sign_creation.ADMIN");
         if(adminString != null)
@@ -1136,6 +1553,90 @@ public class ShopMessage {
             creationWords.put("COMBO", "combo");
     }
 
+    /**
+     * Escapes angle brackets that are not valid MiniMessage tags.
+     * Valid tags are like <red>, </red>, <bold>, <#FF0000>, etc.
+     * Invalid tags like <(54, 65, 9)> are escaped to be literal text.
+     */
+    private static String escapeInvalidMiniMessageTags(String message) {
+        if (message == null) {
+            return null;
+        }
+        // First, protect placeholders wrapped in angle brackets like <[location]>
+        Pattern placeholderAngleBracketPattern = Pattern.compile("<(\\[[^\\[\\]]+\\])>");
+        Matcher pabMatcher = placeholderAngleBracketPattern.matcher(message);
+        StringBuffer protectedMessage = new StringBuffer();
+        while (pabMatcher.find()) {
+            pabMatcher.appendReplacement(protectedMessage, Matcher.quoteReplacement("§§PLACEHOLDER_ANGLE_START§§" + pabMatcher.group(1) + "§§PLACEHOLDER_ANGLE_END§§"));
+        }
+        pabMatcher.appendTail(protectedMessage);
+        message = protectedMessage.toString();
+        
+        // Pattern for valid MiniMessage tags: <tag> or </tag> or <tag:param> etc
+        Pattern tagPattern = Pattern.compile("<(/?[a-zA-Z][a-zA-Z0-9_-]*(?::[^>]*)?)>");
+        Matcher matcher = tagPattern.matcher(message);
+        StringBuffer result = new StringBuffer();
+        int lastEnd = 0;
+        while (matcher.find()) {
+            if (matcher.start() > lastEnd) {
+                String before = message.substring(lastEnd, matcher.start());
+                before = before.replace("<", "&#60;").replace(">", "&#62;");
+                result.append(before);
+            }
+            String tagContent = matcher.group(1);
+            if (isValidMiniMessageTag(tagContent)) {
+                result.append(matcher.group());
+            } else {
+                result.append(matcher.group().replace("<", "&#60;").replace(">", "&#62;"));
+            }
+            lastEnd = matcher.end();
+        }
+        if (lastEnd < message.length()) {
+            String after = message.substring(lastEnd);
+            after = after.replace("<", "&#60;").replace(">", "&#62;");
+            result.append(after);
+        }
+        String escaped = result.toString();
+        // Restore protected placeholders
+        escaped = escaped.replace("§§PLACEHOLDER_ANGLE_START§§", "<").replace("§§PLACEHOLDER_ANGLE_END§§", ">");
+        return escaped;
+    }
+
+    private static boolean isValidMiniMessageTag(String tagContent) {
+        if (tagContent == null || tagContent.isEmpty()) {
+            return false;
+        }
+        String content = tagContent;
+        if (content.startsWith("/")) {
+            content = content.substring(1);
+        }
+        if (content.matches("#[0-9a-fA-F]{6}")) {
+            return true;
+        }
+        if (content.matches("[a-zA-Z][a-zA-Z0-9_-]*(?::.*)?")) {
+            return true;
+        }
+        if (content.equals("reset") || content.equals("r")) {
+            return true;
+        }
+        // Common MiniMessage tags
+        if (content.equals("black") || content.equals("dark_blue") || content.equals("dark_green") || content.equals("dark_aqua") ||
+            content.equals("dark_red") || content.equals("dark_purple") || content.equals("gold") || content.equals("gray") ||
+            content.equals("dark_gray") || content.equals("blue") || content.equals("green") || content.equals("aqua") ||
+            content.equals("red") || content.equals("light_purple") || content.equals("yellow") || content.equals("white") ||
+            content.equals("bold") || content.equals("b") || content.equals("italic") || content.equals("i") ||
+            content.equals("underlined") || content.equals("u") || content.equals("strikethrough") || content.equals("st") ||
+            content.equals("obfuscated") || content.equals("obf")) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Gets the target max length for display tags.
+     *
+     * @return The target max length
+     */
     public static int getTargetMaxLength() {
         return targetMaxLength;
     }

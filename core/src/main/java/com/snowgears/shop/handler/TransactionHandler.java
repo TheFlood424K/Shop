@@ -12,14 +12,14 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 
 
 public class TransactionHandler {
 
     private Shop plugin;
-    private HashMap<Location, UUID> shopMessageCooldown = new HashMap<>(); //shop location, shop owner
+    private ConcurrentHashMap<Location, UUID> shopMessageCooldown = new ConcurrentHashMap<>(); //shop location, shop owner
 
     public TransactionHandler(Shop instance) {
         plugin = instance;

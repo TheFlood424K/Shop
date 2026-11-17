@@ -195,7 +195,7 @@ public class ShopCreationUtil {
             if (e.isCancelled())
                 return null;
 
-            if (UtilMethods.isMCVersion17Plus() && plugin.getDisplayLightLevel() > 0) {
+            if (plugin.getDisplayLightLevel() > 0) {
                 Block displayBlock = shop.getChestLocation().getBlock().getRelative(BlockFace.UP);
                 if (UtilMethods.materialIsNonIntrusive(displayBlock.getType())) {
                     displayBlock.setType(Material.LIGHT);

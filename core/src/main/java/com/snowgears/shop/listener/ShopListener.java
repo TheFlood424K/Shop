@@ -31,13 +31,14 @@ import org.bukkit.scheduler.BukkitRunnable;
 import com.tcoded.folialib.wrapper.task.WrappedTask;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 
 public class ShopListener implements Listener {
 
     private Shop plugin;
-    private HashMap<UUID, OfflineTransactions> transactionsWhileOffline = new HashMap<>();
+    private ConcurrentHashMap<UUID, OfflineTransactions> transactionsWhileOffline = new ConcurrentHashMap<>();
     private HashMap<UUID, Long> playerLastShopTeleport = new HashMap<>();
 
     public ShopListener(Shop instance) {
@@ -352,10 +353,10 @@ public class ShopListener implements Listener {
                 }
             };
             WrappedTask task = plugin.getFoliaLib().getScheduler().runTimer(runnable, 1, 20);
-            // Let it attempt to run for 5 seconds before cancelling
+            // Let it attempt to run for 60 seconds before cancelling (the log query gets slower as the db grows)
             plugin.getFoliaLib().getScheduler().runLater(() -> {
                 plugin.getFoliaLib().getScheduler().cancelTask(task);
-            }, 100);
+            }, 1200);
         }
     }
 

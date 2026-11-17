@@ -8,7 +8,6 @@ import com.snowgears.shop.hook.WorldGuardHook;
 import com.snowgears.shop.shop.AbstractShop;
 import com.snowgears.shop.shop.ShopType;
 import com.snowgears.shop.util.*;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -34,13 +33,14 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class MiscListener implements Listener {
 
     public Shop plugin;
-    private HashMap<UUID, ShopCreationProcess> playerChatCreationSteps = new HashMap<>();
-    private HashMap<UUID, Long> lastChatCreation = new HashMap<>();
+    private ConcurrentHashMap<UUID, ShopCreationProcess> playerChatCreationSteps = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<UUID, Long> lastChatCreation = new ConcurrentHashMap<>();
 
     public MiscListener(Shop instance) {
         plugin = instance;
@@ -170,7 +170,7 @@ public class MiscListener implements Listener {
                             cancelShopCreationProcess(player);
                         }
                     }
-                }, 30 * 20); // 30 seconds * 20 ticks
+                }, plugin.getShopCreationTimeout() * 20L);
             }
         }
     }
@@ -194,10 +194,8 @@ public class MiscListener implements Listener {
 
         // Remove player from creative selection if they are in it!
         // The Bukkit API can only change player game modes in a sync task, not an async task
-        plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
-            public void run() {
-                plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
-            }
+        plugin.getFoliaLib().getScheduler().runLater(() -> {
+            plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
         }, 1);
     }
 
@@ -381,7 +379,7 @@ public class MiscListener implements Listener {
                         plugin.getCreativeSelectionListener().removePlayerFromCreativeSelection(player);
                         ShopMessage.sendMessage("interactionIssue", "createHitChestTimeout", currentProcess, player);
                     }
-                }, 30 * 20); // 30 seconds * 20 ticks
+                }, plugin.getShopCreationTimeout() * 20L);
             }
         }
     }
@@ -391,7 +389,17 @@ public class MiscListener implements Listener {
         Player player = event.getPlayer();
         if(playerChatCreationSteps.containsKey(player.getUniqueId())){
             ShopCreationProcess process = playerChatCreationSteps.get(player.getUniqueId());
-            plugin.getLogger().debug("Shop Creation Process: " + process.getStep() + " Player " + player.getName() + " input: " + event.getMessage(), true);
+            String message = event.getMessage();
+            plugin.getLogger().debug("Shop Creation Process: " + process.getStep() + " Player " + player.getName() + " input: " + message, true);
+
+            // Allow player to cancel shop creation at any step by typing "cancel"
+            if (message != null && message.equalsIgnoreCase("cancel")) {
+                process.cleanup();
+                cancelShopCreationProcess(player);
+                event.setCancelled(true);
+                return;
+            }
+
             switch (process.getStep()){
                 case SHOP_TYPE:
                     ShopType type = plugin.getShopCreationUtil().getShopType(event.getMessage());

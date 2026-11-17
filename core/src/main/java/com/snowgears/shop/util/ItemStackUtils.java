@@ -1,57 +1,35 @@
 package com.snowgears.shop.util;
 
-import com.snowgears.shop.Shop;
+import com.google.gson.JsonObject;
 import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.resources.RegistryOps;
-import net.minecraft.server.MinecraftServer;
 
-import com.mojang.serialization.JsonOps;
-import java.util.Optional;
+/**
+ * Item serialization helpers backed by Paper's public API.
+ */
+public final class ItemStackUtils {
 
-public class ItemStackUtils {
-    private static RegistryAccess.Frozen registryAccess;
-    private static RegistryOps<JsonElement> itemSerializationCodec;
-
-    // Initialize the registryAccess and itemSerializationCodec once
-    public static void init() {
-        if (registryAccess == null) {
-            registryAccess = MinecraftServer.getServer().registryAccess();
-        }
-        if (itemSerializationCodec == null) {
-            itemSerializationCodec = registryAccess.createSerializationContext(JsonOps.INSTANCE);
-        }
+    private ItemStackUtils() {
     }
 
-    // Serialize an ItemStack to a JsonObject
+    /**
+     * Serializes an item stack to Minecraft's component-based JSON format.
+     *
+     * @param itemStack item stack to serialize
+     * @return serialized item data
+     */
     public static JsonObject serializeItemAsJson(ItemStack itemStack) {
-        if (Shop.getPlugin().getFoliaLib().isPaper()) {
-            return Bukkit.getUnsafe().serializeItemAsJson(itemStack);
-        }
-        init();
-        // non-paper servers, hit nms code directly
-        JsonObject item;
-        try {
-            net.minecraft.world.item.ItemStack mcItem = Shop.getPlugin().getNmsBullshitHandler().getMCItemStack(itemStack);
-            final Optional<JsonElement> encoded = net.minecraft.world.item.ItemStack.CODEC.encodeStart(itemSerializationCodec, mcItem).result();
-            item = encoded.get().getAsJsonObject();
-            item.addProperty("DataVersion", Bukkit.getUnsafe().getDataVersion());
-            return item;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
+        return Bukkit.getUnsafe().serializeItemAsJson(itemStack);
     }
 
-    // Deserialize a JsonObject to an ItemStack
+    /**
+     * Deserializes an item stack from Minecraft's component-based JSON format.
+     *
+     * @param data serialized item data
+     * @return deserialized item stack
+     * @throws IllegalArgumentException when the data is invalid
+     */
     public static ItemStack deserializeItemFromJson(JsonObject data) throws IllegalArgumentException {
-        if (Shop.getPlugin().getFoliaLib().isPaper()) {
-            return Bukkit.getUnsafe().deserializeItemFromJson(data);
-        }
-        // TODO: Implement this for non-paper servers, not high priority
-        return null;
+        return Bukkit.getUnsafe().deserializeItemFromJson(data);
     }
 }

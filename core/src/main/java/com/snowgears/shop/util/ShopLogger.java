@@ -178,6 +178,8 @@ public class ShopLogger extends Logger {
 
     public String addColor(String color, String message) {
         if (!enableColor) return message;
+// TODO: Phase 3 - Replace ChatColor with Paper-native Adventure Component (migration from Spigot/Bukkit to PaperMC)
+// See MIGRATION_PLAN.md Phase 3 for details
         return ChatColor.translateAlternateColorCodes('&',color + message + RESET);
     }
 

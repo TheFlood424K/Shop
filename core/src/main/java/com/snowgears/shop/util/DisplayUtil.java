@@ -232,7 +232,7 @@ public class DisplayUtil {
                             break;
                     }
                 }
-                else if(UtilMethods.isMCVersion14Plus() && material == Material.CROSSBOW){
+                else if(material == Material.CROSSBOW){
                     switch (facing){
                         case NORTH:
                             standLocation = blockLocation.clone().add(0.25, -1.6, 0.44);
@@ -339,7 +339,7 @@ public class DisplayUtil {
         else if(material == Material.BOW){
             return bowAngle;
         }
-        else if(UtilMethods.isMCVersion14Plus() && material == Material.CROSSBOW){
+        else if(material == Material.CROSSBOW){
             return crossBowAngle;
         }
         else if(material == Material.FISHING_ROD || material == Material.CARROT_ON_A_STICK){

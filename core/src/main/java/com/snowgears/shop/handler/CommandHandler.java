@@ -8,14 +8,13 @@ import com.snowgears.shop.util.PlayerSettings;
 import com.snowgears.shop.util.ShopMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.defaults.BukkitCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.StringUtil;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -142,7 +141,7 @@ public class CommandHandler extends BukkitCommand {
                         return true;
                     }
                 } else {
-                    sender.sendMessage("The server is using "+plugin.getItemNameUtil().getName(plugin.getItemCurrency()).toPlainText()+" as currency.");
+                    sender.sendMessage("The server is using "+PlainTextComponentSerializer.plainText().serialize(plugin.getItemNameUtil().getName(plugin.getItemCurrency()))+" as currency.");
                 }
             }
             else if(args[0].equalsIgnoreCase("setgamble")){
@@ -299,13 +298,8 @@ public class CommandHandler extends BukkitCommand {
         }
     }
 
-    private void register()
-            throws ReflectiveOperationException {
-        final Field bukkitCommandMap = Bukkit.getServer().getClass().getDeclaredField("commandMap");
-        bukkitCommandMap.setAccessible(true);
-
-        CommandMap commandMap = (CommandMap) bukkitCommandMap.get(Bukkit.getServer());
-        commandMap.register(this.getName(), this);
+    private void register() {
+        Bukkit.getCommandMap().register(this.getName(), this);
     }
 
     // Sorts possible results to provide true tab auto complete based off of what is already typed.
