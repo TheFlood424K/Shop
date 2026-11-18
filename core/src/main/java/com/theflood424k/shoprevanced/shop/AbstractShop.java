@@ -48,6 +48,7 @@ public abstract class AbstractShop {
     protected AbstractDisplay display;
     protected double price;
     protected int amount;
+    protected boolean autoPricingEnabled = true;
     protected boolean isAdmin;
     protected ShopType type;
     protected String[] signLines;
@@ -520,6 +521,24 @@ public abstract class AbstractShop {
         this.isAdmin = isAdmin;
         if(isAdmin)
             this.owner = ShopRevanced.getPlugin().getShopRevancedHandler().getAdminUUID();
+    }
+
+    /**
+     * Returns whether auto-pricing is enabled for this shop.
+     *
+     * @return true if auto-pricing is active for this shop
+     */
+    public boolean isAutoPricingEnabled() {
+        return autoPricingEnabled;
+    }
+
+    /**
+     * Sets whether auto-pricing is enabled for this shop (per-item opt-out).
+     *
+     * @param enabled true to allow auto-pricing adjustments on this shop
+     */
+    public void setAutoPricingEnabled(boolean enabled) {
+        this.autoPricingEnabled = enabled;
     }
 
     /**
