@@ -161,11 +161,11 @@ public abstract class BaseMockBukkitTest {
 
     // Allow tests to stub calculateBlockFaceForSign to avoid MockBukkit material checks
     protected static void stubCalculateBlockFaceForSign(BlockFace face) {
-        ShopRevancedCreationUtil original = getPluginField("ShopRevancedCreationUtil");
+        ShopRevancedCreationUtil original = getPluginField("shopRevancedCreationUtil");
         if (original != null && !MockUtil.isMock(original)) {
             ShopRevancedCreationUtil spy = Mockito.spy(original);
             Mockito.doReturn(face).when(spy).calculateBlockFaceForSign(Mockito.any(), Mockito.any(), Mockito.any());
-            setPluginField("ShopRevancedCreationUtil", spy);
+            setPluginField("shopRevancedCreationUtil", spy);
         }
     }
     protected static void setupEconomy() {

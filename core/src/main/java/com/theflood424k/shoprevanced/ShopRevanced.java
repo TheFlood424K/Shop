@@ -45,7 +45,7 @@ public class ShopRevanced extends JavaPlugin {
 
     private static final String CONFIG_PATH_WORLD_GUARD_ENABLED = "worldGuard.enabled";
 
-    private ShopRevancedListener ShopRevancedListener;
+    private ShopRevancedListener shopRevancedListener;
     private DisplayListener displayListener;
     private TransactionHandler transactionHandler;
     private MiscListener miscListener;
@@ -58,10 +58,10 @@ public class ShopRevanced extends JavaPlugin {
     private ShopCreationListener shopCreationListener;
     private ShopProtectionListener shopProtectionListener;
 
-    private ShopRevancedHandler ShopRevancedHandler;
+    private ShopRevancedHandler shopRevancedHandler;
     private ShopRevancedGuiHandler guiHandler;
     private ItemNameUtil itemNameUtil;
-    private ShopRevancedCreationUtil ShopRevancedCreationUtil;
+    private ShopRevancedCreationUtil shopRevancedCreationUtil;
     private LogHandler logHandler;
     private Metrics metrics;
     private IntegrationManager integrationManager;
@@ -252,9 +252,9 @@ public class ShopRevanced extends JavaPlugin {
         this.getLogger().enableColor(config.getBoolean("enableLogColor"));
         this.getLogger().enableColor(configManager.getConfig().getBoolean("enableLogColor"));
 
-        ShopRevancedCreationUtil = new ShopRevancedCreationUtil(this);
+        shopRevancedCreationUtil = new ShopRevancedCreationUtil(this);
 
-        ShopRevancedListener = new ShopRevancedListener(this);
+        shopRevancedListener = new ShopRevancedListener(this);
         transactionHandler = new TransactionHandler(this);
         miscListener = new MiscListener(this);
         creativeSelectionListener = new CreativeSelectionListener(this);
@@ -423,12 +423,12 @@ public class ShopRevanced extends JavaPlugin {
         new CommandHandler(this, null, commandAlias, "Base command for the ShopRevanced plugin", "/ShopRevanced", new ArrayList(Arrays.asList(commandAlias)));
 
         guiHandler = new ShopRevancedGuiHandler(plugin);
-        ShopRevancedHandler = new ShopRevancedHandler(plugin);
+        shopRevancedHandler = new ShopRevancedHandler(plugin);
         guiHandler.loadIconsAndTitles();
         logHandler = new LogHandler(plugin, config);
 
         getServer().getPluginManager().registerEvents(displayListener, this);
-        getServer().getPluginManager().registerEvents(ShopRevancedListener, this);
+        getServer().getPluginManager().registerEvents(shopRevancedListener, this);
         getServer().getPluginManager().registerEvents(miscListener, this);
         getServer().getPluginManager().registerEvents(shopCreationListener, this);
         getServer().getPluginManager().registerEvents(creativeSelectionListener, this);
@@ -445,26 +445,26 @@ public class ShopRevanced extends JavaPlugin {
         metrics = new Metrics(plugin, bstatsPluginId);
         metrics.addCustomChart(new SingleLineChart("transactions", () -> logHandler.getRecentTransactionCount()));
         metrics.addCustomChart(new SingleLineChart("item_volume", () -> logHandler.getRecentItemVolume()));
-        metrics.addCustomChart(new SingleLineChart("shops", () -> ShopRevancedHandler.getNumberOfShops()));
+        metrics.addCustomChart(new SingleLineChart("shops", () -> shopRevancedHandler.getNumberOfShops()));
         metrics.addCustomChart(new AdvancedPie("shop_types", () -> {
             Map<String, Integer> valueMap = new HashMap<>();
-            valueMap.put("Buy", ShopRevancedHandler.getNumberOfShops(ShopType.BUY));
-            valueMap.put("Sell", ShopRevancedHandler.getNumberOfShops(ShopType.SELL));
-            valueMap.put("Barter", ShopRevancedHandler.getNumberOfShops(ShopType.BARTER));
-            valueMap.put("Combo", ShopRevancedHandler.getNumberOfShops(ShopType.COMBO));
-            valueMap.put("Gamble", ShopRevancedHandler.getNumberOfShops(ShopType.GAMBLE));
+            valueMap.put("Buy", shopRevancedHandler.getNumberOfShops(ShopType.BUY));
+            valueMap.put("Sell", shopRevancedHandler.getNumberOfShops(ShopType.SELL));
+            valueMap.put("Barter", shopRevancedHandler.getNumberOfShops(ShopType.BARTER));
+            valueMap.put("Combo", shopRevancedHandler.getNumberOfShops(ShopType.COMBO));
+            valueMap.put("Gamble", shopRevancedHandler.getNumberOfShops(ShopType.GAMBLE));
             return valueMap;
         }));
         metrics.addCustomChart(new AdvancedPie("shop_display_types", () -> {
             Map<String, Integer> valueMap = new HashMap<>();
-            valueMap.put("Floating Item", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.ITEM));
-            valueMap.put("Large Item", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.LARGE_ITEM));
-            valueMap.put("Item Frame", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.ITEM_FRAME));
-            valueMap.put("Glass Case", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.GLASS_CASE));
-            valueMap.put("None", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.NONE));
+            valueMap.put("Floating Item", shopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.ITEM));
+            valueMap.put("Large Item", shopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.LARGE_ITEM));
+            valueMap.put("Item Frame", shopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.ITEM_FRAME));
+            valueMap.put("Glass Case", shopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.GLASS_CASE));
+            valueMap.put("None", shopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.NONE));
             return valueMap;
         }));
-        metrics.addCustomChart(new AdvancedPie("shop_containers", () -> ShopRevancedHandler.getShopContainerCounts()));
+        metrics.addCustomChart(new AdvancedPie("shop_containers", () -> shopRevancedHandler.getShopContainerCounts()));
         metrics.addCustomChart(new SimplePie("economy_type", () -> { return currencyType.toString(); }));
         metrics.addCustomChart(new SimplePie("fractional_currency", () -> { return String.valueOf(allowFractionalCurrency); }));
         // Add metrics for more configuration options
@@ -620,7 +620,7 @@ public class ShopRevanced extends JavaPlugin {
         }
         
         //save any remaining shops (usually not required but just in case)
-        if (ShopRevancedHandler != null) ShopRevancedHandler.saveAllShops();
+        if (shopRevancedHandler != null) shopRevancedHandler.saveAllShops();
 
         // Save player name cache to ensure no data loss
         PlayerNameCache.saveToFile();
@@ -639,7 +639,7 @@ public class ShopRevanced extends JavaPlugin {
         this.getLogger().info("Reloading ShopRevanced " + this.getDescription().getVersion());
 
         HandlerList.unregisterAll(displayListener);
-        HandlerList.unregisterAll(ShopRevancedListener);
+        HandlerList.unregisterAll(shopRevancedListener);
         HandlerList.unregisterAll(miscListener);
         HandlerList.unregisterAll(creativeSelectionListener);
         HandlerList.unregisterAll(guiListener);
@@ -672,7 +672,7 @@ public class ShopRevanced extends JavaPlugin {
     }
 
     public ShopRevancedListener getShopRevancedListener() {
-        return ShopRevancedListener;
+        return shopRevancedListener;
     }
 
     public DisplayListener getDisplayListener() {
@@ -712,7 +712,7 @@ public class ShopRevanced extends JavaPlugin {
     }
 
     public ShopRevancedHandler getShopRevancedHandler() {
-        return ShopRevancedHandler;
+        return shopRevancedHandler;
     }
 
     public ShopRevancedGuiHandler getGuiHandler(){
@@ -1001,7 +1001,7 @@ public class ShopRevanced extends JavaPlugin {
     }
 
     public ShopRevancedCreationUtil getShopRevancedCreationUtil(){
-        return ShopRevancedCreationUtil;
+        return shopRevancedCreationUtil;
     }
 
     public ItemListType getItemListType(){

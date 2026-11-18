@@ -55,7 +55,7 @@ class CreationExecutorTest extends BaseMockBukkitTest {
         mockProcessManager = Mockito.mock(ShopCreationProcessManager.class);
 
         // Inject mocks into the real plugin instance via reflection
-        setPluginField("ShopRevancedHandler", mockHandler);
+        setPluginField("shopRevancedHandler", mockHandler);
         setPluginField("logHandler", mockLogHandler);
         setPluginField("shopCreationProcessManager", mockProcessManager);
 
