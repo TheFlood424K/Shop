@@ -1,9 +1,9 @@
-package com.snowgears.shop.handler;
+package com.theflood424k.shoprevanced.handler;
 
-import com.snowgears.shop.Shop;
-import com.snowgears.shop.util.PlayerTransactionRecord;
-import com.snowgears.shop.util.ShopActionType;
-import com.snowgears.shop.util.TransactionLookupFilter;
+import com.theflood424k.shoprevanced.ShopRevanced;
+import com.theflood424k.shoprevanced.util.PlayerTransactionRecord;
+import com.theflood424k.shoprevanced.util.ShopActionType;
+import com.theflood424k.shoprevanced.util.TransactionLookupFilter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -28,9 +28,9 @@ public class TransactionCommandHandler extends BukkitCommand {
     private static final TextColor INFO_COLOR = TextColor.color(0xFFFFFF);
     private static final TextColor ERROR_COLOR = TextColor.color(0xFF5555);
 
-    private final Shop plugin;
+    private final ShopRevanced plugin;
 
-    public TransactionCommandHandler(Shop instance) {
+    public TransactionCommandHandler(ShopRevanced instance) {
         super("shoplookup", "Look up past shop transactions for a shop owner",
                 "/shoplookup <ownerName> [days]", java.util.List.of("txlookup"));
         this.setPermission("shop.operator");
