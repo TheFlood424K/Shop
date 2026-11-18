@@ -1,6 +1,6 @@
-package com.snowgears.shop.integration.features;
+package com.theflood424k.shoprevanced.integration.features;
 
-import com.snowgears.shop.testsupport.BaseMockBukkitTest;
+import com.theflood424k.shoprevanced.testsupport.BaseMockBukkitTest;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;

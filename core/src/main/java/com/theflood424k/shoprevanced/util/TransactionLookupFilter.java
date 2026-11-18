@@ -1,4 +1,4 @@
-package com.snowgears.shop.util;
+package com.theflood424k.shoprevanced.util;
 
 import java.util.Objects;
 import java.util.UUID;

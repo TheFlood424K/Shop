@@ -405,7 +405,7 @@ public class LogHandler {
 
             String ownerStr = null;
             if (ownerUUID != null) {
-                ownerStr = ownerUUID.equals(plugin.getShopHandler().getAdminUUID()) ? "admin" : ownerUUID.toString();
+                ownerStr = ownerUUID.equals(plugin.getShopRevancedHandler().getAdminUUID()) ? "admin" : ownerUUID.toString();
                 sql.append(hasWhere ? "AND " : "WHERE ");
                 sql.append("sa.owner_uuid = ? ");
                 params.add(ownerStr);

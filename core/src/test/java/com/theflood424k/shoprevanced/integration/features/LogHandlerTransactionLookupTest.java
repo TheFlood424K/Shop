@@ -1,10 +1,10 @@
-package com.snowgears.shop.integration.features;
+package com.theflood424k.shoprevanced.integration.features;
 
-import com.snowgears.shop.handler.LogHandler;
-import com.snowgears.shop.testsupport.BaseMockBukkitTest;
-import com.snowgears.shop.util.PlayerTransactionRecord;
-import com.snowgears.shop.util.ShopActionType;
-import com.snowgears.shop.util.TransactionLookupFilter;
+import com.theflood424k.shoprevanced.handler.LogHandler;
+import com.theflood424k.shoprevanced.testsupport.BaseMockBukkitTest;
+import com.theflood424k.shoprevanced.util.PlayerTransactionRecord;
+import com.theflood424k.shoprevanced.util.ShopActionType;
+import com.theflood424k.shoprevanced.util.TransactionLookupFilter;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
