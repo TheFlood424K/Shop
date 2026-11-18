@@ -31,7 +31,7 @@ class DiscordWebhookHandlerTest extends BaseMockBukkitTest {
         };
     }
 
-    private DiscordWebhookHandler createSyncHandler(Shop plugin, WebhookSender sender, DiscordDmSender dmSender) {
+    private DiscordWebhookHandler createSyncHandler(ShopRevanced plugin, WebhookSender sender, DiscordDmSender dmSender) {
         return new DiscordWebhookHandler(plugin, sender, dmSender) {
             @Override
             void runAsync(Runnable r) {

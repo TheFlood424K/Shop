@@ -17,7 +17,7 @@ import org.bukkit.event.Listener;
  */
 public class DiscordWebhookHandler implements Listener {
 
-    private final Shop plugin;
+    private final ShopRevanced plugin;
     private final WebhookSender sender;
     private final DiscordDmSender discordDmSender;
 
@@ -32,15 +32,15 @@ public class DiscordWebhookHandler implements Listener {
     private String username;
     private String avatarUrl;
 
-    public DiscordWebhookHandler(Shop instance) {
+    public DiscordWebhookHandler(ShopRevanced instance) {
         this(instance, new HttpWebhookSender(), null);
     }
 
-    DiscordWebhookHandler(Shop instance, WebhookSender sender) {
+    DiscordWebhookHandler(ShopRevanced instance, WebhookSender sender) {
         this(instance, sender, null);
     }
 
-    public DiscordWebhookHandler(Shop instance, WebhookSender sender, DiscordDmSender discordDmSender) {
+    public DiscordWebhookHandler(ShopRevanced instance, WebhookSender sender, DiscordDmSender discordDmSender) {
         plugin = instance;
         this.sender = sender;
         this.discordDmSender = discordDmSender;
