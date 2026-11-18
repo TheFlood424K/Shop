@@ -64,15 +64,20 @@ public abstract class BaseMockBukkitTest {
 
     @AfterEach
     void tearDownServer() {
-        // Must disable, otherwise shutdown is slow at test end
-        plugin.onDisable();
-        server.getScheduler().waitAsyncTasksFinished();
-
-        // Unmock the server to cleanup after ourselves
-        MockBukkit.unmock();
-
-        server = null;
-        plugin = null;
+        try {
+            // Must disable, otherwise shutdown is slow at test end
+            if (server != null) {
+                server.getScheduler().waitAsyncTasksFinished();
+            }
+            if (plugin != null) {
+                plugin.onDisable();
+            }
+        } finally {
+            // Always unmock to avoid "Already mocking" cascade in subsequent tests
+            MockBukkit.unmock();
+            server = null;
+            plugin = null;
+        }
     }
 
     protected ServerMock getServer() {

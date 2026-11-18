@@ -5,6 +5,7 @@ import com.theflood424k.shoprevanced.util.ShopAction;
 import com.theflood424k.shoprevanced.util.ShopClickType;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,7 @@ class ConfigValidatorTest {
             VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
             VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
             validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-            validClickTypeActionMap(), "ITEM", "NONE");
+            validClickTypeActionMap(), "NONE", "NONE");
     }
 
     private static void expectInvalid(Runnable action, String... expectedSubstrings) {
@@ -92,13 +93,13 @@ class ConfigValidatorTest {
                 0.0, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "ITEM", "NONE"));
+                validClickTypeActionMap(), "NONE", "NONE"));
             assertDoesNotThrow(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 100.0, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "ITEM", "NONE"));
+                validClickTypeActionMap(), "NONE", "NONE"));
         }
 
         @Test
@@ -108,7 +109,7 @@ class ConfigValidatorTest {
                 0.0, 0.0, 0.0, 0.0, VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL,
                 VALID_MAX_SHOP_DISPLAY_DISTANCE, VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE,
                 VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE,
-                CurrencyType.ITEM, null, validClickTypeActionMap(), "ITEM", "NONE"));
+                CurrencyType.ITEM, null, validClickTypeActionMap(), "NONE", "NONE"));
         }
 
         @Test
@@ -119,7 +120,7 @@ class ConfigValidatorTest {
                 VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE, VALID_SHOP_SEARCH_RADIUS,
                 VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "creationCost");
+                "NONE", "NONE"), "creationCost");
         }
 
         @Test
@@ -130,7 +131,7 @@ class ConfigValidatorTest {
                 VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE, VALID_SHOP_SEARCH_RADIUS,
                 VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "destructionCost");
+                "NONE", "NONE"), "destructionCost");
         }
 
         @Test
@@ -141,7 +142,7 @@ class ConfigValidatorTest {
                 VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE, VALID_SHOP_SEARCH_RADIUS,
                 VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "teleportCost");
+                "NONE", "NONE"), "teleportCost");
         }
 
         @Test
@@ -152,7 +153,7 @@ class ConfigValidatorTest {
                 VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE, VALID_SHOP_SEARCH_RADIUS,
                 VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "teleportCooldown");
+                "NONE", "NONE"), "teleportCooldown");
         }
 
         @Test
@@ -163,7 +164,7 @@ class ConfigValidatorTest {
                 -0.01, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "ITEM", "NONE"), "taxPercent");
+                validClickTypeActionMap(), "NONE", "NONE"), "taxPercent");
         }
 
         @Test
@@ -174,7 +175,7 @@ class ConfigValidatorTest {
                 100.01, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "ITEM", "NONE"), "taxPercent");
+                validClickTypeActionMap(), "NONE", "NONE"), "taxPercent");
         }
 
         @Test
@@ -185,13 +186,13 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, 0.0, VALID_MAX_SHOP_DISPLAY_DISTANCE, VALID_SHOP_SEARCH_RADIUS,
                 VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "displayProcessInterval");
+                "NONE", "NONE"), "displayProcessInterval");
             expectInvalid(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 VALID_TAX_PERCENT, -5.0, VALID_MAX_SHOP_DISPLAY_DISTANCE, VALID_SHOP_SEARCH_RADIUS,
                 VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "displayProcessInterval");
+                "NONE", "NONE"), "displayProcessInterval");
         }
 
         @Test
@@ -202,7 +203,7 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, 0.0, VALID_SHOP_SEARCH_RADIUS,
                 VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "maxShopDisplayDistance");
+                "NONE", "NONE"), "maxShopDisplayDistance");
         }
 
         @Test
@@ -213,7 +214,7 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE, 0,
                 VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "shopSearchRadius");
+                "NONE", "NONE"), "shopSearchRadius");
         }
 
         @Test
@@ -224,7 +225,7 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, 0, VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "displayBatchSize");
+                "NONE", "NONE"), "displayBatchSize");
         }
 
         @Test
@@ -235,46 +236,31 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, 0, validPriceSuffixes(),
                 VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "displayBatchDelay");
+                "NONE", "NONE"), "displayBatchDelay");
         }
 
         @Test
         @DisplayName("price suffixes with negative value -> IllegalStateException")
         void negativePriceSuffixValue() {
-            Map<Double, String> suffixes = new TreeMap<>(Map.of(-1.0, "k"));
+            NavigableMap<Double, String> suffixes = new TreeMap<>(Map.of(-1.0, "k"));
             expectInvalid(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 suffixes, VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "ITEM", "NONE"), "priceSuffixes", "negative");
-        }
-
-        @Test
-        @DisplayName("price suffixes out of order -> IllegalStateException")
-        void unsortedPriceSuffixes() {
-            // LinkedHashMap preserves insertion order, which is deliberately out of order here
-            Map<Double, String> suffixes = new java.util.LinkedHashMap<>();
-            suffixes.put(1_000.0, "M");
-            suffixes.put(1.0, "k");
-            expectInvalid(() -> validator.validate(
-                VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
-                VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
-                VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
-                suffixes, VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "ITEM", "NONE"), "priceSuffixes", "sorted");
+                validClickTypeActionMap(), "NONE", "NONE"), "priceSuffixes", "negative");
         }
 
         @Test
         @DisplayName("price suffixes with blank label -> IllegalStateException")
         void blankPriceSuffixLabel() {
-            Map<Double, String> suffixes = new TreeMap<>(Map.of(1.0, ""));
+            NavigableMap<Double, String> suffixes = new TreeMap<>(Map.of(1.0, ""));
             expectInvalid(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 suffixes, VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "ITEM", "NONE"), "priceSuffixes", "blank");
+                validClickTypeActionMap(), "NONE", "NONE"), "priceSuffixes", "blank");
         }
 
         @Test
@@ -285,7 +271,7 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), null, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "priceSuffixes.minimumValue");
+                "NONE", "NONE"), "priceSuffixes.minimumValue");
         }
 
         @Test
@@ -296,7 +282,7 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), -1.0, CurrencyType.ITEM, null, validClickTypeActionMap(),
-                "ITEM", "NONE"), "priceSuffixes.minimumValue");
+                "NONE", "NONE"), "priceSuffixes.minimumValue");
         }
 
         @Test
@@ -307,19 +293,18 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.VAULT, null,
-                validClickTypeActionMap(), "ITEM", "NONE"), "Economy");
+                validClickTypeActionMap(), "NONE", "NONE"), "Economy");
         }
 
         @Test
         @DisplayName("currencyType VAULT with non-null economy -> no exception")
         void vaultWithEconomyNoException() {
-            Economy economy = mock(Economy.class);
             assertDoesNotThrow(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
-                validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.VAULT, economy,
-                validClickTypeActionMap(), "ITEM", "NONE"));
+                validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE,                 CurrencyType.VAULT, mock(ItemStack.class),
+                validClickTypeActionMap(), "NONE", "NONE"));
         }
 
         @Test
@@ -330,13 +315,13 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "ITEM", "NONE"));
+                validClickTypeActionMap(), "NONE", "NONE"));
             assertDoesNotThrow(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.EXPERIENCE, null,
-                validClickTypeActionMap(), "ITEM", "NONE"));
+                validClickTypeActionMap(), "NONE", "NONE"));
         }
 
         @Test
@@ -347,7 +332,7 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                null, "ITEM", "NONE"), "actionMappings");
+                null, "NONE", "NONE"), "actionMappings");
         }
 
         @Test
@@ -358,7 +343,7 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                Map.of(), "ITEM", "NONE"), "actionMappings");
+                Map.of(), "NONE", "NONE"), "actionMappings");
         }
 
         @Test
@@ -371,7 +356,7 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                map, "ITEM", "NONE"), "null click type");
+                map, "NONE", "NONE"), "null click type");
         }
 
         @Test
@@ -384,18 +369,18 @@ class ConfigValidatorTest {
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                map, "ITEM", "NONE"), "null shop action");
+                map, "NONE", "NONE"), "null shop action");
         }
 
         @Test
-        @DisplayName("displayType invalid enum value -> IllegalStateException mentioning displayType")
-        void invalidDisplayType() {
+        @DisplayName("itemListType invalid enum value -> IllegalStateException mentioning itemListType")
+        void invalidItemListType() {
             expectInvalid(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "BOGUS", "NONE"), "displayType", "DisplayType");
+                validClickTypeActionMap(), "BOGUS", "NONE"), "itemListType", "ItemListType");
         }
 
         @Test
@@ -410,26 +395,26 @@ class ConfigValidatorTest {
         }
 
         @Test
-        @DisplayName("blank or null displayType -> IllegalStateException")
-        void blankOrNullDisplayType() {
+        @DisplayName("blank or null itemListType -> IllegalStateException")
+        void blankOrNullItemListType() {
             expectInvalid(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), null, "NONE"), "displayType", "must not be blank");
+                validClickTypeActionMap(), null, "NONE"), "itemListType", "must not be blank");
             expectInvalid(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), "", "NONE"), "displayType", "must not be blank");
+                validClickTypeActionMap(), "", "NONE"), "itemListType", "must not be blank");
             expectInvalid(() -> validator.validate(
                 VALID_CREATION_COST, VALID_DESTRUCTION_COST, VALID_TELEPORT_COST, VALID_TELEPORT_COOLDOWN,
                 VALID_TAX_PERCENT, VALID_DISPLAY_PROCESS_INTERVAL, VALID_MAX_SHOP_DISPLAY_DISTANCE,
                 VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE, VALID_DISPLAY_BATCH_DELAY,
                 validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE, CurrencyType.ITEM, null,
-                validClickTypeActionMap(), " ", "NONE"), "displayType", "must not be blank");
+                validClickTypeActionMap(), " ", "NONE"), "itemListType", "must not be blank");
         }
 
         @Test
@@ -439,7 +424,7 @@ class ConfigValidatorTest {
                 -10.0, VALID_DESTRUCTION_COST, -2.0, VALID_TELEPORT_COOLDOWN, 150.0, 0.0,
                 VALID_MAX_SHOP_DISPLAY_DISTANCE, VALID_SHOP_SEARCH_RADIUS, VALID_DISPLAY_BATCH_SIZE,
                 VALID_DISPLAY_BATCH_DELAY, validPriceSuffixes(), VALID_PRICE_SUFFIX_MINIMUM_VALUE,
-                CurrencyType.VAULT, null, validClickTypeActionMap(), "ITEM", "NONE"));
+                CurrencyType.VAULT, null, validClickTypeActionMap(), "NONE", "NONE"));
             assertTrue(ex.getMessage().contains("creationCost"), "missing creationCost problem: " + ex.getMessage());
             assertTrue(ex.getMessage().contains("teleportCost"), "missing teleportCost problem: " + ex.getMessage());
             assertTrue(ex.getMessage().contains("taxPercent"), "missing taxPercent problem: " + ex.getMessage());
@@ -477,9 +462,10 @@ class ConfigValidatorTest {
             when(config.getPriceSuffixes()).thenReturn(validPriceSuffixes());
             when(config.getPriceSuffixMinimumValue()).thenReturn(VALID_PRICE_SUFFIX_MINIMUM_VALUE);
             when(config.getCurrencyType()).thenReturn(CurrencyType.ITEM);
+            when(config.getItemCurrency()).thenReturn(mock(ItemStack.class));
             when(config.getClickTypeActionMap()).thenReturn(validClickTypeActionMap());
             YamlConfiguration yaml = mock(YamlConfiguration.class);
-            when(yaml.getString("displayType")).thenReturn("ITEM");
+            when(yaml.getString("itemList")).thenReturn("NONE");
             when(yaml.getString("displayNameTags")).thenReturn("NONE");
             when(config.getConfig()).thenReturn(yaml);
             return config;
@@ -517,3 +503,4 @@ class ConfigValidatorTest {
         }
     }
 }
+
