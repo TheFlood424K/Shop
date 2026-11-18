@@ -649,9 +649,6 @@ public class ShopRevanced extends JavaPlugin {
         HandlerList.unregisterAll(shopCreationListener);
         HandlerList.unregisterAll(shopProtectionListener);
 
-        // Shutdown integrations (onDisable will handle integration listener unregistration)
-        if (integrationManager != null) integrationManager.shutdown();
-
         plugin.getShopRevancedHandler().removeAllDisplays(null);
 
         onDisable();
