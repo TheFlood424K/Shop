@@ -358,6 +358,17 @@ arclight:
 residence:
    enabled: true
 
+# Auto-Pricing Settings
+# Automatically adjusts shop prices based on simulated market trends.
+# Failed pricing runs are logged and the shop's manual price is left unchanged.
+autoPricing:
+   # Master toggle for auto-pricing
+   enabled: false
+   # How often the pricing cycle runs (in minutes)
+   intervalMinutes: 60
+   # Maximum percent the price may be adjusted up or down per cycle
+   maxAdjustmentPercent: 15.0
+
 # Setting this to true will force all Shops to be created in Towny regions where the players are residents #
 # Towny plugin must be installed for this feature to work #
 hookTowny: false
