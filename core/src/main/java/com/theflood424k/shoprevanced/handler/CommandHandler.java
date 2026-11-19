@@ -5,6 +5,7 @@ import com.theflood424k.shoprevanced.gui.ShopGuiWindow;
 import com.theflood424k.shoprevanced.search.SearchFilter;
 import com.theflood424k.shoprevanced.search.SearchResult;
 import com.theflood424k.shoprevanced.search.ShopSearchService;
+import com.theflood424k.shoprevanced.util.PlaceholderContext;
 import com.theflood424k.shoprevanced.shop.AbstractShop;
 import com.theflood424k.shoprevanced.util.CurrencyType;
 import com.theflood424k.shoprevanced.util.ItemListType;
@@ -292,10 +293,16 @@ public class CommandHandler extends BukkitCommand {
 
     private void handleSearch(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("[ShopRevanced] Search can only be used by players.");
+                sender.sendMessage("[ShopRevanced] Search can only be used by players.");
             return;
         }
         Player player = (Player) sender;
+
+            if ((plugin.usePerms() && !player.hasPermission("ShopRevanced.search"))
+                    || (!plugin.usePerms() && !player.isOp())) {
+                sendCommandMessage("not_authorized", player);
+                return;
+            }
 
         if (args.length < 2) {
             sendCommandMessage("search_usage", player);
@@ -304,7 +311,7 @@ public class CommandHandler extends BukkitCommand {
 
         ShopSearchService searchService = plugin.getShopSearchService();
         if (searchService == null) {
-            player.sendMessage("[ShopRevanced] Search service is not available.");
+                sendCommandMessage("search_service_not_available", player);
             return;
         }
 
@@ -328,9 +335,15 @@ public class CommandHandler extends BukkitCommand {
             }
         }
 
-        SearchFilter filter = new SearchFilter(itemName, minPrice, maxPrice, null, null);
+            int pageSize = plugin.getConfigManager().getConfig().getInt("shopSearch.resultsPerPage", 10);
+            if (pageSize < 1) {
+                pageSize = 10;
+            }
+            boolean includeAdminShops = plugin.getConfigManager().getConfig().getBoolean("shopSearch.includeAdminShops", true);
+
+            SearchFilter filter = new SearchFilter(itemName, minPrice, maxPrice, null, includeAdminShops ? null : false);
         List<SearchResult> results = searchService.search(filter);
-        List<SearchResult> page = searchService.paginate(results, 1, ShopSearchService.defaultPageSize());
+            List<SearchResult> page = searchService.paginate(results, 1, pageSize);
 
         if (results.isEmpty()) {
             if (plugin.getShopRevancedHandler().getNumberOfShops() == 0) {
@@ -341,9 +354,10 @@ public class CommandHandler extends BukkitCommand {
             return;
         }
 
-        sendCommandMessage("search_results", player);
-        // NOTE: {count} placeholder is not token-replaced by chatConfig; send a follow-up with the count.
-        player.sendMessage(Component.text("§aTotal results: " + results.size()));
+            PlaceholderContext context = new PlaceholderContext();
+            context.setPlayer(player);
+            context.setCount(results.size());
+            ShopRevancedMessage.sendMessage("search_results", player, context);
 
         for (SearchResult result : page) {
             AbstractShop shop = result.shop();
@@ -358,9 +372,10 @@ public class CommandHandler extends BukkitCommand {
                     + " §7(score §f" + String.format("%.1f", result.relevanceScore()) + "§7)"));
         }
 
+            int totalPages = (int) Math.ceil((double) results.size() / pageSize);
         if (page.size() < results.size()) {
             player.sendMessage(Component.text(
-                    "§7Showing page 1 of " + page.size() + "/" + results.size() + " results."));
+                        "§7Showing page 1 of " + totalPages + "/" + results.size() + " results."));
         }
     }
 
