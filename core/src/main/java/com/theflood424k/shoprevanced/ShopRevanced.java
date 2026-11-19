@@ -1,11 +1,18 @@
 package com.theflood424k.shoprevanced;
 
 import com.theflood424k.shoprevanced.config.ConfigManager;
+import com.theflood424k.shoprevanced.config.ConfigValidator;
+import com.theflood424k.shoprevanced.display.DisplayScheduler;
 import com.theflood424k.shoprevanced.display.DisplayTagOption;
 import com.theflood424k.shoprevanced.display.DisplayType;
 import com.theflood424k.shoprevanced.gui.ShopGUIListener;
-import com.theflood424k.shoprevanced.handler.*;
-import com.theflood424k.shoprevanced.integration.*;
+import com.theflood424k.shoprevanced.handler.PluginBootstrap;
+import com.theflood424k.shoprevanced.handler.TransactionHandler;
+import com.theflood424k.shoprevanced.util.ShopAction;
+import com.theflood424k.shoprevanced.util.ShopClickType;
+import com.theflood424k.shoprevanced.integration.BluemapHookListener;
+import com.theflood424k.shoprevanced.integration.IntegrationCoordinator;
+import com.theflood424k.shoprevanced.integration.WorldGuardHook;
 import com.theflood424k.shoprevanced.listener.BucketEmptyListener;
 import com.theflood424k.shoprevanced.listener.CreativeSelectionListener;
 import com.theflood424k.shoprevanced.listener.DisplayListener;
@@ -15,11 +22,21 @@ import com.theflood424k.shoprevanced.listener.ShopCreationProcessManager;
 import com.theflood424k.shoprevanced.listener.ShopProtectionListener;
 import com.theflood424k.shoprevanced.listener.ShopRevancedListener;
 import com.theflood424k.shoprevanced.shop.ShopType;
-import com.theflood424k.shoprevanced.util.*;
-import com.theflood424k.shoprevanced.integration.IntegrationManager;
-import com.theflood424k.shoprevanced.integration.WorldGuardHook;
+import com.theflood424k.shoprevanced.util.ConfigUpdater;
+import com.theflood424k.shoprevanced.util.CurrencyType;
+import com.theflood424k.shoprevanced.util.EconomyUtils;
+import com.theflood424k.shoprevanced.util.InventoryUtils;
+import com.theflood424k.shoprevanced.util.ItemListType;
+import com.theflood424k.shoprevanced.util.ItemNameUtil;
+import com.theflood424k.shoprevanced.handler.LogHandler;
+import com.theflood424k.shoprevanced.handler.ShopRevancedGuiHandler;
+import com.theflood424k.shoprevanced.handler.ShopRevancedHandler;
 import com.theflood424k.shoprevanced.util.Metrics;
-import com.theflood424k.shoprevanced.util.Metrics.*;
+import com.theflood424k.shoprevanced.util.PlayerNameCache;
+import com.theflood424k.shoprevanced.util.ShopRevancedCreationUtil;
+import com.theflood424k.shoprevanced.util.ShopRevancedLogger;
+import com.theflood424k.shoprevanced.util.ShopRevancedMessage;
+import com.theflood424k.shoprevanced.util.UtilMethods;
 import de.bluecolored.bluemap.api.BlueMapAPI;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Material;
@@ -42,6 +59,7 @@ public class ShopRevanced extends JavaPlugin {
     private ShopRevancedLogger logger = new ShopRevancedLogger(this, true);
     private FoliaLib foliaLib;
     private ConfigManager configManager;
+    private IntegrationCoordinator integrationCoordinator;
 
     private static final String CONFIG_PATH_WORLD_GUARD_ENABLED = "worldGuard.enabled";
 
@@ -64,7 +82,6 @@ public class ShopRevanced extends JavaPlugin {
     private ShopRevancedCreationUtil ShopRevancedCreationUtil;
     private LogHandler logHandler;
     private Metrics metrics;
-    private IntegrationManager integrationManager;
 
     // Config fields delegated to ConfigManager
     private boolean usePerms;
@@ -147,6 +164,9 @@ public class ShopRevanced extends JavaPlugin {
     private NamespacedKey signLocationNameSpacedKey;
     private NamespacedKey playerUUIDNameSpacedKey;
 
+    // Bootstrap coordinator (delegates lifecycle wiring)
+    private PluginBootstrap pluginBootstrap;
+
     public static ShopRevanced getPlugin() {
         return plugin;
     }
@@ -163,87 +183,14 @@ public class ShopRevanced extends JavaPlugin {
     public void onLoad(){
         configManager = new ConfigManager(this);
         configManager.loadConfigs();
+        pluginBootstrap = new PluginBootstrap(this);
+        integrationCoordinator = new IntegrationCoordinator(this);
+            metrics = new Metrics(this, 25211);
     }
 
     @Override
     public void onEnable() {
         plugin = this;
-
-        // Initialize FoliaLib
-        foliaLib = new FoliaLib(this);
-
-        File configFile = new File(getDataFolder(), "config.yml");
-        if (!configFile.exists()) {
-            configFile.getParentFile().mkdirs();
-            UtilMethods.copy(getResource("config.yml"), configFile);
-        }
-
-        File chatConfigFile = new File(getDataFolder(), "chatConfig.yml");
-        if (!chatConfigFile.exists()) {
-            chatConfigFile.getParentFile().mkdirs();
-            UtilMethods.copy(getResource("chatConfig.yml"), chatConfigFile);
-        }
-
-        File signConfigFile = new File(getDataFolder(), "signConfig.yml");
-        if (!signConfigFile.exists()) {
-            signConfigFile.getParentFile().mkdirs();
-            UtilMethods.copy(getResource("signConfig.yml"), signConfigFile);
-        }
-
-        File displayConfigFile = new File(getDataFolder(), "displayConfig.yml");
-        if (!displayConfigFile.exists()) {
-            displayConfigFile.getParentFile().mkdirs();
-            UtilMethods.copy(getResource("displayConfig.yml"), displayConfigFile);
-        }
-
-        try {
-            // Check if we need to update any legacy config values
-
-            // v1.10.0
-            // Check if offlinePurchaseNotifications.enabled is a new value
-            YamlConfiguration oldConfig = YamlConfiguration.loadConfiguration(configFile);
-            // One time update if the Offline Purchase Notifications feature is being started up for the very first time
-            // Previous default OFF, new default FILE
-            if (oldConfig.get("offlinePurchaseNotifications") == null && oldConfig.getString("logging.type").equals("OFF")) {
-                logger.info("Config default update: v1.10.0(+) is being run for the first time, setting logging type to FILE from old default OFF");
-                oldConfig.set("logging.type", "FILE");
-                oldConfig.save(configFile);
-            }
-
-            // v1.10.2
-            // Migrate old hookWorldGuard to new worldGuard.requireAllowShopFlag structure
-            if (oldConfig.get("hookWorldGuard") != null && oldConfig.get("worldGuard.requireAllowShopFlag") == null) {
-                boolean oldValue = oldConfig.getBoolean("hookWorldGuard");
-                logger.info("Config migration: moving 'hookWorldGuard' to 'worldGuard.requireAllowShopFlag'");
-                oldConfig.set("worldGuard.requireAllowShopFlag", oldValue);
-                oldConfig.set("hookWorldGuard", null); // remove old key
-                oldConfig.save(configFile);
-            }
-
-            // Next time we add a migration lets move it to a util class to keep things clean.
-
-            ConfigUpdater.update(plugin, "config.yml", configFile, new ArrayList<>());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        try {
-            ConfigUpdater.update(plugin, "chatConfig.yml", chatConfigFile, new ArrayList<>());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        try {
-            ConfigUpdater.update(plugin, "signConfig.yml", signConfigFile, new ArrayList<>());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        try {
-            ConfigUpdater.update(plugin, "displayConfig.yml", displayConfigFile, new ArrayList<>());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
 
         configManager.reloadConfig();
         YamlConfiguration config = configManager.getConfig();
@@ -252,33 +199,10 @@ public class ShopRevanced extends JavaPlugin {
         this.getLogger().enableColor(config.getBoolean("enableLogColor"));
         this.getLogger().enableColor(configManager.getConfig().getBoolean("enableLogColor"));
 
-        ShopRevancedCreationUtil = new ShopRevancedCreationUtil(this);
-
-        ShopRevancedListener = new ShopRevancedListener(this);
-        transactionHandler = new TransactionHandler(this);
-        miscListener = new MiscListener(this);
-        creativeSelectionListener = new CreativeSelectionListener(this);
-        displayListener = new DisplayListener(this);
-        guiListener = new ShopGUIListener(this);
-
-        // New split listeners
-        shopCreationProcessManager = new ShopCreationProcessManager(this);
-        bucketEmptyListener = new BucketEmptyListener(this);
-        shopCreationListener = new ShopCreationListener(this, shopCreationProcessManager);
-        shopProtectionListener = new ShopProtectionListener(this, shopCreationProcessManager);
-
-        // Load ShopRevancedMessage by initializing it once
-        new ShopRevancedMessage(this);
-        itemNameUtil = new ItemNameUtil();
-
-        File fileDirectory = new File(this.getDataFolder(), "Data");
-        if (!fileDirectory.exists()) {
-            boolean success;
-            success = (fileDirectory.mkdirs());
-            if (!success) {
-                this.getLogger().severe("[ShopRevanced] Data folder could not be created!");
-            }
-        }
+        // Prepare config files and run migrations before loading config fields
+        pluginBootstrap.copyDefaultConfigFiles();
+        pluginBootstrap.runConfigMigrations(configManager);
+        pluginBootstrap.createDataFolder();
 
         usePerms = configManager.usePerms();
         if (usePerms) {
@@ -293,23 +217,6 @@ public class ShopRevanced extends JavaPlugin {
         bluemapEnabled = config.getBoolean("bluemap.enabled", false);
         dynmapEnabled = config.getBoolean("dynmap.enabled", false);
         commandAlias = configManager.getCommandAlias();
-
-        // Initialize IntegrationManager with config-detected flags
-        integrationManager = new IntegrationManager(this);
-        integrationManager.setWorldGuardExists(configManager.worldGuardExists());
-        integrationManager.setWorldGuardConfig(configManager.getWorldGuardConfig());
-        integrationManager.setLwcIntegrationEnabled(configManager.isLwcIntegrationEnabled());
-        integrationManager.setBentoBoxIntegrationEnabled(configManager.isBentoBoxIntegrationEnabled());
-        integrationManager.setAdvancedRegionMarketIntegrationEnabled(configManager.isAdvancedRegionMarketIntegrationEnabled());
-        integrationManager.setPlotSquaredIntegrationEnabled(configManager.isPlotSquaredIntegrationEnabled());
-        integrationManager.setBoltTrustIntegrationEnabled(configManager.isBoltTrustIntegrationEnabled());
-        integrationManager.setBlockProtTrustIntegrationEnabled(configManager.isBlockProtTrustIntegrationEnabled());
-        integrationManager.setCashierLockTrustIntegrationEnabled(configManager.isCashierLockTrustIntegrationEnabled());
-        integrationManager.setGriefPreventionIntegrationEnabled(configManager.isGriefPreventionIntegrationEnabled());
-        integrationManager.setGeyserIntegrationEnabled(configManager.isGeyserIntegrationEnabled());
-        integrationManager.setHookTowny(hookTowny);
-        integrationManager.setBluemapEnabled(bluemapEnabled);
-        integrationManager.setDynmapEnabled(dynmapEnabled);
 
         // Sync integration-enabled flags to local fields for test compatibility
         lwcIntegrationEnabled = configManager.isLwcIntegrationEnabled();
@@ -400,262 +307,59 @@ public class ShopRevanced extends JavaPlugin {
         shopCreationTimeout = configManager.getShopCreationTimeout();
         taxPercent = configManager.getTaxPercent();
 
-        // Check if we should load VAULT economy
-        if (configManager.getCurrencyType() == CurrencyType.VAULT) {
-            if (configManager.setupEconomy()) {
-                this.getLogger().info("Shops will use the VaultUnlocked economy (" + configManager.getCurrencyName() + ") as currency on the server.");
-            } else {
-                this.getLogger().severe("Unable to connect to VaultUnlocked Economy! Are both VaultUnlocked AND an Economy plugin installed?");
-                this.getLogger().severe("Plugin Disabled: Invalid configuration value `economy.type` config.yml. If you do not wish to use Vault with ShopRevanced, make sure to set `economy.type` in the config file to `ITEM`.");
-                getServer().getPluginManager().disablePlugin(plugin);
-                return;
-            }
-        } else {
-            if (configManager.getItemCurrency() == null) {
-                this.getLogger().severe("Plugin Disabled: Invalid value for `itemCurrencyID` in `config.yml`");
-                getServer().getPluginManager().disablePlugin(plugin);
-                return;
-            }
-            this.getLogger().info("Shops will use " + PlainTextComponentSerializer.plainText().serialize(itemNameUtil.getName(configManager.getItemCurrency())) + "(s) as the currency on the server.");
-        }
+        // Sync config fields to extracted subsystems before lifecycle wiring
+        syncDisplaySchedulerFields();
 
-        // Load CommandHandler by initializing it once
-        new CommandHandler(this, null, commandAlias, "Base command for the ShopRevanced plugin", "/ShopRevanced", new ArrayList(Arrays.asList(commandAlias)));
+        pluginBootstrap.bootstrap(configManager, config);
+    }
 
-        guiHandler = new ShopRevancedGuiHandler(plugin);
-        ShopRevancedHandler = new ShopRevancedHandler(plugin);
-        guiHandler.loadIconsAndTitles();
-        logHandler = new LogHandler(plugin, config);
-
-        getServer().getPluginManager().registerEvents(displayListener, this);
-        getServer().getPluginManager().registerEvents(ShopRevancedListener, this);
-        getServer().getPluginManager().registerEvents(miscListener, this);
-        getServer().getPluginManager().registerEvents(shopCreationListener, this);
-        getServer().getPluginManager().registerEvents(creativeSelectionListener, this);
-        getServer().getPluginManager().registerEvents(guiListener, this);
-
-        // Register new split listeners
-        getServer().getPluginManager().registerEvents(bucketEmptyListener, this);
-        getServer().getPluginManager().registerEvents(shopProtectionListener, this);
-
-        // Initialize all optional plugin integrations via IntegrationManager
-        integrationManager.initialize();
-
-        int bstatsPluginId = 25211;
-        metrics = new Metrics(plugin, bstatsPluginId);
-        metrics.addCustomChart(new SingleLineChart("transactions", () -> logHandler.getRecentTransactionCount()));
-        metrics.addCustomChart(new SingleLineChart("item_volume", () -> logHandler.getRecentItemVolume()));
-        metrics.addCustomChart(new SingleLineChart("shops", () -> ShopRevancedHandler.getNumberOfShops()));
-        metrics.addCustomChart(new AdvancedPie("shop_types", () -> {
-            Map<String, Integer> valueMap = new HashMap<>();
-            valueMap.put("Buy", ShopRevancedHandler.getNumberOfShops(ShopType.BUY));
-            valueMap.put("Sell", ShopRevancedHandler.getNumberOfShops(ShopType.SELL));
-            valueMap.put("Barter", ShopRevancedHandler.getNumberOfShops(ShopType.BARTER));
-            valueMap.put("Combo", ShopRevancedHandler.getNumberOfShops(ShopType.COMBO));
-            valueMap.put("Gamble", ShopRevancedHandler.getNumberOfShops(ShopType.GAMBLE));
-            return valueMap;
-        }));
-        metrics.addCustomChart(new AdvancedPie("shop_display_types", () -> {
-            Map<String, Integer> valueMap = new HashMap<>();
-            valueMap.put("Floating Item", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.ITEM));
-            valueMap.put("Large Item", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.LARGE_ITEM));
-            valueMap.put("Item Frame", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.ITEM_FRAME));
-            valueMap.put("Glass Case", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.GLASS_CASE));
-            valueMap.put("None", ShopRevancedHandler.getNumberOfShopDisplayTypes(DisplayType.NONE));
-            return valueMap;
-        }));
-        metrics.addCustomChart(new AdvancedPie("shop_containers", () -> ShopRevancedHandler.getShopContainerCounts()));
-        metrics.addCustomChart(new SimplePie("economy_type", () -> { return currencyType.toString(); }));
-        metrics.addCustomChart(new SimplePie("fractional_currency", () -> { return String.valueOf(allowFractionalCurrency); }));
-        // Add metrics for more configuration options
-        metrics.addCustomChart(new SimplePie("use_permissions", () -> String.valueOf(usePerms)));
-        metrics.addCustomChart(new SimplePie("allow_partial_sales", () -> String.valueOf(allowPartialSales)));
-
-        // Group these into an advanced pie
-        metrics.addCustomChart(new AdvancedPie("shop_creation_methods", () -> {
-            Map<String, Integer> valueMap = new HashMap<>();
-            valueMap.put("Sign Creation", allowCreateMethodSign ? 1 : 0);
-            valueMap.put("Chest Creation", allowCreateMethodChest ? 1 : 0);
-            valueMap.put("Signs Disabled", allowCreateMethodSign ? 0 : 1);
-            valueMap.put("Chests Disabled", allowCreateMethodChest ? 0 : 1);
-            return valueMap;
-        }));
-
-        metrics.addCustomChart(new SimplePie("offline_purchase_notifications", () -> String.valueOf(offlinePurchaseNotificationsEnabled)));
-        metrics.addCustomChart(new SimplePie("shop_gui_enabled", () -> { return String.valueOf(enableGUI); }));
-        metrics.addCustomChart(new SimplePie("allow_searching_items", () -> String.valueOf(allowCreativeSelection)));
-        metrics.addCustomChart(new SimplePie("check_item_durability", () -> String.valueOf(checkItemDurability)));
-        metrics.addCustomChart(new SimplePie("ignore_item_repair_cost", () -> String.valueOf(ignoreItemRepairCost)));
-        metrics.addCustomChart(new AdvancedPie("sounds_and_effects", () -> {
-            Map<String, Integer> valueMap = new HashMap<>();
-            valueMap.put("Sounds Enabled", playSounds ? 1 : 0);
-            valueMap.put("Effects Enabled", playEffects ? 1 : 0);
-            valueMap.put("Sounds Disabled", playSounds ? 0 : 1);
-            valueMap.put("Effects Disabled", playEffects ? 0 : 1);
-            return valueMap;
-        }));
-        
-        metrics.addCustomChart(new SimplePie("worldguard_enabled", () -> { return String.valueOf(worldGuardExists()); }));
-        metrics.addCustomChart(new SimplePie("towny_enabled", () -> { return String.valueOf(hookTowny); }));
-        metrics.addCustomChart(new SimplePie("dynmap_enabled", () -> String.valueOf(dynmapEnabled)));
-        metrics.addCustomChart(new SimplePie("bluemap_enabled", () -> String.valueOf(bluemapEnabled)));
-        metrics.addCustomChart(new SimplePie("database_type", () -> String.valueOf(config.getString("logging.type"))));
-        
-        // Track display type preferences
-        metrics.addCustomChart(new SimplePie("item_hover_display_type", () -> displayType.toString()));
-        metrics.addCustomChart(new SimplePie("hover_text_activation_type", () -> displayTagOption.toString()));
-        
-        // Track if ShopRevanced auto-deletion is enabled
-        metrics.addCustomChart(new SimplePie("auto_cleanup_dead_shops", () -> String.valueOf(hoursOfflineToRemoveShops > 0)));
-        // Track if destroying shops requires sneaking
-        metrics.addCustomChart(new SimplePie("destroy_requires_sneak", () -> String.valueOf(destroyShopRequiresSneak)));
-        // Track if combo shops are inverted
-        metrics.addCustomChart(new SimplePie("inverse_combo_shops", () -> String.valueOf(inverseComboShops)));
-
-        // Add container types tracking - group by container categories
-        metrics.addCustomChart(new AdvancedPie("enabled_containers", () -> {
-            Map<String, Integer> valueMap = new HashMap<>();
-            // Track basic chest types
-            boolean hasChests = enabledContainers.contains(Material.CHEST) || 
-                                enabledContainers.contains(Material.TRAPPED_CHEST);
-            valueMap.put("Chests Allowed", hasChests ? 1 : 0);
-            valueMap.put("Chests Disabled", hasChests ? 0 : 1);
-            
-            // Track barrels
-            boolean hasBarrel = enabledContainers.contains(Material.BARREL);
-            valueMap.put("Barrels Allowed", hasBarrel ? 1 : 0);
-            valueMap.put("Barrels Disabled", hasBarrel ? 0 : 1);
-            
-            // Track if any shulker box is enabled
-            boolean hasShulker = enabledContainers.stream()
-                    .anyMatch(m -> m.name().endsWith("SHULKER_BOX"));
-            valueMap.put("Shulker Boxes Allowed", hasShulker ? 1 : 0);
-            valueMap.put("Shulker Boxes Disabled", hasShulker ? 0 : 1);
-            
-            return valueMap;
-        }));
-        
-        // Track economic barriers (costs)
-        metrics.addCustomChart(new AdvancedPie("economic_barriers", () -> {
-            Map<String, Integer> valueMap = new HashMap<>();
-            valueMap.put("Creation Cost", creationCost > 0 ? 1 : 0);
-            valueMap.put("No Creation Cost", creationCost > 0 ? 0 : 1);
-            valueMap.put("Destruction Cost", destructionCost > 0 ? 1 : 0);
-            valueMap.put("No Destruction Cost", destructionCost > 0 ? 0 : 1);
-            valueMap.put("Teleport Cost", teleportCost > 0 ? 1 : 0);
-            valueMap.put("No Teleport Cost", teleportCost > 0 ? 0 : 1);
-            valueMap.put("Return Creation Cost", returnCreationCost ? 1 : 0);
-            valueMap.put("Do not Return Creation Cost", returnCreationCost ? 0 : 1);
-            return valueMap;
-        }));
-        
-        // Track display enhancement features (1.17+)
-        metrics.addCustomChart(new AdvancedPie("display_enhancements", () -> {
-            Map<String, Integer> valueMap = new HashMap<>();
-            valueMap.put("Custom Light Level", displayLightLevel > 0 ? 1 : 0);
-            valueMap.put("Normal Light Level", displayLightLevel > 0 ? 0 : 1);
-            valueMap.put("Glowing Item Frames", setGlowingItemFrame ? 1 : 0);
-            valueMap.put("Normal Item Frames", setGlowingItemFrame ? 0 : 1);
-            valueMap.put("Glowing Sign Text", setGlowingSignText ? 1 : 0);
-            valueMap.put("Normal Sign Text", setGlowingSignText ? 0 : 1);
-            return valueMap;
-        }));
-        
-        // Track which click types are used for each action
-        // Find which click type is assigned to TRANSACT
-        metrics.addCustomChart(new SimplePie("transaction_action_mapping", () -> {
-            for (Map.Entry<ShopClickType, ShopAction> entry : clickTypeActionMap.entrySet()) {
-                if (entry.getValue() == ShopAction.TRANSACT) return entry.getKey().toString();
-            }
-            return "NOT_SET";
-        }));
-        // Find which click type is assigned to TRANSACT_FULLSTACK
-        metrics.addCustomChart(new SimplePie("full_stack_transaction_action_mapping", () -> {
-            for (Map.Entry<ShopClickType, ShopAction> entry : clickTypeActionMap.entrySet()) {
-                if (entry.getValue() == ShopAction.TRANSACT_FULLSTACK) return entry.getKey().toString();
-            }
-            return "NOT_SET";
-        }));
-        // Find which click type is assigned to VIEW_DETAILS
-        metrics.addCustomChart(new SimplePie("view_details_action_mapping", () -> {
-            for (Map.Entry<ShopClickType, ShopAction> entry : clickTypeActionMap.entrySet()) {
-                if (entry.getValue() == ShopAction.VIEW_DETAILS) return entry.getKey().toString();
-            }
-            return "NOT_SET";
-        }));
-        // Find which click type is assigned to CYCLE_DISPLAY
-        metrics.addCustomChart(new SimplePie("cycle_display_action_mapping", () -> {
-            for (Map.Entry<ShopClickType, ShopAction> entry : clickTypeActionMap.entrySet()) {
-                if (entry.getValue() == ShopAction.CYCLE_DISPLAY) return entry.getKey().toString();
-            }
-            return "NOT_SET";
-        }));
-
-        metrics.addCustomChart(new SimplePie("display_processing_interval", () -> String.valueOf(displayProcessInterval)));
-        metrics.addCustomChart(new SimplePie("display_movement_threshold", () -> String.valueOf(displayMovementThreshold)));
-        metrics.addCustomChart(new SimplePie("display_max_shop_distance", () -> String.valueOf(maxShopDisplayDistance)));
-        metrics.addCustomChart(new SimplePie("display_shop_search_radius", () -> String.valueOf(shopSearchRadius)));
-        metrics.addCustomChart(new SimplePie("display_batch_size", () -> String.valueOf(displayBatchSize)));
-        metrics.addCustomChart(new SimplePie("display_batch_delay", () -> String.valueOf(displayBatchDelay)));
-
-        debug_allowUseOwnShop = config.getBoolean("debug.allowUseOwnShop");
-        debug_transactionDebugLogs = config.getBoolean("debug.transactionDebugLogs");
-        debug_shopCreateCooldown = config.getInt("debug.shopCreateCooldown");
-        debug_forceResaveAll = config.getBoolean("debug.forceResaveAll");
-
-        displayListener.startRepeatingDisplayViewTask();
-
-        this.getLogger().info("Enabled ShopRevanced " + this.getDescription().getVersion());
-
-        if(checkUpdates){
-            new UpdateChecker(this).checkForUpdate();
-        }
+    /** Sync ShopRevanced config fields to DisplayScheduler for metrics instrumentation. */
+    private void syncDisplaySchedulerFields() {
+        var ds = pluginBootstrap.getDisplayScheduler();
+        ds.setDisplayType(displayType);
+        ds.setDisplayTagOption(displayTagOption);
+        ds.setDisplayCycle(displayCycle);
+        ds.setDisplayProcessInterval(displayProcessInterval);
+        ds.setDisplayMovementThreshold(displayMovementThreshold);
+        ds.setMaxShopDisplayDistance(maxShopDisplayDistance);
+        ds.setShopSearchRadius(shopSearchRadius);
+        ds.setDisplayBatchSize(displayBatchSize);
+        ds.setDisplayBatchDelay(displayBatchDelay);
+        ds.setDisplayLightLevel(displayLightLevel);
+        ds.setGlowingItemFrame(setGlowingItemFrame);
+        ds.setGlowingSignText(setGlowingSignText);
+        ds.setUsePerms(usePerms);
+        ds.setAllowPartialSales(allowPartialSales);
+        ds.setAllowCreateMethodSign(allowCreateMethodSign);
+        ds.setAllowCreateMethodChest(allowCreateMethodChest);
+        ds.setOfflinePurchaseNotificationsEnabled(offlinePurchaseNotificationsEnabled);
+        ds.setEnableGUI(enableGUI);
+        ds.setAllowCreativeSelection(allowCreativeSelection);
+        ds.setCheckItemDurability(checkItemDurability);
+        ds.setIgnoreItemRepairCost(ignoreItemRepairCost);
+        ds.setPlaySounds(playSounds);
+        ds.setPlayEffects(playEffects);
+        ds.setHoursOfflineToRemoveShops(hoursOfflineToRemoveShops);
+        ds.setDestroyShopRequiresSneak(destroyShopRequiresSneak);
+        ds.setInverseComboShops(inverseComboShops);
+        ds.setCurrencyType(currencyType);
+        ds.setCreationCost(creationCost);
+        ds.setDestructionCost(destructionCost);
+        ds.setTeleportCost(teleportCost);
+        ds.setReturnCreationCost(returnCreationCost);
+        ds.setClickTypeActionMap(clickTypeActionMap);
+        ds.setPriceSuffixes(priceSuffixes);
+        ds.setBluemapEnabled(bluemapEnabled);
+        ds.setDynmapEnabled(dynmapEnabled);
     }
 
     @Override
     public void onDisable(){
-        // Cancel all FoliaLib scheduled tasks
-        if (foliaLib != null) {
-            foliaLib.getScheduler().cancelAllTasks();
-        }
-        
-        //save any remaining shops (usually not required but just in case)
-        if (ShopRevancedHandler != null) ShopRevancedHandler.saveAllShops();
-
-        // Save player name cache to ensure no data loss
-        PlayerNameCache.saveToFile();
-
-        // shutdown the database
-        if (logHandler != null) logHandler.shutdown();
-        if (metrics != null) metrics.shutdown();
-
-        // Shutdown all integrations
-        if (integrationManager != null) integrationManager.shutdown();
-
-        this.getLogger().info("Disabled ShopRevanced " + this.getDescription().getVersion());
+        pluginBootstrap.shutdown();
     }
 
     public void reload(){
-        this.getLogger().info("Reloading ShopRevanced " + this.getDescription().getVersion());
-
-        HandlerList.unregisterAll(displayListener);
-        HandlerList.unregisterAll(ShopRevancedListener);
-        HandlerList.unregisterAll(miscListener);
-        HandlerList.unregisterAll(creativeSelectionListener);
-        HandlerList.unregisterAll(guiListener);
-
-        // Unregister new split listeners
-        HandlerList.unregisterAll(bucketEmptyListener);
-        HandlerList.unregisterAll(shopCreationListener);
-        HandlerList.unregisterAll(shopProtectionListener);
-
-        // Shutdown integrations (onDisable will handle integration listener unregistration)
-        if (integrationManager != null) integrationManager.shutdown();
-
-        plugin.getShopRevancedHandler().removeAllDisplays(null);
-
-        onDisable();
-        onEnable();
+        pluginBootstrap.reload(configManager, getConfigManager().getConfig());
     }
 
     private boolean setupEconomy() {
@@ -704,7 +408,7 @@ public class ShopRevanced extends JavaPlugin {
     }
 
     public BluemapHookListener getBluemapHookListener() {
-        return integrationManager != null ? integrationManager.getBluemapHookListener() : null;
+        return integrationCoordinator.getBluemapHookListener();
     }
 
     public TransactionHandler getTransactionHelper() {
@@ -717,6 +421,10 @@ public class ShopRevanced extends JavaPlugin {
 
     public ShopRevancedGuiHandler getGuiHandler(){
         return guiHandler;
+    }
+
+    public ShopGUIListener getGuiListener(){
+        return guiListener;
     }
 
     public boolean usePerms() {
@@ -741,14 +449,14 @@ public class ShopRevanced extends JavaPlugin {
 
     // Simplified WorldGuard configuration getter
     public WorldGuardHook.WorldGuardConfig getWorldGuardConfig() {
-        return integrationManager != null ? integrationManager.getWorldGuardConfig() : null;
+        return integrationCoordinator.getWorldGuardConfig();
     }
 
     public boolean worldGuardExists() {
-        return integrationManager != null && integrationManager.worldGuardExists();
+        return integrationCoordinator.worldGuardExists();
     }
 
-    public boolean isWorldGuardIntegrationEnabled() { return worldGuardExists(); }
+    public boolean isWorldGuardIntegrationEnabled() { return integrationCoordinator.isWorldGuardIntegrationEnabled(); }
     public boolean isLwcIntegrationEnabled() { return lwcIntegrationEnabled; }
     public boolean isBentoBoxIntegrationEnabled() { return bentoBoxIntegrationEnabled; }
     public boolean isAdvancedRegionMarketIntegrationEnabled() { return advancedRegionMarketIntegrationEnabled; }
@@ -761,7 +469,7 @@ public class ShopRevanced extends JavaPlugin {
     public boolean arclightExists() { return arclightExists; }
 
     public boolean hookTowny(){
-        return integrationManager != null && integrationManager.hookTowny();
+        return integrationCoordinator.hookTowny();
     }
 
     public DisplayType getDisplayType(){
@@ -1079,6 +787,72 @@ public class ShopRevanced extends JavaPlugin {
      */
     public int getDisplayBatchDelay() {
         return displayBatchDelay;
+    }
+
+    // ---- Setters for PluginBootstrap delegation ----
+
+    public void setFoliaLib(FoliaLib foliaLib) {
+        this.foliaLib = foliaLib;
+    }
+
+    public void setShopRevancedCreationUtil(ShopRevancedCreationUtil shopRevancedCreationUtil) {
+        ShopRevancedCreationUtil = shopRevancedCreationUtil;
+    }
+
+    public void setShopRevancedListener(ShopRevancedListener shopRevancedListener) {
+        ShopRevancedListener = shopRevancedListener;
+    }
+
+    public void setTransactionHandler(TransactionHandler transactionHandler) {
+        this.transactionHandler = transactionHandler;
+    }
+
+    public void setMiscListener(MiscListener miscListener) {
+        this.miscListener = miscListener;
+    }
+
+    public void setCreativeSelectionListener(CreativeSelectionListener creativeSelectionListener) {
+        this.creativeSelectionListener = creativeSelectionListener;
+    }
+
+    public void setDisplayListener(DisplayListener displayListener) {
+        this.displayListener = displayListener;
+    }
+
+    public void setGuiListener(ShopGUIListener guiListener) {
+        this.guiListener = guiListener;
+    }
+
+    public void setShopCreationProcessManager(ShopCreationProcessManager shopCreationProcessManager) {
+        this.shopCreationProcessManager = shopCreationProcessManager;
+    }
+
+    public void setBucketEmptyListener(BucketEmptyListener bucketEmptyListener) {
+        this.bucketEmptyListener = bucketEmptyListener;
+    }
+
+    public void setShopCreationListener(ShopCreationListener shopCreationListener) {
+        this.shopCreationListener = shopCreationListener;
+    }
+
+    public void setShopProtectionListener(ShopProtectionListener shopProtectionListener) {
+        this.shopProtectionListener = shopProtectionListener;
+    }
+
+    public void setItemNameUtil(ItemNameUtil itemNameUtil) {
+        this.itemNameUtil = itemNameUtil;
+    }
+
+    public void setGuiHandler(ShopRevancedGuiHandler guiHandler) {
+        this.guiHandler = guiHandler;
+    }
+
+    public void setShopRevancedHandler(ShopRevancedHandler shopRevancedHandler) {
+        ShopRevancedHandler = shopRevancedHandler;
+    }
+
+    public void setLogHandler(LogHandler logHandler) {
+        this.logHandler = logHandler;
     }
 }
 
