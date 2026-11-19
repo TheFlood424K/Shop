@@ -31,6 +31,8 @@ public class Transaction {
     private double originalPrice;
     // The current price of the tx, might be a higher or lower quantity than originalPrice
     private double price;
+    // Tax amount added at checkout via ezTax integration (0.0 when ezTax disabled/unavailable)
+    private double taxAmount;
 
     // The item that is being sold in the transaction
     private ItemStack itemBeingSold;
@@ -147,8 +149,8 @@ public class Transaction {
         // Don't process another transaction if there is one in progress!
         if (shop.isPerformingTransaction()) { return this.setError(TransactionError.CANCELLED); }
 
-        // Check if the buyer has enough funds to pay for the tx
-        if (this.buyer.getAvailableFunds() < this.price) {
+        // Check if the buyer has enough funds to pay for the tx (price + tax)
+        if (this.buyer.getAvailableFunds() < this.getTotalPrice()) {
             // Failed Verification: The buyer does not have enough funds to pay for the transaction!
             if (this.buyer.isPlayer()) {
                 return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER);
@@ -218,14 +220,15 @@ public class Transaction {
         ItemStack itemSold = this.itemBeingSold.clone();
         itemSold.setAmount(this.amountBeingSold);
 
-        // Swap funds
-        boolean paymentSuccessful = this.buyer.deductFunds(this.price);
+        // Swap funds. The buyer covers base price plus any ezTax; the seller
+        // receives only the base price (tax is collected for remittance).
+        boolean paymentSuccessful = this.buyer.deductFunds(this.getTotalPrice());
         // Verify we took the funds from the buyer
         if (!paymentSuccessful) {
             if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
             else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
         }
-        // Pay the seller the funds
+        // Pay the seller the base price (tax is not paid out to the seller)
         this.seller.depositFunds(this.price);
 
         // Swap Item
@@ -274,6 +277,21 @@ public class Transaction {
 
     public double getPrice(){
         return price;
+    }
+
+    /** @return tax amount added at checkout via ezTax integration (default {@code 0.0}). */
+    public double getTaxAmount(){
+        return taxAmount;
+    }
+
+    /** Sets the tax amount calculated at checkout. */
+    public void setTaxAmount(double taxAmount){
+        this.taxAmount = Math.max(0.0, taxAmount);
+    }
+
+    /** @return total the buyer pays: base price plus tax. */
+    public double getTotalPrice(){
+        return price + taxAmount;
     }
 
     // Gets a Map of both items in the transaction, for logging purposes

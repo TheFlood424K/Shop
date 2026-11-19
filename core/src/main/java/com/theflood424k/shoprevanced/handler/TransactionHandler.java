@@ -2,6 +2,7 @@ package com.theflood424k.shoprevanced.handler;
 
 import com.theflood424k.shoprevanced.ShopRevanced;
 import com.theflood424k.shoprevanced.integration.WorldGuardHook;
+import com.theflood424k.shoprevanced.integration.eztax.EzTaxIntegration;
 import com.theflood424k.shoprevanced.shop.AbstractShop;
 import com.theflood424k.shoprevanced.shop.ShopType;
 import com.theflood424k.shoprevanced.util.*;
@@ -107,10 +108,49 @@ public class TransactionHandler {
             transaction.negotiatePurchase();
         }
 
+        // Calculate tax for BUY actions before verification so the funds check
+        // uses the total price (base + tax). ezTax is a soft integration: when it
+        // is unavailable or disabled, calculateTax returns 0.0 and checkout is
+        // unaffected (graceful fallback).
+        if (actionType == ShopType.BUY) {
+            EzTaxIntegration ezTax = plugin.getEzTaxIntegration();
+            if (ezTax != null) {
+                double basePrice = transaction.getPrice();
+                int amount = transaction.getAmount();
+                double taxAmount = ezTax.calculateTax(player, shop, amount, basePrice);
+                transaction.setTaxAmount(taxAmount);
+            }
+        }
+
         // Verify the transaction is possible
         TransactionError issue = transaction.verify();
         // If it is possible, go ahead and execute it, extra check just in case there is an issue (shouldn't ever happen, but who knows)
-        if (issue == TransactionError.NONE) { issue = transaction.execute(); }
+        if (issue == TransactionError.NONE) {
+            // Display the tax breakdown to the customer before money moves
+            if (actionType == ShopType.BUY) {
+                EzTaxIntegration ezTax = plugin.getEzTaxIntegration();
+                if (ezTax != null) {
+                    ezTax.displayTaxBreakdown(
+                            player,
+                            transaction.getPrice(),
+                            transaction.getTaxAmount(),
+                            transaction.getTotalPrice());
+                }
+            }
+            issue = transaction.execute();
+        }
+
+        // Record collected tax for ezTax filing/remittance after a successful sale
+        if (issue == TransactionError.NONE && actionType == ShopType.BUY) {
+            EzTaxIntegration ezTax = plugin.getEzTaxIntegration();
+            if (ezTax != null) {
+                ezTax.recordTax(
+                        player,
+                        shop,
+                        transaction.getPrice(),
+                        transaction.getTaxAmount());
+            }
+        }
 
         // If there was an issue with the transaction, send the error message and bail out early
         if (issue != TransactionError.NONE) {
