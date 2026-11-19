@@ -175,6 +175,7 @@ public class ShopRevanced extends JavaPlugin {
         configManager.loadConfigs();
         pluginBootstrap = new PluginBootstrap(this);
         integrationCoordinator = new IntegrationCoordinator(this);
+            metrics = new Metrics(this, 25211);
     }
 
     @Override
