@@ -1,5 +1,7 @@
 package com.theflood424k.shoprevanced.util;
 
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.YamlConfiguration;
 import com.theflood424k.shoprevanced.ShopRevanced;
 
@@ -43,10 +45,31 @@ public class PlayerNameCache {
             return cachedName;
         }
 
-        // Cache miss: return a placeholder immediately instead of blocking on
-        // OfflinePlayer.getName(). The name will be populated on next cacheName() call.
+            // Cache miss: seed the cache with a placeholder first so a recursive
+                    // OfflinePlayer.getName() loop (observed on 1.21.5) cannot re-enter this
+                    // method indefinitely, then attempt a one-time lazy load from the
+                    // OfflinePlayer. The real name overwrites the placeholder on success.
         String shortId = uuid.toString();
-        return "Unknown Player (" + shortId.substring(0, 3) + "..." + shortId.substring(shortId.length() - 3) + ")";
+                    String unknownPlayerString = "Unknown Player (" + shortId.substring(0, 3) + "..." + shortId.substring(shortId.length() - 3) + ")";
+                    cache.put(uuid, unknownPlayerString);
+
+                    try {
+                        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+                        if (offlinePlayer.hasPlayedBefore()) {
+                            String name = offlinePlayer.getName();
+                            if (name != null && !name.trim().isEmpty()) {
+                                cache.put(uuid, name);
+                                return name;
+                }
+                        } else {
+                            ShopRevanced.getPlugin().getLogger().warning(
+                                    "Player " + uuid + " has not played on this server and/or their player data file does not exist! Unable to load the player name from OfflinePlayer!");
+            }
+                    } catch (Exception e) {
+                        ShopRevanced.getPlugin().getLogger().warning("Error while loading player name for " + uuid + " from OfflinePlayer! " + e.getMessage());
+                    }
+
+                    return unknownPlayerString;
     }
     
     /**

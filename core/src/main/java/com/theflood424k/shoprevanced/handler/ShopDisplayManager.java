@@ -7,8 +7,12 @@ import com.theflood424k.shoprevanced.util.DisplayUtil;
 import com.theflood424k.shoprevanced.util.UtilMethods;
 import org.bukkit.Location;
 import org.bukkit.block.data.type.WallSign;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.World;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -346,6 +350,7 @@ public class ShopDisplayManager {
      * for shops in loaded chunks.
      */
     public void removeLegacyDisplays() {
+            // Update signs for shops in loaded chunks.
         for (AbstractShop shop : storage.getAllShops()) {
             if (UtilMethods.isChunkLoaded(shop.getChestLocation())) {
                 shop.updateSign();
@@ -354,6 +359,26 @@ public class ShopDisplayManager {
         for (AbstractShop shop : storage.getAllShops()) {
             shop.getDisplay().remove(null);
         }
+
+            // Server-wide sweep for orphaned legacy display entities/items left behind by
+            // older plugin versions. Runs off the main thread via the region-safe scheduler
+            // so it never blocks the caller or accesses entities outside a region context.
+            // This is intentionally only invoked explicitly (admin-only /shoprevanced itemrefresh
+            // and reload), not on every tick.
+            plugin.getFoliaLib().getScheduler().runAsync(task -> {
+                for (World world : plugin.getServer().getWorlds()) {
+                    for (Entity entity : world.getEntities()) {
+                        if (DisplayUtil.isDisplay(entity)) {
+                            entity.remove();
+                        } else if (entity.getType() == org.bukkit.entity.EntityType.ITEM) {
+                            ItemMeta itemMeta = ((Item) entity).getItemStack().getItemMeta();
+                            if (itemMeta != null && UtilMethods.stringStartsWithUUID(itemMeta.getDisplayName())) {
+                            entity.remove();
+                        }
+                    }
+                }
+                }
+            });
     }
 
     /**
