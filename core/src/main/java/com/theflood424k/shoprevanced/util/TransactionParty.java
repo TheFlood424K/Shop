@@ -1,5 +1,6 @@
 package com.theflood424k.shoprevanced.util;
 
+import com.theflood424k.shoprevanced.ShopRevanced;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -81,19 +82,27 @@ public class TransactionParty {
         return EconomyUtils.canAcceptFunds(party, this.inventory, paymentAmount);
     }
 
-    // Receive a payment and add it to the players wallet/inventory
-    public void depositFunds(double paymentAmount) {
+    // Receive a payment and add it to the players wallet/inventory.
+    // Returns false if the payment could not be fully deposited (partial failure).
+    public boolean depositFunds(double paymentAmount) {
         // If we are an admin, then we don't deposit any funds
-        if (this.isAdmin) { return; }
+        if (this.isAdmin) { return true; }
 
         if (this.currencyItem != null) {
             // We are being paid with an item
             ItemStack payment = this.currencyItem.clone();
             payment.setAmount((int) paymentAmount);
-            InventoryUtils.addItem(this.inventory, payment);
+            int couldNotAdd = InventoryUtils.addItem(this.inventory, payment);
+            if (couldNotAdd > 0) {
+                ShopRevanced.getPlugin().getLogger().warning(
+                        "TransactionParty.depositFunds: could not add " + couldNotAdd + " currency item(s) to " + party);
+                return false;
+            }
+            return true;
         } else {
             // We are being paid using our normal currency
             EconomyUtils.addFunds(party, this.inventory, paymentAmount);
+            return true;
         }
     }
 
@@ -109,8 +118,8 @@ public class TransactionParty {
         if (this.currencyItem != null) {
             ItemStack payment = this.currencyItem.clone();
             payment.setAmount((int) paymentAmount);
-            InventoryUtils.removeItem(inventory, payment);
-            return true;
+            int couldNotRemove = InventoryUtils.removeItem(inventory, payment);
+            return couldNotRemove == 0;
         }
 
         // We are being paid using our normal currency
@@ -133,18 +142,16 @@ public class TransactionParty {
         if (!this.hasRoomForItem(item)) { return false; }
 
         // We have the space, so add the item to our inventory!
-        // @TODO: Maybe check how many items were unable to be added to the inv to make sure we actually deposited the item
-        InventoryUtils.addItem(inventory, item);
-        return true;
+        int couldNotAdd = InventoryUtils.addItem(inventory, item);
+        return couldNotAdd == 0;
     }
 
     public boolean deductItem(ItemStack item) {
         // If we are an admin, then we don't remove the item
         if (this.isAdmin) { return true; }
 
-        // @TODO: Maybe check how many items were unable to be removed from the inv to verify tx occured successfully
-        InventoryUtils.removeItem(inventory, item);
-        return true;
+        int couldNotRemove = InventoryUtils.removeItem(inventory, item);
+        return couldNotRemove == 0;
     }
 
     @Override

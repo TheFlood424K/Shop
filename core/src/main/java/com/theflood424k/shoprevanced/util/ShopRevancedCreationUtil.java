@@ -127,6 +127,16 @@ public class ShopRevancedCreationUtil {
             }
         }
 
+        // Admin shops bypass economy and stock limits, so creation is restricted to operators.
+        // This covers non-GAMBLE admin shops created via the admin keyword on a sign or in chat.
+        if (isAdmin) {
+            boolean isOperator = (!plugin.usePerms() && player.isOp())
+                    || (plugin.usePerms() && player.hasPermission("ShopRevanced.operator"));
+            if (!isOperator) {
+                playerMessage = ShopRevancedMessage.getUnformattedMessage("permission", "create");
+            }
+        }
+
         //if players must pay to create shops, check that they have enough money first
         double cost = plugin.getCreationCost();
         if (cost > 0) {

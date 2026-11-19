@@ -214,36 +214,79 @@ public class Transaction {
         // Check to see if we had any errors, you must do this before performing the transaction!
         if (this.verify() != TransactionError.NONE) { return this.error; }
 
-        // Perform the transaction, we are fully verified, so we can just directly run through the transaction
-        ItemStack itemSold = this.itemBeingSold.clone();
-        itemSold.setAmount(this.amountBeingSold);
+        // Reentrancy guard: mark the shop as performing a transaction so any concurrent
+        // transaction on the same shop is rejected by verify(). Always reset in the finally block.
+        shop.setPerformingTransaction(true);
+        try {
+            // Perform the transaction, we are fully verified, so we can just directly run through the transaction
+            ItemStack itemSold = this.itemBeingSold.clone();
+            itemSold.setAmount(this.amountBeingSold);
 
-        // Swap funds
-        boolean paymentSuccessful = this.buyer.deductFunds(this.price);
-        // Verify we took the funds from the buyer
-        if (!paymentSuccessful) {
-            if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
-            else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
-        }
-        // Pay the seller the funds
-        this.seller.depositFunds(this.price);
+            // Swap funds: buyer pays seller
+            boolean paymentTaken = this.buyer.deductFunds(this.price);
+            if (!paymentTaken) {
+                if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
+                else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
+            }
 
-        // Swap Item
-        this.seller.deductItem(itemSold);
-        this.buyer.depositItem(itemSold);
+            // Pay the seller the funds. If this fails (partial failure), roll back the buyer's payment.
+            boolean fundsDeposited = this.seller.depositFunds(this.price);
+            if (!fundsDeposited) {
+                rollbackFunds(this.buyer, this.price);
+                return this.setError(TransactionError.INVENTORY_FULL_SHOP);
+            }
 
-        // Special handling for Gamble shops!
-        if (shop.getType() == ShopType.GAMBLE) {
-            // Cycle display to show won item
-            if (shop instanceof GambleShop) { ((GambleShop) shop).shuffleGambleItem(player); }
-            // Exit early
+            // Swap Item: seller gives item to buyer. If either side fails, roll back everything.
+            boolean itemDeducted = this.seller.deductItem(itemSold);
+            if (!itemDeducted) {
+                rollbackFunds(this.buyer, this.price);
+                recoverFunds(this.seller, this.price);
+                return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP);
+            }
+
+            boolean itemDeposited = this.buyer.depositItem(itemSold);
+            if (!itemDeposited) {
+                rollbackFunds(this.buyer, this.price);
+                recoverFunds(this.seller, this.price);
+                this.seller.depositItem(itemSold);
+                return this.setError(TransactionError.INVENTORY_FULL_PLAYER);
+            }
+
+            // Special handling for Gamble shops!
+            if (shop.getType() == ShopType.GAMBLE) {
+                // Cycle display to show won item
+                if (shop instanceof GambleShop) { ((GambleShop) shop).shuffleGambleItem(player); }
+                // Exit early
+                return this.setError(TransactionError.NONE);
+            }
+
+            shop.updateStock();
+
+            // Successful!
             return this.setError(TransactionError.NONE);
+        } finally {
+            shop.setPerformingTransaction(false);
         }
+    }
 
-        shop.updateStock();
+    // Attempt to refund funds back to a party. Used for rollback on partial failure.
+    // Logs a warning if the refund itself partially fails.
+    private void rollbackFunds(TransactionParty party, double amount) {
+        boolean refunded = party.depositFunds(amount);
+        if (!refunded) {
+            ShopRevanced.getPlugin().getLogger().warning(
+                    "Transaction rollback: could not refund " + amount + " to " + party + " (inventory may be full)");
+        }
+    }
 
-        // Successful!
-        return this.setError(TransactionError.NONE);
+    // Attempt to take funds back from a party (reverse a deposit). Used for rollback on partial failure.
+    // Logs a warning if the recovery itself partially fails.
+    private void recoverFunds(TransactionParty party, double amount) {
+        boolean recovered = party.deductFunds(amount);
+        if (!recovered) {
+            ShopRevanced.getPlugin().getLogger().warning(
+                    "Transaction rollback: could not recover " + amount + " from " + party + " (insufficient funds)");
+        }
     }
 
     public Player getPlayer() {
