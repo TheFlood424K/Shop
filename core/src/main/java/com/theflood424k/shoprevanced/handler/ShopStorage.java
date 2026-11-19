@@ -180,13 +180,41 @@ public class ShopStorage {
             containerTypeCounts.merge(containerKey, 1, Integer::sum);
         }
 
-        ItemStack itemStack = shop.getItemStack();
-        if (itemStack != null && itemStack.getType() != org.bukkit.Material.AIR) {
-            itemShopIndex.computeIfAbsent(itemStack.getType(), k -> ConcurrentHashMap.newKeySet()).add(shop.getSignLocation());
-        }
+        indexShopItem(shop, shop.getItemStack());
+                indexShopItem(shop, shop.getSecondaryItemStack());
 
         plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
     }
+
+            /**
+             * Adds the shop's sign location to the item index for the given item stack.
+             *
+             * @param shop      The shop to index
+             * @param itemStack The item stack whose type is used as the index key
+             */
+            private void indexShopItem(AbstractShop shop, ItemStack itemStack) {
+                if (itemStack != null && itemStack.getType() != org.bukkit.Material.AIR) {
+                    itemShopIndex.computeIfAbsent(itemStack.getType(), k -> ConcurrentHashMap.newKeySet()).add(shop.getSignLocation());
+                }
+            }
+
+            /**
+             * Removes the shop's sign location from the item index for the given item stack.
+             *
+             * @param shop      The shop to unindex
+             * @param itemStack The item stack whose type is used as the index key
+             */
+            private void unindexShopItem(AbstractShop shop, ItemStack itemStack) {
+                if (itemStack != null && itemStack.getType() != org.bukkit.Material.AIR) {
+                    java.util.Set<Location> locs = itemShopIndex.get(itemStack.getType());
+                    if (locs != null) {
+                        locs.remove(shop.getSignLocation());
+                        if (locs.isEmpty()) {
+                            itemShopIndex.remove(itemStack.getType());
+                }
+            }
+                }
+            }
 
     /**
      * Removes a ShopRevanced from the handler's tracking structures.
@@ -218,16 +246,8 @@ public class ShopStorage {
             containerTypeCounts.merge(containerKey, -1, Integer::sum);
         }
 
-        ItemStack itemStack = shop.getItemStack();
-        if (itemStack != null && itemStack.getType() != org.bukkit.Material.AIR) {
-            java.util.Set<Location> locs = itemShopIndex.get(itemStack.getType());
-            if (locs != null) {
-                locs.remove(shop.getSignLocation());
-                if (locs.isEmpty()) {
-                    itemShopIndex.remove(itemStack.getType());
-                }
-            }
-        }
+        unindexShopItem(shop, shop.getItemStack());
+                unindexShopItem(shop, shop.getSecondaryItemStack());
 
         if (playerShops.containsKey(shop.getOwnerUUID())) {
             java.util.concurrent.CopyOnWriteArrayList<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
