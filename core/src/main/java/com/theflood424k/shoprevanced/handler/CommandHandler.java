@@ -2,6 +2,11 @@ package com.theflood424k.shoprevanced.handler;
 
 import com.theflood424k.shoprevanced.ShopRevanced;
 import com.theflood424k.shoprevanced.gui.ShopGuiWindow;
+import com.theflood424k.shoprevanced.search.SearchFilter;
+import com.theflood424k.shoprevanced.search.SearchResult;
+import com.theflood424k.shoprevanced.search.ShopSearchService;
+import com.theflood424k.shoprevanced.util.PlaceholderContext;
+import com.theflood424k.shoprevanced.shop.AbstractShop;
 import com.theflood424k.shoprevanced.util.CurrencyType;
 import com.theflood424k.shoprevanced.util.ItemListType;
 import com.theflood424k.shoprevanced.util.PlayerSettings;
@@ -13,6 +18,7 @@ import org.bukkit.command.defaults.BukkitCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.StringUtil;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.ArrayList;
@@ -73,7 +79,9 @@ public class CommandHandler extends BukkitCommand {
                 sender.sendMessage("/"+this.getName()+" reload - reload ShopRevanced plugin");
             }
         } else if (args.length == 1) {
-            if (args[0].equalsIgnoreCase("list")) {
+            if (args[0].equalsIgnoreCase("search")) {
+                handleSearch(sender, args);
+            } else if (args[0].equalsIgnoreCase("list")) {
                 if (sender instanceof Player) {
                     Player player = (Player)sender;
                     sendCommandMessage("list_output_total", player);
@@ -222,6 +230,7 @@ public class CommandHandler extends BukkitCommand {
         else if (args.length == 1) {
             results.add("list");
             results.add("currency");
+            results.add("search");
 
             boolean showOperatorCommands = false;
             if(sender instanceof Player){
@@ -280,6 +289,94 @@ public class CommandHandler extends BukkitCommand {
             return sortedResults(args[1], results);
         }
         return results;
+    }
+
+    private void handleSearch(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+                sender.sendMessage("[ShopRevanced] Search can only be used by players.");
+            return;
+        }
+        Player player = (Player) sender;
+
+            if ((plugin.usePerms() && !player.hasPermission("ShopRevanced.search"))
+                    || (!plugin.usePerms() && !player.isOp())) {
+                sendCommandMessage("not_authorized", player);
+                return;
+            }
+
+        if (args.length < 2) {
+            sendCommandMessage("search_usage", player);
+            return;
+        }
+
+        ShopSearchService searchService = plugin.getShopSearchService();
+        if (searchService == null) {
+                sendCommandMessage("search_service_not_available", player);
+            return;
+        }
+
+        String itemName = args[1];
+        Double minPrice = null;
+        Double maxPrice = null;
+        if (args.length >= 3) {
+            try {
+                minPrice = Double.parseDouble(args[2]);
+            } catch (NumberFormatException e) {
+                sendCommandMessage("search_invalid_price", player);
+                return;
+            }
+        }
+        if (args.length >= 4) {
+            try {
+                maxPrice = Double.parseDouble(args[3]);
+            } catch (NumberFormatException e) {
+                sendCommandMessage("search_invalid_price", player);
+                return;
+            }
+        }
+
+            int pageSize = plugin.getConfigManager().getConfig().getInt("shopSearch.resultsPerPage", 10);
+            if (pageSize < 1) {
+                pageSize = 10;
+            }
+            boolean includeAdminShops = plugin.getConfigManager().getConfig().getBoolean("shopSearch.includeAdminShops", true);
+
+            SearchFilter filter = new SearchFilter(itemName, minPrice, maxPrice, null, includeAdminShops ? null : false);
+        List<SearchResult> results = searchService.search(filter);
+            List<SearchResult> page = searchService.paginate(results, 1, pageSize);
+
+        if (results.isEmpty()) {
+            if (plugin.getShopRevancedHandler().getNumberOfShops() == 0) {
+                sendCommandMessage("search_no_shops", player);
+            } else {
+                sendCommandMessage("search_no_results", player);
+            }
+            return;
+        }
+
+            PlaceholderContext context = new PlaceholderContext();
+            context.setPlayer(player);
+            context.setCount(results.size());
+            ShopRevancedMessage.sendMessage("search_results", player, context);
+
+        for (SearchResult result : page) {
+            AbstractShop shop = result.shop();
+            ItemStack item = shop.getItemStack();
+            String itemNameDisplay = plugin.getItemNameUtil().getName(item) == null
+                    ? item.getType().name()
+                    : PlainTextComponentSerializer.plainText()
+                    .serialize(plugin.getItemNameUtil().getName(item));
+            String owner = shop.getOwnerName() == null ? "unknown" : shop.getOwnerName();
+            player.sendMessage(Component.text(
+                    "§7• §e" + itemNameDisplay + " §7- §a" + shop.getPrice() + " §7- §b" + owner
+                    + " §7(score §f" + String.format("%.1f", result.relevanceScore()) + "§7)"));
+        }
+
+            int totalPages = (int) Math.ceil((double) results.size() / pageSize);
+        if (page.size() < results.size()) {
+            player.sendMessage(Component.text(
+                        "§7Showing page 1 of " + totalPages + "/" + results.size() + " results."));
+        }
     }
 
     private void toggleOptionAndNotifyPlayer(Player player, PlayerSettings.Option option) {
