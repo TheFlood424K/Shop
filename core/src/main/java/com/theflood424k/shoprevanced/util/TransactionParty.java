@@ -100,9 +100,11 @@ public class TransactionParty {
             }
             return true;
         } else {
-            // We are being paid using our normal currency
-            EconomyUtils.addFunds(party, this.inventory, paymentAmount);
-            return true;
+                    // We are being paid using our normal currency. The vault path previously ignored the
+                    // return value of EconomyUtils.addFunds() and always reported success, which made the
+                    // partial-failure rollback in Transaction.execute() unreachable for vault currency.
+                    // Propagate the actual result so a failed seller deposit triggers a buyer refund.
+                    return EconomyUtils.addFunds(party, this.inventory, paymentAmount);
         }
     }
 
