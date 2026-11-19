@@ -145,7 +145,13 @@ public class ShopRevancedCreationUtil {
             }
         }
 
-        if (player.isOp() || (plugin.usePerms() && player.hasPermission("ShopRevanced.operator"))) {
+        // The operator/admin check must NOT clear a denial set above for non-operator admin-shop
+                // creation. Only clear the message when the player is actually authorized to create this
+                // shop: an operator bypasses the admin gate, and a non-admin shop type is permitted for
+                // anyone who already passed the create-permission check (playerMessage == null there).
+                boolean isOperator = (!plugin.usePerms() && player.isOp())
+                        || (plugin.usePerms() && player.hasPermission("ShopRevanced.operator"));
+                if (isOperator && !isAdmin) {
             playerMessage = null;
         }
 
