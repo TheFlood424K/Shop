@@ -5,6 +5,7 @@ import com.theflood424k.shoprevanced.display.DisplayTagOption;
 import com.theflood424k.shoprevanced.display.DisplayType;
 import com.theflood424k.shoprevanced.gui.ShopGUIListener;
 import com.theflood424k.shoprevanced.handler.*;
+import com.theflood424k.shoprevanced.search.ShopSearchService;
 import com.theflood424k.shoprevanced.integration.*;
 import com.theflood424k.shoprevanced.listener.BucketEmptyListener;
 import com.theflood424k.shoprevanced.listener.CreativeSelectionListener;
@@ -56,6 +57,7 @@ public class ShopRevanced extends JavaPlugin {
     private ShopProtectionListener shopProtectionListener;
 
     private ShopRevancedHandler shopRevancedHandler;
+    private ShopSearchService shopSearchService;
     private ShopRevancedGuiHandler guiHandler;
     private ItemNameUtil itemNameUtil;
     private ShopRevancedCreationUtil shopRevancedCreationUtil;
@@ -420,6 +422,7 @@ public class ShopRevanced extends JavaPlugin {
 
         guiHandler = new ShopRevancedGuiHandler(plugin);
         shopRevancedHandler = new ShopRevancedHandler(plugin);
+        shopSearchService = new ShopSearchService(this);
         guiHandler.loadIconsAndTitles();
         logHandler = new LogHandler(plugin, config);
 
@@ -706,6 +709,10 @@ public class ShopRevanced extends JavaPlugin {
 
     public ShopRevancedHandler getShopRevancedHandler() {
         return shopRevancedHandler;
+    }
+
+    public ShopSearchService getShopSearchService() {
+        return shopSearchService;
     }
 
     public ShopRevancedGuiHandler getGuiHandler(){
