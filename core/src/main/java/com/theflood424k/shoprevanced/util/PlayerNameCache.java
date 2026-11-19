@@ -1,7 +1,5 @@
 package com.theflood424k.shoprevanced.util;
 
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.YamlConfiguration;
 import com.theflood424k.shoprevanced.ShopRevanced;
 
@@ -31,9 +29,13 @@ public class PlayerNameCache {
     }
     
     /**
-     * Gets a player name from cache, with lazy loading during initial build
+     * Gets a player name from cache, with lazy loading during initial build.
+     * Never blocks on OfflinePlayer.getName() (which can hit disk/Mojang and stall
+     * the calling thread). Returns a placeholder on a cache miss; the real name is
+     * filled in later via {@link #cacheName(UUID, String)} (e.g. on player join).
+     *
      * @param uuid Player UUID
-     * @return Player name or formatted UUID fallback
+     * @return Cached player name, or a placeholder if not yet cached
      */
     public static String getName(UUID uuid) {
         String cachedName = cache.get(uuid);
@@ -41,31 +43,10 @@ public class PlayerNameCache {
             return cachedName;
         }
 
-        // If the player is not in the cache, add a placeholder name before attempting to load from OfflinePlayer
-        // This is to avoid issues with Bukkit.getOfflinePlayer(uuid).getName() causing a recursive error loop in 1.21.5
-        // if we run into the recursive loop issue, then we'll just return the placeholder name in the future instead of lagging the server
+        // Cache miss: return a placeholder immediately instead of blocking on
+        // OfflinePlayer.getName(). The name will be populated on next cacheName() call.
         String shortId = uuid.toString();
-        String unknownPlayerString = "Unknown Player (" + shortId.substring(0, 3) + "..." + shortId.substring(shortId.length() - 3) + ")";
-        cache.put(uuid, unknownPlayerString);
-
-        // Try loading from OfflinePlayer once, otherwise we'll just return the placeholder name
-        try {
-            OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
-            if (player.hasPlayedBefore()) {
-                String name = player.getName();
-                if (name != null) {
-                    cache.put(uuid, name);
-                    return name;
-                }
-            } else {
-                ShopRevanced.getPlugin().getLogger().warning("Player " + uuid + " has not played on this server and/or their player data file does not exist! Unable to load the player name from OfflinePlayer!");
-            }
-        } catch (Error | Exception e) {
-            ShopRevanced.getPlugin().getLogger().warning("Error while getting player name for " + uuid + " from OfflinePlayer.getName()! " + e.getMessage());
-        }
-
-        // Return placeholder name as fallback
-        return unknownPlayerString;
+        return "Unknown Player (" + shortId.substring(0, 3) + "..." + shortId.substring(shortId.length() - 3) + ")";
     }
     
     /**
