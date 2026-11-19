@@ -20,6 +20,10 @@ public class Transaction {
     private AbstractShop shop;
     private ShopType transactionType;
 
+    // True while this transaction owns the shop's reentrancy guard. verify() uses this to avoid
+    // rejecting the very transaction that set shop.setPerformingTransaction(true).
+    private boolean guardOwner;
+
     private TransactionError error;
 
     // The buyer in the transaction
@@ -139,13 +143,23 @@ public class Transaction {
         }
     }
 
-    // Verify there are no errors with the transaction, note, you must run negotiatePurchase before verifying!
+    // Mark this transaction as the owner of the shop's reentrancy guard. Set to true by
+        // TransactionHandler.executeTransactionSequence() before verify() runs, and reset to false
+        // in its finally block. verify() uses this flag to avoid rejecting the transaction that set
+        // shop.setPerformingTransaction(true) — otherwise the guard would self-cancel the first tx.
+        public void setGuardOwner(boolean guardOwner) { this.guardOwner = guardOwner; }
+
+        // Verify there are no errors with the transaction, note, you must run negotiatePurchase before verifying!
     public TransactionError verify() {
         // Check if the transaction has already been cancelled
         if (this.error == TransactionError.CANCELLED) { return this.error; }
 
         // Don't process another transaction if there is one in progress!
-        if (shop.isPerformingTransaction()) { return this.setError(TransactionError.CANCELLED); }
+            // The flag is set by TransactionHandler.executeTransactionSequence() before verify() is
+            // called, so a concurrent transaction on the same shop is rejected. The transaction that
+            // set the flag marks itself as the guard owner (setGuardOwner(true)) so verify() does not
+            // reject its own transaction — otherwise the guard would self-cancel the first transaction.
+            if (shop.isPerformingTransaction() && !this.guardOwner) { return this.setError(TransactionError.CANCELLED); }
 
         // Check if the buyer has enough funds to pay for the tx
         if (this.buyer.getAvailableFunds() < this.price) {
