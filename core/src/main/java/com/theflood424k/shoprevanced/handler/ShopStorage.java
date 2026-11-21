@@ -7,6 +7,7 @@ import com.theflood424k.shoprevanced.shop.ShopType;
 import com.theflood424k.shoprevanced.util.UtilMethods;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
@@ -15,6 +16,7 @@ import org.bukkit.block.DoubleChest;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -34,6 +36,15 @@ public class ShopStorage {
     private final java.util.concurrent.ConcurrentHashMap<String, java.util.List<Location>> unloadedShopsByChunk = new java.util.concurrent.ConcurrentHashMap<>();
     private final UUID adminUUID;
     private final BlockFace[] directions = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
+
+    /** Cached count of shops per ShopType, updated on addShop/removeShop. */
+    private final ConcurrentHashMap<ShopType, Integer> shopTypeCounts = new ConcurrentHashMap<>();
+    /** Cached count of shops per DisplayType, updated on addShop/removeShop/setDisplayType. */
+    private final ConcurrentHashMap<DisplayType, Integer> shopDisplayTypeCounts = new ConcurrentHashMap<>();
+    /** Cached count of shops per container type, updated on addShop/removeShop. */
+    private final ConcurrentHashMap<String, Integer> containerTypeCounts = new ConcurrentHashMap<>();
+    /** Index of shop sign locations by item Material type, updated on addShop/removeShop. */
+    private final ConcurrentHashMap<Material, java.util.Set<Location>> itemShopIndex = new ConcurrentHashMap<>();
 
     public ShopStorage(ShopRevanced plugin) {
         this.plugin = plugin;
@@ -152,8 +163,58 @@ public class ShopStorage {
             chunkShops.put(chunkKey, chunkShopLocations);
         }
 
+        // Update cached indexes
+        ShopType shopType = shop.getType();
+        if (shopType != null) {
+            shopTypeCounts.merge(shopType, 1, Integer::sum);
+        }
+
+        DisplayType displayType = shop.getDisplay().getType();
+        if (displayType != null) {
+            shopDisplayTypeCounts.merge(displayType, 1, Integer::sum);
+        }
+
+        org.bukkit.Material containerType = shop.getContainerType();
+        if (containerType != null) {
+            String containerKey = containerTypeName(containerType);
+            containerTypeCounts.merge(containerKey, 1, Integer::sum);
+        }
+
+        indexShopItem(shop, shop.getItemStack());
+                indexShopItem(shop, shop.getSecondaryItemStack());
+
         plugin.getGuiHandler().reloadPlayerHeadIcon(shop);
     }
+
+            /**
+             * Adds the shop's sign location to the item index for the given item stack.
+             *
+             * @param shop      The shop to index
+             * @param itemStack The item stack whose type is used as the index key
+             */
+            private void indexShopItem(AbstractShop shop, ItemStack itemStack) {
+                if (itemStack != null && itemStack.getType() != org.bukkit.Material.AIR) {
+                    itemShopIndex.computeIfAbsent(itemStack.getType(), k -> ConcurrentHashMap.newKeySet()).add(shop.getSignLocation());
+                }
+            }
+
+            /**
+             * Removes the shop's sign location from the item index for the given item stack.
+             *
+             * @param shop      The shop to unindex
+             * @param itemStack The item stack whose type is used as the index key
+             */
+            private void unindexShopItem(AbstractShop shop, ItemStack itemStack) {
+                if (itemStack != null && itemStack.getType() != org.bukkit.Material.AIR) {
+                    java.util.Set<Location> locs = itemShopIndex.get(itemStack.getType());
+                    if (locs != null) {
+                        locs.remove(shop.getSignLocation());
+                        if (locs.isEmpty()) {
+                            itemShopIndex.remove(itemStack.getType());
+                }
+            }
+                }
+            }
 
     /**
      * Removes a ShopRevanced from the handler's tracking structures.
@@ -167,6 +228,27 @@ public class ShopStorage {
             allShops.remove(shop.getSignLocation());
             changed = true;
         }
+
+        // Decrement cached indexes
+        ShopType shopType = shop.getType();
+        if (shopType != null) {
+            shopTypeCounts.merge(shopType, -1, Integer::sum);
+        }
+
+        DisplayType displayType = shop.getDisplay().getType();
+        if (displayType != null) {
+            shopDisplayTypeCounts.merge(displayType, -1, Integer::sum);
+        }
+
+        org.bukkit.Material containerType = shop.getContainerType();
+        if (containerType != null) {
+            String containerKey = containerTypeName(containerType);
+            containerTypeCounts.merge(containerKey, -1, Integer::sum);
+        }
+
+        unindexShopItem(shop, shop.getItemStack());
+                unindexShopItem(shop, shop.getSecondaryItemStack());
+
         if (playerShops.containsKey(shop.getOwnerUUID())) {
             java.util.concurrent.CopyOnWriteArrayList<Location> playerShopLocations = getShopLocations(shop.getOwnerUUID());
             if (playerShopLocations.contains(shop.getSignLocation())) {
@@ -273,12 +355,16 @@ public class ShopStorage {
      * @return List of shops dealing with the item
      */
     public List<AbstractShop> getShopsByItem(ItemStack itemStack) {
-        List<AbstractShop> shops = new ArrayList<>();
-        for (AbstractShop shop : allShops.values()) {
-            if (shop.getItemStack() != null && shop.getItemStack().getType() == itemStack.getType())
+        java.util.Set<Location> locations = itemShopIndex.get(itemStack.getType());
+        if (locations == null || locations.isEmpty()) {
+            return java.util.List.of();
+        }
+        List<AbstractShop> shops = new ArrayList<>(locations.size());
+        for (Location signLocation : locations) {
+            AbstractShop shop = getShop(signLocation);
+            if (shop != null) {
                 shops.add(shop);
-            else if (shop.getSecondaryItemStack() != null && shop.getSecondaryItemStack().getType() == itemStack.getType())
-                shops.add(shop);
+            }
         }
         return shops;
     }
@@ -504,13 +590,8 @@ public class ShopStorage {
      * @return number of shops with the specified type
      */
     public int getNumberOfShops(ShopType shopType) {
-        int shopsWithType = 0;
-        for (AbstractShop shop : allShops.values()) {
-            if (shop.getType() == shopType) {
-                shopsWithType++;
-            }
-        }
-        return shopsWithType;
+        Integer count = shopTypeCounts.get(shopType);
+        return count == null ? 0 : count;
     }
 
     /**
@@ -520,13 +601,8 @@ public class ShopStorage {
      * @return number of shops with the specified display type
      */
     public int getNumberOfShopDisplayTypes(DisplayType displayType) {
-        int shopsWithDisplayType = 0;
-        for (AbstractShop shop : allShops.values()) {
-            if (shop.getDisplay().getType() == displayType) {
-                shopsWithDisplayType++;
-            }
-        }
-        return shopsWithDisplayType;
+        Integer count = shopDisplayTypeCounts.get(displayType);
+        return count == null ? 0 : count;
     }
 
     /**
@@ -535,28 +611,25 @@ public class ShopStorage {
      * @return map of container type names to counts
      */
     public Map<String, Integer> getShopContainerCounts() {
-        int chestShops = 0;
-        int barrelShops = 0;
-        int shulkerBoxShops = 0;
-        for (AbstractShop shop : allShops.values()) {
-            org.bukkit.Material containerType = shop.getContainerType();
-            if (containerType == null) continue;
-            if (containerType == org.bukkit.Material.CHEST || containerType == org.bukkit.Material.TRAPPED_CHEST
-                    || containerType.name().endsWith("COPPER_CHEST")) {
-                chestShops++;
-            }
-            if (containerType == org.bukkit.Material.BARREL) {
-                barrelShops++;
-            }
-            if (containerType.name().endsWith("SHULKER_BOX")) {
-                shulkerBoxShops++;
-            }
+        return new HashMap<>(containerTypeCounts);
+    }
+
+    /**
+     * Converts a container Material to a display-friendly type name.
+     */
+    private static String containerTypeName(org.bukkit.Material containerType) {
+        if (containerType == org.bukkit.Material.CHEST
+                || containerType == org.bukkit.Material.TRAPPED_CHEST
+                || containerType.name().endsWith("COPPER_CHEST")) {
+            return "Chest Shops";
         }
-        Map<String, Integer> containerTypes = new HashMap<>();
-        containerTypes.put("Chest Shops", chestShops);
-        containerTypes.put("Barrel Shops", barrelShops);
-        containerTypes.put("Shulker Box Shops", shulkerBoxShops);
-        return containerTypes;
+        if (containerType == org.bukkit.Material.BARREL) {
+            return "Barrel Shops";
+        }
+        if (containerType.name().endsWith("SHULKER_BOX")) {
+            return "Shulker Box Shops";
+        }
+        return containerType.name();
     }
 
     /**
