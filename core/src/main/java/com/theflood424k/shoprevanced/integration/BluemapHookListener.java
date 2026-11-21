@@ -40,8 +40,8 @@ public class BluemapHookListener implements Listener {
 
     // Used on server startup to make sure all our shops are in sync with BlueMap
     // Useful if BlueMap is added as a plugin AFTER there are existing shops
-    public void reloadMarkers(ShopRevancedHandler ShopRevancedHandler) {
-        final List<AbstractShop> allShops = ShopRevancedHandler.getAllShops();
+    public void reloadMarkers(ShopRevancedHandler shopRevancedHandler) {
+        final List<AbstractShop> allShops = shopRevancedHandler.getAllShops();
         for(AbstractShop shop : allShops){
             // Update every shops marker
             this.updateMarker(shop);
