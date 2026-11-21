@@ -1,0 +1,247 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic version without the leading v (for example, 2.0.0)'
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release history
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Locate latest successful build artifact
+        id: locate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          RUNS_JSON="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow build.yml \
+            --branch "$DEFAULT_BRANCH" \
+            --event push \
+            --status success \
+            --limit 1 \
+            --json databaseId,headSha,createdAt,url)"
+
+          RUN_ID="$(printf '%s' "$RUNS_JSON" | jq -r '.[0].databaseId // empty')"
+          SOURCE_SHA="$(printf '%s' "$RUNS_JSON" | jq -r '.[0].headSha // empty')"
+          RUN_URL="$(printf '%s' "$RUNS_JSON" | jq -r '.[0].url // empty')"
+
+          if [[ -z "$RUN_ID" || -z "$SOURCE_SHA" ]]; then
+            echo "No successful Build and Package run was found on $DEFAULT_BRANCH." >&2
+            exit 1
+          fi
+
+          ARTIFACTS_JSON="$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" \
+            --paginate \
+            --jq '.artifacts[] | select(.expired == false and (.name | startswith("shop-")) and (.name | endswith(".jar")))')"
+
+          ARTIFACT_COUNT="$(printf '%s' "$ARTIFACTS_JSON" | jq -s 'length')"
+          if [[ "$ARTIFACT_COUNT" -ne 1 ]]; then
+            echo "Expected exactly one non-expired Shop JAR in run $RUN_ID, found $ARTIFACT_COUNT." >&2
+            exit 1
+          fi
+
+          ARTIFACT_ID="$(printf '%s' "$ARTIFACTS_JSON" | jq -sr '.[0].id')"
+          ARTIFACT_NAME="$(printf '%s' "$ARTIFACTS_JSON" | jq -sr '.[0].name')"
+
+          {
+            echo "run_id=$RUN_ID"
+            echo "source_sha=$SOURCE_SHA"
+            echo "run_url=$RUN_URL"
+            echo "artifact_id=$ARTIFACT_ID"
+            echo "artifact_name=$ARTIFACT_NAME"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Using artifact $ARTIFACT_NAME from $RUN_URL"
+
+      - name: Validate release version
+        id: validate
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ steps.locate.outputs.source_sha }}
+          ARTIFACT_NAME: ${{ steps.locate.outputs.artifact_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release version must use MAJOR.MINOR.PATCH without a leading v: $RELEASE_VERSION" >&2
+            exit 1
+          fi
+
+          SOURCE_REVISION="$(git show "$SOURCE_SHA:pom.xml" \
+            | sed -n 's:.*<revision>\([^<]*\)</revision>.*:\1:p' \
+            | head -n 1)"
+
+          if [[ -z "$SOURCE_REVISION" ]]; then
+            echo "Could not read the Maven revision from pom.xml at $SOURCE_SHA." >&2
+            exit 1
+          fi
+
+          if [[ "$RELEASE_VERSION" != "$SOURCE_REVISION" ]]; then
+            echo "Release version $RELEASE_VERSION does not match Maven revision $SOURCE_REVISION at $SOURCE_SHA." >&2
+            echo "Update <revision> in pom.xml and wait for the corresponding main-branch build before releasing." >&2
+            exit 1
+          fi
+
+          SHORT_SHA="${SOURCE_SHA:0:7}"
+          EXPECTED_ARTIFACT="shop-${SOURCE_REVISION}-${SHORT_SHA}.jar"
+          if [[ "$ARTIFACT_NAME" != "$EXPECTED_ARTIFACT" ]]; then
+            echo "Artifact $ARTIFACT_NAME does not match the expected build artifact $EXPECTED_ARTIFACT." >&2
+            exit 1
+          fi
+
+          TAG="v${RELEASE_VERSION}"
+          {
+            echo "source_revision=$SOURCE_REVISION"
+            echo "short_sha=$SHORT_SHA"
+            echo "tag=$TAG"
+            echo "jar_name=Shop-${SOURCE_REVISION}-${SHORT_SHA}.jar"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download latest artifact
+        uses: actions/download-artifact@v8.0.2
+        with:
+          artifact-ids: ${{ steps.locate.outputs.artifact_id }}
+          run-id: ${{ steps.locate.outputs.run_id }}
+          path: release-files
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+
+      - name: Verify downloaded distribution
+        id: artifact
+        env:
+          EXPECTED_JAR: ${{ steps.validate.outputs.jar_name }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t JARS < <(find release-files -type f -name 'Shop-*.jar' -print)
+          if [[ "${#JARS[@]}" -ne 1 ]]; then
+            echo "Expected exactly one distribution JAR, found ${#JARS[@]}." >&2
+            exit 1
+          fi
+
+          JAR_PATH="${JARS[0]}"
+          if [[ "$(basename "$JAR_PATH")" != "$EXPECTED_JAR" ]]; then
+            echo "Downloaded JAR $(basename "$JAR_PATH") does not match $EXPECTED_JAR." >&2
+            exit 1
+          fi
+
+          mkdir -p release-assets
+          cp "$JAR_PATH" "release-assets/$EXPECTED_JAR"
+          echo "jar_path=release-assets/$EXPECTED_JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push version tag
+        env:
+          SOURCE_SHA: ${{ steps.locate.outputs.source_sha }}
+          TAG: ${{ steps.validate.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+
+            if [[ "$(git cat-file -t "refs/tags/$TAG")" != "tag" ]]; then
+              echo "Tag $TAG already exists but is not annotated." >&2
+              exit 1
+            fi
+
+            if [[ "$(git rev-parse "$TAG^{}")" != "$SOURCE_SHA" ]]; then
+              echo "Tag $TAG already exists and points to a different commit." >&2
+              exit 1
+            fi
+
+            echo "Annotated tag $TAG already points to $SOURCE_SHA; reusing it."
+          else
+            git -c user.name="github-actions[bot]" \
+                -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+                tag --annotate --message "Release $TAG" "$TAG" "$SOURCE_SHA"
+            git push origin "refs/tags/$TAG"
+            echo "Created and pushed annotated tag $TAG."
+          fi
+
+      - name: Generate changelog
+        env:
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SOURCE_SHA: ${{ steps.locate.outputs.source_sha }}
+          TAG: ${{ steps.validate.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          PREVIOUS_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$SOURCE_SHA^" 2>/dev/null || true)"
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            RANGE="${PREVIOUS_TAG}..${SOURCE_SHA}"
+            RANGE_DESCRIPTION="Changes since ${PREVIOUS_TAG}."
+            COMPARE_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${TAG}"
+          else
+            RANGE="$SOURCE_SHA"
+            RANGE_DESCRIPTION="All changes up to this release."
+            COMPARE_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commits/${SOURCE_SHA}"
+          fi
+
+          {
+            echo "# Changelog"
+            echo
+            echo "## $TAG"
+            echo
+            echo "$RANGE_DESCRIPTION"
+            echo
+            git log "$RANGE" --no-merges --pretty=format:'- %s (%h)'
+            echo
+            echo
+            echo "[Compare changes]($COMPARE_URL)"
+          } > CHANGELOG.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.validate.outputs.tag }}
+          JAR_PATH: ${{ steps.artifact.outputs.jar_path }}
+          SOURCE_SHA: ${{ steps.locate.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "A GitHub release for $TAG already exists; refusing to overwrite it." >&2
+            exit 1
+          fi
+
+          gh release create "$TAG" \
+            "$JAR_PATH" \
+            CHANGELOG.md \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "Shop $TAG" \
+            --notes-file CHANGELOG.md \
+            --latest
+
+          RELEASE_URL="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)"
+          {
+            echo "## Release published"
+            echo
+            echo "- Tag: \`$TAG\`"
+            echo "- Release: [$RELEASE_URL]($RELEASE_URL)"
+            echo "- Source commit: \`$SOURCE_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"

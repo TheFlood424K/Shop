@@ -3,7 +3,6 @@ name: Build and Package
 on:
   push:
     branches: [ main, master ]
-    tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
 
@@ -179,9 +178,3 @@ jobs:
         update-comment: true
         pass-emoji: ':green_circle:'
         fail-emoji: ':small_orange_diamond:'
-      
-    - name: Create Release
-      uses: softprops/action-gh-release@v3.0.4
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        files: target/Shop-*.jar

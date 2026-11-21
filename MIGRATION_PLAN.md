@@ -120,8 +120,8 @@ The v2.0 configuration retains the existing `VAULT` currency type name, but the 
 
 The migration has no unfinished implementation phases. The following optional maintenance and release tasks remain:
 
-- Set the root Maven release revision to the published v2.0 version and create the matching Git tag.
-- Publish the distribution JAR and v2.0 release notes.
+- Set the root Maven release revision to the published v2.0 version and merge it to the default branch.
+- Run the **Release** GitHub Actions workflow to create the matching annotated Git tag, publish the distribution JAR, and attach the generated v2.0 changelog and release notes.
 - Smoke-test the final release artifact on representative PaperMC, DivineMC, and Folia installations.
 - Expand CI with a live-server matrix if maintainers want automated compatibility coverage beyond the Java build and test suite.
 - Continue updating optional dependencies and test coverage in future patch releases.
