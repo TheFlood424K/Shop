@@ -57,6 +57,7 @@ public class ConfigManager {
     private static final String CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED = "cashierLock.trustIntegration.enabled";
     private static final String CONFIG_PATH_GRIEF_PREVENTION_ENABLED = "griefprevention.enabled";
     private static final String CONFIG_PATH_GEYSER_ENABLED = "geyser.enabled";
+    private static final String CONFIG_PATH_EZTAX_ENABLED = "ezTax.enabled";
 
     // ========================================================================
     // Configuration fields (mirrors of former ShopRevanced fields)
@@ -137,6 +138,7 @@ public class ConfigManager {
     private boolean cashierLockTrustIntegrationEnabled;
     private boolean griefPreventionIntegrationEnabled;
     private boolean geyserIntegrationEnabled;
+    private boolean ezTaxIntegrationEnabled;
 
     // WorldGuard / Arclight detection (resolved at runtime)
     private boolean worldGuardExists;
@@ -241,6 +243,7 @@ public class ConfigManager {
         cashierLockTrustIntegrationEnabled = config.getBoolean(CONFIG_PATH_CASHIER_LOCK_TRUST_INTEGRATION_ENABLED, true);
         griefPreventionIntegrationEnabled = config.getBoolean(CONFIG_PATH_GRIEF_PREVENTION_ENABLED, true);
         geyserIntegrationEnabled = config.getBoolean(CONFIG_PATH_GEYSER_ENABLED, true);
+        ezTaxIntegrationEnabled = config.getBoolean(CONFIG_PATH_EZTAX_ENABLED, false);
 
         hookTowny = config.getBoolean("hookTowny");
 
@@ -585,6 +588,10 @@ public class ConfigManager {
 
     public boolean isGeyserIntegrationEnabled() {
         return geyserIntegrationEnabled;
+    }
+
+    public boolean isEzTaxIntegrationEnabled() {
+        return ezTaxIntegrationEnabled;
     }
 
     public boolean hookTowny() {

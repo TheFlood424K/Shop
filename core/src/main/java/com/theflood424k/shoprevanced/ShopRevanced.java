@@ -18,6 +18,7 @@ import com.theflood424k.shoprevanced.shop.ShopType;
 import com.theflood424k.shoprevanced.util.*;
 import com.theflood424k.shoprevanced.integration.IntegrationManager;
 import com.theflood424k.shoprevanced.integration.WorldGuardHook;
+import com.theflood424k.shoprevanced.integration.eztax.EzTaxIntegration;
 import com.theflood424k.shoprevanced.util.Metrics;
 import com.theflood424k.shoprevanced.util.Metrics.*;
 import de.bluecolored.bluemap.api.BlueMapAPI;
@@ -128,6 +129,7 @@ public class ShopRevanced extends JavaPlugin {
     private boolean cashierLockTrustIntegrationEnabled;
     private boolean griefPreventionIntegrationEnabled;
     private boolean geyserIntegrationEnabled;
+    private boolean ezTaxIntegrationEnabled;
 
     // Additional config/state fields
     private boolean arclightExists;
@@ -307,6 +309,7 @@ public class ShopRevanced extends JavaPlugin {
         integrationManager.setCashierLockTrustIntegrationEnabled(configManager.isCashierLockTrustIntegrationEnabled());
         integrationManager.setGriefPreventionIntegrationEnabled(configManager.isGriefPreventionIntegrationEnabled());
         integrationManager.setGeyserIntegrationEnabled(configManager.isGeyserIntegrationEnabled());
+        integrationManager.setEzTaxIntegrationEnabled(configManager.isEzTaxIntegrationEnabled());
         integrationManager.setHookTowny(hookTowny);
         integrationManager.setBluemapEnabled(bluemapEnabled);
         integrationManager.setDynmapEnabled(dynmapEnabled);
@@ -321,6 +324,7 @@ public class ShopRevanced extends JavaPlugin {
         cashierLockTrustIntegrationEnabled = configManager.isCashierLockTrustIntegrationEnabled();
         griefPreventionIntegrationEnabled = configManager.isGriefPreventionIntegrationEnabled();
         geyserIntegrationEnabled = configManager.isGeyserIntegrationEnabled();
+        ezTaxIntegrationEnabled = configManager.isEzTaxIntegrationEnabled();
         currencyType = configManager.getCurrencyType();
         allowFractionalCurrency = configManager.getAllowFractionalCurrency();
         offlinePurchaseNotificationsEnabled = config.getBoolean("offlinePurchaseNotifications.enabled");
@@ -758,6 +762,8 @@ public class ShopRevanced extends JavaPlugin {
     public boolean isCashierLockTrustIntegrationEnabled() { return cashierLockTrustIntegrationEnabled; }
     public boolean isGriefPreventionIntegrationEnabled() { return griefPreventionIntegrationEnabled; }
     public boolean isGeyserIntegrationEnabled() { return geyserIntegrationEnabled; }
+    public boolean isEzTaxIntegrationEnabled() { return ezTaxIntegrationEnabled; }
+    public EzTaxIntegration getEzTaxIntegration() { return integrationManager != null ? integrationManager.getEzTaxIntegration() : null; }
     public boolean arclightExists() { return arclightExists; }
 
     public boolean hookTowny(){
