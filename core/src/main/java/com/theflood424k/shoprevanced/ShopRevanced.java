@@ -16,9 +16,6 @@ import com.theflood424k.shoprevanced.listener.ShopProtectionListener;
 import com.theflood424k.shoprevanced.listener.ShopRevancedListener;
 import com.theflood424k.shoprevanced.shop.ShopType;
 import com.theflood424k.shoprevanced.util.*;
-import com.theflood424k.shoprevanced.integration.IntegrationManager;
-import com.theflood424k.shoprevanced.integration.WorldGuardHook;
-import com.theflood424k.shoprevanced.util.Metrics;
 import com.theflood424k.shoprevanced.util.Metrics.*;
 import de.bluecolored.bluemap.api.BlueMapAPI;
 import net.milkbowl.vault.economy.Economy;
@@ -249,7 +246,6 @@ public class ShopRevanced extends JavaPlugin {
         YamlConfiguration config = configManager.getConfig();
         // Load logger values again in case the log level was changed on a reload
         this.getLogger().setLogLevel(config.getString("logLevel"));
-        this.getLogger().enableColor(config.getBoolean("enableLogColor"));
         this.getLogger().enableColor(configManager.getConfig().getBoolean("enableLogColor"));
 
         shopRevancedCreationUtil = new ShopRevancedCreationUtil(this);
