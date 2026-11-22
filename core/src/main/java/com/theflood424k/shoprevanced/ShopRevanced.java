@@ -246,7 +246,7 @@ public class ShopRevanced extends JavaPlugin {
         YamlConfiguration config = configManager.getConfig();
         // Load logger values again in case the log level was changed on a reload
         this.getLogger().setLogLevel(config.getString("logLevel"));
-        this.getLogger().enableColor(configManager.getConfig().getBoolean("enableLogColor"));
+        this.getLogger().enableColor(config.getBoolean("enableLogColor"));
 
         ShopRevancedCreationUtil = new ShopRevancedCreationUtil(this);
 
