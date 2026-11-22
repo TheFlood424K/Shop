@@ -129,6 +129,8 @@ Shop follows [semantic versioning](https://semver.org/) with release tags in the
 
 **v2.0** marks the breaking PaperMC/Folia modernization overhaul. Later v2 releases retain the v2.0 configuration and API baseline unless the major version changes again.
 
+Maintainers publish each release through the **Release** GitHub Actions workflow. It creates the annotated version tag, attaches the matching distribution JAR, and publishes a generated changelog with the release notes.
+
 ## Support
 
 - Report v2.0 bugs and feature requests in [TheFlood424K/Shop issues](https://github.com/TheFlood424K/Shop/issues).

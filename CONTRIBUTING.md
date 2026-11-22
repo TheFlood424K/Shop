@@ -160,11 +160,13 @@ Shop uses [semantic versioning](https://semver.org/) and release tags of the for
 
 The root `pom.xml` `<revision>` property controls the generated artifact version. When preparing a release:
 
-1. Set `<revision>` to the intended release version.
-2. Run `.\mvnw.cmd clean package` and confirm all tests pass.
-3. Create and push a matching annotated Git tag.
-4. Let the tag workflow publish the release artifact.
-5. Update release notes and version-specific documentation.
+1. Set `<revision>` to the intended semantic version without the leading `v`.
+2. Merge the version change to the default branch and wait for **Build and Package** to succeed.
+3. Run the **Release** workflow from the Actions tab and enter the same semantic version.
+4. The workflow selects the latest successful default-branch artifact, verifies that it matches the requested version, and creates a matching annotated Git tag.
+5. The workflow generates `CHANGELOG.md` from commits since the previous release tag and publishes the JAR and changelog with the GitHub release.
+
+Do not push release tags manually. The workflow rejects a version that does not match `<revision>`, and it refuses to overwrite an existing tag or release. Update version-specific documentation before publishing.
 
 Do not use a patch release for a breaking configuration or API change.
 
