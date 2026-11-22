@@ -8,12 +8,9 @@
 
 ## Change type
 
-- [ ] Bug fix
-- [ ] Feature
-- [ ] Integration
-- [ ] Documentation
-- [ ] Build, CI, or release
-- [ ] Refactor or maintenance
+<!-- Replace with one or more applicable types: Bug fix, Feature, Integration, Documentation, Build, CI, or release, Refactor or maintenance. -->
+
+`Type`
 
 ## Compatibility and safety
 
