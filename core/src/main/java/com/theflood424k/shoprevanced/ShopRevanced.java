@@ -1,5 +1,7 @@
 package com.theflood424k.shoprevanced;
 
+import com.theflood424k.shoprevanced.compat.CompatibilityManager;
+import com.theflood424k.shoprevanced.compat.CompatibilityProvider;
 import com.theflood424k.shoprevanced.config.ConfigManager;
 import com.theflood424k.shoprevanced.display.DisplayTagOption;
 import com.theflood424k.shoprevanced.display.DisplayType;
@@ -168,6 +170,10 @@ public class ShopRevanced extends JavaPlugin {
 
         // Initialize FoliaLib
         foliaLib = new FoliaLib(this);
+
+        for (CompatibilityProvider provider : CompatibilityManager.detect(getServer())) {
+            logger.info("Shop " + provider.id() + " compatibility enabled: " + provider.describe(getServer()));
+        }
 
         File configFile = new File(getDataFolder(), "config.yml");
         if (!configFile.exists()) {

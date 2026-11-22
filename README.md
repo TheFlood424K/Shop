@@ -27,7 +27,8 @@ Version **v2.0** is a complete modernization of the original plugin: PaperMC 26.
 - **Map integrations:** DynMap and BlueMap markers
 - **Transaction logging:** Embedded H2, MySQL, or MariaDB logging with offline purchase notifications
 - **Bedrock compatibility:** GeyserMC and Floodgate players are detected and supported
-- **Modern server support:** PaperMC 26.2+, DivineMC 26.2–26.3, and Folia
+- **Modern server support:** PaperMC 26.2+ (base distribution), DivineMC 26.2–26.3, and Folia through separate compatibility distributions
+- **Platform compatibility modules:** `shop-compat-api` is shared by the Paper base, while `shop-compat-folia` and `shop-compat-divinemc` are packaged only by their respective distributions
 - **No NMS modules:** Version-specific server internals and `org.spigotmc.*` imports were removed in v2.0
 
 ## Shop Types
@@ -69,7 +70,7 @@ Both methods are configurable. See the [player instructions](wiki/player-instruc
 
 - PaperMC **26.2 or newer**
 - DivineMC **26.2–26.3**
-- Folia (the plugin declares `folia-supported: true` and uses region-aware scheduling)
+- Folia distribution (declares `folia-supported: true` and uses region-aware scheduling)
 - Java **25** on the server runtime
 
 Optional integrations are detected at runtime and are not required to run Shop.
