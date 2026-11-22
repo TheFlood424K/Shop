@@ -49,7 +49,7 @@ java -version
 3. Add the upstream repository if it is not already configured:
 
    ```powershell
-   git remote add upstream https://github.com/snowgears/Shop.git
+   git remote add upstream https://github.com/TheFlood424K/Shop.git
    git fetch upstream
    ```
 
@@ -69,7 +69,7 @@ java -version
 | `wiki/` | User-facing documentation |
 | `.github/workflows/` | CI build, test, artifact, and release automation |
 
-Core code lives under `core/src/main/java/com/snowgears/shop/`. Tests live under `core/src/test/`.
+Core code lives under `core/src/main/java/com/theflood424k/shoprevanced/`. Tests live under `core/src/test/java/com/theflood424k/shoprevanced/`.
 
 ## Building and Testing
 
@@ -87,7 +87,7 @@ Run commands from the repository root.
 .\mvnw.cmd test
 ```
 
-The current v2.0 baseline contains **165 passing tests**. Add focused tests for new behavior and regression coverage for fixes.
+Add focused tests for new behavior and regression coverage for fixes. Report the exact test command and result; do not rely on a hard-coded test count because the suite evolves.
 
 ### Build the distribution
 
@@ -127,9 +127,9 @@ A final submission must still pass the normal test command.
 - Keep optional integrations optional and detect their plugins at runtime.
 - Use Adventure `Component` objects for player-facing messages.
 - Preserve legacy `&` formatting only where it remains an intentional compatibility feature.
-- Treat placeholder substitutions as plain text, not MiniMessage input.
-- Use Folia-safe scheduling for world, block, sign, and region-sensitive operations.
-- Use thread-safe collections for mutable data shared between scheduler contexts.
+- Render placeholder substitutions as literal text or literal Adventure `Component` segments; never feed placeholder content into MiniMessage source.
+- Use Folia-safe scheduling for world, block, sign, and region-sensitive operations. If player and shop/container inventories may have different region owners, use explicit scheduler handoffs for each owner.
+- Use thread-safe collections for mutable data shared between scheduler contexts, and acquire transaction guards atomically with guaranteed release on every path.
 - Keep database and network work off region-owned server threads where practical.
 - Do not add hard dependencies for integrations that can remain soft dependencies.
 - Follow the surrounding code style and keep changes focused.
@@ -141,7 +141,7 @@ When changing an integration:
 
 1. Confirm the modern dependency is already present in `core/pom.xml`; do not add an obsolete API.
 2. Keep plugin detection in one clearly defined location.
-3. Respect the matching `enabled` option in `config.yml`.
+3. Align runtime detection, `plugin.yml` soft-dependency metadata, configuration keys and defaults, listener registration/unregistration, and absent-plugin fallback as one contract.
 4. Handle the plugin being absent without failing Shop startup.
 5. Cover the integration's important behavior with a focused test.
 6. Update `wiki/config.md` and any integration-specific wiki page.
@@ -186,18 +186,27 @@ Do not use a patch release for a breaking configuration or API change.
 
 7. Push the branch and open a pull request against `main`.
 
+## Agent-Assisted Contributions
+
+When an agent delegates part of a task to a subagent, use only a model confirmed in the active local custom provider's catalog. Never use or fall back to a GPT/OpenAI model. If no eligible model can be confirmed, continue without delegation.
+
 ## Pull Request Checklist
 
+Use `.github/pull_request_template.md` as the authoritative pull-request entry point. The summary should confirm:
+
 - [ ] The change is scoped to one issue or feature.
-- [ ] Java 25 and PaperMC 26.2 remain compatible.
-- [ ] Folia-safe scheduling and thread safety were considered.
-- [ ] No legacy Spigot/Bungee APIs were reintroduced.
-- [ ] New or changed behavior has focused tests.
+- [ ] Java 25 and PaperMC 26.2+ compatibility was reviewed, including Folia and DivineMC impacts where relevant.
+- [ ] Folia-sensitive work uses region- or entity-owned scheduling; cross-region inventory work has an explicit scheduler handoff.
+- [ ] Transaction guards and shared mutable state are concurrency-safe.
+- [ ] User-facing text uses Adventure `Component`, and placeholder values are rendered literally rather than parsed as MiniMessage.
+- [ ] Changed optional integrations retain metadata, configuration, detection, and listener-lifecycle parity.
+- [ ] No legacy Spigot/Bungee APIs, NMS, or version-specific internals were introduced.
+- [ ] New or changed behavior has focused tests, and any Folia limitation is stated accurately.
 - [ ] `.\mvnw.cmd test` passes.
-- [ ] `.\mvnw.cmd clean package` passes.
-- [ ] Configuration and wiki documentation are current.
-- [ ] The pull request explains compatibility and migration impact.
-- [ ] No secrets, generated artifacts, or unrelated files are included.
+- [ ] `.\mvnw.cmd clean package` passes, or the reason it was not run is documented.
+- [ ] Configuration, plugin metadata, dependency, migration, and wiki documentation are current.
+- [ ] The pull request explains compatibility, migration, and release impact.
+- [ ] No secrets, generated artifacts, production data, private logs, or unrelated files are included.
 
 ## Reporting Bugs
 
