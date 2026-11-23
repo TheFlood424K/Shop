@@ -40,7 +40,7 @@ class ShopSearchServiceTest extends BaseMockBukkitTest {
     private void handlerWithShops(AbstractShop... shops) {
         ShopRevancedHandler handler = Mockito.mock(ShopRevancedHandler.class);
         when(handler.getAllShops()).thenReturn(List.of(shops));
-        setPluginField("ShopRevancedHandler", handler);
+        setPluginField("shopRevancedHandler", handler);
     }
 
     @Test

@@ -212,6 +212,18 @@
             <artifactId>VaultUnlocked</artifactId>
             <version>${vaultunlocked.version}</version>
             <scope>provided</scope>
+            <exclusions>
+                <!--
+                    VaultUnlocked transitively pulls dev.faststats.metrics:bukkit:0.22.0,
+                    which pulls org.bukkit:bukkit:1.10-R0.1-SNAPSHOT. That ancient bukkit
+                    shadows paper-api's Material enum (missing BLACK_CONCRETE_SLAB etc.),
+                    breaking Material.valueOf() in tests. Exclude it so paper-api's Material wins.
+                -->
+                <exclusion>
+                    <groupId>org.bukkit</groupId>
+                    <artifactId>bukkit</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.sk89q.worldguard</groupId>
