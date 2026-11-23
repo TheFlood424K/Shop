@@ -296,18 +296,10 @@ public class ShopRevanced extends JavaPlugin {
         shopCreationTimeout = configManager.getShopCreationTimeout();
         taxPercent = configManager.getTaxPercent();
 
-        // Sync config fields to extracted subsystems before lifecycle wiring
-        syncDisplaySchedulerFields();
-
         pluginBootstrap.bootstrap(configManager, config);
     }
 
-        // Sync config fields to extracted subsystems before lifecycle wiring
-        syncDisplaySchedulerFields();
-
-        pluginBootstrap.bootstrap(configManager, config);
-    }
-
+    private boolean setupEconomy() {
         if (getServer().getPluginManager().getPlugin("VaultUnlocked") == null) {
             return false;
         }
@@ -318,6 +310,26 @@ public class ShopRevanced extends JavaPlugin {
         }
         econ = rsp.getProvider();
         return econ != null;
+    }
+
+    public void reload(){
+        this.getLogger().info("Reloading ShopRevanced " + this.getDescription().getVersion());
+
+        HandlerList.unregisterAll(displayListener);
+        HandlerList.unregisterAll(shopRevancedListener);
+        HandlerList.unregisterAll(miscListener);
+        HandlerList.unregisterAll(creativeSelectionListener);
+        HandlerList.unregisterAll(guiListener);
+
+        // Unregister new split listeners
+        HandlerList.unregisterAll(bucketEmptyListener);
+        HandlerList.unregisterAll(shopCreationListener);
+        HandlerList.unregisterAll(shopProtectionListener);
+
+        plugin.getShopRevancedHandler().removeAllDisplays(null);
+
+        onDisable();
+        onEnable();
     }
 
     public ShopRevancedListener getShopRevancedListener() {
@@ -741,11 +753,11 @@ public class ShopRevanced extends JavaPlugin {
     }
 
     public void setShopRevancedCreationUtil(ShopRevancedCreationUtil shopRevancedCreationUtil) {
-        ShopRevancedCreationUtil = shopRevancedCreationUtil;
+        this.shopRevancedCreationUtil = shopRevancedCreationUtil;
     }
 
     public void setShopRevancedListener(ShopRevancedListener shopRevancedListener) {
-        ShopRevancedListener = shopRevancedListener;
+        this.shopRevancedListener = shopRevancedListener;
     }
 
     public void setTransactionHandler(TransactionHandler transactionHandler) {
@@ -793,7 +805,7 @@ public class ShopRevanced extends JavaPlugin {
     }
 
     public void setShopRevancedHandler(ShopRevancedHandler shopRevancedHandler) {
-        ShopRevancedHandler = shopRevancedHandler;
+        this.shopRevancedHandler = shopRevancedHandler;
     }
 
     public void setLogHandler(LogHandler logHandler) {
