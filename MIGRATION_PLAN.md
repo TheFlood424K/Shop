@@ -41,11 +41,12 @@ This document records the completed v2.0 overhaul and the small set of release/m
 
 ### Phase 2: Folia and DivineMC Support — Complete
 
-- Declared `folia-supported: true`.
+- Moved Folia and DivineMC support into separate compatibility distributions; the base Paper distribution declares `folia-supported: false`.
 - Replaced unsafe global assumptions with region-aware scheduling through FoliaLib and supported scheduler APIs.
 - Made mutable shared state use appropriate concurrent collection types.
 - Moved world/block/sign access to scheduler contexts that own the affected region.
 - Confirmed the Paper-based API surface used by Shop is compatible with DivineMC 26.2–26.3.
+- Added runtime detection for DivineMC's optional parallel-world, regionized-chunk, and listener-serialization API methods without linking the plugin to DivineMC-specific classes.
 
 ### Phase 3: Adventure Text Migration — Complete
 
@@ -92,7 +93,7 @@ This document records the completed v2.0 overhaul and the small set of release/m
 - [x] All 165 automated tests pass.
 - [x] PaperMC API 26.2 is used and declared in plugin metadata.
 - [x] DivineMC 26.2–26.3 is included in the supported server baseline.
-- [x] Folia is supported and the plugin declares `folia-supported: true`.
+- [x] Folia and DivineMC compatibility are packaged separately from the base Paper distribution.
 - [x] No `org.spigotmc.*` imports remain.
 - [x] No Bungee chat component imports or `player.spigot().sendMessage()` calls remain.
 - [x] User-facing text uses Adventure Components with MiniMessage and legacy compatibility.

@@ -130,6 +130,11 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>com.theflood424k.shoprevanced</groupId>
+            <artifactId>shop-compat-api</artifactId>
+            <version>${revision}</version>
+        </dependency>
         <!-- Unit Testing (JUnit 6 + MockBukkit 26.2) -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
