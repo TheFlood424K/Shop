@@ -241,17 +241,31 @@ class CreationValidatorTest extends BaseMockBukkitTest {
         }
     }
 
-    @DisplayName("getShopIsAdmin: input contains admin word → true")
+    @DisplayName("getShopIsAdmin: exact admin keyword → true")
     @Test
-    void getShopIsAdmin_containsAdminWord_returnsTrue() {
+    void getShopIsAdmin_exactAdminKeyword_returnsTrue() {
         try (MockedStatic<ShopRevancedMessage> srm = Mockito.mockStatic(ShopRevancedMessage.class)) {
             srm.when(() -> ShopRevancedMessage.getCreationWord("ADMIN")).thenReturn("admin");
 
-            assertTrue(validator.getShopIsAdmin("this is an admin shop"));
+            assertTrue(validator.getShopIsAdmin("admin"));
+            assertTrue(validator.getShopIsAdmin("ADMIN"));
+            assertTrue(validator.getShopIsAdmin("  Admin  "));
         }
     }
 
-    @DisplayName("getShopIsAdmin: input does not contain admin word → false")
+    @DisplayName("getShopIsAdmin: substring match does NOT count → false")
+    @Test
+    void getShopIsAdmin_substringMatch_returnsFalse() {
+        try (MockedStatic<ShopRevancedMessage> srm = Mockito.mockStatic(ShopRevancedMessage.class)) {
+            srm.when(() -> ShopRevancedMessage.getCreationWord("ADMIN")).thenReturn("admin");
+
+            assertFalse(validator.getShopIsAdmin("this is an admin shop"));
+            assertFalse(validator.getShopIsAdmin("admin shop"));
+            assertFalse(validator.getShopIsAdmin("superadmin"));
+        }
+    }
+
+    @DisplayName("getShopIsAdmin: no admin word → false")
     @Test
     void getShopIsAdmin_noAdminWord_returnsFalse() {
         try (MockedStatic<ShopRevancedMessage> srm = Mockito.mockStatic(ShopRevancedMessage.class)) {
@@ -261,13 +275,13 @@ class CreationValidatorTest extends BaseMockBukkitTest {
         }
     }
 
-    @DisplayName("getShopIsAdmin: null input → NPE (contains check on null)")
+    @DisplayName("getShopIsAdmin: null input → false (no NPE)")
     @Test
     void getShopIsAdmin_nullInput_returnsFalse() {
         try (MockedStatic<ShopRevancedMessage> srm = Mockito.mockStatic(ShopRevancedMessage.class)) {
             srm.when(() -> ShopRevancedMessage.getCreationWord("ADMIN")).thenReturn("admin");
 
-            assertThrows(NullPointerException.class, () -> validator.getShopIsAdmin(null));
+            assertFalse(validator.getShopIsAdmin(null));
         }
     }
 }
