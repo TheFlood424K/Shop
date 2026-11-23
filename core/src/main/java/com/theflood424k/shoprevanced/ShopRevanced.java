@@ -420,6 +420,9 @@ public class ShopRevanced extends JavaPlugin {
         // Load CommandHandler by initializing it once
         new CommandHandler(this, null, commandAlias, "Base command for the ShopRevanced plugin", "/ShopRevanced", new ArrayList(Arrays.asList(commandAlias)));
 
+        // Load TransactionCommandHandler for transaction lookup
+        new TransactionCommandHandler(this);
+
         guiHandler = new ShopRevancedGuiHandler(plugin);
         shopRevancedHandler = new ShopRevancedHandler(plugin);
         shopSearchService = new ShopSearchService(this);
