@@ -437,7 +437,7 @@ public class ShopRevanced extends JavaPlugin {
         // Initialize all optional plugin integrations via IntegrationManager
         integrationManager.initialize();
 
-        int bstatsPluginId = 25211;
+        int bstatsPluginId = 35542;
         metrics = new Metrics(plugin, bstatsPluginId);
         metrics.addCustomChart(new SingleLineChart("transactions", () -> logHandler.getRecentTransactionCount()));
         metrics.addCustomChart(new SingleLineChart("item_volume", () -> logHandler.getRecentItemVolume()));

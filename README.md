@@ -1,4 +1,4 @@
-![GitHub Release](https://img.shields.io/github/v/release/TheFlood424K/Shop) [![Build and Package](https://github.com/TheFlood424K/Shop/actions/workflows/build.yml/badge.svg)](https://github.com/TheFlood424K/Shop/actions/workflows/build.yml) ![Java 25](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white) ![Paper 26.2](https://img.shields.io/badge/Paper-26.2-16A085?logo=papermc&logoColor=white) ![Folia](https://img.shields.io/badge/Folia-supported-4CAF50) ![DivineMC](https://img.shields.io/badge/DivineMC-compatible-7E57C2) ![GeyserMC/Floodgate](https://img.shields.io/badge/GeyserMC%2FFloodgate-compatible-00A8E8) ![bStats Servers](https://img.shields.io/bstats/servers/25211) ![bStats Players](https://img.shields.io/bstats/players/25211)
+![GitHub Release](https://img.shields.io/github/v/release/TheFlood424K/Shop) [![Build and Package](https://github.com/TheFlood424K/Shop/actions/workflows/build.yml/badge.svg)](https://github.com/TheFlood424K/Shop/actions/workflows/build.yml) ![Java 25](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white) ![Paper 26.2](https://img.shields.io/badge/Paper-26.2-16A085?logo=papermc&logoColor=white) ![Folia](https://img.shields.io/badge/Folia-supported-4CAF50) ![DivineMC](https://img.shields.io/badge/DivineMC-compatible-7E57C2) ![GeyserMC/Floodgate](https://img.shields.io/badge/GeyserMC%2FFloodgate-compatible-00A8E8) ![bStats Servers](https://img.shields.io/bstats/servers/35542) ![bStats Players](https://img.shields.io/bstats/players/35542)
 
 [![520ef725efdc8caad836d0370a17d58ce8ee99b2](https://github.com/user-attachments/assets/075aaff3-2328-4672-89af-32bc86ec3fcd)](https://www.spigotmc.org/resources/shop-the-intuitive-shop-plugin.9628/)
 
@@ -10,7 +10,7 @@ Shop lets players create in-game buy, sell, barter, combo, and gamble shops with
 
 Version **v2.0** is a complete modernization of the original plugin: PaperMC 26.2 APIs, Java 25, Folia-safe scheduling, Adventure Components, and refreshed integration dependencies.
 
-[![Server Metrics](https://bstats.org/signatures/bukkit/shop-the-intuitive-shop-plugin.svg)](https://bstats.org/plugin/bukkit/shop-the-intuitive-shop-plugin/25211)
+[![Server Metrics](https://bstats.org/signatures/bukkit/shop-the-intuitive-shop-plugin.svg)](https://bstats.org/plugin/bukkit/shop-the-intuitive-shop-plugin/35542)
 
 ## Features
 
@@ -74,6 +74,10 @@ Both methods are configurable. See the [player instructions](wiki/player-instruc
 
 Optional integrations are detected at runtime and are not required to run Shop.
 
+### Metrics (bStats)
+
+Shop reports anonymous usage statistics to [bStats.org](https://bstats.org) so maintainers can understand how the plugin is used across servers. No player names, IP addresses, or server identifiers are transmitted. See the [bStats metrics documentation](wiki/metrics.md) for what is collected and how to opt out.
+
 ### Build
 
 - JDK **25**
@@ -113,7 +117,7 @@ The distributable JAR is written to `target/Shop-{version}.jar`. See [CONTRIBUTI
 - [Adventure documentation](https://docs.advntr.dev/)
 - [GeyserMC](https://geysermc.org/) and [Floodgate](https://geysermc.org/wiki/floodgate)
 - [Project brief](PROJECT_BRIEF.md) and [migration plan](MIGRATION_PLAN.md)
-- Wiki guides in [`wiki/`](wiki/)
+- Wiki guides in [`wiki/`](wiki/) — including [bStats metrics](wiki/metrics.md)
 
 ## Contributing
 
