@@ -14,7 +14,7 @@ file-sidecar
 sha256:lf1:4fa267c354d57fa0a0d6df711a47c8343fc60b6d57850311f7c5e5604c30e1c9
 
 [_description]
-Package: com.snowgears.shop.display. AbstractDisplay, Display, DisplayDisabled, PaperDisplayMarker - Paper entity-backed shop displays.
+Package: com.theflood424k.shoprevanced.display. AbstractDisplay, Display, DisplayDisabled, PaperDisplayMarker - Paper entity-backed shop displays.
 
 [_conclusions]
 Display system is Paper-specific and uses per-player visibility for smooth multiplayer experience without affecting other viewers.
@@ -29,4 +29,5 @@ Manages display visibility per-player, creates floating text entities, handles t
 
 [_careful/Compatibility]
 PaperDisplayMarker uses different key/data type from legacy `display: 1` cleanup marker to avoid deleting active Paper displays. Requires Paper API for per-player visibility.
+
 

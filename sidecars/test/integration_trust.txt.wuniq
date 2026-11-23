@@ -14,7 +14,7 @@ file-sidecar
 sha256:lf1:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 
 [_description]
-Package: com.snowgears.shop.test.integration_trust. Integration trust test docstrings.
+Package: com.theflood424k.shoprevanced.test.integration_trust. Integration trust test docstrings.
 
 [_summary]
 Integration trust tests for the Shop plugin. Tests trust-based integrations with external protection plugins.
@@ -24,4 +24,5 @@ Trust integration tests verify external plugin compatibility with shop container
 
 [_does]
 Tests trust-based integrations with external protection plugins like BlockProt, Bolt, and CashierLock.
+
 

@@ -14,7 +14,7 @@ file-sidecar
 sha256:lf1:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 
 [_description]
-Package: com.snowgears.shop.test.hook. Test hook docstrings.
+Package: com.theflood424k.shoprevanced.test.hook. Test hook docstrings.
 
 [_summary]
 Test hook package for the Shop plugin. Provides test hooks for integration testing scenarios.
@@ -24,4 +24,5 @@ Test hooks enable integration test scenarios without modifying production code.
 
 [_does]
 Provides test hooks for integration testing scenarios involving external plugin integrations.
+
 

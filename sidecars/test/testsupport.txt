@@ -30,9 +30,10 @@ public class PluginLoadTest extends BaseMockBukkitTest {
 * Test helper for replacing a registered shop instance with a Mockito spy.
  * <p>
  * This is used to verify whether {@link AbstractShop#executeClickAction(PlayerInteractEvent, ShopClickType)}
- * was called by {@link com.snowgears.shop.listener.ShopListener}.
+ * was called by {@link com.theflood424k.shoprevanced.listener.ShopListener}.
 
 === malex\Shop\.worktrees\theflood424k-psychic-memory\core\src\test\java\com\snowgears\shop\testsupport\TestReflection.java ===
 * Test-only reflection utilities.
  * <p>
  * Prefer using this helper instead of spreading reflective hacks across tests.
+
