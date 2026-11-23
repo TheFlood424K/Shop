@@ -14,7 +14,7 @@ file-sidecar
 sha256:lf1:e4e3b670cba3e7bcd7c13f0b79f062376e048d58875dc0ec68abd93f2d3da752
 
 [_description]
-Package: com.snowgears.shop.test.integration_features. Integration feature test docstrings.
+Package: com.theflood424k.shoprevanced.test.integration_features. Integration feature test docstrings.
 
 [_summary]
 Integration feature tests for the Shop plugin. Tests owner head lazy building to prevent Mojang session server flooding at startup.
@@ -24,4 +24,5 @@ Tests that owner heads are lazily built to avoid flooding Mojang session servers
 
 [_conclusions]
 Lazy head building prevents session server flooding during shop startup on Paper.
+
 

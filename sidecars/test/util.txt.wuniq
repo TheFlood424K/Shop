@@ -14,7 +14,7 @@ file-sidecar
 sha256:lf1:cf93d940c696e3df2f493f460430e6a47625413e04e3f974705b37ed75a9fd44
 
 [_description]
-Package: com.snowgears.shop.test.util. Test utility docstrings.
+Package: com.theflood424k.shoprevanced.test.util. Test utility docstrings.
 
 [_summary]
 Utility tests for the Shop plugin. Tests MariaDB JDBC client version fix, MiniMessage formatting regression, and gradient word preservation.
@@ -29,4 +29,5 @@ MariaDB Java client 2.7.14 resolves cleartext password disclosure vulnerability 
 
 [_does]
 Tests MariaDB JDBC client version fix (Issue #204), MiniMessage formatting regression (Issue #152/shopbugs#496), and gradient word preservation in formatting.
+
 

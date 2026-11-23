@@ -14,7 +14,7 @@ file-sidecar
 sha256:lf1:27b69890c9b4e4a0f4bad3b5e3c6eb41cbc25f08a5db0a50bc3aba49b4ad53dc
 
 [_description]
-Package: com.snowgears.shop.test. Test docstrings.
+Package: com.theflood424k.shoprevanced.test. Test docstrings.
 
 [_summary]
 Root test package for the Shop plugin. Contains basic plugin loading and compatibility tests for Spigot-to-Paper migration.
@@ -29,4 +29,5 @@ Verifies plugin loads in MockBukkit environment, tests Spigot-to-Paper migration
 
 [_careful/Compatibility]
 VaultUnlocked positive path verified by direct field injection since MockBukkit ServerMock.pluginManager is final and cannot be stubbed.
+
 
