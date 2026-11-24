@@ -259,7 +259,9 @@ logging:
    databaseName: "shopdb"
    port: 3306
    user: "shop"
-   password: "mysecurepassword"
+   # SECURITY: Set a strong password here when using MYSQL or MARIADB logging.
+   # Do NOT use the default value below in production. Leave empty only for local FILE (H2) logging.
+   password: ""
    # properties are only used on a 'MYSQL' type for now, you shouldn't need to touch this normally
    properties:
       - "useSSL=false"

@@ -20,6 +20,10 @@ public class Transaction {
     private AbstractShop shop;
     private ShopType transactionType;
 
+    // True while this transaction owns the shop's reentrancy guard. verify() uses this to avoid
+    // rejecting the very transaction that set shop.setPerformingTransaction(true).
+    private boolean guardOwner;
+
     private TransactionError error;
 
     // The buyer in the transaction
@@ -141,13 +145,23 @@ public class Transaction {
         }
     }
 
-    // Verify there are no errors with the transaction, note, you must run negotiatePurchase before verifying!
+    // Mark this transaction as the owner of the shop's reentrancy guard. Set to true by
+        // TransactionHandler.executeTransactionSequence() before verify() runs, and reset to false
+        // in its finally block. verify() uses this flag to avoid rejecting the transaction that set
+        // shop.setPerformingTransaction(true) — otherwise the guard would self-cancel the first tx.
+        public void setGuardOwner(boolean guardOwner) { this.guardOwner = guardOwner; }
+
+        // Verify there are no errors with the transaction, note, you must run negotiatePurchase before verifying!
     public TransactionError verify() {
         // Check if the transaction has already been cancelled
         if (this.error == TransactionError.CANCELLED) { return this.error; }
 
         // Don't process another transaction if there is one in progress!
-        if (shop.isPerformingTransaction()) { return this.setError(TransactionError.CANCELLED); }
+            // The flag is set by TransactionHandler.executeTransactionSequence() before verify() is
+            // called, so a concurrent transaction on the same shop is rejected. The transaction that
+            // set the flag marks itself as the guard owner (setGuardOwner(true)) so verify() does not
+            // reject its own transaction — otherwise the guard would self-cancel the first transaction.
+            if (shop.isPerformingTransaction() && !this.guardOwner) { return this.setError(TransactionError.CANCELLED); }
 
         // Check if the buyer has enough funds to pay for the tx (price + tax)
         if (this.buyer.getAvailableFunds() < this.getTotalPrice()) {
@@ -214,39 +228,82 @@ public class Transaction {
 
     public TransactionError execute() {
         // Check to see if we had any errors, you must do this before performing the transaction!
+        // NOTE: the shop's reentrancy guard flag (shop.setPerformingTransaction) is owned solely by
+        // TransactionHandler.executeTransactionSequence(), which sets it before verify() and resets it
+        // in its own finally block. execute() must NOT also set/reset the flag: doing so created a
+        // redundant set and, worse, a window between execute()'s inner finally and the handler's outer
+        // finally where a concurrent transaction could slip through verify(). verify() already rejects
+        // any transaction whose guardOwner is false while the flag is set, so the guard is enforced
+        // here without execute() touching the flag.
         if (this.verify() != TransactionError.NONE) { return this.error; }
 
         // Perform the transaction, we are fully verified, so we can just directly run through the transaction
         ItemStack itemSold = this.itemBeingSold.clone();
         itemSold.setAmount(this.amountBeingSold);
 
-        // Swap funds. The buyer covers base price plus any ezTax; the seller
+        // Swap funds. The buyer covers the base price plus any ezTax; the seller
         // receives only the base price (tax is collected for remittance).
-        boolean paymentSuccessful = this.buyer.deductFunds(this.getTotalPrice());
-        // Verify we took the funds from the buyer
-        if (!paymentSuccessful) {
+        double totalPrice = this.getTotalPrice();
+        boolean paymentTaken = this.buyer.deductFunds(totalPrice);
+        if (!paymentTaken) {
             if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
             else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
         }
-        // Pay the seller the base price (tax is not paid out to the seller)
-        this.seller.depositFunds(this.price);
 
-        // Swap Item
-        this.seller.deductItem(itemSold);
-        this.buyer.depositItem(itemSold);
+        // Pay the seller the funds. If this fails (partial failure), roll back the buyer's payment.
+        boolean fundsDeposited = this.seller.depositFunds(this.price);
+        if (!fundsDeposited) {
+            rollbackFunds(this.buyer, totalPrice);
+            return this.setError(TransactionError.INVENTORY_FULL_SHOP);
+        }
+
+        // Swap Item: seller gives item to buyer. If either side fails, roll back everything.
+        boolean itemDeducted = this.seller.deductItem(itemSold);
+        if (!itemDeducted) {
+            rollbackFunds(this.buyer, totalPrice);
+            recoverFunds(this.seller, this.price);
+            return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP);
+        }
+
+        boolean itemDeposited = this.buyer.depositItem(itemSold);
+        if (!itemDeposited) {
+            rollbackFunds(this.buyer, totalPrice);
+            recoverFunds(this.seller, this.price);
+            this.seller.depositItem(itemSold);
+            return this.setError(TransactionError.INVENTORY_FULL_PLAYER);
+        }
 
         // Special handling for Gamble shops!
         if (shop.getType() == ShopType.GAMBLE) {
             // Cycle display to show won item
             if (shop instanceof GambleShop) { ((GambleShop) shop).shuffleGambleItem(player); }
             // Exit early
-            return this.setError(TransactionError.NONE);
+        return this.setError(TransactionError.NONE);
         }
 
         shop.updateStock();
 
         // Successful!
         return this.setError(TransactionError.NONE);
+    }
+
+    // Logs a warning if the refund itself partially fails.
+    private void rollbackFunds(TransactionParty party, double amount) {
+        boolean refunded = party.depositFunds(amount);
+        if (!refunded) {
+            ShopRevanced.getPlugin().getLogger().warning(
+                    "Transaction rollback: could not refund " + amount + " to " + party + " (inventory may be full)");
+        }
+    }
+
+    // Attempt to take funds back from a party (reverse a deposit). Used for rollback on partial failure.
+    // Logs a warning if the recovery itself partially fails.
+    private void recoverFunds(TransactionParty party, double amount) {
+        boolean recovered = party.deductFunds(amount);
+        if (!recovered) {
+            ShopRevanced.getPlugin().getLogger().warning(
+                    "Transaction rollback: could not recover " + amount + " from " + party + " (insufficient funds)");
+        }
     }
 
     public Player getPlayer() {
