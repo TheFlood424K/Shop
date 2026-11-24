@@ -103,6 +103,16 @@ public class LogHandler {
 
        List<String> connectionProperties = shopConfig.getStringList("logging.properties");
 
+        // Security: refuse to start remote database logging with an empty/default password.
+        if ((type.equalsIgnoreCase("MYSQL") || type.equalsIgnoreCase("MARIADB"))
+                && (password == null || password.isEmpty())) {
+            plugin.getLogger().log(Level.WARNING,
+                    "Database logging is set to '" + type + "' but logging.password is empty in config.yml. "
+                            + "Set a strong password before enabling remote database logging.");
+            this.enabled = false;
+            return;
+        }
+
         if(type.equalsIgnoreCase("OFF")) {
             this.enabled = false;
             return;
@@ -114,8 +124,15 @@ public class LogHandler {
             dataSource = new HikariDataSource();
 
             String jdbcURL = "jdbc:mysql://"+serverName+":"+port+"/"+databaseName;
+            boolean first = true;
             for(String property : connectionProperties){
-                jdbcURL += "?"+property;
+                if (property == null || !isValidJdbcProperty(property)) {
+                    plugin.getLogger().log(Level.WARNING,
+                            "Ignoring unsafe logging.properties entry in config.yml: " + property);
+                    continue;
+                }
+                jdbcURL += (first ? "?" : "&") + property;
+                first = false;
             }
 
             dataSource.setJdbcUrl(jdbcURL);
@@ -822,6 +839,33 @@ public class LogHandler {
      */
     public boolean isEnabled() {
         return enabled;
+    }
+
+    /**
+     * Validates a JDBC URL property read from config to prevent URL injection.
+     * Only allows a simple `key=value` form where the key is alphanumeric/dot/underscore
+     * and the value contains no spaces, semicolons, ampersands, or question marks.
+     *
+     * @param property the raw property string from config.yml
+     * @return true if the property is safe to append to a JDBC URL
+     */
+    public static boolean isValidJdbcProperty(String property) {
+        if (property == null || property.isEmpty()) {
+            return false;
+        }
+        int eq = property.indexOf('=');
+        if (eq <= 0 || eq == property.length() - 1) {
+            return false;
+        }
+        String key = property.substring(0, eq);
+        String value = property.substring(eq + 1);
+        if (!key.matches("[A-Za-z0-9_.]+")) {
+            return false;
+        }
+        return !value.contains(";") && !value.contains("&")
+                && !value.contains("?") && !value.contains(" ")
+                && !value.contains("\t") && !value.contains("\r")
+                && !value.contains("\n");
     }
 }
 
