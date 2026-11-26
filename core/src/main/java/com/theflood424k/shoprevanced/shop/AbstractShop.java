@@ -48,7 +48,7 @@ public abstract class AbstractShop {
     protected AbstractDisplay display;
     protected double price;
     protected int amount;
-    protected boolean autoPricingEnabled = true;
+    protected boolean autoPricingEnabled = false;
     protected boolean isAdmin;
     protected ShopType type;
     protected String[] signLines;

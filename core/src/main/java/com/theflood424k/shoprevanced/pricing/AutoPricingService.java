@@ -42,12 +42,23 @@ public class AutoPricingService {
         loadConfig();
     }
 
-    /** Loads auto-pricing settings from the plugin config. */
+    /** Loads auto-pricing settings from the plugin config, validating values. */
     private void loadConfig() {
         var config = plugin.getConfig();
         enabled = config.getBoolean("autoPricing.enabled", false);
+
         intervalMinutes = config.getInt("autoPricing.intervalMinutes", 60);
+        if (intervalMinutes <= 0 || intervalMinutes > 10_080) { // > 1 week is unreasonable
+            intervalMinutes = 60;
+            plugin.getLogger().warning("Invalid autoPricing.intervalMinutes; falling back to 60 minutes");
+        }
+
         maxAdjustmentPercent = config.getDouble("autoPricing.maxAdjustmentPercent", 15.0);
+        if (Double.isNaN(maxAdjustmentPercent) || Double.isInfinite(maxAdjustmentPercent)
+                || maxAdjustmentPercent < 0.0 || maxAdjustmentPercent > 100.0) {
+            maxAdjustmentPercent = 15.0;
+            plugin.getLogger().warning("Invalid autoPricing.maxAdjustmentPercent; falling back to 15.0 percent");
+        }
     }
 
     /** Returns whether auto-pricing is currently enabled. */
