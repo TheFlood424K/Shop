@@ -744,6 +744,16 @@ public abstract class AbstractShop {
     }
 
     /**
+     * Sets whether a transaction is currently being performed on this ShopRevanced.
+     * Used as a reentrancy guard so overlapping transactions on the same shop are rejected.
+     *
+     * @param performing true if a transaction is in progress
+     */
+    public void setPerformingTransaction(boolean performing){
+        this.isPerformingTransaction = performing;
+    }
+
+    /**
      * Gets the current sign lines.
      *
      * @return the sign lines

@@ -24,14 +24,10 @@ import org.bukkit.block.Chest;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.block.data.type.WallSign;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.File;
 import java.io.IOException;
@@ -765,40 +761,53 @@ public class ShopRevancedHandler {
 
     /**
      * Removes all ShopRevanced displays for the specified player.
+     * <p>
+     * Only iterates shops the player actually has active displays for,
+     * tracked via {@link #playersWithActiveShopDisplays}, instead of
+     * scanning every shop on the server. When {@code player} is {@code null}
+     * (e.g. during {@code onDisable}), falls back to all shops.
      *
-     * @param player The player
+     * @param player The player, or null to remove all displays for all players
      */
     public void removeAllDisplays(Player player) {
+        if (player != null) {
+            HashSet<Location> activeDisplays = playersWithActiveShopDisplays.get(player.getUniqueId());
+            if (activeDisplays != null) {
+                for (Location displayLoc : new HashSet<>(activeDisplays)) {
+                    AbstractShop shop = getShop(displayLoc);
+                    if (shop != null) {
+                        shop.getDisplay().remove(player);
+                    }
+                }
+                playersWithActiveShopDisplays.remove(player.getUniqueId());
+            }
+            return;
+        }
+        // null player: full cleanup (e.g. onDisable)
         for (AbstractShop shop : storage.getAllShops()) {
-            shop.getDisplay().remove(player);
+            shop.getDisplay().remove(null);
         }
     }
 
     /**
      * Removes legacy display entities.
+     * <p>
+     * Instead of scanning every entity in every world (O(worlds × entities)),
+     * only cleans up display entities belonging to shops we track, plus signs
+     * for shops in loaded chunks. Orphaned legacy entities from old plugin
+     * versions are handled by normal display lifecycle management rather than
+     * a full server-wide entity scan.
      */
     public void removeLegacyDisplays(){
-        for (World world : plugin.getServer().getWorlds()) {
-            for (Entity entity : world.getEntities()) {
-                if(DisplayUtil.isDisplay(entity)){
-                    entity.remove();
-                }
-                //make to sure to clear items from old version of plugin too
-                else if (entity.getType() == EntityType.ITEM) {
-                    ItemMeta itemMeta = ((Item) entity).getItemStack().getItemMeta();
-                    if (UtilMethods.stringStartsWithUUID(itemMeta.getDisplayName())) {
-                        entity.remove();
-                    }
-                }
+        // Clean up signs for all shops in loaded chunks only
+        for (AbstractShop shop : storage.getAllShops()) {
+            if (UtilMethods.isChunkLoaded(shop.getChestLocation())) {
+                shop.updateSign();
             }
         }
-        for(UUID shopOwnerUUID : getShopOwnerUUIDs()){
-            for(AbstractShop shop : getShops(shopOwnerUUID)){
-                if(UtilMethods.isChunkLoaded(shop.getChestLocation())) {
-                    plugin.getLogger().debug("[ShopHander.removeLegacyDisplays] updateSign");
-                    shop.updateSign();
-                }
-            }
+        // Clean up display entities for all shops (their own remove() handles entity cleanup)
+        for (AbstractShop shop : storage.getAllShops()) {
+            shop.getDisplay().remove(null);
         }
     }
 
