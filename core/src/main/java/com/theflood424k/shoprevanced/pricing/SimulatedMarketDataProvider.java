@@ -4,7 +4,6 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * A deterministic, simulated market-data provider used when no real market
@@ -43,9 +42,8 @@ public class SimulatedMarketDataProvider implements MarketDataProvider {
             case DIRT -> 0.5;
             default -> materialHashedPrice(item.getType());
         };
-        // Small simulated market fluctuation so prices drift over time.
-        double jitter = (ThreadLocalRandom.current().nextDouble() - 0.5) * 0.2; // +/- 10%
-        return Optional.of(Math.max(0.01, base * (1.0 + jitter)));
+        // Deterministic base price per material; identical items always receive the same suggestion.
+        return Optional.of(Math.max(0.01, base));
     }
 
     /** Simulate a market outage so the service can demonstrate graceful failure. */

@@ -659,11 +659,15 @@ public abstract class AbstractShop {
 
     /**
      * Sets the price.
+     * <p>
+     * The price change is reflected on the sign and GUI icon via the shop's
+     * owning region thread (Folia-safe).
      *
      * @param price the price to set
      */
     public void setPrice(double price){
         this.price = price;
+        this.updateSign(true);
     }
 
     /**

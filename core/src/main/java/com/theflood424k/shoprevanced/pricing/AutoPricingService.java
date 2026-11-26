@@ -75,7 +75,7 @@ public class AutoPricingService {
             return;
         }
         disable(); // avoid duplicate tasks
-        long periodTicks = intervalMinutes * 60L * 20L;
+        long periodTicks = (long) intervalMinutes * 60L * 20L;
         scheduledTask = plugin.getFoliaLib().getScheduler().runTimer(this::runPricingCycle, periodTicks, periodTicks);
         plugin.getLogger().info("Auto-pricing enabled, running every " + intervalMinutes + " minutes");
     }
