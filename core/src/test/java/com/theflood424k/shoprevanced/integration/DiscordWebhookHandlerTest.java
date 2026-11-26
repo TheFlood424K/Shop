@@ -293,4 +293,94 @@ class DiscordWebhookHandlerTest extends BaseMockBukkitTest {
         String result = (String) escapeMethod.invoke(new DiscordWebhookHandler(getPlugin()), "");
         assertEquals("", result);
     }
+
+    @Test
+    void escapeJson_controlCharactersEscaped() throws Exception {
+        Method escapeMethod = DiscordWebhookHandler.class.getDeclaredMethod("escapeJson", String.class);
+        escapeMethod.setAccessible(true);
+
+        String result = (String) escapeMethod.invoke(new DiscordWebhookHandler(getPlugin()), "a\u0001b\u007fc");
+        assertEquals("a\\u0001b\\u007fc", result);
+    }
+
+    @Test
+    void nonDiscordWebhookUrl_rejectedAtStartup_noSend() {
+        getPlugin().getConfig().set("discord.enabled", true);
+        setRawConfig("discord.webhookUrl", "http://evil.example.com/api/webhooks/123");
+        getPlugin().getConfig().set("discord.notifyOnSale", true);
+
+        WebhookSender sender = mock(WebhookSender.class);
+        DiscordWebhookHandler handler = new DiscordWebhookHandler(getPlugin(), sender);
+        PlayerMock player = getServer().addPlayer();
+        AbstractShop shop = mock(AbstractShop.class);
+        when(shop.isAdmin()).thenReturn(false);
+        when(shop.getType()).thenReturn(ShopType.SELL);
+
+        PlayerExchangeShopEvent event = new PlayerExchangeShopEvent(player, shop);
+        handler.onPlayerExchangeShop(event);
+
+        verify(sender, never()).send(anyString(), anyString());
+    }
+
+    @Test
+    void discordComWebhookUrl_allowed_sends() {
+        getPlugin().getConfig().set("discord.enabled", true);
+        setRawConfig("discord.webhookUrl", "https://discord.com/api/webhooks/test");
+        getPlugin().getConfig().set("discord.notifyOnBuy", true);
+
+        WebhookSender sender = mock(WebhookSender.class);
+        DiscordWebhookHandler handler = createSyncHandler(getPlugin(), sender);
+        PlayerMock player = getServer().addPlayer();
+        AbstractShop shop = mock(AbstractShop.class);
+        when(shop.isAdmin()).thenReturn(false);
+        when(shop.getType()).thenReturn(ShopType.BUY);
+        ItemStack itemStack = mock(ItemStack.class);
+        when(itemStack.getType()).thenReturn(Material.STONE);
+        when(shop.getItemStack()).thenReturn(itemStack);
+
+        PlayerExchangeShopEvent event = new PlayerExchangeShopEvent(player, shop);
+        handler.onPlayerExchangeShop(event);
+
+        verify(sender, times(1)).send(eq("https://discord.com/api/webhooks/test"), anyString());
+    }
+
+    @Test
+    void discordappComWebhookUrl_allowed_sends() {
+        getPlugin().getConfig().set("discord.enabled", true);
+        setRawConfig("discord.webhookUrl", "https://discordapp.com/api/webhooks/test");
+        getPlugin().getConfig().set("discord.notifyOnBuy", true);
+
+        WebhookSender sender = mock(WebhookSender.class);
+        DiscordWebhookHandler handler = createSyncHandler(getPlugin(), sender);
+        PlayerMock player = getServer().addPlayer();
+        AbstractShop shop = mock(AbstractShop.class);
+        when(shop.isAdmin()).thenReturn(false);
+        when(shop.getType()).thenReturn(ShopType.BUY);
+        ItemStack itemStack = mock(ItemStack.class);
+        when(itemStack.getType()).thenReturn(Material.STONE);
+        when(shop.getItemStack()).thenReturn(itemStack);
+
+        PlayerExchangeShopEvent event = new PlayerExchangeShopEvent(player, shop);
+        handler.onPlayerExchangeShop(event);
+
+        verify(sender, times(1)).send(eq("https://discordapp.com/api/webhooks/test"), anyString());
+    }
+
+    @Test
+    void allowedWebhookUrls() {
+        assertTrue(HttpWebhookSender.isAllowedWebhookUrl("https://discord.com/api/webhooks/123/abc"));
+        assertTrue(HttpWebhookSender.isAllowedWebhookUrl("https://discordapp.com/api/webhooks/123/abc"));
+    }
+
+    @Test
+    void disallowedWebhookUrls() {
+        assertFalse(HttpWebhookSender.isAllowedWebhookUrl(null));
+        assertFalse(HttpWebhookSender.isAllowedWebhookUrl(""));
+        assertFalse(HttpWebhookSender.isAllowedWebhookUrl("http://discord.com/api/webhooks/123"));
+        assertFalse(HttpWebhookSender.isAllowedWebhookUrl("https://evil.example.com/api/webhooks/123"));
+        assertFalse(HttpWebhookSender.isAllowedWebhookUrl("https://discord.com.evil.com/api/webhooks/123"));
+        assertFalse(HttpWebhookSender.isAllowedWebhookUrl("https://discord.com:8443/api/webhooks/123"));
+        assertFalse(HttpWebhookSender.isAllowedWebhookUrl("https://user:pass@discord.com/api/webhooks/123"));
+        assertFalse(HttpWebhookSender.isAllowedWebhookUrl("https://discord.com/api/other/123"));
+    }
 }

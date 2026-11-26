@@ -23,8 +23,46 @@ public class HttpWebhookSender implements WebhookSender {
                 .build();
     }
 
+    /**
+     * Allowlist for outbound webhook targets, mitigating SSRF via a configured
+     * webhook URL. Only HTTPS Discord webhook endpoints are permitted:
+     * https://discord.com/api/webhooks/... and https://discordapp.com/api/webhooks/...
+     */
+    public static boolean isAllowedWebhookUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        URI uri;
+        try {
+            uri = URI.create(url);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        if (!"https".equalsIgnoreCase(uri.getScheme())) {
+            return false;
+        }
+        String host = uri.getHost();
+        if (host == null || uri.getUserInfo() != null) {
+            return false;
+        }
+        int port = uri.getPort();
+        if (port != -1 && port != 443) {
+            return false;
+        }
+        String path = uri.getPath();
+        if (path == null || !path.startsWith("/api/webhooks/")) {
+            return false;
+        }
+        return "discord.com".equalsIgnoreCase(host) || "discordapp.com".equalsIgnoreCase(host);
+    }
+
     @Override
     public void send(String url, String jsonPayload) {
+        if (!isAllowedWebhookUrl(url)) {
+            LOGGER.warning("Refusing to send webhook notification: target URL is not on the Discord webhook allowlist.");
+            return;
+        }
+
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Content-Type", "application/json")

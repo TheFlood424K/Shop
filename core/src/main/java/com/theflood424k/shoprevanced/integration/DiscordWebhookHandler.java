@@ -4,6 +4,7 @@ import com.theflood424k.shoprevanced.ShopRevanced;
 import com.theflood424k.shoprevanced.event.PlayerExchangeShopEvent;
 import com.theflood424k.shoprevanced.shop.AbstractShop;
 import com.theflood424k.shoprevanced.shop.ShopType;
+import com.tcoded.folialib.FoliaLib;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -58,6 +59,16 @@ public class DiscordWebhookHandler implements Listener {
         notifyShopOwnerDm = plugin.getConfig().getBoolean("discord.notifyShopOwnerDm", false);
         username = plugin.getConfig().getString("discord.username", "Shop");
         avatarUrl = plugin.getConfig().getString("discord.avatarUrl", "");
+
+        // SSRF guard: only Discord webhook endpoints may be used as the webhook URL.
+        // Anything else is rejected with a startup warning and treated as unset, so no
+        // outbound request is ever made to an untrusted target.
+        if (!webhookUrl.isEmpty() && !HttpWebhookSender.isAllowedWebhookUrl(webhookUrl)) {
+            plugin.getLogger().warning("Configured Discord webhook URL is not an allowlisted Discord webhook URL "
+                    + "(https://discord.com/api/webhooks/ or https://discordapp.com/api/webhooks/); "
+                    + "Discord webhook notifications are disabled.");
+            webhookUrl = "";
+        }
     }
 
     @EventHandler
@@ -86,21 +97,38 @@ public class DiscordWebhookHandler implements Listener {
             return;
         }
 
+        // Resolve the DM recipient on the event thread so the async sender never
+        // calls main-thread Bukkit APIs (Bukkit.getPlayer) on a Folia server.
+        Player owner = null;
+        if (notifyShopOwnerDm && discordDmSender != null && !shop.isAdmin()) {
+            owner = Bukkit.getPlayer(shop.getOwnerName());
+        }
+
         // Send asynchronously to avoid blocking the main thread
         runAsync(() -> sendWebhook(player, shop, type));
 
         // Optionally DM the shop owner if their account is linked via DiscordSRV
         if (notifyShopOwnerDm && discordDmSender != null && !shop.isAdmin()) {
-            runAsync(() -> sendDmToOwner(player, shop, type));
+            final Player dmOwner = owner;
+            runAsync(() -> sendDmToOwner(player, shop, type, dmOwner));
         }
     }
 
     /**
-     * Runs a task off the main thread. Package-private so tests can override it to run
-     * synchronously without relying on the Bukkit scheduler threading.
+     * Runs a task off the main thread. When FoliaLib is available the task is routed
+     * through FoliaLib's scheduler instead of raw Bukkit; otherwise it falls back to
+     * the Bukkit async scheduler.
+     * <p>
+     * Package-private seam: tests can override this to run synchronously without
+     * relying on the Bukkit/Folia scheduler threading.
      */
     void runAsync(Runnable runnable) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, runnable);
+        FoliaLib foliaLib = plugin.getFoliaLib();
+        if (foliaLib != null) {
+            foliaLib.getScheduler().runAsync(ignored -> runnable.run());
+        } else {
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, runnable);
+        }
     }
 
     private void sendWebhook(Player player, AbstractShop shop, ShopType type) {
@@ -113,9 +141,7 @@ public class DiscordWebhookHandler implements Listener {
         sender.send(webhookUrl, json);
     }
 
-    private void sendDmToOwner(Player buyer, AbstractShop shop, ShopType type) {
-        String ownerName = shop.getOwnerName();
-        Player owner = Bukkit.getPlayer(ownerName);
+    private void sendDmToOwner(Player buyer, AbstractShop shop, ShopType type, Player owner) {
         if (owner == null) {
             return;
         }
@@ -167,10 +193,25 @@ public class DiscordWebhookHandler implements Listener {
         if (s == null) {
             return "";
         }
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+        StringBuilder sb = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\' -> sb.append("\\\\");
+                case '"' -> sb.append("\\\"");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                default -> {
+                    // JSON requires control characters (U+0000 through U+001F and U+007F) to be escaped.
+                    if (c < 0x20 || c == 0x7F) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+            }
+        }
+        return sb.toString();
     }
 }
