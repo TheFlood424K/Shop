@@ -98,6 +98,12 @@ public class CreationValidator {
     }
 
     public boolean getShopIsAdmin(String input) {
-        return input.toLowerCase().contains(ShopRevancedMessage.getCreationWord("ADMIN"));
+        if (input == null) {
+            return false;
+        }
+        // Require an exact (case-insensitive) match of the admin keyword rather than a
+        // substring match, so a sign like "admin shop" no longer accidentally creates an admin shop.
+        String keyword = ShopRevancedMessage.getCreationWord("ADMIN").toLowerCase();
+        return input.trim().toLowerCase().equals(keyword);
     }
 }
