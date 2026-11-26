@@ -660,6 +660,10 @@ public class ShopRevanced extends JavaPlugin {
         HandlerList.unregisterAll(shopCreationListener);
         HandlerList.unregisterAll(shopProtectionListener);
 
+        // Unregister the Discord webhook handler so a /reload does not leave a
+        // stale listener registered (which would cause duplicate dispatch).
+        HandlerList.unregisterAll(discordWebhookHandler);
+
         plugin.getShopRevancedHandler().removeAllDisplays(null);
 
         onDisable();
