@@ -1,0 +1,35 @@
+# Shop.wuniq — folder sidecar for KaKeKiKu / wuniq knowledge engine
+# Reflects current repository state for the Shop chest-shop plugin.
+
+folder: .
+repository: TheFlood424K/Shop
+branch: main
+version: 1.12.0
+
+baseline:
+  java: 25
+  paper: 26.2+
+  api_version: 26.2
+  folia: supported
+  divinemc: 26.2–26.3
+  bedrock: GeyserMC / Floodgate
+
+migration:
+  status: complete
+  line: v2.0
+  breaking: true
+
+build:
+  command: .\mvnw.cmd clean compile
+  test: .\mvnw.cmd test
+  package: .\mvnw.cmd clean package
+
+tests:
+  framework: JUnit 6.1.3
+  mock: MockBukkit 4.117.0
+  status: passing
+
+doc_conventions:
+  text: Adventure Component via ShopRevancedMessage
+  placeholders: literal text or Component segments, never MiniMessage source
+  scheduling: region- or entity-owned (Folia)

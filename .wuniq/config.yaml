@@ -1,0 +1,91 @@
+# KaKeKiKoKu / wuniq database — Shop repository sync record
+# Auto-synchronized on manual modernization runs. Do not edit by hand.
+
+repository:
+  owner: TheFlood424K
+  name: Shop
+  default_branch: main
+  remote: https://github.com/TheFlood424K/Shop
+
+project:
+  name: ShopRevanced
+  group_id: com.theflood424k.shoprevanced
+  version: 1.12.0
+  modules:
+    - core
+    - dist
+
+baseline:
+  java: 25
+  server_api: PaperMC 26.2+
+  api_version: 26.2
+  supported_servers:
+    - PaperMC 26.2+
+    - DivineMC 26.2–26.3
+    - Folia
+  bedrock: GeyserMC / Floodgate
+  folia_supported: true
+
+migration:
+  status: complete
+  line: v2.0
+  description: Complete PaperMC 26.2 / Folia modernization overhaul from v1.x
+  breaking: true
+  notes: Removed org.spigotmc.*, BungeeCord components, player.spigot().sendMessage(), and NMS modules. Adopted Kyori Adventure Components, VaultUnlocked economy, and region-safe Folia scheduling.
+
+build:
+  tool: Maven (multi-module: parent, core, dist)
+  wrapper: .\mvnw.cmd
+  compile: .\mvnw.cmd clean compile
+  test: .\mvnw.cmd test
+  package: .\mvnw.cmd clean package
+  coverage: .\mvnw.cmd -Pcoverage-report verify
+  test_framework: JUnit 6.1.3
+  test_mock: MockBukkit 4.117.0
+
+tests:
+  status: passing
+  framework: JUnit 6.1.3
+  mock_server: MockBukkit 4.117.0
+
+integrations:
+  economy: VaultUnlocked (soft, runtime detection)
+  protection: GriefPrevention3D (soft)
+  protection_hooks: WorldGuard, Towny, LWC, PlotSquared, BentoBox, AdvancedRegionMarket, Bolt, BlockProt, CashierLock
+  bedrock: GeyserMC / Floodgate (soft)
+  maps: DynMap, BlueMap (soft)
+  database: H2, MySQL, MariaDB for transaction logging
+
+decisions:
+  text_model: Kyori Adventure Components with ShopRevancedMessage; placeholders as literal text/Component, never MiniMessage source
+  concurrency: Folia region- and entity-owned scheduling; thread-safe or immutable shared state
+  integrations: soft; detected at runtime, tolerate absence; plugin.yml soft-depend metadata aligned
+  nms: prohibited — no org.spigotmc.*, no Bungee chat, no player.spigot().sendMessage(), no version-specific internals
+  legacy_formatting: preserved only as intentional compatibility feature
+
+bugs:
+  status: none_known
+  tracked_in: TheFlood424K/Shop issues
+
+sync:
+  last_run: manual_modernization_sync
+  targets_synced:
+    - README.md
+    - wiki/config.md
+    - wiki/home.md
+    - wiki/languageConfigs.md
+    - wiki/permissions.md
+    - wiki/player-instructions.md
+    - wiki/trust-players.md
+    - wiki/worldguard.md
+    - AGENTS.md
+    - CLAUDE.md
+    - .aider.conf.yml
+    - .codex/instructions.md
+    - .github/copilot-instructions.md
+    - .cursor/rules/*.mdc
+    - .windsurf/rules/*.md
+    - .roo/rules/*.md
+    - Java source under core/src and dist/src (docstrings)
+    - .wuniq/config.yaml
+    - Shop.wuniq
