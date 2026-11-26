@@ -69,6 +69,7 @@ v2.0 replaces legacy chat components with Adventure Components, uses VaultUnlock
 - [Permissions](permissions.md)
 - [Language configuration](languageConfigs.md)
 - [WorldGuard integration](worldguard.md)
+- [bStats Metrics](metrics.md)
 
 ## Display Types
 <table>

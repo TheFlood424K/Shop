@@ -142,6 +142,7 @@ public class ShopItemListManager {
 
         try {
             File itemListFile = new File(plugin.getDataFolder() + "/itemList.yml");
+            itemListFile.getParentFile().mkdirs();
 
             if (!itemListFile.exists()) {
                 itemListFile.createNewFile();

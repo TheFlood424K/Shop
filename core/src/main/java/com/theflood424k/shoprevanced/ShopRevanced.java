@@ -1,10 +1,13 @@
 package com.theflood424k.shoprevanced;
 
+import com.theflood424k.shoprevanced.compat.CompatibilityManager;
+import com.theflood424k.shoprevanced.compat.CompatibilityProvider;
 import com.theflood424k.shoprevanced.config.ConfigManager;
 import com.theflood424k.shoprevanced.display.DisplayTagOption;
 import com.theflood424k.shoprevanced.display.DisplayType;
 import com.theflood424k.shoprevanced.gui.ShopGUIListener;
 import com.theflood424k.shoprevanced.handler.*;
+import com.theflood424k.shoprevanced.search.ShopSearchService;
 import com.theflood424k.shoprevanced.integration.*;
 import com.theflood424k.shoprevanced.listener.BucketEmptyListener;
 import com.theflood424k.shoprevanced.listener.CreativeSelectionListener;
@@ -56,6 +59,7 @@ public class ShopRevanced extends JavaPlugin {
     private ShopProtectionListener shopProtectionListener;
 
     private ShopRevancedHandler shopRevancedHandler;
+    private ShopSearchService shopSearchService;
     private ShopRevancedGuiHandler guiHandler;
     private ItemNameUtil itemNameUtil;
     private ShopRevancedCreationUtil shopRevancedCreationUtil;
@@ -168,6 +172,10 @@ public class ShopRevanced extends JavaPlugin {
 
         // Initialize FoliaLib
         foliaLib = new FoliaLib(this);
+
+        for (CompatibilityProvider provider : CompatibilityManager.detect(getServer())) {
+            logger.info("Shop " + provider.id() + " compatibility enabled: " + provider.describe(getServer()));
+        }
 
         File configFile = new File(getDataFolder(), "config.yml");
         if (!configFile.exists()) {
@@ -418,8 +426,12 @@ public class ShopRevanced extends JavaPlugin {
         // Load CommandHandler by initializing it once
         new CommandHandler(this, null, commandAlias, "Base command for the ShopRevanced plugin", "/ShopRevanced", new ArrayList(Arrays.asList(commandAlias)));
 
+        // Load TransactionCommandHandler for transaction lookup
+        new TransactionCommandHandler(this);
+
         guiHandler = new ShopRevancedGuiHandler(plugin);
         shopRevancedHandler = new ShopRevancedHandler(plugin);
+        shopSearchService = new ShopSearchService(this);
         guiHandler.loadIconsAndTitles();
         logHandler = new LogHandler(plugin, config);
 
@@ -437,7 +449,7 @@ public class ShopRevanced extends JavaPlugin {
         // Initialize all optional plugin integrations via IntegrationManager
         integrationManager.initialize();
 
-        int bstatsPluginId = 25211;
+        int bstatsPluginId = 35542;
         metrics = new Metrics(plugin, bstatsPluginId);
         metrics.addCustomChart(new SingleLineChart("transactions", () -> logHandler.getRecentTransactionCount()));
         metrics.addCustomChart(new SingleLineChart("item_volume", () -> logHandler.getRecentItemVolume()));
@@ -706,6 +718,10 @@ public class ShopRevanced extends JavaPlugin {
 
     public ShopRevancedHandler getShopRevancedHandler() {
         return shopRevancedHandler;
+    }
+
+    public ShopSearchService getShopSearchService() {
+        return shopSearchService;
     }
 
     public ShopRevancedGuiHandler getGuiHandler(){

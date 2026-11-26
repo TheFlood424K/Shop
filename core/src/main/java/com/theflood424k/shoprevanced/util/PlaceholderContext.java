@@ -19,6 +19,7 @@ public class PlaceholderContext {
     private ShopRevancedCreationProcess process;
     private OfflineTransactions offlineTransactions;
     private Location location;
+        private int count;
 
     // Create empty Placeholder Context
     public PlaceholderContext() { }
@@ -72,6 +73,14 @@ public class PlaceholderContext {
     public OfflineTransactions getOfflineTransactions() {
         return offlineTransactions;
     }
+
+        public void setCount(int count) {
+            this.count = count;
+        }
+
+        public int getCount() {
+            return count;
+        }
 
     public Location getLocation() { return location; }
 

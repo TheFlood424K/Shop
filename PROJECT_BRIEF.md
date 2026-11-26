@@ -87,12 +87,12 @@ Shop messages are represented as Adventure `Component` objects. `ShopMessage` su
 | `dist/pom.xml` | Final `Shop-{version}.jar` assembly |
 | `core/src/main/resources/plugin.yml` | Paper API version, Folia flag, commands, permissions, and soft dependencies |
 | `core/src/main/resources/config.yml` | Runtime defaults and integration switches |
-| `core/src/main/java/com/snowgears/shop/Shop.java` | Plugin bootstrap, integration detection, and dependency wiring |
-| `core/src/main/java/com/snowgears/shop/listener/` | Shop, sign, container, and interaction event handling |
-| `core/src/main/java/com/snowgears/shop/gui/` | Shop browsing and transaction interfaces |
-| `core/src/main/java/com/snowgears/shop/hook/` | Optional plugin adapters |
-| `core/src/main/java/com/snowgears/shop/util/` | Adventure messages, update checks, item and server helpers |
-| `core/src/main/java/com/snowgears/shop/logger/` | H2/MySQL/MariaDB transaction logging |
+| `core/src/main/java/com/theflood424k/shoprevanced/ShopRevanced.java` | Plugin bootstrap, integration detection, and dependency wiring |
+| `core/src/main/java/com/theflood424k/shoprevanced/listener/` | Shop, sign, container, and interaction event handling |
+| `core/src/main/java/com/theflood424k/shoprevanced/gui/` | Shop browsing and transaction interfaces |
+| `core/src/main/java/com/theflood424k/shoprevanced/integration/` | Optional plugin adapters |
+| `core/src/main/java/com/theflood424k/shoprevanced/util/` | Adventure messages, update checks, item and server helpers |
+| `core/src/main/java/com/theflood424k/shoprevanced/handler/` | Transaction handling, save/load, and logging |
 | `core/src/test/` | Unit and MockBukkit coverage |
 | `wiki/` | User-facing configuration and integration documentation |
 

@@ -472,3 +472,17 @@ debug:
    # Note: MAKE BACKUP BEFORE USING THIS!
    forceResaveAll: false
 
+   # =================================================================== #
+   #                         GLOBAL SHOP SEARCH                          #
+   # =================================================================== #
+   # https://github.com/snowgears/shop/wiki/Configuration-(config.yml)#shop-search
+   #
+   # Configuration for the /shop search feature which allows players to search
+   # items across all shop catalogs from a single entry point.
+
+   shopSearch:
+      # (default: 10) Number of search results shown per page
+      resultsPerPage: 10
+      # (default: true) Whether to include admin shops (infinite stock) in search results
+      includeAdminShops: true
+

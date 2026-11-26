@@ -580,6 +580,7 @@ public class ShopRevancedMessage {
         });
         registerPlaceholder("[ShopRevanced types]", ShopRevancedMessage::getShopTypesPlaceholder);
         registerPlaceholder("[total shops]", context -> Component.text(String.valueOf(plugin.getShopRevancedHandler().getNumberOfShops())));
+        registerPlaceholder("[count]", context -> Component.text(String.valueOf(context.getCount())));
 
         // Player Info Placeholders
         registerPlaceholder("[owner]", context -> {

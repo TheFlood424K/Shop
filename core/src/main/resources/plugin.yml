@@ -3,7 +3,7 @@ author: SnowGears
 description: Easily create shops to buy or sell items!
 version: ${project.version}
 api-version: '26.2'
-folia-supported: true
+folia-supported: false
 main: com.theflood424k.shoprevanced.ShopRevanced
 softdepend: [NBTAPI, VaultUnlocked, WorldGuard, Towny, LWC, DynMap, BlueMap, BentoBox, AdvancedRegionMarket, Multiverse-Core, Bolt, BlockProt]
 permissions:
