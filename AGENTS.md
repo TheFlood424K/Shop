@@ -1,5 +1,14 @@
 # AGENTS.md — Shop Agent Instructions
 
+## Canonical guidance
+
+All repository guidance lives under `.github/`. Read before acting:
+
+1. `.github/copilot-instructions.md` — canonical repository guidance (project baseline, hard constraints, text model, concurrency model, coding principles).
+2. Files under `.github/instructions/` whose `applyTo` pattern matches the files in scope — path-scoped instructions for core Java, tests, integrations, documentation, Maven dependencies, and GitHub Actions.
+3. `.github/skills/shop-plugin-development/SKILL.md` — end-to-end Shop development workflow.
+4. `.github/agents/` — repository-specific agents (`shop-implementer.agent.md`, `shop-reviewer.agent.md`, `shop-qa.agent.md`).
+
 ## Project
 
 **Shop** is a chest-based shop plugin for Minecraft Java Edition 26.2.

@@ -6,6 +6,16 @@ alwaysApply: false
 
 # Shop Java Guidance
 
-- For production Java, read and follow `.github/instructions/core-java.instructions.md`.
-- For Java tests, also read and follow `.github/instructions/core-tests.instructions.md`.
-- Do not duplicate those scoped rules here; update their canonical source when project-specific guidance changes.
+For production Java, read and follow `.github/instructions/core-java.instructions.md`.
+For Java tests, also read and follow `.github/instructions/core-tests.instructions.md`.
+Do not duplicate those scoped rules here; update their canonical source when project-specific guidance changes.
+
+## Shop-Specific Java Rules
+
+- Use Adventure `Component` for all user-facing text (no Bungee chat)
+- Use Folia-safe scheduling for world, block, sign, and region-sensitive operations
+- Use thread-safe collections for mutable data shared between scheduler contexts
+- Keep optional integrations optional; detect plugins at runtime
+- Preserve legacy `&` formatting only where it remains an intentional compatibility feature
+- Treat placeholder substitutions as plain text, not MiniMessage input
+- Do not reintroduce `org.spigotmc.*` imports or NMS modules

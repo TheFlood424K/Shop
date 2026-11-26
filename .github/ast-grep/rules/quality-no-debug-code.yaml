@@ -1,0 +1,8 @@
+# Detect common debug code patterns
+rule:
+  id: quality-no-debug-code
+  language: java
+  severity: WARNING
+  message: "Debug code detected. Remove temporary debug statements before committing."
+  pattern: |
+    System.err.println($$$);

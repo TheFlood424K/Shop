@@ -1,0 +1,5 @@
+# ast-grep configuration for Shop repo
+# Security and quality scanning for Java source files
+
+rule_path: rules
+language: java
