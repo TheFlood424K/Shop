@@ -1,6 +1,7 @@
 package com.theflood424k.shoprevanced;
 
 import com.theflood424k.shoprevanced.config.ConfigManager;
+import com.theflood424k.shoprevanced.config.ConfigValidator;
 import com.theflood424k.shoprevanced.display.DisplayTagOption;
 import com.theflood424k.shoprevanced.display.DisplayType;
 import com.theflood424k.shoprevanced.gui.ShopGUIListener;
@@ -243,6 +244,17 @@ public class ShopRevanced extends JavaPlugin {
         }
 
         configManager.reloadConfig();
+
+        // Fail-fast validation of configuration values before integrations/economy setup.
+        try {
+            new ConfigValidator().validate(configManager, configManager.getEconomy());
+        } catch (IllegalStateException e) {
+            this.getLogger().severe("Invalid configuration: " + e.getMessage());
+            this.getLogger().severe("Plugin disabled: misconfigured config.yml will not reach integration/economy setup.");
+            getServer().getPluginManager().disablePlugin(plugin);
+            return;
+        }
+
         YamlConfiguration config = configManager.getConfig();
         // Load logger values again in case the log level was changed on a reload
         this.getLogger().setLogLevel(config.getString("logLevel"));
