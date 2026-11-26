@@ -28,27 +28,24 @@ public class InventoryUtils {
         int amount = itemStack.getAmount();
         for (int i = 0; i < contents.length; i++) {
             ItemStack is = contents[i];
-            if (is != null) {
-                // Check if we are the same item type
-                if (itemstacksAreSimilar(is, itemStack)) {
-                    // Take items from stack
-                    if (is.getAmount() > amount) {
-                        contents[i].setAmount(is.getAmount() - amount);
-                        inventory.setContents(contents);
-                        return 0;
-                    }
-                    // If we are equal, remove the stack from the inventory
-                    else if (is.getAmount() == amount) {
-                        contents[i].setType(Material.AIR);
-                        inventory.setContents(contents);
-                        return 0;
-                    }
-                    // We have less than enough, take the amount
-                    else {
-                        amount -= is.getAmount();
-                        contents[i].setType(Material.AIR);
-                    }
+            if (is != null && itemstacksAreSimilar(is, itemStack)) {
+                // Take items from stack
+                if (is.getAmount() > amount) {
+                    contents[i].setAmount(is.getAmount() - amount);
+                    amount = 0;
                 }
+                // If we are equal, remove the stack from the inventory
+                else if (is.getAmount() == amount) {
+                    contents[i].setType(Material.AIR);
+                    amount = 0;
+                }
+                // We have less than enough, take the amount
+                else {
+                    amount -= is.getAmount();
+                    contents[i].setType(Material.AIR);
+                }
+                if (amount == 0)
+                    break;
             }
         }
         inventory.setContents(contents);
@@ -79,11 +76,9 @@ public class InventoryUtils {
 
         //try adding all items from itemStacksAdding and return number of ones you couldnt add
         int amount = 0;
-        for (ItemStack addItem : itemStacksAdding) {
-            HashMap<Integer, ItemStack> noAdd = inventory.addItem(addItem);
-            for(ItemStack noAddItemstack : noAdd.values()) {
-                amount += noAddItemstack.getAmount();
-            }
+        HashMap<Integer, ItemStack> noAdd = inventory.addItem(itemStacksAdding.toArray(new ItemStack[0]));
+        for (ItemStack noAddItemstack : noAdd.values()) {
+            amount += noAddItemstack.getAmount();
         }
         return amount;
     }
