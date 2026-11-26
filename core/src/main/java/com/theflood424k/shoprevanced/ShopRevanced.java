@@ -48,6 +48,7 @@ public class ShopRevanced extends JavaPlugin {
     private MiscListener miscListener;
     private CreativeSelectionListener creativeSelectionListener;
     private ShopGUIListener guiListener;
+    private DiscordWebhookHandler discordWebhookHandler;
 
     // Split listeners extracted from MiscListener and ShopRevancedListener
     private BucketEmptyListener bucketEmptyListener;
@@ -437,6 +438,20 @@ public class ShopRevanced extends JavaPlugin {
         // Initialize all optional plugin integrations via IntegrationManager
         integrationManager.initialize();
 
+        // Discord integration (does not require another plugin to be installed)
+        boolean dmEnabled = this.getConfig().getBoolean("discord.notifyShopOwnerDm", false);
+        DiscordDmSender discordDmSender = dmEnabled ? new DiscordSRVDmSender() : null;
+        discordWebhookHandler = new DiscordWebhookHandler(this, new HttpWebhookSender(), discordDmSender);
+        if (plugin.getConfig().getBoolean("discord.enabled", false)) {
+            getServer().getPluginManager().registerEvents(discordWebhookHandler, this);
+            this.getLogger().notice("Discord integration enabled, sending transaction notifications to configured webhook");
+            if (dmEnabled) {
+                this.getLogger().notice("Discord owner DM notifications enabled via DiscordSRV");
+            }
+        } else {
+            this.getLogger().notice("Discord integration is disabled in config.yml");
+        }
+
         int bstatsPluginId = 25211;
         metrics = new Metrics(plugin, bstatsPluginId);
         metrics.addCustomChart(new SingleLineChart("transactions", () -> logHandler.getRecentTransactionCount()));
@@ -644,6 +659,10 @@ public class ShopRevanced extends JavaPlugin {
         HandlerList.unregisterAll(bucketEmptyListener);
         HandlerList.unregisterAll(shopCreationListener);
         HandlerList.unregisterAll(shopProtectionListener);
+
+        // Unregister the Discord webhook handler so a /reload does not leave a
+        // stale listener registered (which would cause duplicate dispatch).
+        HandlerList.unregisterAll(discordWebhookHandler);
 
         plugin.getShopRevancedHandler().removeAllDisplays(null);
 
