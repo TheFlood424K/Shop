@@ -100,8 +100,8 @@ public class ConfigValidator {
 
         validatePriceSuffixes(priceSuffixes, priceSuffixMinimumValue, problems);
 
-        if (currencyType == CurrencyType.VAULT && itemCurrency == null) {
-            problems.append("Economy provider is required when economy.type is VAULT\n");
+        if (currencyType == CurrencyType.ITEM && itemCurrency == null) {
+            problems.append("Item currency is required when economy.type is ITEM\n");
         }
 
         if (clickTypeActionMap == null || clickTypeActionMap.isEmpty()) {

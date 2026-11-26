@@ -40,6 +40,24 @@ public class IntegrationCoordinator {
      * Configure and initialize all integrations based on config values.
      */
     public void setupIntegrations(ConfigManager configManager, YamlConfiguration config) {
+        // Load integration-enabled flags from config BEFORE passing them to the
+        // IntegrationManager. Reading them after the setters below would pass the
+        // default (false) values and silently disable the integrations.
+        bluemapEnabled = config.getBoolean("bluemap.enabled", false);
+        dynmapEnabled = config.getBoolean("dynmap.enabled", false);
+        hookTowny = configManager.hookTowny();
+
+        // Sync integration-enabled flags to local fields for test compatibility
+        lwcIntegrationEnabled = configManager.isLwcIntegrationEnabled();
+        bentoBoxIntegrationEnabled = configManager.isBentoBoxIntegrationEnabled();
+        advancedRegionMarketIntegrationEnabled = configManager.isAdvancedRegionMarketIntegrationEnabled();
+        plotSquaredIntegrationEnabled = configManager.isPlotSquaredIntegrationEnabled();
+        boltTrustIntegrationEnabled = configManager.isBoltTrustIntegrationEnabled();
+        blockProtTrustIntegrationEnabled = configManager.isBlockProtTrustIntegrationEnabled();
+        cashierLockTrustIntegrationEnabled = configManager.isCashierLockTrustIntegrationEnabled();
+        griefPreventionIntegrationEnabled = configManager.isGriefPreventionIntegrationEnabled();
+        geyserIntegrationEnabled = configManager.isGeyserIntegrationEnabled();
+
         integrationManager.setWorldGuardExists(configManager.worldGuardExists());
         integrationManager.setWorldGuardConfig(configManager.getWorldGuardConfig());
         integrationManager.setLwcIntegrationEnabled(configManager.isLwcIntegrationEnabled());
@@ -54,21 +72,6 @@ public class IntegrationCoordinator {
         integrationManager.setHookTowny(hookTowny);
         integrationManager.setBluemapEnabled(bluemapEnabled);
         integrationManager.setDynmapEnabled(dynmapEnabled);
-
-        // Sync integration-enabled flags to local fields for test compatibility
-        lwcIntegrationEnabled = configManager.isLwcIntegrationEnabled();
-        bentoBoxIntegrationEnabled = configManager.isBentoBoxIntegrationEnabled();
-        advancedRegionMarketIntegrationEnabled = configManager.isAdvancedRegionMarketIntegrationEnabled();
-        plotSquaredIntegrationEnabled = configManager.isPlotSquaredIntegrationEnabled();
-        boltTrustIntegrationEnabled = configManager.isBoltTrustIntegrationEnabled();
-        blockProtTrustIntegrationEnabled = configManager.isBlockProtTrustIntegrationEnabled();
-        cashierLockTrustIntegrationEnabled = configManager.isCashierLockTrustIntegrationEnabled();
-        griefPreventionIntegrationEnabled = configManager.isGriefPreventionIntegrationEnabled();
-        geyserIntegrationEnabled = configManager.isGeyserIntegrationEnabled();
-
-        bluemapEnabled = config.getBoolean("bluemap.enabled", false);
-        dynmapEnabled = config.getBoolean("dynmap.enabled", false);
-        hookTowny = configManager.hookTowny();
 
         integrationManager.initialize();
     }

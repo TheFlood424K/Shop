@@ -174,7 +174,10 @@ public class ShopRevanced extends JavaPlugin {
         configManager = new ConfigManager(this);
         configManager.loadConfigs();
         pluginBootstrap = new PluginBootstrap(this);
-        integrationCoordinator = new IntegrationCoordinator(this);
+        // Share the IntegrationCoordinator owned by PluginBootstrap so that
+        // ShopRevanced and the bootstrap wire against the same instance instead
+        // of two independent (empty) coordinators.
+        integrationCoordinator = pluginBootstrap.getIntegrationCoordinator();
             metrics = new Metrics(this, 25211);
     }
 

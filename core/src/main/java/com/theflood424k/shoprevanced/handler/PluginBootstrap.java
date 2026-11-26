@@ -70,7 +70,14 @@ public class PluginBootstrap {
         createListenersAndHandlers();
         setupEconomy(configManager);
 
-        new ConfigValidator().validate(configManager, configManager.getEconomy());
+        try {
+            new ConfigValidator().validate(configManager, configManager.getEconomy());
+        } catch (IllegalStateException e) {
+            plugin.getLogger().severe("Invalid configuration: " + e.getMessage());
+            plugin.getLogger().severe("Plugin Disabled: invalid configuration value(s) in config.yml.");
+            plugin.getServer().getPluginManager().disablePlugin(plugin);
+            return;
+        }
 
         createCommandHandler(config);
         createGuiHandler();
