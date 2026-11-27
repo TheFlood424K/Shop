@@ -1,0 +1,8 @@
+# Detect System.out.println usage (should use logging framework)
+rule:
+  id: quality-no-system-out-println
+  language: java
+  severity: WARNING
+  message: "Avoid System.out.println. Use a logging framework (e.g., SLF4J, java.util.logging) instead."
+  pattern: |
+    System.out.println($$$);

@@ -1,0 +1,23 @@
+name: ast-grep Security & Quality Scan
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  ast-grep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ast-grep
+        run: |
+          curl -sSL https://raw.githubusercontent.com/ast-grep/ast-grep/master/install.sh | sh -s -- -b ~/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Run ast-grep scan
+        run: |
+          ast-grep scan --config .github/ast-grep/config.yaml --lang java core/src --fail-threshold error

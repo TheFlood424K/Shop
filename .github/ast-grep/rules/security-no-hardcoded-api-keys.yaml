@@ -1,0 +1,15 @@
+# Detect hardcoded API keys and tokens in string literals
+rule:
+  id: security-no-hardcoded-api-keys
+  language: java
+  severity: ERROR
+  message: "Hardcoded API key or token detected. Use environment variables or secure configuration instead."
+  pattern: |
+    $VAR = "$KEY";
+  abstract: false
+  rule:
+    kind: variable_declarator
+    has:
+      kind: string_literal
+  fix: |
+    $VAR = System.getenv("$KEY_ENV");

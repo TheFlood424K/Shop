@@ -3,7 +3,6 @@ description: General Java language syntax and tooling guidance
 globs: "**/*.java"
 alwaysApply: false
 ---
-
 # General Java Guidance
 
 - Use language features supported by the project's configured release; consult build files for versions.
