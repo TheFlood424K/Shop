@@ -5,8 +5,6 @@ import com.theflood424k.shoprevanced.shop.AbstractShop;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import java.util.logging.Logger;
-
 /**
  * Main entry point for the ezTax integration.
  *
@@ -31,7 +29,6 @@ public class EzTaxIntegration {
 
     private boolean enabled;
     private String apiUrl;
-    private String apiKey;
 
     public EzTaxIntegration(ShopRevanced plugin) {
         this.plugin = plugin;
@@ -56,7 +53,19 @@ public class EzTaxIntegration {
         var config = plugin.getConfig();
         enabled = config.getBoolean("ezTax.enabled", false);
         apiUrl = config.getString("ezTax.apiUrl", "https://api.eztax.example.com/v1");
-        apiKey = config.getString("ezTax.apiKey", "");
+
+        // Load tax rates. config.yml uses percentages (e.g. 8.0 = 8%); the calculator
+        // stores fractions (e.g. 0.08 = 8%). Divide by 100 when loading.
+        double defaultRate = config.getDouble("ezTax.defaultRate", 0.0) / 100.0;
+        calculator.setDefaultRate(defaultRate);
+
+        var worldRatesSection = config.getConfigurationSection("ezTax.worldRates");
+        if (worldRatesSection != null) {
+            for (String world : worldRatesSection.getKeys(false)) {
+                double rate = worldRatesSection.getDouble(world, 0.0) / 100.0;
+                calculator.setWorldRate(world, rate);
+            }
+        }
     }
 
     /** @return true when ezTax is enabled and the ezTax plugin is present. */
@@ -112,6 +121,4 @@ public class EzTaxIntegration {
         player.sendMessage(message);
     }
 
-    @SuppressWarnings("unused")
-    private static final Logger LOGGER = Logger.getLogger(EzTaxIntegration.class.getName());
 }

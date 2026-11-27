@@ -7,7 +7,6 @@ import org.bukkit.entity.Player;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
 
 /**
  * Calculates sales tax for a shop transaction based on customer location and
@@ -121,6 +120,9 @@ public class EzTaxCalculator {
     }
 
     private boolean isProductExempt(AbstractShop shop) {
+        if (shop == null || shop.getItemStack() == null) {
+            return false;
+        }
         Material itemType = shop.getItemStack().getType();
         return exemptProducts.contains(itemType);
     }
@@ -131,6 +133,4 @@ public class EzTaxCalculator {
         return worldRate != null ? worldRate : defaultRate;
     }
 
-    @SuppressWarnings("unused")
-    private static final Logger LOGGER = Logger.getLogger(EzTaxCalculator.class.getName());
 }

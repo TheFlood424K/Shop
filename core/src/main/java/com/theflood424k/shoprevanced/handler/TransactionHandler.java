@@ -118,16 +118,15 @@ public class TransactionHandler {
                 transaction.negotiatePurchase();
             }
 
-            // Calculate tax for BUY actions before verification so the funds check
+            // Calculate tax for SELL actions before verification so the funds check
             // uses the total price (base + tax). ezTax is a soft integration: when it
             // is unavailable or disabled, calculateTax returns 0.0 and checkout is
             // unaffected (graceful fallback).
-            if (actionType == ShopType.BUY) {
+            if (actionType == ShopType.SELL) {
                 EzTaxIntegration ezTax = plugin.getEzTaxIntegration();
                 if (ezTax != null) {
-                    double basePrice = transaction.getPrice();
-                    int amount = transaction.getAmount();
-                    double taxAmount = ezTax.calculateTax(player, shop, amount, basePrice);
+                    double basePrice = transaction.getPrice(); // already negotiated total for amount
+                    double taxAmount = ezTax.calculateTax(player, shop, 1, basePrice);
                     transaction.setTaxAmount(taxAmount);
                 }
             }
@@ -137,7 +136,7 @@ public class TransactionHandler {
             // If it is possible, go ahead and execute it, extra check just in case there is an issue (shouldn't ever happen, but who knows)
             if (issue == TransactionError.NONE) {
                 // Display the tax breakdown to the customer before money moves
-                if (actionType == ShopType.BUY) {
+                if (actionType == ShopType.SELL) {
                     EzTaxIntegration ezTax = plugin.getEzTaxIntegration();
                     if (ezTax != null) {
                         ezTax.displayTaxBreakdown(
@@ -151,7 +150,7 @@ public class TransactionHandler {
             }
 
             // Record collected tax for ezTax filing/remittance after a successful sale
-            if (issue == TransactionError.NONE && actionType == ShopType.BUY) {
+            if (issue == TransactionError.NONE && actionType == ShopType.SELL) {
                 EzTaxIntegration ezTax = plugin.getEzTaxIntegration();
                 if (ezTax != null) {
                     ezTax.recordTax(

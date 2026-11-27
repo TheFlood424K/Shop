@@ -365,6 +365,7 @@ public class IntegrationManager {
                     plugin.getLogger().notice("ezTax is installed, enabling ezTax integration");
                 } catch (Exception e) {
                     plugin.getLogger().warning("ezTax detected but could not enable integration: " + e.getMessage());
+                    ezTaxIntegration = null;
                 }
             } else {
                 plugin.getLogger().notice("ezTax detected, but ShopRevanced ezTax integration is disabled via `ezTax.enabled: false`");

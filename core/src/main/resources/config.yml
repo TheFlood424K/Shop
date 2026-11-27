@@ -368,8 +368,8 @@ ezTax:
    enabled: false
    # ezTax REST API endpoint
    apiUrl: "https://api.eztax.example.com/v1"
-   # ezTax API key
-   apiKey: "CHANGE_ME"
+   # ezTax API key (set at runtime; do not commit a real key here)
+   apiKey: ""
    # Default tax rate (percentage, e.g. 8.0 for 8%) applied when no world override exists
    defaultRate: 8.0
    # Per-world tax rate overrides (world name -> rate percentage)
