@@ -360,6 +360,24 @@ arclight:
 residence:
    enabled: true
 
+# ezTax Integration Settings
+# ezTax must be installed for this integration to work (soft dependency).
+# When disabled, shops operate normally with no tax collected at checkout.
+ezTax:
+   # Master toggle for ezTax integration
+   enabled: false
+   # ezTax REST API endpoint
+   apiUrl: "https://api.eztax.example.com/v1"
+   # ezTax API key (set at runtime; do not commit a real key here)
+   apiKey: ""
+   # Default tax rate (percentage, e.g. 8.0 for 8%) applied when no world override exists
+   defaultRate: 8.0
+   # Per-world tax rate overrides (world name -> rate percentage)
+   worldRates:
+      world: 8.0
+      world_nether: 0.0
+      world_the_end: 0.0
+
 # Setting this to true will force all Shops to be created in Towny regions where the players are residents #
 # Towny plugin must be installed for this feature to work #
 hookTowny: false

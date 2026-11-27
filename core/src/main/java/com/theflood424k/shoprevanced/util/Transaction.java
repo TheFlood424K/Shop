@@ -35,6 +35,8 @@ public class Transaction {
     private double originalPrice;
     // The current price of the tx, might be a higher or lower quantity than originalPrice
     private double price;
+    // Tax amount added at checkout via ezTax integration (0.0 when ezTax disabled/unavailable)
+    private double taxAmount;
 
     // The item that is being sold in the transaction
     private ItemStack itemBeingSold;
@@ -161,8 +163,8 @@ public class Transaction {
             // reject its own transaction — otherwise the guard would self-cancel the first transaction.
             if (shop.isPerformingTransaction() && !this.guardOwner) { return this.setError(TransactionError.CANCELLED); }
 
-        // Check if the buyer has enough funds to pay for the tx
-        if (this.buyer.getAvailableFunds() < this.price) {
+        // Check if the buyer has enough funds to pay for the tx (price + tax)
+        if (this.buyer.getAvailableFunds() < this.getTotalPrice()) {
             // Failed Verification: The buyer does not have enough funds to pay for the transaction!
             if (this.buyer.isPlayer()) {
                 return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER);
@@ -239,8 +241,10 @@ public class Transaction {
         ItemStack itemSold = this.itemBeingSold.clone();
         itemSold.setAmount(this.amountBeingSold);
 
-        // Swap funds: buyer pays seller
-        boolean paymentTaken = this.buyer.deductFunds(this.price);
+        // Swap funds. The buyer covers the base price plus any ezTax; the seller
+        // receives only the base price (tax is collected for remittance).
+        double totalPrice = this.getTotalPrice();
+        boolean paymentTaken = this.buyer.deductFunds(totalPrice);
         if (!paymentTaken) {
             if (this.buyer.isPlayer()) { return this.setError(TransactionError.INSUFFICIENT_FUNDS_PLAYER); }
             else { return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP); }
@@ -249,21 +253,21 @@ public class Transaction {
         // Pay the seller the funds. If this fails (partial failure), roll back the buyer's payment.
         boolean fundsDeposited = this.seller.depositFunds(this.price);
         if (!fundsDeposited) {
-            rollbackFunds(this.buyer, this.price);
+            rollbackFunds(this.buyer, totalPrice);
             return this.setError(TransactionError.INVENTORY_FULL_SHOP);
         }
 
         // Swap Item: seller gives item to buyer. If either side fails, roll back everything.
         boolean itemDeducted = this.seller.deductItem(itemSold);
         if (!itemDeducted) {
-            rollbackFunds(this.buyer, this.price);
+            rollbackFunds(this.buyer, totalPrice);
             recoverFunds(this.seller, this.price);
             return this.setError(TransactionError.INSUFFICIENT_FUNDS_SHOP);
         }
 
         boolean itemDeposited = this.buyer.depositItem(itemSold);
         if (!itemDeposited) {
-            rollbackFunds(this.buyer, this.price);
+            rollbackFunds(this.buyer, totalPrice);
             recoverFunds(this.seller, this.price);
             this.seller.depositItem(itemSold);
             return this.setError(TransactionError.INVENTORY_FULL_PLAYER);
@@ -330,6 +334,21 @@ public class Transaction {
 
     public double getPrice(){
         return price;
+    }
+
+    /** @return tax amount added at checkout via ezTax integration (default {@code 0.0}). */
+    public double getTaxAmount(){
+        return taxAmount;
+    }
+
+    /** Sets the tax amount calculated at checkout. */
+    public void setTaxAmount(double taxAmount){
+        this.taxAmount = Math.max(0.0, taxAmount);
+    }
+
+    /** @return total the buyer pays: base price plus tax. */
+    public double getTotalPrice(){
+        return price + taxAmount;
     }
 
     // Gets a Map of both items in the transaction, for logging purposes

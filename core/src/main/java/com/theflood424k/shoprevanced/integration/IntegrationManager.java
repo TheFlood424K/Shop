@@ -2,6 +2,7 @@ package com.theflood424k.shoprevanced.integration;
 
 import com.theflood424k.shoprevanced.ShopRevanced;
 import com.theflood424k.shoprevanced.handler.ShopRevancedHandler;
+import com.theflood424k.shoprevanced.integration.eztax.EzTaxIntegration;
 import com.theflood424k.shoprevanced.util.CurrencyType;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -70,6 +71,10 @@ public class IntegrationManager {
     private boolean geyserIntegrationEnabled;
     private GeyserFloodgateHook geyserFloodgateHook;
 
+    // ezTax
+    private boolean ezTaxIntegrationEnabled;
+    private EzTaxIntegration ezTaxIntegration;
+
     // Towny
     private boolean hookTowny;
 
@@ -100,6 +105,7 @@ public class IntegrationManager {
         initBlockProtTrust();
         initCashierLockTrust();
         initGriefPrevention();
+        initEzTax();
         initArclight();
         initGeyserFloodgate();
         initEconomy();
@@ -348,6 +354,26 @@ public class IntegrationManager {
     }
 
     /* ---------------------------------------------------------------- *
+     * ezTax                                                            *
+     * ---------------------------------------------------------------- */
+
+    private void initEzTax() {
+        if (plugin.getServer().getPluginManager().getPlugin("ezTax") != null) {
+            if (ezTaxIntegrationEnabled) {
+                try {
+                    ezTaxIntegration = new EzTaxIntegration(plugin);
+                    plugin.getLogger().notice("ezTax is installed, enabling ezTax integration");
+                } catch (Exception e) {
+                    plugin.getLogger().warning("ezTax detected but could not enable integration: " + e.getMessage());
+                    ezTaxIntegration = null;
+                }
+            } else {
+                plugin.getLogger().notice("ezTax detected, but ShopRevanced ezTax integration is disabled via `ezTax.enabled: false`");
+            }
+        }
+    }
+
+    /* ---------------------------------------------------------------- * 
      * Arclight                                                         *
      * ---------------------------------------------------------------- */
 
@@ -480,6 +506,14 @@ public class IntegrationManager {
         return geyserIntegrationEnabled;
     }
 
+    public boolean isEzTaxIntegrationEnabled() {
+        return ezTaxIntegrationEnabled;
+    }
+
+    public EzTaxIntegration getEzTaxIntegration() {
+        return ezTaxIntegration;
+    }
+
     public boolean arclightExists() {
         return arclightExists;
     }
@@ -541,6 +575,10 @@ public class IntegrationManager {
 
     public void setGeyserIntegrationEnabled(boolean geyserIntegrationEnabled) {
         this.geyserIntegrationEnabled = geyserIntegrationEnabled;
+    }
+
+    public void setEzTaxIntegrationEnabled(boolean ezTaxIntegrationEnabled) {
+        this.ezTaxIntegrationEnabled = ezTaxIntegrationEnabled;
     }
 
     public void setHookTowny(boolean hookTowny) {
