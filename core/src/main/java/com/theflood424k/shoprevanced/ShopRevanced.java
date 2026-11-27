@@ -16,6 +16,10 @@ import com.theflood424k.shoprevanced.listener.ShopProtectionListener;
 import com.theflood424k.shoprevanced.listener.ShopRevancedListener;
 import com.theflood424k.shoprevanced.shop.ShopType;
 import com.theflood424k.shoprevanced.util.*;
+import com.theflood424k.shoprevanced.integration.IntegrationManager;
+import com.theflood424k.shoprevanced.integration.WorldGuardHook;
+import com.theflood424k.shoprevanced.pricing.AutoPricingService;
+import com.theflood424k.shoprevanced.util.Metrics;
 import com.theflood424k.shoprevanced.util.Metrics.*;
 import de.bluecolored.bluemap.api.BlueMapAPI;
 import net.milkbowl.vault.economy.Economy;
@@ -62,6 +66,7 @@ public class ShopRevanced extends JavaPlugin {
     private LogHandler logHandler;
     private Metrics metrics;
     private IntegrationManager integrationManager;
+    private AutoPricingService autoPricingService;
 
     // Config fields delegated to ConfigManager
     private boolean usePerms;
@@ -437,6 +442,10 @@ public class ShopRevanced extends JavaPlugin {
         // Initialize all optional plugin integrations via IntegrationManager
         integrationManager.initialize();
 
+        // Initialize auto-pricing service (graceful failure if disabled or misconfigured)
+        autoPricingService = new AutoPricingService(this);
+        autoPricingService.enable();
+
         int bstatsPluginId = 25211;
         metrics = new Metrics(plugin, bstatsPluginId);
         metrics.addCustomChart(new SingleLineChart("transactions", () -> logHandler.getRecentTransactionCount()));
@@ -627,6 +636,9 @@ public class ShopRevanced extends JavaPlugin {
 
         // Shutdown all integrations
         if (integrationManager != null) integrationManager.shutdown();
+
+        // Shutdown auto-pricing service
+        if (autoPricingService != null) autoPricingService.disable();
 
         this.getLogger().info("Disabled ShopRevanced " + this.getDescription().getVersion());
     }
